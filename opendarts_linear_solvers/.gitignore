@@ -1,0 +1,13 @@
+# Ignore binary files
+*.o
+*.a
+
+# Ignore macOS finder files
+*.DS_Store*
+
+# Ignore build code
+benchmark_linear_solvers
+
+# Ignore the built libraries
+build*
+install/

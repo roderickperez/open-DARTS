@@ -1,0 +1,381 @@
+//*************************************************************************
+//    Copyright (c) 2018
+//            Mark Khait         M.Khait@tudelft.nl
+//            Denis Voskov    D.V.Voskov@tudelft.nl
+//    Delft University of Technology, the Netherlands
+//
+//    This file is part of the Delft Advanced Research Terra Simulator (DARTS)
+//
+//    DARTS is free software: you can redistribute it and/or modify
+//    it under the terms of the GNU Lesser General Public License as
+//    published by the Free Software Foundation, either version 3 of the
+//    License, or (at your option) any later version.
+//
+//    DARTS is distributed in the hope that it will be useful,
+//    but WITHOUT ANY WARRANTY; without even the implied warranty of
+//    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//    GNU General Public License for more details.
+//
+//    You should have received a copy of the GNU Lesser General Public
+//    License along with DARTS. If not, see <http://www.gnu.org/licenses/>.
+// *************************************************************************
+
+#include <algorithm>
+#include <cmath>
+#include <cstring>
+#include <time.h>
+#include <functional>
+#include <string>
+#include <iomanip>
+#include <iostream>
+#include <iomanip>
+#include <assert.h>
+
+#include "engine_super_gpu.hpp"
+
+template <uint8_t NC, uint8_t NP, uint8_t NE, uint8_t N_VARS, uint8_t P_VAR, uint8_t T_VAR, uint8_t N_OPS,
+          uint8_t ACC_OP, uint8_t FLUX_OP, uint8_t UPSAT_OP, uint8_t GRAD_OP, uint8_t KIN_OP, uint8_t RE_INTER_OP,
+          uint8_t RE_TEMP_OP, uint8_t ROCK_COND, uint8_t GRAV_OP, uint8_t PC_OP, uint8_t PORO_OP,
+          bool THERMAL>
+__global__ void
+assemble_jacobian_array_kernel(const unsigned int n_blocks, const unsigned int n_res_blocks, const unsigned int trans_mult_exp,
+                               value_t dt, value_t *X, value_t *RHS,
+                               index_t *rows, index_t *cols, value_t *Jac, index_t *diag_ind,
+                               value_t *op_vals_arr, value_t *op_vals_arr_n, value_t *op_ders_arr,
+                               value_t *tran, value_t *tranD, value_t *hcap, value_t *rock_cond, value_t *poro,
+                               value_t *PV, value_t *RV, value_t *grav_coef, value_t *kin_fac)
+{
+  // Each matrix block row is processed by N_VARS * N_VARS threads
+  // Memory access is coalesced for most data, while communications minimized
+
+  const int N_VARS_SQ = N_VARS * N_VARS;
+
+  // mesh grid block number
+  const int i = (blockIdx.x * blockDim.x + threadIdx.x) / N_VARS_SQ;
+  // Each thread is pinned to specific position in matrix block
+  // and evaluates diagonal and all offdiagonal Jacobian entries at that position for the block row i
+  // if the block position corresponds to the first column of the block (v==0, see below),
+  // that thread also evaluates RHS value for equation c of the the block row i.
+  const int block_pos = (blockIdx.x * blockDim.x + threadIdx.x) % N_VARS_SQ;
+  // v (variable) is the column of that position
+  const int v = block_pos % N_VARS;
+  // c (component, but it is outdated notation- better to use e, equation) is the row of that position
+  const int c = block_pos / N_VARS;
+
+  if (i > n_blocks - 1)
+    return;
+
+  // local value of jacobian diagonal block value at block_pos
+  // gets contributions in the loop over connections and is written to global memory at the end
+  value_t jac_diag = 0;
+  // local value of RHS according to c
+  // gets contributions in the loop over connections and is written to global memory at the end
+  value_t rhs = 0;
+  // local value of jacobian offdiagonal block value at block_pos
+  // is evaluated and written to global memory during each iteration of the loop over connections
+  value_t jac_offd;
+
+  index_t j;
+  value_t p_diff, t_diff, gamma_t_diff, phi_i, phi_j, phi_avg;
+
+  // [1] fill diagonal part for both mass (and energy equations if needed, only fluid energy is involved here)
+  if (v == 0)
+  {
+    rhs = PV[i] * (op_vals_arr[i * N_OPS + ACC_OP + c] - op_vals_arr_n[i * N_OPS + ACC_OP + c]); // acc operators only
+
+    // Add reaction term to diagonal of reservoir cells (here the volume is pore volume or block volume):
+    if (i < n_res_blocks)
+      rhs += (PV[i] + RV[i]) * dt * op_vals_arr[i * N_OPS + KIN_OP + c] * kin_fac[i]; // kinetics
+  }
+
+  jac_diag = PV[i] * op_ders_arr[(i * N_OPS + ACC_OP + c) * N_VARS + v]; // der of accumulation term
+
+  // Include derivatives for reaction term if part of reservoir cells:
+  if (i < n_res_blocks)
+  {
+    jac_diag += (PV[i] + RV[i]) * dt * op_ders_arr[(i * N_OPS + KIN_OP + c) * N_VARS + v] * kin_fac[i]; // derivative kinetics
+  }
+
+  // if thermal is enabled, full up the last equation
+  if (THERMAL && c == (NE - 1))
+  {
+    if (v == 0)
+    {
+      rhs += RV[i] * (op_vals_arr[i * N_OPS + RE_INTER_OP] - op_vals_arr_n[i * N_OPS + RE_INTER_OP]) * hcap[i];
+    }
+
+    jac_diag += RV[i] * op_ders_arr[(i * N_OPS + RE_INTER_OP) * N_VARS + v] * hcap[i];
+  }
+
+  // index of first entry for block i in CSR cols array
+  index_t csr_idx_start = rows[i];
+  // index of last entry for block i in CSR cols array
+  index_t csr_idx_end = rows[i + 1];
+  // index of first entry for block i in connection array (has all entries of CSR except diagonals, ordering is identical)
+  index_t conn_idx = csr_idx_start - i;
+
+  // fill offdiagonal part + contribute to diagonal
+  for (index_t csr_idx = csr_idx_start; csr_idx < csr_idx_end; csr_idx++)
+  {
+
+    j = cols[csr_idx];
+    // skip diagonal
+    if (i == j)
+      continue;
+
+    // initialize offdiagonal value for current connection
+    jac_offd = 0;
+
+    value_t trans_mult = 1;
+    value_t trans_mult_der_i = 0;
+    value_t trans_mult_der_j = 0;
+    if (trans_mult_exp > 0 && (i < n_res_blocks && j < n_res_blocks))
+    {
+      // Calculate transmissibility multiplier:
+      phi_i = op_vals_arr[i * N_OPS + PORO_OP];
+      phi_j = op_vals_arr[j * N_OPS + PORO_OP];
+
+      // Take average interface porosity:
+      phi_avg = (phi_i + phi_j) * 0.5;
+      value_t phi_0_avg = (poro[i] + poro[j]) * 0.5;
+      trans_mult = trans_mult_exp * pow(phi_avg, (double) trans_mult_exp - 1) * 0.5;
+      trans_mult_der_i = trans_mult * op_ders_arr[(i * N_OPS + PORO_OP) * N_VARS + v];
+      trans_mult_der_j = trans_mult * op_ders_arr[(j * N_OPS + PORO_OP) * N_VARS + v];
+      trans_mult = pow(phi_avg, (double) trans_mult_exp);
+    }
+
+    p_diff = X[j * N_VARS + P_VAR] - X[i * N_VARS + P_VAR];
+
+    // [2] fill offdiagonal part + contribute to diagonal, only fluid part is considered in energy equation
+    for (uint8_t p = 0; p < NP; p++)
+    { // loop over number of phases for convective operator
+
+      // calculate gravity term for phase p
+      value_t avg_density = (op_vals_arr[i * N_OPS + GRAV_OP + p] +
+                             op_vals_arr[j * N_OPS + GRAV_OP + p]) /
+                            2;
+
+      // p = 1 means oil phase, it's reference phase. pw=po-pcow, pg=po-(-pcog).
+      value_t phase_p_diff = p_diff + avg_density * grav_coef[conn_idx] - op_vals_arr[j * N_OPS + PC_OP + p] + op_vals_arr[i * N_OPS + PC_OP + p];
+
+      // calculate partial derivatives for gravity and capillary terms
+      value_t grav_pc_der_i;
+      value_t grav_pc_der_j;
+
+      grav_pc_der_i = -(op_ders_arr[(i * N_OPS + GRAV_OP + p) * N_VARS + v]) * grav_coef[conn_idx] / 2 - op_ders_arr[(i * N_OPS + PC_OP + p) * N_VARS + v];
+      grav_pc_der_j = -(op_ders_arr[(j * N_OPS + GRAV_OP + p) * N_VARS + v]) * grav_coef[conn_idx] / 2 + op_ders_arr[(j * N_OPS + PC_OP + p) * N_VARS + v];
+
+      double phase_gamma_p_diff = trans_mult * tran[conn_idx] * dt * phase_p_diff;
+
+      if (phase_p_diff < 0)
+      {
+        // mass and energy outflow with effect of gravity and capillarity
+        value_t c_flux = trans_mult * tran[conn_idx] * dt * op_vals_arr[i * N_OPS + FLUX_OP + p * NE + c];
+        if (v == 0)
+        {
+          rhs -= phase_p_diff * c_flux; // flux operators only
+          jac_offd -= c_flux;
+          jac_diag += c_flux;
+        }
+        jac_diag -= (phase_gamma_p_diff * op_ders_arr[(i * N_OPS + FLUX_OP + p * NE + c) * N_VARS + v] +
+                     tran[conn_idx] * dt * phase_p_diff * trans_mult_der_i * op_vals_arr[i * N_OPS + FLUX_OP + p * NE + c]);
+        jac_diag += c_flux * grav_pc_der_i;
+      }
+      else
+      {
+        // mass and energy inflow with effect of gravity and capillarity
+        value_t c_flux = trans_mult * tran[conn_idx] * dt * op_vals_arr[j * N_OPS + FLUX_OP + p * NE + c];
+        if (v == 0)
+        {
+          rhs -= phase_p_diff * c_flux; // flux operators only
+          jac_diag += c_flux;           //-= Jac[jac_idx + c * N_VARS];
+          jac_offd -= c_flux;           // -tran[conn_idx] * dt * op_vals[NC + c];
+        }
+        jac_offd -= (phase_gamma_p_diff * op_ders_arr[(j * N_OPS + FLUX_OP + p * NE + c) * N_VARS + v] +
+                     tran[conn_idx] * dt * phase_p_diff * trans_mult_der_j * op_vals_arr[j * N_OPS + FLUX_OP + p * NE + c]);
+        jac_diag += c_flux * grav_pc_der_i;
+        jac_offd += c_flux * grav_pc_der_j;
+      }
+    } // end of loop over number of phases for convective operator with gravity and capillarity
+
+    // [3] Additional diffusion code here:   (phi_p * S_p) * (rho_p * D_cp * Delta_x_cp)  or (phi_p * S_p) * (kappa_p * Delta_T)
+    phi_avg = (poro[i] + poro[j]) * 0.5; // diffusion term depends on total porosity!
+
+    // Only if block connection is between reservoir and reservoir cells!
+    if (i < n_res_blocks && j < n_res_blocks)
+    {
+      // Add diffusion term to the residual:
+      for (uint8_t p = 0; p < NP; p++)
+      {
+        value_t grad_con = op_vals_arr[j * N_OPS + GRAD_OP + c * NP + p] - op_vals_arr[i * N_OPS + GRAD_OP + c * NP + p];
+
+        if (grad_con < 0)
+        {
+          // Diffusion flows from cell i to j (high to low), use upstream quantity from cell i for compressibility and saturation (mass or energy):
+          value_t diff_mob_ups_m = dt * tranD[conn_idx] * phi_avg * op_vals_arr[i * N_OPS + UPSAT_OP + p];
+          if (v == 0)
+          {
+            rhs -= diff_mob_ups_m * grad_con; // diffusion term
+          }
+
+          // Add diffusion terms to Jacobian:
+          jac_diag += diff_mob_ups_m * op_ders_arr[(i * N_OPS + GRAD_OP + c * NP + p) * N_VARS + v];
+          jac_offd -= diff_mob_ups_m * op_ders_arr[(j * N_OPS + GRAD_OP + c * NP + p) * N_VARS + v];
+
+          jac_diag -= grad_con * dt * tranD[conn_idx] * phi_avg * op_ders_arr[(i * N_OPS + UPSAT_OP + p) * N_VARS + v];
+        }
+        else
+        {
+          // Diffusion flows from cell j to i (high to low), use upstream quantity from cell j for density and saturation:
+          value_t diff_mob_ups_m = dt * tranD[conn_idx] * phi_avg * op_vals_arr[j * N_OPS + UPSAT_OP + p];
+
+          if (v == 0)
+          {
+            rhs -= diff_mob_ups_m * grad_con; // diffusion term
+          }
+
+          // Add diffusion terms to Jacobian:
+          jac_diag += diff_mob_ups_m * op_ders_arr[(i * N_OPS + GRAD_OP + c * NP + p) * N_VARS + v];
+          jac_offd -= diff_mob_ups_m * op_ders_arr[(j * N_OPS + GRAD_OP + c * NP + p) * N_VARS + v];
+
+          jac_offd -= grad_con * dt * tranD[conn_idx] * phi_avg * op_ders_arr[(j * N_OPS + UPSAT_OP + p) * N_VARS + v];
+        }
+      }
+    }
+
+    // [4] add rock conduction
+    // if thermal is enabled, full up the last equation
+    if (THERMAL && (c == NE - 1))
+    {
+      t_diff = op_vals_arr[j * N_OPS + RE_TEMP_OP] - op_vals_arr[i * N_OPS + RE_TEMP_OP];
+      gamma_t_diff = tranD[conn_idx] * dt * t_diff;
+
+      if (t_diff < 0)
+      {
+        // rock heat transfers flows from cell i to j
+        if (v == 0)
+        {
+          rhs -= gamma_t_diff * op_vals_arr[i * N_OPS + ROCK_COND] * (1 - poro[i]) * rock_cond[i];
+        }
+        jac_diag -= gamma_t_diff * op_ders_arr[(i * N_OPS + ROCK_COND) * N_VARS + v] * (1 - poro[i]) * rock_cond[i];
+        if (v == T_VAR)
+        {
+          jac_offd -= tranD[conn_idx] * dt * op_vals_arr[i * N_OPS + ROCK_COND] * (1 - poro[i]) * rock_cond[i];
+          jac_diag += tranD[conn_idx] * dt * op_vals_arr[i * N_OPS + ROCK_COND] * (1 - poro[i]) * rock_cond[i];
+        }
+      }
+      else
+      {
+        // rock heat transfers flows from cell j to i
+        if (v == 0)
+        {
+          rhs -= gamma_t_diff * op_vals_arr[j * N_OPS + ROCK_COND] * (1 - poro[j]) * rock_cond[j]; // energy cond operator
+        }
+        jac_offd -= gamma_t_diff * op_ders_arr[(j * N_OPS + ROCK_COND) * N_VARS + v] * (1 - poro[j]) * rock_cond[j];
+        if (v == T_VAR)
+        {
+          jac_diag += tranD[conn_idx] * dt * op_vals_arr[j * N_OPS + ROCK_COND] * (1 - poro[j]) * rock_cond[j];
+          jac_offd -= tranD[conn_idx] * dt * op_vals_arr[j * N_OPS + ROCK_COND] * (1 - poro[j]) * rock_cond[j];
+        }
+      }
+    }
+    // write down offdiag value
+    Jac[csr_idx * N_VARS_SQ + block_pos] = jac_offd;
+    conn_idx++;
+  }
+  // index of diagonal block entry for block i
+  index_t diag_idx = N_VARS_SQ * diag_ind[i];
+  // write down diag value and RHS
+  Jac[diag_idx + block_pos] = jac_diag;
+
+  if (v == 0)
+  {
+    RHS[i * N_VARS + c] = rhs;
+  }
+};
+
+template <uint8_t NC, uint8_t NP, bool THERMAL>
+int engine_super_gpu<NC, NP, THERMAL>::init(conn_mesh *mesh_, std::vector<ms_well *> &well_list_,
+                                            std::vector<operator_set_gradient_evaluator_iface *> &acc_flux_op_set_list_,
+                                            sim_params *params_, timer_node *timer_)
+{
+
+  X_init.resize(N_VARS * mesh_->n_blocks);
+
+  if (THERMAL)
+  {
+    for (index_t i = 0; i < mesh_->n_blocks; i++)
+    {
+      X_init[N_VARS * i + T_VAR] = mesh_->temperature[i];
+    }
+  }
+
+  engine_base_gpu::init_base<N_VARS>(mesh_, well_list_, acc_flux_op_set_list_, params_, timer_);
+
+  allocate_device_data(RV, &RV_d);
+  allocate_device_data(mesh->heat_capacity, &mesh_hcap_d);
+  allocate_device_data(mesh->tranD, &mesh_tranD_d);
+  allocate_device_data(mesh->rock_cond, &mesh_rcond_d);
+  allocate_device_data(mesh->poro, &mesh_poro_d);
+  allocate_device_data(mesh->kin_factor, &mesh_kin_factor_d);
+  allocate_device_data(mesh->grav_coef, &mesh_grav_coef_d);
+
+  copy_data_to_device(RV, RV_d);
+  copy_data_to_device(mesh->heat_capacity, mesh_hcap_d);
+  copy_data_to_device(mesh->tranD, mesh_tranD_d);
+  copy_data_to_device(mesh->rock_cond, mesh_rcond_d);
+  copy_data_to_device(mesh->poro, mesh_poro_d);
+  copy_data_to_device(mesh->kin_factor, mesh_kin_factor_d);
+  copy_data_to_device(mesh->grav_coef, mesh_grav_coef_d);
+
+  return 0;
+}
+
+template <uint8_t NC, uint8_t NP, bool THERMAL>
+int engine_super_gpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::vector<value_t> &X, csr_matrix_base *jacobian, std::vector<value_t> &RHS)
+{
+  timer->node["jacobian assembly"].node["kernel"].start_gpu();
+  //cudaMemset(jacobian->values_d, 0, jacobian->rows_ptr[mesh->n_blocks] * N_VARS_SQ * sizeof(double));
+
+  assemble_jacobian_array_kernel<NC, NP, NE, N_VARS, P_VAR, T_VAR, N_OPS, ACC_OP, FLUX_OP, UPSAT_OP, GRAD_OP, KIN_OP, RE_INTER_OP,
+                                 RE_TEMP_OP, ROCK_COND, GRAV_OP, PC_OP, PORO_OP, THERMAL>
+      KERNEL_1D(mesh->n_blocks, N_VARS * N_VARS, 64)(mesh->n_blocks, mesh->n_res_blocks, params->trans_mult_exp,
+                                                     dt, X_d, RHS_d,
+                                                     jacobian->rows_ptr_d, jacobian->cols_ind_d, jacobian->values_d, jacobian->diag_ind_d,
+                                                     op_vals_arr_d, op_vals_arr_n_d, op_ders_arr_d,
+                                                     mesh_tran_d, mesh_tranD_d, mesh_hcap_d, mesh_rcond_d, mesh_poro_d,
+                                                     PV_d, RV_d, mesh_grav_coef_d, mesh_kin_factor_d);
+  timer->node["jacobian assembly"].node["kernel"].stop_gpu();
+  timer->node["jacobian assembly"].node["wells"].start_gpu();
+  int i_w = 0;
+  for (ms_well *w : wells)
+  {
+    value_t *jac_well_head = &(jac_wells[2 * N_VARS * N_VARS * i_w]);
+    w->add_to_jacobian(dt, X, jac_well_head, RHS);
+    i_w++;
+  }
+  copy_data_to_device(jac_wells, jac_wells_d);
+  copy_data_to_device(RHS, RHS_wells_d);
+
+  i_w = 0;
+  for (ms_well *w : wells)
+  {
+    copy_data_within_device(RHS_d + N_VARS * w->well_head_idx, RHS_wells_d + N_VARS * w->well_head_idx, N_VARS);
+    copy_data_within_device(jacobian->values_d + jacobian->rows_ptr[w->well_head_idx] * N_VARS * N_VARS, jac_wells_d + 2 * N_VARS * N_VARS * i_w, 2 * N_VARS * N_VARS);
+    i_w++;
+  }
+  timer->node["jacobian assembly"].node["wells"].stop_gpu();
+
+  // copy_data_to_host(jacobian->values, jacobian->values_d, N_VARS * N_VARS * jacobian->rows_ptr[mesh->n_blocks]);
+  // jacobian->write_matrix_to_file("jac_nc_dar_gpu.csr");
+  //exit(0);
+
+  return 0;
+}
+
+
+template <uint8_t NC, uint8_t NP, bool THERMAL>
+int engine_super_gpu<NC, NP, THERMAL>::adjoint_gradient_assembly(value_t dt, std::vector<value_t>& X, csr_matrix_base* jacobian, std::vector<value_t>& RHS)
+{
+	return 0;
+};
