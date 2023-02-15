@@ -151,7 +151,7 @@ You can run the tests with the `RUN_TESTS` target.
 If you choose the `INSTALL` target you will install the binaries and header files in the specified install folder.
 
 ### Build code Xcode
-Once you ran cmake specifying the `-G` option for your version of Visual Studio, you should have the solution and project files available.
+Once you ran cmake specifying the `-G "Xcode"` option for building with `Xcode`, you should have the solution and project files available.
  
 You need to open the solution file and then you can build the code. 
 
