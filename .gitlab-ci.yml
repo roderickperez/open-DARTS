@@ -176,20 +176,20 @@ build-windows-3.6-ODLS:
         - cd opendarts_linear_solvers
         # build superLU
         - cd thirdparty\SuperLU_5.2.1
-        - msbuild superlu.sln /p:Configuration=Release /p:Platform=x64 -maxCpuCount:1
+        - msbuild superlu.sln /p:Configuration=Release /p:Platform=x64 -maxCpuCount:2
         # build opendarts linear solvers
         - cd ..\..
         - mkdir build
         - cd build
         - cmake -DCMAKE_INSTALL_PREFIX=install -DENABLE_TESTING=TRUE ..
-        - msbuild opendarts_linear_solvers.sln /p:Configuration=Release /p:Platform=x64 -maxCpuCount:1
+        - msbuild opendarts_linear_solvers.sln /p:Configuration=Release /p:Platform=x64 -maxCpuCount:2
         - msbuild INSTALL.vcxproj /p:Configuration=Release /p:Platform=x64 -maxCpuCount:1
         - move install ..\..\darts-engines\lib\darts_linear_solvers
         - cd ..\..
         
         # Compile engines
         - cd darts-engines
-        - msbuild darts-engines.vcxproj /p:Configuration=Release_ODLS /p:Platform=x64 -maxCpuCount:1 
+        - msbuild darts-engines.vcxproj /p:Configuration=Release_ODLS /p:Platform=x64 -maxCpuCount:2 
         - cd ..
         # Build whl package
         - echo 'build darts.whl for windows started'
@@ -224,7 +224,7 @@ build-windows-3.6-ODLS:
         - cd darts-engines
         - D:\update_artifacts.bat
         # Compile engines
-        - msbuild darts-engines.vcxproj /p:Configuration=ReleaseMT /p:Platform=x64 -maxCpuCount:1 
+        - msbuild darts-engines.vcxproj /p:Configuration=ReleaseMT /p:Platform=x64 -maxCpuCount:2 
         - cd ..
         # Build whl package
         - echo 'build darts.whl for windows started'
