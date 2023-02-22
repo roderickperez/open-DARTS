@@ -10,3 +10,9 @@
 /build/
 
 .dropbox.attr
+
+# Ignore visual studio directories
+.vs/*
+SuperLU/x64/*
+slu_blas/x64/*
+x64/*
