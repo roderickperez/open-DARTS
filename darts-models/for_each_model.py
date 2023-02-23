@@ -45,6 +45,24 @@ def spawn_process_function(model_path, model_procedure, ret_value):
         # sys.stdout = orig_stdout
         print(err)
 
+def spawn_process_function_adjoint(model_path, model_procedure, ret_value):
+    # step in target folder
+    os.chdir(model_path)
+
+    # add it also to system path to load modules
+    sys.path.append(os.path.abspath(r'.'))
+
+    # import model and run it for default time
+    try:
+        # import model.py
+        mod = importlib.import_module('adjoint_definition')
+        # perform required procedures
+        ret_value.value = model_procedure(mod)
+
+    except Exception as err:
+        # sys.stdout = orig_stdout
+        print(err)
+
 def for_each_model(root_path, model_procedure, accepted_paths=[], excluded_paths=[], timeout=120):
     # if __name__ == '__main__':
 
@@ -76,6 +94,43 @@ def for_each_model(root_path, model_procedure, accepted_paths=[], excluded_paths
                     if str(x) in excluded_paths:
                         continue
                 p = Process(target=spawn_process_function, args=(str(x), model_procedure), )
+                p.start()
+                p.join(timeout=7200)
+                p.terminate()
+    return n_fails
+
+
+def for_each_model_adjoint(root_path, model_procedure, accepted_paths=[], excluded_paths=[], timeout=120):
+    # if __name__ == '__main__':
+
+    # set_start_method('spawn')  # it is already spawned in the function "for_each_model"
+
+    # null = open(os.devnull, 'w')
+    # orig_stdout = sys.stdout
+
+    # set working directory to folder which contains tests
+    os.chdir(root_path)
+
+    p = Path(root_path)
+    # iterate over directories in 'root_path'
+    parent = p.cwd()
+    n_fails = 0
+    if len(accepted_paths) != 0:
+        for x in accepted_paths:
+            # set as failed by default - if model run fails with exception,ret_value remains equal to 1
+            ret_value = Value("i", 1, lock=False)
+            p = Process(target=spawn_process_function_adjoint, args=(x, model_procedure, ret_value), )
+            p.start()
+            p.join(timeout=7200)
+            p.terminate()
+            n_fails += ret_value.value
+    else:
+        for x in p.iterdir():
+            if x.is_dir() and (str(x)[0] != '.'):
+                if len(excluded_paths) != 0:
+                    if str(x) in excluded_paths:
+                        continue
+                p = Process(target=spawn_process_function_adjoint, args=(str(x), model_procedure), )
                 p.start()
                 p.join(timeout=7200)
                 p.terminate()
