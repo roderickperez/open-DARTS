@@ -66,11 +66,14 @@ class DartsModel:
         pass
 
     def set_op_list(self):
-        self.op_num = np.array(self.reservoir.mesh.op_num, copy=False)
-        n_res = self.reservoir.mesh.n_res_blocks
-        self.op_num[n_res:] = 1
-        self.op_list = [self.physics.acc_flux_itor[0], self.physics.acc_flux_w_itor]
-
+        if type(self.physics.acc_flux_itor) == dict:
+            self.op_list = [self.physics.acc_flux_itor[0], self.physics.acc_flux_w_itor]
+            self.op_num = np.array(self.reservoir.mesh.op_num, copy=False)
+            n_res = self.reservoir.mesh.n_res_blocks
+            self.op_num[n_res:] = len(self.physics.acc_flux_itor.keys())
+        else: # for backward compatibility
+            self.op_list = [self.physics.acc_flux_itor]
+            
     def run(self, days=0):
         if days:
             runtime = days

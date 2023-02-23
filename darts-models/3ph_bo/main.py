@@ -4,7 +4,7 @@ import pandas as pd
 from model import Model
 from darts.engines import value_vector, redirect_darts_output
 import matplotlib.pyplot as plt
-from operator_evaluator_sup import DefaultPropertyEvaluator as props
+from darts.models.physics_sup.operator_evaluator_sup import DefaultPropertyEvaluator as props
 
 def plot_sol(n):
     Xn = np.array(n.physics.engine.X, copy=False)
@@ -65,6 +65,9 @@ if __name__ == '__main__':
         n.load_restart_data()
         time_data = pd.read_pickle("darts_time_data.pkl")
 
+    #status = n.check_performance()
+    #print('check:', status)
+    #exit(0)
 
     if 1:
         Xn = np.array(n.physics.engine.X, copy=False)
