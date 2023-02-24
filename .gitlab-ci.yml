@@ -511,5 +511,38 @@ test-windows-3.6-ODLS:
       when: always
       expire_in: 1 year
 
+# pick all whl ODLS-artifacts (windows, linux, python versions) and upload to test pipy
+# TODO increment package version (darts-package/setup.py)
+deploy-all:
+    # run this job only if variable UPLOAD_TEST_PYPI is set to true (default is false)
+    only:
+      variables:
+        - $UPLOAD_TEST_PYPI == "true"
+    stage: deploy
+    # Dockcross is an image specifically made for building Python wheels, based on CentOS 7 with old glibc - it will run on even old systems
+    image: dockcross/manylinux2014-x64:latest
+    # Will be executed on runner with windows tag - that assumed to run on windows host
+    tags:
+        - linux
+    before_script:
+        # upgrade pip package first
+        - python -m pip install --upgrade pip
+        - pip install twine
+    script:
+        # upload to pypi
+        - cd darts-package
+        - ls ./dist*
+        - ./rename_whls.sh
+        - ls ./dist*
+        - twine upload -u $TESTPYPIUSER -p $TESTPYPIUSER --repository testpypi dist/*
+    dependencies:
+        - build-linux-3.6-ODLS
+        - build-linux-3.7-ODLS
+        - build-linux-3.8-ODLS
+        - build-linux-3.9-ODLS
+        - build-windows-3.6-ODLS
+        - build-windows-3.7-ODLS
+        - build-windows-3.8-ODLS
+        - build-windows-3.9-ODLS
 
 
