@@ -6,6 +6,9 @@ stages:
 ###################################################################################
 
 build-linux-3.9:
+    only:
+      variables:
+        - $CI_COMMIT_REF_PROTECTED == "true"
     extends: .build-linux-dockcross
     variables:
         PY_VER: '3.9'       # for python image selection in .build-linux
@@ -13,6 +16,9 @@ build-linux-3.9:
         ODLS: '0'
         
 build-linux-3.8:
+    only:
+      variables:
+        - $CI_COMMIT_REF_PROTECTED == "true"
     extends: .build-linux-dockcross
     variables:
         PY_VER: '3.8'       # for python image selection in .build-linux
@@ -20,6 +26,9 @@ build-linux-3.8:
         ODLS: '0'
         
 build-linux-3.7:
+    only:
+      variables:
+        - $CI_COMMIT_REF_PROTECTED == "true"
     extends: .build-linux-dockcross
     variables:
         PY_VER: '3.7'        # for python image selection in .build-linux
@@ -27,6 +36,9 @@ build-linux-3.7:
         ODLS: '0'
         
 build-linux-3.6:
+    only:
+      variables:
+        - $CI_COMMIT_REF_PROTECTED == "true"
     extends: .build-linux-dockcross
     variables:
         PY_VER: '3.6'
@@ -66,6 +78,9 @@ build-linux-3.6-ODLS:
 ###################################################################################
   
 build-windows-3.9:
+    only:
+      variables:
+        - $CI_COMMIT_REF_PROTECTED == "true"
     extends: .build-windows
     variables:
         PY_VER: '3.9'
@@ -73,6 +88,9 @@ build-windows-3.9:
         ODLS: '0'
         
 build-windows-3.8:
+    only:
+      variables:
+        - $CI_COMMIT_REF_PROTECTED == "true"
     extends: .build-windows
     variables:
         PY_VER: '3.8'
@@ -80,6 +98,9 @@ build-windows-3.8:
         ODLS: '0'
         
 build-windows-3.7:
+    only:
+      variables:
+        - $CI_COMMIT_REF_PROTECTED == "true"
     extends: .build-windows
     variables:
         PY_VER: '3.7'
@@ -87,6 +108,9 @@ build-windows-3.7:
         ODLS: '0'
         
 build-windows-3.6:
+    only:
+      variables:
+        - $CI_COMMIT_REF_PROTECTED == "true"
     extends: .build-windows
     variables:
         PY_VER: '3.6'
@@ -282,6 +306,9 @@ test-linux-3.6-ODLS:
 ###################################################################################
 
 test-linux-3.9:
+    only:
+      variables:
+        - $CI_COMMIT_REF_PROTECTED == "true"
     extends: .test-linux
     variables:
         PY_VER: '3.9'       # for python image selection in .test-linux
@@ -291,6 +318,9 @@ test-linux-3.9:
         - build-linux-3.9
         
 test-linux-3.8:
+    only:
+      variables:
+        - $CI_COMMIT_REF_PROTECTED == "true"
     extends: .test-linux
     variables:
         PY_VER: '3.8'       # for python image selection in .test-linux
@@ -300,6 +330,9 @@ test-linux-3.8:
         - build-linux-3.8
         
 test-linux-3.7:
+    only:
+      variables:
+        - $CI_COMMIT_REF_PROTECTED == "true"
     extends: .test-linux
     variables:
         PY_VER: '3.7'        # for python image selection in .test-linux
@@ -309,6 +342,9 @@ test-linux-3.7:
         - build-linux-3.7
         
 test-linux-3.6:
+    only:
+      variables:
+        - $CI_COMMIT_REF_PROTECTED == "true"
     extends: .test-linux
     variables:
         PY_VER: '3.6'
@@ -320,6 +356,9 @@ test-linux-3.6:
 ###################################################################################
 
 test-windows-3.9:
+    only:
+      variables:
+        - $CI_COMMIT_REF_PROTECTED == "true"
     extends: .test-windows
     variables:
         PY_VER: '3.9'
@@ -329,6 +368,9 @@ test-windows-3.9:
         - build-windows-3.9
         
 test-windows-3.8:
+    only:
+      variables:
+        - $CI_COMMIT_REF_PROTECTED == "true"
     extends: .test-windows
     variables:
         PY_VER: '3.8'
@@ -338,6 +380,9 @@ test-windows-3.8:
         - build-windows-3.8
         
 test-windows-3.7:
+    only:
+      variables:
+        - $CI_COMMIT_REF_PROTECTED == "true"
     extends: .test-windows
     variables:
         PY_VER: '3.7'
@@ -347,6 +392,9 @@ test-windows-3.7:
         - build-windows-3.7
         
 test-windows-3.6:
+    only:
+      variables:
+        - $CI_COMMIT_REF_PROTECTED == "true"
     extends: .test-windows
     variables:
         PY_VER: '3.6'
