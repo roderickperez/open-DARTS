@@ -464,7 +464,10 @@ namespace opendarts
         opendarts::linear_solvers::csr_matrix<N_BLOCK_SIZE> &csr_matrix_transpose) const
     {
       // Initialize the output transpose matrix
-      csr_matrix_transpose.init(this->n_rows, this->n_cols, this->n_non_zeros);
+      csr_matrix_transpose.init(this->n_cols, this->n_rows, this->n_non_zeros);
+      
+      // For the algorithm we need to have csr_matrix_transpose.row_ptr with one extra element 
+      csr_matrix_transpose.rows_ptr.push_back(0);
 
       // Count number of nonzero values per column
       for (opendarts::config::index_t value_idx = 0; value_idx < this->n_non_zeros; ++value_idx)
@@ -531,6 +534,9 @@ namespace opendarts
                                inner_block_col_idx];
         }
       }
+      
+      // We need to remove the extra element at the end since it is not needed
+      csr_matrix_transpose.rows_ptr.pop_back();
     }
     
     template <uint8_t N_BLOCK_SIZE>
