@@ -29,7 +29,7 @@ with open(os.path.join('darts', 'build_info.txt'), 'w') as fp:
 
 setup(
     # Application name:
-    name='darts',
+    name='open-darts',
 
     # Version number (initial):
     version='0.1.0',
@@ -62,7 +62,7 @@ setup(
     classifiers=[
         'Programming Language :: Python :: 3',
 	    'Programming Language :: C++',
-        'License :: OSI Approved :: Apache License',
+        'License :: OSI Approved :: Apache Software License',
     ],
     distclass=BinaryDistribution,
 )
