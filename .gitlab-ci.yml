@@ -240,39 +240,6 @@ build-windows-3.6-ODLS:
         - '.\darts-package\dist\*.whl'
       expire_in: 3 months
 
-###################################################################################
-
-test-linux-3.9:
-    extends: .test-linux
-    variables:
-        PY_VER: '3.9'       # for python image selection in .test-linux
-        PY_SUF: 'cp39-cp39' # for python path selection in .test-linux
-    dependencies:
-        - build-linux-3.9
-        
-test-linux-3.8:
-    extends: .test-linux
-    variables:
-        PY_VER: '3.8'       # for python image selection in .test-linux
-        PY_SUF: 'cp38-cp38' # for python path selection in .test-linux
-    dependencies:
-        - build-linux-3.8
-        
-test-linux-3.7:
-    extends: .test-linux
-    variables:
-        PY_VER: '3.7'        # for python image selection in .test-linux
-        PY_SUF: 'cp37-cp37m' # for python path selection in .test-linux
-    dependencies:
-        - build-linux-3.7
-        
-test-linux-3.6:
-    extends: .test-linux
-    variables:
-        PY_VER: '3.6'
-        PY_SUF: 'cp36-cp36m'
-    dependencies:
-        - build-linux-3.6
 
 ###################################################################################
 
