@@ -41,7 +41,7 @@ namespace opendarts
       this->n_rows = 0;
       this->n_cols = 0;
       this->n_non_zeros = 0;
-
+      
       this->init(n_rows, n_cols, n_non_zeros);
     }
 
@@ -71,6 +71,22 @@ namespace opendarts
       this->n_cols = n_cols_input;
       this->n_non_zeros = n_non_zeros_input;
       this->n_total_non_zeros = this->n_non_zeros * this->b_sqr;
+      
+      if (n_rows_input == n_cols_input)
+      {
+        if (n_rows_input != 0)
+        {
+          this-> is_square = 1;
+        }
+        else
+        {
+          this-> is_square = 0;
+        }
+      }
+      else
+      {
+        this->is_square = 0;
+      }
       
       this->row_thread_starts.resize(2);          // set row_thread_starts to the value 
       this->row_thread_starts[0] = 0;             // of single thread, since multi-threads

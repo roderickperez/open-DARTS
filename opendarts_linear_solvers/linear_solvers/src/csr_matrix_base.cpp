@@ -37,6 +37,7 @@ namespace opendarts
       this->n_cols = 0;
       this->n_non_zeros = 0;
       this->n_row_size = 1;  // TODO: this is redudant and confusing with n_block_size, see the header, kept for backwards compatibility
+      this->is_square = 0;
     }
     
     
