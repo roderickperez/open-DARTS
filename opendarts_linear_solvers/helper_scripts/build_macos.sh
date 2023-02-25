@@ -87,7 +87,7 @@ else
   echo "\n--- Building SuperLU: DONE!\n"
   # ------------------------------------------------------------------------------
 
-  cd ../../helper_scripts
+  cd ../helper_scripts
   echo "\n- Building thirdparty libs: DONE!\n"
   # ------------------------------------------------------------------------------
   
