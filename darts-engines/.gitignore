@@ -209,3 +209,5 @@ src/interpolation/PiecewiseLinearInterpolator_adaptive_cuda.h
 src/interpolation/queue
 src/interpolation/test_hashmap.cu
 src/interpolation/test_queue.cu
+
+update_private_artifacts_vs2022.bat
