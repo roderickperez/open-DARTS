@@ -5,6 +5,7 @@ class UnstructReservoir:
     def calc_boundary_cells(self, boundary_data):
         """
         Class method which calculates constant boundary values at a specif constant x,y,z-coordinate
+
         :param boundary_data: dictionary with the boundary location (X,Y,Z, and location)
         :return:
         """
@@ -83,6 +84,7 @@ class UnstructReservoir:
     def add_well(self, name, depth):
         """
         Class method which adds wells heads to the reservoir (Note: well head is not equal to a perforation!)
+
         :param name:
         :param depth:
         :return:
@@ -100,6 +102,7 @@ class UnstructReservoir:
     def add_perforation(self, well, res_block, well_index):
         """
         Class method which ads perforation to each (existing!) well
+
         :param well: data object which contains data of the particular well
         :param res_block: reservoir block in which the well has a perforation
         :param well_index: well index (productivity index)

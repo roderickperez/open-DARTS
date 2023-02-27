@@ -13,9 +13,9 @@ class StructReservoir:
                  dx, dy, dz,
                  permx, permy, permz,
                  poro, depth, actnum=1, global_to_local=0, op_num=0, coord=0, zcorn=0, is_cpg=False):
-
         """
         Class constructor method
+
         :param timer: timer object to measure discretization time
         :param nx: number of reservoir blocks in the x-direction
         :param ny: number of reservoir blocks in the y-direction
@@ -29,9 +29,9 @@ class StructReservoir:
         :param poro: porosity of the reservoir blocks
         :param actnum: attribute of activity of the reservoir blocks (all are active by default)
         :param global_to_local: one can define arbitrary indexing (mapping from global to local) for local
-                                arrays. Default indexing is by X (fastest),then Y, and finally Z (slowest)
+          arrays. Default indexing is by X (fastest),then Y, and finally Z (slowest)
         :param op_num: index of required operator set of the reservoir blocks (the first by default).
-                       Use to introduce PVTNUM, SCALNUM, etc.
+          Use to introduce PVTNUM, SCALNUM, etc.
         :param coord: COORD keyword values for more accurate geometry during VTK export (no values by default)
         :param zcron: ZCORN keyword values for more accurate geometry during VTK export (no values by default)
 

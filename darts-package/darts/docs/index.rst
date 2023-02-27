@@ -4,15 +4,13 @@
    contain the root `toctree` directive.
 
 Welcome to DARTS documentation!
-===============================
+###############################
 
 .. toctree::
    :maxdepth: 2
    :caption: ABOUT DARTS
 
    about_darts/about_darts.md
-   about_darts/darts_gitlab_setup.md
-   about_darts/build_instructions.md
    
 .. toctree::
    :maxdepth: 2
@@ -25,7 +23,8 @@ Welcome to DARTS documentation!
    :maxdepth: 2
    :caption: FOR DEVELOPERS
    
-   for_developers/structure.md
+   for_developers/darts_gitlab_setup.md
+   for_developers/build_instructions.md
    for_developers/contributing.md
    for_developers/development_tools.md
 
@@ -40,7 +39,6 @@ Welcome to DARTS documentation!
    :maxdepth: 2
    :caption: API
 
-   API_references/unstruct_discretizer.rst
    api.rst
 
 
