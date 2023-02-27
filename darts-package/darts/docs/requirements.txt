@@ -4,5 +4,6 @@ sphinx
 sphinx-tabs
 sphinx_inline_tabs
 sphinxcontrib-matlabdomain
+sphinxcontrib-bibtex
 linkify-it-py
 sphinx-copybutton
