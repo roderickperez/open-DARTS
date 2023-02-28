@@ -520,8 +520,8 @@ deploy-all:
       variables:
         - $UPLOAD_TEST_PYPI == "true"
     stage: deploy
-    # Dockcross is an image specifically made for building Python wheels, based on CentOS 7 with old glibc - it will run on even old systems
-    image: dockcross/manylinux2014-x64:latest
+    # just for twine
+    image: python:3.9
     # Will be executed on runner with windows tag - that assumed to run on windows host
     tags:
         - linux
@@ -533,7 +533,7 @@ deploy-all:
         # upload to pypi
         - cd darts-package
         - ls ./dist/*
-        - ./rename_whls.sh
+        - ./rename_whls.sh # rename linux whls to make uploadable to test-pypi 
         - ls ./dist/*
         - twine upload -u $TESTPYPIUSER -p $TESTPYPIUSER --repository testpypi dist/*
     dependencies:
