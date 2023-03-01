@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.abspath("../.."))
 
 # -- Project information -----------------------------------------------------
 
-project = "darts-package"
+project = "open-darts"
 copyright = "2022, Denis Voskov"
 author = "Denis Voskov"
 
@@ -35,13 +35,16 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
     "sphinx.ext.autosummary",
-    "sphinx_copybutton",
     "sphinx.ext.viewcode",
+    "sphinx_copybutton",
+    'sphinxcontrib.bibtex'
 ]
 
-myst_enable_extensions = [
-    "linkify",
-]
+myst_enable_extensions = ["linkify"]
+
+# bibtex file containing references (in same directory as conf.py)
+bibtex_bibfiles = ['./references.bib']
+bibtex_default_style = 'unsrt'
 
 source_suffix = [".rst", ".md"]
 
