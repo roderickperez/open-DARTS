@@ -1,0 +1,11 @@
+matplotlib
+numpy
+numba
+scipy
+pandas
+meshio
+gmsh
+plotly
+xlrd
+pykrige
+openpyxl

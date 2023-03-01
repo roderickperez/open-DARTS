@@ -1,21 +1,16 @@
 //*************************************************************************
 //    Copyright (c) 2022
 //    Delft University of Technology, the Netherlands
+//    Netherlands eScience Center
 //
 //    This file is part of the open Delft Advanced Research Terra Simulator (opendarts)
 //
 //    opendarts is free software: you can redistribute it and/or modify
-//    it under the terms of the GNU Lesser General Public License as
-//    published by the Free Software Foundation, either version 3 of the
-//    License, or (at your option) any later version.
+//    it under the terms of the Apache License.
 //
 //    DARTS is distributed in the hope that it will be useful,
 //    but WITHOUT ANY WARRANTY; without even the implied warranty of
-//    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//    GNU General Public License for more details.
-//
-//    You should have received a copy of the GNU Lesser General Public
-//    License along with DARTS. If not, see <http://www.gnu.org/licenses/>.
+//    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 // *************************************************************************
 
 #include <fstream>
@@ -41,7 +36,7 @@ namespace opendarts
       this->n_rows = 0;
       this->n_cols = 0;
       this->n_non_zeros = 0;
-
+      
       this->init(n_rows, n_cols, n_non_zeros);
     }
 
@@ -71,6 +66,22 @@ namespace opendarts
       this->n_cols = n_cols_input;
       this->n_non_zeros = n_non_zeros_input;
       this->n_total_non_zeros = this->n_non_zeros * this->b_sqr;
+      
+      if (n_rows_input == n_cols_input)
+      {
+        if (n_rows_input != 0)
+        {
+          this-> is_square = 1;
+        }
+        else
+        {
+          this-> is_square = 0;
+        }
+      }
+      else
+      {
+        this->is_square = 0;
+      }
       
       this->row_thread_starts.resize(2);          // set row_thread_starts to the value 
       this->row_thread_starts[0] = 0;             // of single thread, since multi-threads
@@ -464,7 +475,10 @@ namespace opendarts
         opendarts::linear_solvers::csr_matrix<N_BLOCK_SIZE> &csr_matrix_transpose) const
     {
       // Initialize the output transpose matrix
-      csr_matrix_transpose.init(this->n_rows, this->n_cols, this->n_non_zeros);
+      csr_matrix_transpose.init(this->n_cols, this->n_rows, this->n_non_zeros);
+      
+      // For the algorithm we need to have csr_matrix_transpose.row_ptr with one extra element 
+      csr_matrix_transpose.rows_ptr.push_back(0);
 
       // Count number of nonzero values per column
       for (opendarts::config::index_t value_idx = 0; value_idx < this->n_non_zeros; ++value_idx)
@@ -531,6 +545,9 @@ namespace opendarts
                                inner_block_col_idx];
         }
       }
+      
+      // We need to remove the extra element at the end since it is not needed
+      csr_matrix_transpose.rows_ptr.pop_back();
     }
     
     template <uint8_t N_BLOCK_SIZE>

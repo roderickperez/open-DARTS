@@ -44,6 +44,7 @@ class UnstructDiscretizer:
                  num_fracture_cells=0, num_well_cells=0, verbose=False):
         """
         Class constructor method
+
         :param permx: permeability data object (either in scalar or vector form) in x-direction
         :param permy: permeability data object (either in scalar or vector form) in y-direction
         :param permz: permeability data object (either in scalar or vector form) in z-direction
@@ -147,6 +148,7 @@ class UnstructDiscretizer:
     def check_matrix_data_input(self, data, data_name: str):
         """
         Class method which checks the input data for matrix cells
+
         :param data: scalar or vector with data
         :param data_name: string which represents the data
         :return: correct data object size
@@ -162,6 +164,7 @@ class UnstructDiscretizer:
     def check_fracture_data_input(self, data, data_name: str):
         """
         Class method which checks the input data for fracture cells
+
         :param data: scalar or vector with data
         :param data_name: string which represents the data
         :return: correct data object size
@@ -173,7 +176,7 @@ class UnstructDiscretizer:
         return data
 
     def load_mesh(self, cache=0):
-        """"
+        """
         Class method which loads the mesh data of a specified file, using the module meshio module (third party).
         """
         start_time_module = time.time()
@@ -263,7 +266,7 @@ class UnstructDiscretizer:
         return 0
 
     def calc_cell_information(self, cache=0):
-        """"
+        """
         Class method which calculates the geometrical properties of the grid
         """
         start_time_module = time.time()
@@ -628,7 +631,7 @@ class UnstructDiscretizer:
         return 0
 
     def calc_cell_information_with_wells(self, well_locations, well_radii, cache=0):
-        """"
+        """
         Class method which calculates the geometrical properties of the grid
         """
         start_time_module = time.time()
@@ -925,6 +928,7 @@ class UnstructDiscretizer:
     def write_to_vtk(self, output_directory, property_array, cell_property, ith_step):
         """
         Class method which writes output of unstructured grid to VTK format
+
         :param output_directory: directory of output files
         :param property_array: np.array containing all cell properties (N_cells x N_prop)
         :param cell_property: list with property names (visible in ParaView (format strings)
@@ -1084,6 +1088,7 @@ class UnstructDiscretizer:
     def write_conn2p_to_file(cell_m, cell_p, tran, file_name):
         """
         Static method which write a connection list to the specified file (for non-thermal application)
+
         :param cell_m: negative residual contribution of cell block connections of interface
         :param cell_p: positive residual contribution of cell block connections of interface
         :param tran: transmissibility value of the interface
@@ -1105,6 +1110,7 @@ class UnstructDiscretizer:
     def write_conn2p_therm_to_file(cell_m, cell_p, tran, tranD, file_name):
         """
         Static method which write a connection list to the specified file (for thermal application)
+
         :param cell_m: negative residual contribution of cell block connections of interface
         :param cell_p: positive residual contribution of cell block connections of interface
         :param tran: transmissibility value of the interface
@@ -1127,6 +1133,7 @@ class UnstructDiscretizer:
     def write_property_to_file(data, key_word: str, file_name: str, num_cells: int):
         """
         Static method which writes any specified property (in data) to any specified file
+
         :param data: data object required to write to a file
         :param key_word: keyword (usually read by other simulator)
         :param file_name: name of the file where to write
@@ -1149,6 +1156,7 @@ class UnstructDiscretizer:
     def calc_boundary_cells_new(self, boundary_data):
         """
         Class method which calculates constant boundary values at a specif constant x,y,z-coordinate
+
         :param boundary_data: dictionary with the boundary direction (x,y, or z) and type (min or max)
         :return:
         """
@@ -1206,6 +1214,7 @@ class UnstructDiscretizer:
     def calc_boundary_cells(self, boundary_data):
         """
         Class method which calculates constant boundary values at a specif constant x,y,z-coordinate
+
         :param boundary_data: dictionary with the boundary location (X,Y,Z, and location)
         :return:
         """
@@ -1288,6 +1297,7 @@ class UnstructDiscretizer:
     def calc_connections_all_cells(self, cache=0):
         """
         Class methods which calculates the connection list for all cell types (matrix & fracture)
+
         :return cell_m: minus-side of the connection
         :return cell_p: plus-side of the connection
         :return tran: transmissibility value of connection

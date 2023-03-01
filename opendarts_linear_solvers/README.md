@@ -53,7 +53,7 @@ The tests and the library `linear_solvers` are built using `cmake`. Before build
 
 ### Building SuperLU 
 #### Windows 
-In the subfolder `thirdparty/SuperLU_5.2.1/` open the `SuperLU.sln` file with Visual studio. Build in `Release` mode.
+In the subfolder `thirdparty/SuperLU_5.2.1/` open the `SuperLU.sln` file with Visual studio (you need to have Visual Studio 2022). Build in `Release` mode.
 
 After these two steps you need to have the following files to proceed to the next steps:
 
@@ -140,18 +140,26 @@ By default this is set to `FALSE`.
 - `SET_CXX11_ABI_0`: Specifies if the compiler flag -`D_GLIBCXX_USE_CXX11_ABI=0` is to be added or not. This is required for compatibility with other codes that have the ABI set to a different value than the default. `TRUE`: adds the compiler flag. `FALSE`: does not add the compiler flag. By default this is set to `FALSE`.
 
 ### Build code Windows Visual Studio
-Once you ran cmake specifying the `-G` option for your version of Visual Studio, you should have the solution and project files available.
+In Windows with Visual Studio you need to first open a command prompt with your Visual Studio environment. To do that you need press your windows key and type `x64 native tools`. You now get a list for your available options. You need to select the 2022 version (if not available, please install it). Once you click on this option you get a command prompt that is ready to be used.
+
+Now you can run the cmake command inside the `build_cmake` folder:
+
+```bash
+cmake -D CMAKE_INSTALL_PREFIX=../../darts-engines/lib/darts_linear_solvers -D ENABLE_TESTING=TRUE ../
+```
+
+Once `cmake` finishes, you should have the solution and project files available.
  
-You need to open the solution file and then you can build the code. 
+You need to open the solution file and then you can build the code. Be sure to select `Release` mode. 
 
-You can build all by building the `ALL_BUILD` target.
+You should first build the `ALL_BUILD` target (right click on that target and select build).
 
-You can run the tests with the `RUN_TESTS` target.
+Then you can build the `RUN_TESTS` target to check if all is working correctly (right click on that target and select build).
 
-If you choose the `INSTALL` target you will install the binaries and header files in the specified install folder.
+Finally, you can build the `INSTALL` target to install the binaries and header files in the specified install folder `../../darts-engines/lib/darts_linear_solvers` (right click on that target and select build).
 
 ### Build code Xcode
-Once you ran cmake specifying the `-G` option for your version of Visual Studio, you should have the solution and project files available.
+Once you ran cmake specifying the `-G "Xcode"` option for building with `Xcode`, you should have the solution and project files available.
  
 You need to open the solution file and then you can build the code. 
 

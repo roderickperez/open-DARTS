@@ -8,10 +8,10 @@ class StructDiscretizer:
     # Define Darcy constant for changes to correct units:
     darcy_constant = 0.0085267146719160104986876640419948
 
-    def __init__(self, nx, ny, nz, dx, dy, dz, permx, permy, permz, global_to_local = 0, coord = 0, zcorn = 0,
-                 is_cpg = False):
+    def __init__(self, nx, ny, nz, dx, dy, dz, permx, permy, permz, global_to_local = 0, coord = 0, zcorn = 0, is_cpg = False):
         """
-        Class constructor method
+        Class constructor method.
+
         :param nx: number of reservoir blocks in the x-direction
         :param ny: number of reservoir blocks in the y-direction
         :param nz: number of reservoir blocks in the z-direction
@@ -22,7 +22,7 @@ class StructDiscretizer:
         :param permy: permeability of the reservoir blocks in the y-direction (scalar or vector form) [mD]
         :param permz: permeability of the reservoir blocks in the z-direction (scalar or vector form) [mD]
         :param global_to_local: one can define arbitrary indexing (mapping from global to local) for local
-                                arrays. Default indexing is by X (fastest),then Y, and finally Z (slowest)
+          arrays. Default indexing is by X (fastest),then Y, and finally Z (slowest)
         """
         # For users new to Object Oriented Programming, please see:
         #   - https: // www.programiz.com / python - programming / object - oriented - programming
@@ -230,6 +230,7 @@ class StructDiscretizer:
     def calc_volumes(self):
         """
         Class method which reshapes the volumes of all the cells to a flat array (Ntot x 1)
+
         :return: flat volume array (Ntot x 1)
         """
         # return flat array (order='F' refers to Fortran like ordering of nodes, first index changing fastest, etc.)
@@ -238,6 +239,7 @@ class StructDiscretizer:
     def convert_to_3d_array(self, data, data_name: str):
         """
         Class method which converts the data object (scalar or vector) to a true 3D array (Nx,Ny,Nz)
+
         :param data: any type of data, e.g. permeability of the cells (scalar, vector, or array form)
         :param data_name: name of the data object (e.g. 'permx')
         :return data: true data 3D data array
@@ -261,6 +263,7 @@ class StructDiscretizer:
     def convert_to_flat_array(self, data, data_name: str):
         """
         Class methods which converts data object from any type to true flat array of size (Ntot x 1)
+
         :param data: data object of any type (e.g. permeability of the cells) (scalar, vector, or 3D array form)
         :param data_name: name of the data object (e.g. 'permx')
         :return data: true flat array (Ntot x 1)
@@ -282,6 +285,7 @@ class StructDiscretizer:
     def calc_structured_discr(self):
         """
         Class methods which performs the actual construction of the connection list
+
         :return cell_m: minus-side of the connection
         :return cell_p: plus-side of the connection
         :return tran: transmissibility value of connection
@@ -376,6 +380,7 @@ class StructDiscretizer:
     def calc_cpg_discr(self):
         """
         Class methods which performs the actual construction of the connection list
+
         :return cell_m: minus-side of the connection
         :return cell_p: plus-side of the connection
         :return tran: transmissibility value of connection
@@ -569,6 +574,7 @@ class StructDiscretizer:
     def calc_well_index(self, i, j, k, well_radius=0.1524, segment_direction='z_axis', skin=0):
         """
         Class method which construct the well index for each well segment/perforation
+
         :param i: "human" counting of x-location coordinate of perforation
         :param j: "human" counting of y-location coordinate of perforation
         :param k: "human" counting of z-location coordinate of perforation
@@ -638,6 +644,7 @@ class StructDiscretizer:
     def dump_connection_list(cell_m, cell_p, conn, filename):
         """
         Static method which dumps the connection list to a file
+
         :param cell_m: minus-side of the connection
         :param cell_p: plus-side of the connection
         :param conn: transmisibility value of connection
