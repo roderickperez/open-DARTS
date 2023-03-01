@@ -535,7 +535,7 @@ deploy-all:
         - ls ./dist/*
         - ./rename_whls.sh # rename linux whls to make uploadable to test-pypi 
         - ls ./dist/*
-        - twine upload -u $TESTPYPIUSER -p $TESTPYPIUSER --repository testpypi dist/*
+        - twine upload -u $TESTPYPIUSER -p $TESTPYPIPWD --repository testpypi dist/*
     dependencies:
         - build-linux-3.6-ODLS
         - build-linux-3.7-ODLS
