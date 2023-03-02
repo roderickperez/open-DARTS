@@ -47,6 +47,7 @@ class iapws_viscosity_evaluator(property_evaluator_iface):
 #====================================== Properties for Region 1 and 4 ============================================ 
 class iapws_total_enthalpy_evalutor(property_evaluator_iface):
     def __init__(self, temp):
+        super().__init__()
         self.T = temp
     def evaluate(self, state):
         P = state[0]*0.1
