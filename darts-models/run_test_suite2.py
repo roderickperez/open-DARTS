@@ -1,7 +1,7 @@
 import darts.engines as darts_engines
 from darts.engines import print_build_info as engines_pbi
 from darts.print_build_info import print_build_info as package_pbi
-from for_each_model import for_each_model, run_tests, abort_redirection, redirect_all_output
+from for_each_model import for_each_model, run_tests, abort_redirection, redirect_all_output, for_each_model_adjoint
 import sys, os, shutil
 
 model_dir = r'.'
@@ -33,6 +33,8 @@ test_args = [
 test_dirs = []
 test_args = []
 
+accepted_dirs_adjoint = ['Adjoint_super_engine']  # for adjoint test
+
 
 def check_performance(mod):
     pkl_suffix = ''
@@ -56,6 +58,23 @@ def check_performance(mod):
     log_stream = redirect_all_output(log_file)
     return failed
 
+
+def check_performance_adjoint(mod):
+    x = os.path.basename(os.getcwd())
+    print("Running {:<30}".format(x + ': '), flush=True)
+    # erase previous log file if existed
+    log_file = os.path.join(os.path.abspath(os.pardir), '_logs/' + str(x) + '.log')
+    f = open(log_file, "w")
+    f.close()
+    log_stream = redirect_all_output(log_file)
+    mod.prepare_synthetic_observation_data()
+    mod.read_observation_data()
+    failed = mod.process_adjoint()
+    abort_redirection(log_stream)
+    log_stream = redirect_all_output(log_file)
+
+    return failed
+
 if __name__ == '__main__':
 
     # print build info
@@ -69,9 +88,25 @@ if __name__ == '__main__':
     n_tot, n_failed = run_tests(model_dir, test_dirs, test_args)
     failed += n_failed
 
+
+    # test for adjoint ------------------start---------------------------------
+    import time
+    starting_time = time.time()
+    failed_ad = for_each_model_adjoint(model_dir, check_performance_adjoint, accepted_dirs_adjoint)
+    ending_time = time.time()
+    if not failed_ad:
+        print('OK, \t%.2f s' % (ending_time - starting_time))
+    else:
+        print('FAIL, \t%.2f s' % (ending_time - starting_time))
+
+    failed += failed_ad
+    # test for adjoint ------------------end---------------------------------
+
+
     if len(sys.argv) == 1:
-        input("Passed %d of %d models. Press Enter to continue..." % (len(accepted_dirs) + n_tot - failed,
-                                                                      len(accepted_dirs) + n_tot))
+        input("Passed %d of %d models. Press Enter to continue..." %
+              (len(accepted_dirs) + n_tot + len(accepted_dirs_adjoint) - failed,
+               len(accepted_dirs) + n_tot + len(accepted_dirs_adjoint)))
     else:
         # exit with code equal to number of failed models
         exit(failed)

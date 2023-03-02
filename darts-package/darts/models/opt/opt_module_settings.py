@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import approx_fprime
 from darts.engines import *
-from darts.physics import *
 
 from numpy import linalg
 
@@ -2283,7 +2282,7 @@ class OptModuleSettings:
             self.fval_temp = self.fval_temp + R
 
 
-        print('fval: %s' % self.fval_temp)
+        print(' fval: %s' % self.fval_temp)
         return self.fval_temp
 
 
