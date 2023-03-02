@@ -3,7 +3,7 @@ README.md
 setup.py
 darts/__init__.py
 darts/build_info.txt
-darts/engines.so
+darts/engines.pyd
 darts/print_build_info.py
 darts/utils.py
 darts.egg-info/PKG-INFO
