@@ -1,4 +1,4 @@
-from darts.physics import *
+from darts.engines import property_evaluator_iface
 from darts.models.physics.iapws.iapws97 import _Backward1_T_Ph
 from darts.models.physics.iapws.iapws_property import iapws_temperature_evaluator
 
