@@ -1,9 +1,9 @@
 from darts.models.reservoirs.struct_reservoir import StructReservoir
-from geothermal import Geothermal
+from darts.models.physics_sup.geothermal import Geothermal
 from darts.models.physics.iapws.iapws_property import *
 from darts.models.physics.iapws.iapws_property_vec import _Backward1_T_Ph_vec
 from darts.models.physics.iapws.custom_rock_property import *
-from property_container import *
+from darts.models.physics_sup.property_container import *
 from darts.engines import value_vector
 
 from darts.models.darts_model import DartsModel, sim_params

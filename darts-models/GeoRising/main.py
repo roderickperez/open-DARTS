@@ -1,5 +1,4 @@
 import sys
-sys.path.append('../physics_sup/')
 
 from model import Model
 import pandas as pd
