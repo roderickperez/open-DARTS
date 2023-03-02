@@ -1,4 +1,4 @@
-from darts.physics import *
+from darts.engines import property_evaluator_iface
 from darts.models.physics.iapws.iapws97 import _Region1, _Region2, _Region4, _Backward1_T_Ph, _Backward2_T_Ph, _Bound_Ph, _Bound_TP, _TSat_P, Pmin
 from darts.models.physics.iapws._iapws import _D2O_Viscosity, _Viscosity
 from scipy.optimize import newton
