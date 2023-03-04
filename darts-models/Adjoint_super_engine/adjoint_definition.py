@@ -45,7 +45,7 @@ add_inj_rate_to_objfun = False
 add_BHP_to_objfun = False
 add_well_tempr_to_objfun = False
 add_temperature_to_objfun = False
-add_customized_op_to_objfun = False
+add_customized_op_to_objfun = True
 
 # if switch on, the customized operator should be defined in "set_op_list", e.g. temperature
 # customize_new_operator = add_temperature_to_objfun
@@ -100,7 +100,8 @@ def read_observation_data():
         time_data_report_customized = np.loadtxt('_TRUE_%s_darts_time_data_report_customized_%s_%sdays.txt' % (true_realization, T, report_step))
 
 
-def process_adjoint():
+def process_adjoint(history_matching=False):
+    optimization = history_matching
     # --------------------------------------------------------------------------------------------------------------
     # -----------------------------------THE PREPERATION OF OBSERVATION DATA ---------------------------------------
     # --------------------------------------------------------------------------------------------------------------
@@ -402,6 +403,88 @@ def process_adjoint():
                     pickle.dump([opt_adjoint.x, proxy_model.modifier.mod_x_idx, proxy_model.modifier],
                                 fp, pickle.HIGHEST_PROTOCOL)
 
+                if 1:
+                    from matplotlib import pyplot as plt
+                    wn = "P1"
+                    # plot and check the TRUE results-------------------------------------------------------------------
+                    df_data = time_data.copy()
+                    df_data_report = time_data_report.copy()
+
+                    time_arr = time_data['time'].to_numpy()
+                    time_report_arr = time_data_report['time'].to_numpy()
+
+                    ax1 = plt.subplot(1, 1, 1)
+                    ax1.plot(time_report_arr, time_data_report['%s : oil rate (m3/day)' % wn].to_numpy(), color="red")
+
+
+                    proxy_model.T = training_time + prediction_time
+                    # re-run unoptimized parameters---------------------------------------------------------------------
+                    # ************************************************************************************************
+                    print('\n')
+                    print(
+                        '--------------------------------------Re-run unoptimized model-------------------------------')
+                    print('\n')
+                    proxy_model.set_modifier_and_du_dT_and_x_idx(model_modifier, x_idx)
+                    model_modifier.set_x_by_du_dT(proxy_model, x0)
+
+                    proxy_model.set_initial_conditions()
+                    proxy_model.set_boundary_conditions()
+                    proxy_model.set_op_list()
+                    proxy_model.reset()
+
+                    proxy_model.run()
+                    response_initial = proxy_model.physics.engine.time_data_report
+                    unopt_df_report = pd.DataFrame.from_dict(response_initial)
+                    unopt_df_report.to_pickle('time_data_report_unopt_%s.pkl' % job_id)
+                    unopt_df = pd.DataFrame.from_dict(proxy_model.physics.engine.time_data)
+                    unopt_df.to_pickle('time_data_unopt_%s.pkl' % job_id)
+                    if customize_new_operator:
+                        unopt_tempr_pred = np.array(proxy_model.physics.engine.time_data_report_customized)[:,
+                                           0:proxy_model.reservoir.nb]
+                        np.save('Tempr_distr_unopt_report_%s.npy' % job_id, unopt_tempr_pred)
+
+
+                    time_report_unopt = unopt_df_report['time'].to_numpy()
+                    ax1.plot(time_report_unopt, unopt_df_report['%s : oil rate (m3/day)' % wn].to_numpy(), color="silver")
+
+                    # re-run optimized parameters-----------------------------------------------------------------------
+                    # ************************************************************************************************
+                    print('\n')
+                    print('--------------------------------------Re-run optimized model-------------------------------')
+                    print('\n')
+
+                    proxy_model.reset()
+
+                    # here you can choose either Optimized_parameters_best.pkl or Optimized_parameters.pkl to re-run it
+                    # Optimized_parameters_best.pkl is for saving the temporary result in case the history matching fails
+                    with open('%s_Optimized_parameters_best.pkl' % job_id, "rb") as fp:
+                        pickl_result = pickle.load(fp)
+                        u = pickl_result[0]
+                        proxy_model.set_modifier_and_du_dT_and_x_idx(model_modifier, x_idx)
+                        proxy_model.modifier.set_x_by_du_dT(proxy_model, u)
+
+                    proxy_model.set_initial_conditions()
+                    proxy_model.set_boundary_conditions()
+                    proxy_model.set_op_list()
+                    proxy_model.reset()
+
+                    proxy_model.run()
+                    response_optimized = proxy_model.physics.engine.time_data_report
+                    opt_df_report_pred = pd.DataFrame.from_dict(response_optimized)
+                    opt_df_report_pred.to_pickle('time_data_report_opt_%s.pkl' % job_id)
+                    opt_df_pred = pd.DataFrame.from_dict(proxy_model.physics.engine.time_data)
+                    opt_df_pred.to_pickle('time_data_opt_%s.pkl' % job_id)
+                    if customize_new_operator:
+                        opt_tempr_pred = np.array(proxy_model.physics.engine.time_data_report_customized)[:,
+                                         0:proxy_model.reservoir.nb]
+                        tempr_time_data = np.array(proxy_model.physics.engine.time_data_customized)[:,
+                                          0:proxy_model.reservoir.nb]
+                        np.save('Tempr_distr_opt_report_%s.npy' % job_id, opt_tempr_pred)
+
+                    time_report_opt = opt_df_report_pred['time'].to_numpy()
+                    ax1.plot(time_report_opt, opt_df_report_pred['%s : oil rate (m3/day)' % wn].to_numpy(), color="blue")
+                    plt.show()
+
         else:  # compare the adjoint and numerical gradient
             obj_func = proxy_model.make_opt_step_adjoint_method
             grad_func = proxy_model.grad_adjoint_method_all
@@ -443,9 +526,9 @@ def process_adjoint():
 
             print("\r")
 
-    angle_grade = angle * 180 / math.pi
+            angle_grade = angle * 180 / math.pi
 
-    if angle_grade >= 0 and angle_grade < 5:
-        return 0
-    else:
-        return 1
+            if angle_grade >= 0 and angle_grade < 5:
+                return 0
+            else:
+                return 1

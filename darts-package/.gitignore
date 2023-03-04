@@ -9,4 +9,5 @@ __pycache__/
 *.ipdb
 *.lib
 *.pdb
-darts.egg-info/*
+
+open_darts.egg-info/*

@@ -1,4 +1,4 @@
-from darts.hdata.geothermal_operators import *
+from .geothermal_operators import *
 from darts.models.physics.iapws.iapws_property import *
 from darts.models.physics.physics_base import PhysicsBase
 from darts.tools.keyword_file_tools import *
@@ -108,18 +108,10 @@ class Geothermal(PhysicsBase):
                                                                                    rate, temp,
                                                                                    self.water_inj_stream,
                                                                                    self.rate_itor)
-        # water injection at constant temperature with volumetric rate control
-        self.new_rate_inj = lambda rate: gt_rate_temp_inj_well_control(self.phases, 0, self.n_vars,
-                                                                                   rate, 25 + 273.15,
-                                                                                   self.water_inj_stream,
-                                                                                   self.rate_itor)
         # water production with bhp control
         self.new_bhp_prod = lambda bhp: gt_bhp_prod_well_control(bhp)
         # water production with volumetric rate control
         self.new_rate_water_prod = lambda rate: gt_rate_prod_well_control(self.phases, 0, self.n_vars,
-                                                                          rate, self.rate_itor)
-
-        self.new_rate_prod = lambda rate: gt_rate_prod_well_control(self.phases, 0, self.n_vars,
                                                                           rate, self.rate_itor)
         # water injection of constant enthalpy with mass rate control
         self.new_mass_rate_water_inj = lambda rate, enth: \
@@ -163,7 +155,7 @@ class Geothermal(PhysicsBase):
         enthalpy = np.array(mesh.enthalpy, copy=False)
         enthalpy.fill(enth)
 
-    def set_nonuniform_initial_conditions(self, mesh, pressure_grad, temperature_grad, temp_anomaly):
+    def set_nonuniform_initial_conditions(self, mesh, pressure_grad, temperature_grad):
         """""
         Function to set uniform initial reservoir condition
         Arguments:
@@ -179,10 +171,11 @@ class Geothermal(PhysicsBase):
         pressure[:] = depth / 1000 * pressure_grad + 1
 
         enthalpy = np.array(mesh.enthalpy, copy=False)
+        temperature = depth / 1000 * temperature_grad + 293.15
 
         tbl_len = 100
         tbl_depth = np.linspace(0, np.max(mesh.depth), tbl_len)
-        tbl_temp = tbl_depth / 1000 * temperature_grad + 283.15
+        tbl_temp = tbl_depth / 1000 * temperature_grad + 293.15
         tbl_pres = tbl_depth / 1000 * pressure_grad + 1
         tbl_enth = np.zeros(tbl_len)
         for i in range(tbl_len):
@@ -190,10 +183,7 @@ class Geothermal(PhysicsBase):
             E = iapws_total_enthalpy_evalutor(tbl_temp[i])
             tbl_enth[i] = E.evaluate(state)
 
-        for j in range(mesh.n_res_blocks):
-            enthalpy[j] = np.interp(depth[j], tbl_depth, tbl_enth) + temp_anomaly[j]
-
-        for j in range(mesh.n_res_blocks, mesh.n_blocks):
+        for j in range(mesh.n_blocks):
             enthalpy[j] = np.interp(depth[j], tbl_depth, tbl_enth)
 
         print("Finish initialization")

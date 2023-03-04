@@ -56,15 +56,21 @@ void pybind_operator_set_interpolator_super(py::module &m)
 	const int A4 = 10;
 	const int B4 = 16;
 
+	// geothermal problem: N_OPS = A * N_DIMS + B, three phases
+	const int A5 = 4;
+	const int B5 = 4;
+
   recursive_exposer_ndims_nops<interpolator_exposer, py::module, N_DIMS_MAX, A1, B1> e1;
   recursive_exposer_ndims_nops<interpolator_exposer, py::module, N_DIMS_MAX, A2, B2> e2;
   recursive_exposer_ndims_nops<interpolator_exposer, py::module, N_DIMS_MAX, A3, B3> e3;
   recursive_exposer_ndims_nops<interpolator_exposer, py::module, N_DIMS_MAX, A4, B4> e4;
- 
+	recursive_exposer_ndims_nops<interpolator_exposer, py::module, N_DIMS_MAX, A5, B5> e5;
+
   e1.expose(m);
   e2.expose(m);
   e3.expose(m);
   e4.expose(m);
+	e5.expose(m);
 }
 
 #endif //PYBIND11_ENABLED

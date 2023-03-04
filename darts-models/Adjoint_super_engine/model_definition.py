@@ -134,40 +134,23 @@ class Model(DartsModel, OptModuleSettings):
         return sat[0]
 
 
-    def export_pro_vtk(self, file_name='Saturation', global_cell_data={}):
-        Xn = np.array(self.physics.engine.X, copy=False)
-        P = Xn[0:self.reservoir.nb * 2:2]
-        z1 = Xn[1:self.reservoir.nb * 2:2]
-
-        so = np.zeros(len(P))
-        sw = np.zeros(len(P))
-
-        for i in range(len(P)):
-            values = value_vector([0] * self.physics.n_ops)
-            state = value_vector((P[i], z1[i]))
-            self.physics.property_itor.evaluate(state, values)
-            sw[i] = values[0]
-            so[i] = 1 - sw[i]
-
-        self.export_vtk(file_name, local_cell_data={'OilSat': so, 'WatSat': sw}, global_cell_data=global_cell_data)
-
     def set_op_list(self):
         if self.customize_new_operator:
-            water_component_etor = customized_etor_specific_component()
-            water_component_itor = self.physics.create_interpolator(water_component_etor, self.physics.n_vars, 1,
+            customized_component_etor = customized_etor_specific_component()
+            customized_component_itor = self.physics.create_interpolator(customized_component_etor, self.physics.n_vars, 1,
                                                                     self.physics.n_axes_points, self.physics.n_axes_min,
                                                                     self.physics.n_axes_max,
                                                                     platform='cpu', algorithm='multilinear',
                                                                     mode='adaptive', precision='d')
-            self.physics.create_itor_timers(water_component_itor, "customized component interpolation")
+            self.physics.create_itor_timers(customized_component_itor, "customized component interpolation")
             self.physics.engine.customize_operator = self.customize_new_operator
 
-            self.op_list = [self.physics.acc_flux_itor[0], water_component_itor]
+            self.op_list = [self.physics.acc_flux_itor[0], customized_component_itor]
 
             # specify the index of blocks of customized operator
             idx_in_op_list = 1
             op_num_new = np.array(self.reservoir.mesh.op_num, copy=True)
-            op_num_new[:] = idx_in_op_list  # set the second interpolator (i.e. "water_component_itor") from "self.op_list" to all blocks
+            op_num_new[:] = idx_in_op_list  # set the second interpolator (i.e. "customized_component_itor") from "self.op_list" to all blocks
             self.physics.engine.idx_customized_operator = idx_in_op_list
             self.physics.engine.customize_op_num = index_vector(op_num_new)
         else:
@@ -194,7 +177,7 @@ class Model(DartsModel, OptModuleSettings):
 
             self.global_data = {'well location': well_loc}
 
-            self.export_pro_vtk(global_cell_data=self.global_data, file_name=file_name)
+            self.export_vtk(file_name, global_cell_data=self.global_data)
 
         # now we start to run for the time report--------------------------------------------------------------
         time_step = self.report_step
@@ -213,76 +196,7 @@ class Model(DartsModel, OptModuleSettings):
             self.physics.engine.run(ts)
             self.physics.engine.report()
             if export_to_vtk:
-                self.export_pro_vtk(global_cell_data=self.global_data, file_name=file_name)
-
-
-
-class model_properties(property_container):
-    def __init__(self, phases_name, components_name, pvt, min_z=1e-11):
-        # Call base class constructor
-        self.nph = len(phases_name)
-        Mw = np.ones(self.nph)
-        super().__init__(phases_name, components_name, Mw, min_z)
-        self.x = np.zeros((self.nph, self.nc))
-        self.pvt = pvt
-        self.surf_dens = get_table_keyword(self.pvt, 'DENSITY')[0]
-        self.surf_oil_dens = self.surf_dens[0]
-        self.surf_wat_dens = self.surf_dens[1]
-
-    def evaluate(self, state):
-        """
-        Class methods which evaluates the state operators for the element based physics
-        :param state: state variables [pres, comp_0, ..., comp_N-1]
-        :param values: values of the operators (used for storing the operator values)
-        :return: updated value for operators, stored in values
-        """
-        # Composition vector and pressure from state:
-        vec_state_as_np = np.asarray(state)
-        pressure = vec_state_as_np[0]
-
-        zc = np.append(vec_state_as_np[1:], 1 - np.sum(vec_state_as_np[1:]))
-
-        self.clean_arrays()
-        # two-phase flash - assume water phase is always present and water component last
-        for i in range(self.nph):
-            self.x[i, i] = 1
-
-        ph = [0, 1]
-
-        for j in ph:
-            M = 0
-            # molar weight of mixture
-            for i in range(self.nc):
-                M += self.Mw[i] * self.x[j][i]
-            self.dens[j] = self.density_ev[self.phases_name[j]].evaluate(state)  # output in [kg/m3]
-            self.dens_m[j] = self.dens[j] / M
-            self.mu[j] = self.viscosity_ev[self.phases_name[j]].evaluate(state)  # output in [cp]
-
-        self.nu = zc
-        self.compute_saturation(ph)
-
-        for j in ph:
-            self.kr[j] = self.rel_perm_ev[self.phases_name[j]].evaluate(self.sat[0])
-            self.pc[j] = 0
-
-        return self.sat, self.x, self.dens, self.dens_m, self.mu, self.kr, self.pc, ph
-
-    def evaluate_at_cond(self, pressure, zc):
-
-        self.sat[:] = 0
-
-        state = value_vector([1, 0])
-
-        ph = [0, 1]
-        for j in ph:
-            self.dens_m[j] = self.density_ev[self.phases_name[j]].evaluate(state)
-
-        self.dens_m = [self.surf_wat_dens, self.surf_oil_dens]  # to match DO based on PVT
-
-        self.nu = zc
-        self.compute_saturation(ph)
-
-        return self.sat, self.dens_m
+                self.export_vtk(file_name)
 
 
 class customized_etor_specific_component(operator_set_evaluator_iface):
@@ -300,5 +214,5 @@ class customized_etor_specific_component(operator_set_evaluator_iface):
         # temp = self.temperature.evaluate(state)
 
         # values[0] = state[0]  # pressure
-        values[0] = 1 - state[1]  # oil
+        values[0] = 1 - state[1]  # comp_1
         return 0
