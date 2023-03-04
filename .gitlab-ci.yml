@@ -515,10 +515,10 @@ test-windows-3.6-ODLS:
 # pick all whl ODLS-artifacts (windows, linux, python versions) and upload to test pipy
 # TODO increment package version (darts-package/setup.py)
 deploy-all:
-    # run this job only if variable UPLOAD_TEST_PYPI is set to true (default is false)
+    # Run deploy  only for main branch
     only:
-      variables:
-        - $UPLOAD_TEST_PYPI == "true"
+        refs:
+            - main
     stage: deploy
     # just for twine
     image: python:3.9
