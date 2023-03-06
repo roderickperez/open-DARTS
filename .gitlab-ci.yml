@@ -5,7 +5,6 @@ stages:
 
 ###################################################################################
 
-
 build-linux-3.9:
     only:
       variables:
@@ -495,7 +494,6 @@ test-windows-3.6-ODLS:
        
 ###################################################################################
 
-
 .test-linux:
     stage: test
     image: "python:$PY_VER"
@@ -564,9 +562,24 @@ test-windows-3.6-ODLS:
       when: always
       expire_in: 1 year
 
-# pick all whl ODLS-artifacts (windows, linux, python versions) and upload to test pipy
-# TODO increment package version (darts-package/setup.py)
-deploy-all:
+###################################################################################
+
+deploy-pypi:
+    only:
+      variables:
+        - $UPLOAD_PYPI == "true"
+    extends: .deploy-pypi
+    variables:
+        PYPI: 'pypi'
+
+deploy-testpypi:
+    extends: .deploy-pypi
+    variables:
+        PYPI: 'testpypi'
+
+# pick all whl ODLS-artifacts (windows/linux, different python versions) and upload to test pipy
+# TODO auto-increment package version (in darts-package/setup.py and .gitlab-ci.yml) and add git tag; now it is done manually
+.deploy-pypi:
     # Run deploy only for main branch
     only:
         refs:
@@ -582,12 +595,11 @@ deploy-all:
         - python -m pip install --upgrade pip
         - pip install twine
     script:
-        # upload to pypi
+        # upload to test-pypi or pypi depending on $PYPI var
         - cd darts-package
-        - ls ./dist/*
         - ./rename_whls.sh # rename linux whls to make uploadable to test-pypi 
         - ls ./dist/*
-        - twine upload -u $TESTPYPIUSER -p $TESTPYPIPWD --repository testpypi dist/*
+        - twine upload -u $TESTPYPIUSER -p $TESTPYPIPWD --repository $PYPI dist/*
     dependencies:
         - build-linux-3.6-ODLS
         - build-linux-3.7-ODLS
