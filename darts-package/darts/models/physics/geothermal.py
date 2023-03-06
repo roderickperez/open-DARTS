@@ -16,7 +16,7 @@ class Geothermal(PhysicsBase):
             - well_control (rate, bhp)
     """
 
-    def __init__(self, timer, n_points, min_p, max_p, min_e, max_e, mass_rate=False, grav=False,
+    def __init__(self, timer, n_points, min_p, max_p, min_e, max_e, mass_rate=False,
                  platform='cpu', itor_type='multilinear', itor_mode='adaptive', itor_precision='d', cache=True):
         """"
            Initialize Geothermal class.
@@ -55,18 +55,11 @@ class Geothermal(PhysicsBase):
         self.n_axes_max = value_vector([max_p, max_e])
 
         # evaluate names of required classes depending on amount of components, self.phases, and selected physics
-        if grav:
-            self.n_ops = 12
-            self.property_data = property_data()
-            self.engine = eval("engine_nce_g_%s%d_%d" % (platform, self.n_components, self.n_phases - 2))()
-            self.acc_flux_etor = acc_flux_gravity_evaluator_python(self.property_data)
-            self.acc_flux_etor_well = acc_flux_gravity_evaluator_python_well(self.property_data)
-        else:
-            self.n_ops = 2 * self.n_components + self.thermal * 6
-            self.property_data = property_iapws_data()
-            self.engine = eval("engine_nce_%s%d" % (platform, self.n_components))()
-            self.acc_flux_etor = acc_flux_custom_iapws_evaluator_python(self.property_data)
-            self.acc_flux_etor_well = acc_flux_custom_iapws_evaluator_python_well(self.property_data)
+        self.n_ops = 12
+        self.property_data = property_data()
+        self.engine = eval("engine_nce_g_%s%d_%d" % (platform, self.n_components, self.n_phases - 2))()
+        self.acc_flux_etor = acc_flux_gravity_evaluator_python(self.property_data)
+        self.acc_flux_etor_well = acc_flux_gravity_evaluator_python_well(self.property_data)
 
         self.acc_flux_itor = self.create_interpolator(self.acc_flux_etor, self.n_vars, self.n_ops,
                                                       self.n_axes_points, self.n_axes_min, self.n_axes_max,

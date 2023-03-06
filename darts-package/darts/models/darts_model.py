@@ -81,7 +81,7 @@ class DartsModel:
             runtime = self.runtime
         self.physics.engine.run(runtime)
 
-    def run_python(self, days=0, restart_dt=0, log_3d_body_path=0, timestep_python=False):
+    def run_python(self, days=0, restart_dt=0, timestep_python=False):
         if days:
             runtime = days
         else:
@@ -105,15 +105,13 @@ class DartsModel:
         # evaluate end time
         runtime += t
         ts = 0
-        #
-        if log_3d_body_path and self.physics.n_vars == 3:
-            self.body_path_start()
 
         while t < runtime:
             if timestep_python:
                  converged = self.e.run_timestep(dt, t)
             else:
                  converged = self.run_timestep_python(dt, t)
+
             if converged:
                 t += dt
                 ts = ts + 1
@@ -127,14 +125,6 @@ class DartsModel:
                 if t + dt > runtime:
                     dt = runtime - t
 
-                if log_3d_body_path and self.physics.n_vars == 3:
-                    self.body_path_add_bodys(t)
-                    nb_begin = self.reservoir.nx * self.reservoir.ny * (self.body_path_map_layer - 1) * 3
-                    nb_end = self.reservoir.nx * self.reservoir.ny * (self.body_path_map_layer) * 3
-
-                    self.save_matlab_map(self.body_path_axes[0] + '_ts_' + str(ts), self.e.X[nb_begin:nb_end:3])
-                    self.save_matlab_map(self.body_path_axes[1] + '_ts_' + str(ts), self.e.X[nb_begin + 1:nb_end:3])
-                    self.save_matlab_map(self.body_path_axes[2] + '_ts_' + str(ts), self.e.X[nb_begin + 2:nb_end:3])
             else:
                 dt /= mult_dt
                 print("Cut timestep to %2.3f" % dt)
@@ -298,337 +288,6 @@ class DartsModel:
         """
         self.physics.engine.print_stat()
 
-    def plot_layer_map(self, map_data, k, name, transpose=0):
-        """
-        Function to plot parameter profile of certain layer.
-        :param map_data: data array
-        :param k: layer index
-        :param name: parameter name
-        :param transpose: do transpose to swap axes
-        """
-        import plotly
-        import plotly.graph_objs as go
-
-        nxny = self.reservoir.nx * self.reservoir.ny
-        layer_indexes = np.arange(nxny * (k - 1), nxny * k)
-        layer_data = np.zeros(nxny)
-        # for correct vizualization of inactive cells
-        layer_data.fill(np.nan)
-
-        active_mask = np.where(self.reservoir.discretizer.global_to_local[layer_indexes] > -1)
-        layer_data[active_mask] = map_data[self.reservoir.discretizer.global_to_local[layer_indexes][active_mask]]
-
-        layer_data = layer_data.reshape(self.reservoir.ny, self.reservoir.nx)
-        if transpose:
-            layer_data = layer_data.transpose()
-            y_axis = dict(scaleratio=1, scaleanchor='x', title='X, block')
-            x_axis = dict(title='Y, block')
-        else:
-            x_axis = dict(scaleratio=1, scaleanchor='x', title='X, block')
-            y_axis = dict(title='Y, block')
-
-        data = [go.Heatmap(
-            z=layer_data)]
-        layout = go.Layout(title='%s, layer %d' % (name, k),
-                           xaxis=x_axis,
-                           yaxis=y_axis)
-        fig = go.Figure(data=data, layout=layout)
-        plotly.offline.plot(fig, filename='%s_%d_map.html' % (name, k))
-
-    def plot_layer_map_offline(self, map_data, k, name, transpose=0):
-        """
-        Function to plot the profile of certain parameter within Jupyter Notebook.
-        :param map_data: data array
-        :param k: layer index
-        :param name: parameter name
-        :param transpose: do transpose to swap axes
-        """
-        import plotly
-
-        plotly.offline.init_notebook_mode()
-
-        self.plot_layer_map(map_data, k, name, transpose)
-
-    def plot_layer_surface(self, map_data, k, name, transpose=0):
-        """
-        Function to plot the surface of certain parameter.
-        :param map_data: data array
-        :param k: layer index
-        :param name: parameter name
-        :param transpose: do transpose to swap axes
-        """
-        import plotly
-        import plotly.graph_objs as go
-
-        nxny = self.reservoir.nx * self.reservoir.ny
-        layer_indexes = np.arange(nxny * (k - 1), nxny * k)
-        layer_data = np.zeros(nxny)
-        # for correct vizualization of inactive cells
-        layer_data.fill(np.nan)
-
-        active_mask = np.where(self.reservoir.discretizer.global_to_local[layer_indexes] > -1)
-        layer_data[active_mask] = map_data[self.reservoir.discretizer.global_to_local[layer_indexes][active_mask]]
-
-        layer_data = layer_data.reshape(self.reservoir.ny, self.reservoir.nx)
-        if transpose:
-            layer_data = layer_data.transpose()
-
-        data = [go.Surface(z=layer_data)]
-        plotly.offline.plot(data, filename='%s_%d_surf.html' % (name, k))
-
-    def plot_geothermal_temp_layer_map(self, X, k, name, transpose=0):
-        import plotly
-        import plotly.graph_objs as go
-        import numpy as np
-        from darts.models.physics.iapws.iapws_property import iapws_temperature_evaluator
-        nxny = self.reservoir.nx * self.reservoir.ny
-
-        temperature = iapws_temperature_evaluator()
-        layer_pres_data = np.zeros(nxny)
-        layer_enth_data = np.zeros(nxny)
-        layer_indexes = np.arange(nxny * (k - 1), nxny * k)
-        active_mask = np.where(self.reservoir.discretizer.global_to_local[layer_indexes] > -1)
-        layer_pres_data[active_mask] = X[2 * self.reservoir.discretizer.global_to_local[layer_indexes][active_mask]]
-        layer_enth_data[active_mask] = X[2 * self.reservoir.discretizer.global_to_local[layer_indexes][active_mask] + 1]
-
-        # used_data = map_data[2 * nxny * (k-1): 2 * nxny * k]
-        T = np.zeros(nxny)
-        T.fill(np.nan)
-        for i in range(0, nxny):
-            if self.reservoir.discretizer.global_to_local[nxny * (k - 1) + i] > -1:
-                T[i] = temperature.evaluate([layer_pres_data[i], layer_enth_data[i]])
-
-        layer_data = T.reshape(self.reservoir.ny, self.reservoir.nx)
-        if transpose:
-            layer_data = layer_data.transpose()
-            y_axis = dict(scaleratio=1, scaleanchor='x', title='X, block')
-            x_axis = dict(title='Y, block')
-        else:
-            x_axis = dict(scaleratio=1, scaleanchor='x', title='X, block')
-            y_axis = dict(title='Y, block')
-
-        data = [go.Heatmap(
-            z=layer_data)]
-        layout = go.Layout(title='%s, layer %d' % (name, k),
-                           xaxis=x_axis,
-                           yaxis=y_axis)
-        fig = go.Figure(data=data, layout=layout)
-        plotly.offline.plot(fig, filename='%s_%d_map.html' % (name, k))
-
-    def plot_1d(self, map_data, name):
-        """
-        Function to plot the 1d parameter.
-        :param map_data: data array
-        :param name: parameter name
-        """
-        import plotly
-        import plotly.graph_objs as go
-        import numpy as np
-
-        nx = self.reservoir.nx
-        data = [go.Scatter(x=np.linspace(0, 1, nx), y=map_data[1:nx])]
-        plotly.offline.plot(data, filename='%s_surf.html' % name)
-
-    def plot_1d_all(self, map_data):
-        """
-        Function to plot all parameters of map_data in 1d.
-        :param map_data: data array
-        """
-        import plotly
-        import plotly.graph_objs as go
-        import numpy as np
-
-        nx = self.reservoir.nx
-        nc = self.physics.n_components
-
-        data = []
-        for i in range(nc - 1):
-            data.append(go.Scatter(x=np.linspace(0, 1, nx), y=map_data[i + 1::nc][1:nx], dash='dash'))
-
-        plotly.offline.plot(data, filename='Compositions.html')
-
-    def plot_cumulative_totals_mass(self):
-        """
-        Function to plot the cumulative injection and production mass
-        """
-        import plotly.offline as po
-        import plotly.graph_objs as go
-        import numpy as np
-        import pandas as pd
-
-        nc = self.physics.n_components
-
-        darts_df = pd.DataFrame(self.physics.engine.time_data)
-        total_df = pd.DataFrame()
-        total_df['time'] = darts_df['time']
-        time_diff = darts_df['time'].diff()
-        time_diff[0] = darts_df['time'][0]
-        for c in range(nc):
-            total_df['Total injection c %d' % c] = 0
-            total_df['Total production c %d' % c] = 0
-            search_str = ' : c %d rate (Kmol/day)' % c
-            for col in darts_df.columns:
-                if search_str in col:
-                    inj_mass = darts_df[col] * time_diff
-                    prod_mass = darts_df[col] * time_diff
-                    # assuming that any well can inject and produce over the whole time
-                    inj_mass[inj_mass < 0] = 0
-                    prod_mass[prod_mass > 0] = 0
-                    total_df['Total injection c %d' % c] += inj_mass
-                    total_df['Total production c %d' % c] -= prod_mass
-
-        data = []
-        for c in range(nc):
-            data.append(go.Scatter(x=total_df['time'], y=total_df['Total injection c %d' % c].cumsum(),
-                                   name='%s injection' % self.physics.components[c]))
-            data.append(go.Scatter(x=total_df['time'], y=total_df['Total production c %d' % c].cumsum(),
-                                   name='%s production' % self.physics.components[c]))
-
-        layout = go.Layout(title='Cumulative total masses (kmol)', xaxis=dict(title='Time (days)'),
-                           yaxis=dict(title='Mass (kmols)'))
-        fig = go.Figure(data=data, layout=layout)
-        po.plot(fig, filename='Cumulative_totals_mass.html')
-
-    def plot_mass_balance_error(self):
-        """
-        Function to plot the total mass balance error between injection and production
-        """
-        import plotly.offline as po
-        import plotly.graph_objs as go
-        import numpy as np
-        import pandas as pd
-
-        nc = self.physics.n_components
-
-        darts_df = pd.DataFrame(self.physics.engine.time_data)
-        total_df = pd.DataFrame()
-        total_df['time'] = darts_df['time']
-        time_diff = darts_df['time'].diff()
-        time_diff[0] = darts_df['time'][0]
-        for c in range(nc):
-            total_df['Total source-sink c %d' % c] = 0
-            search_str = ' : c %d rate (Kmol/day)' % c
-            for col in darts_df.columns:
-                if search_str in col:
-                    mass = darts_df[col] * time_diff
-                    total_df['Total source-sink c %d' % c] += mass
-
-        data = []
-        for c in range(nc):
-            total_df['Total mass balance error c %d' % c] = darts_df['FIPS c %d (kmol)' % c] - total_df[
-                'Total source-sink c %d' % c].cumsum()
-            total_df['Total mass balance error c %d' % c] -= darts_df['FIPS c %d (kmol)' % c][0] - \
-                                                             total_df['Total source-sink c %d' % c][0]
-            data.append(go.Scatter(x=total_df['time'], y=total_df['Total mass balance error c %d' % c],
-                                   name='%s' % self.physics.components[c]))
-
-        layout = go.Layout(title='Mass balance error (kmol)', xaxis=dict(title='Time (days)'),
-                           yaxis=dict(title='Mass (kmols)'))
-        fig = go.Figure(data=data, layout=layout)
-        po.plot(fig, filename='Mass_balance_error.html')
-
-    def plot_FIPS(self):
-        import plotly.offline as po
-        import plotly.graph_objs as go
-        import numpy as np
-        import pandas as pd
-
-        nc = self.physics.n_components
-
-        darts_df = pd.DataFrame(self.physics.engine.time_data)
-        data = []
-        for c in range(nc):
-            data.append(go.Scatter(x=darts_df['time'], y=darts_df['FIPS c %d (kmol)' % c],
-                                   name='%s' % self.physics.components[c]))
-
-        layout = go.Layout(title='FIPS (kmol)', xaxis=dict(title='Time (days)'),
-                           yaxis=dict(title='Mass (kmols)'))
-        fig = go.Figure(data=data, layout=layout)
-        po.plot(fig, filename='FIPS.html')
-
-    def plot_totals_mass(self):
-        import plotly.offline as po
-        import plotly.graph_objs as go
-        import numpy as np
-        import pandas as pd
-
-        nc = self.physics.n_components
-
-        darts_df = pd.DataFrame(self.physics.engine.time_data)
-        total_df = pd.DataFrame()
-        total_df['time'] = darts_df['time']
-        for c in range(nc):
-            total_df['Total injection c %d' % c] = 0
-            total_df['Total production c %d' % c] = 0
-            search_str = ' : c %d rate (Kmol/day)' % c
-            for col in darts_df.columns:
-                if search_str in col:
-                    inj_mass = darts_df[col].copy()
-                    prod_mass = darts_df[col].copy()
-                    # assuming that any well can inject and produce over the whole time
-                    inj_mass[inj_mass < 0] = 0
-                    prod_mass[prod_mass > 0] = 0
-                    total_df['Total injection c %d' % c] += inj_mass
-                    total_df['Total production c %d' % c] -= prod_mass
-
-        data = []
-        for c in range(nc):
-            data.append(go.Scatter(x=total_df['time'], y=total_df['Total injection c %d' % c],
-                                   name='%s injection' % self.physics.components[c]))
-            data.append(go.Scatter(x=total_df['time'], y=total_df['Total production c %d' % c],
-                                   name='%s production' % self.physics.components[c]))
-
-        layout = go.Layout(title='Total mass rates (kmols/day)', xaxis=dict(title='Time (days)'),
-                           yaxis=dict(title='Rate (kmols/day)'))
-        fig = go.Figure(data=data, layout=layout)
-        po.plot(fig, filename='Totals_mass_rates.html')
-
-    def plot_1d_compare(self, map_data1, map_data2):
-        """
-        Function to compare the parameter values in two data array
-        :param map_data1: data array 1
-        :param map_data2: data array 2
-        """
-        import plotly
-        import plotly.graph_objs as go
-        import numpy as np
-
-        nx = self.reservoir.nx
-        nc = self.physics.n_components
-
-        data = []
-        for i in range(nc - 1):
-            data.append(go.Scatter(x=np.linspace(0, 1, nx), y=map_data1[i + 1::nc][1:nx],
-                                   name="Comp = %d, dt = 5 days" % (i + 1)))
-
-        for i in range(nc - 1):
-            data.append(go.Scatter(x=np.linspace(0, 1, nx), y=map_data2[i + 1::nc][1:nx],
-                                   name="Comp = %d, dt = 50 days" % (i + 1), line=dict(dash='dot')))
-
-        plotly.offline.plot(data, filename='Compositions.html')
-
-    def body_path_start(self):
-        with open('body_path.txt', "w") as fp:
-            itor = self.physics.acc_flux_itor
-            self.processed_body_idxs = set()
-            for i, p in enumerate(itor.axis_points):
-                fp.write('%d %lf %lf %s\n' % (p, itor.axis_min[i], itor.axis_max[i], self.body_path_axes[i]))
-            fp.write('Body Index Data\n')
-
-    def body_path_add_bodys(self, time):
-        with open('body_path.txt', "a") as fp:
-            fp.write('T=%lf\n' % time)
-            itor = self.physics.acc_flux_itor
-            all_idxs = set(itor.body_data.keys())
-            new_idxs = all_idxs - self.processed_body_idxs
-            for i in new_idxs:
-                fp.write('%d\n' % i)
-            self.processed_body_idxs = all_idxs
-
-    def save_matlab_map(self, name, np_arr):
-        import scipy.io
-        scipy.io.savemat(name + '.mat', dict(x=np_arr))
-
     def export_vtk(self, file_name='data', local_cell_data={}, global_cell_data={}, vars_data_dtype=np.float32,
                    export_grid_data=True):
 
@@ -671,9 +330,10 @@ class DartsModel:
             self.e.well_residual_last_dt = self.e.calc_well_residual()
             self.e.n_newton_last_dt = i
             #  check tolerance if it converges
-            if ((self.e.newton_residual_last_dt < self.params.tolerance_newton and self.e.well_residual_last_dt < well_tolerance_coefficient * self.params.tolerance_newton )
-                    or self.e.n_newton_last_dt == self.params.max_i_newton):
-                if (i > 0):  # min_i_newton
+            if ((self.e.newton_residual_last_dt < self.params.tolerance_newton and
+                 self.e.well_residual_last_dt < well_tolerance_coefficient * self.params.tolerance_newton) or
+                    self.e.n_newton_last_dt == self.params.max_i_newton):
+                if i > 0:  # min_i_newton
                     break
             r_code = self.e.solve_linear_equation()
             self.timer.node["newton update"].start()
