@@ -10,3 +10,4 @@ __pycache__/
 *.lib
 *.pdb
 darts.egg-info/*
+/open_darts.egg-info
