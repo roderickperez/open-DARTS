@@ -307,6 +307,9 @@ test-linux-3.9-ODLS:
         - build-linux-3.9-ODLS
         
 test-linux-3.8-ODLS:
+    only:
+      refs:
+        - main
     extends: .test-linux
     variables:
         PY_VER: '3.8'       # for python image selection in .test-linux
@@ -316,6 +319,9 @@ test-linux-3.8-ODLS:
         - build-linux-3.8-ODLS
         
 test-linux-3.7-ODLS:
+    only:
+      refs:
+        - main
     extends: .test-linux
     variables:
         PY_VER: '3.7'        # for python image selection in .test-linux
@@ -325,6 +331,9 @@ test-linux-3.7-ODLS:
         - build-linux-3.7-ODLS
         
 test-linux-3.6-ODLS:
+    only:
+      refs:
+        - main
     extends: .test-linux
     variables:
         PY_VER: '3.6'
