@@ -283,51 +283,26 @@ class Model(DartsModel):
             Sg[ii] = sat[0]
             Ss[ii] = z_caco3[ii]
 
+        phi = 1 - z_caco3
         """ start plots """
 
         font_dict_title = {'family': 'sans-serif',
                            'color': 'black',
                            'weight': 'normal',
-                           'size': 10,
+                           'size': 8,
                            }
 
-        font_dict_axes = {'family': 'monospace',
-                          'color': 'black',
-                          'weight': 'normal',
-                          'size': 10,
-                          }
 
-        fig, axs = plt.subplots(2, 3, figsize=(10, 6), dpi=200, facecolor='w', edgecolor='k')
-        """ sg and x """
-        axs[0][0].plot(z_co2, 'b')
-        axs[0][0].set_xlabel('x [m]', font_dict_axes)
-        axs[0][0].set_ylabel('$z_{CO_2}$ [-]', font_dict_axes)
-        axs[0][0].set_title('Fluid composition', fontdict=font_dict_title)
-
-        axs[0][1].plot(z_h2o, 'b')
-        axs[0][1].set_xlabel('x [m]', font_dict_axes)
-        axs[0][1].set_ylabel('$z_{H_2O}$ [-]', font_dict_axes)
-        axs[0][1].set_title('Fluid composition', fontdict=font_dict_title)
-
-        axs[0][2].plot(z_inert, 'b')
-        axs[0][2].set_xlabel('x [m]', font_dict_axes)
-        axs[0][2].set_ylabel('$z_{w, Ca} + z_{w, CO_3}$ [-]', font_dict_axes)
-        axs[0][2].set_title('Fluid composition', fontdict=font_dict_title)
-
-        axs[1][0].plot(P, 'b')
-        axs[1][0].set_xlabel('x [m]', font_dict_axes)
-        axs[1][0].set_ylabel('$p$ [bar]', font_dict_axes)
-        axs[1][0].set_title('Pressure', fontdict=font_dict_title)
-
-        axs[1][1].plot(Sg, 'b')
-        axs[1][1].set_xlabel('x [m]', font_dict_axes)
-        axs[1][1].set_ylabel('$s_g$ [-]', font_dict_axes)
-        axs[1][1].set_title('Gas saturation', fontdict=font_dict_title)
-
-        axs[1][2].plot(1 - Ss, 'b')
-        axs[1][2].set_xlabel('x [m]', font_dict_axes)
-        axs[1][2].set_ylabel('$\phi$ [-]', font_dict_axes)
-        axs[1][2].set_title('Porosity', fontdict=font_dict_title)
+        fig, ax = plt.subplots(3, 2, figsize=(8, 5), dpi=200, facecolor='w', edgecolor='k')
+        names = ['z_co2', 'z_h2o', 'z_inert', 'P', 'Sg', 'phi']
+        titles = ['$z_{CO_2}$ [-]', '$z_{H_2O}$ [-]', '$z_{w, Ca} + z_{w, CO_3}$ [-]',
+                  '$P$ [bars]', '$s_g$ [-]', '$\phi$ [-]']
+        for i in range(3):
+            for j in range(2):
+                n = i + j * 3
+                vec = eval(names[n])
+                im = ax[i, j].plot(vec)
+                ax[i, j].set_title(titles[n], fontdict=font_dict_title)
 
         left = 0.05  # the left side of the subplots of the figure
         right = 0.95  # the right side of the subplots of the figure
@@ -378,32 +353,21 @@ class Model(DartsModel):
             X[ii, :, 1] = x[0][:-1]
             Sg[ii] = sat[0]
             Ss[ii] = z_caco3[ii]
+        phi = 1 - z_caco3
 
-        fig, axs = plt.subplots(2, 3, figsize=(10, 8), dpi=300, facecolor='w', edgecolor='k')
-        """ sg and x """
-        im0 = axs[0][0].imshow(z_co2.reshape(self.ny, self.nx))
-        axs[0][0].set_title('$z_{CO_2}$ [-]', fontdict=font_dict_title)
-        plt.colorbar(im0, ax=axs[0][0])
+        fig, ax = plt.subplots(3, 2, figsize=(10, 6), dpi=200, facecolor='w', edgecolor='k')
+        plt.set_cmap('jet')
+        names = ['z_co2', 'z_h2o', 'z_inert', 'P', 'Sg', 'phi']
+        titles = ['$z_{CO_2}$ [-]', '$z_{H_2O}$ [-]', '$z_{w, Ca} + z_{w, CO_3}$ [-]',
+                  '$P$ [bars]', '$s_g$ [-]', '$\phi$ [-]']
+        for i in range(3):
+            for j in range(2):
+                n = i + j * 3
+                vec = eval(names[n])
+                im = ax[i, j].imshow(vec.reshape(self.ny, self.nx))
+                ax[i, j].set_title(titles[n], fontdict=font_dict_title)
+                plt.colorbar(im, ax=ax[i, j])
 
-        im1 = axs[0][1].imshow(z_h2o.reshape(self.ny, self.nx))
-        axs[0][1].set_title('$z_{H_2O}$ [-]', fontdict=font_dict_title)
-        plt.colorbar(im1, ax=axs[0][1])
-
-        im2 = axs[0][2].imshow(z_inert.reshape(self.ny, self.nx))
-        axs[0][2].set_title('$z_{w, Ca} + z_{w, CO_3}$ [-]', fontdict=font_dict_title)
-        plt.colorbar(im2, ax=axs[0][2])
-
-        im5 = axs[1][0].imshow(P.reshape(self.ny, self.nx))
-        axs[1][0].set_title('$P$ [bars]', fontdict=font_dict_title)
-        plt.colorbar(im5, ax=axs[1][0])
-
-        im6 = axs[1][1].imshow(Sg.reshape(self.ny, self.nx))
-        axs[1][1].set_title('$s_g$ [-]', fontdict=font_dict_title)
-        plt.colorbar(im6, ax=axs[1][1])
-
-        im7 = axs[1][2].imshow(1 - z_caco3.reshape(self.ny, self.nx))
-        axs[1][2].set_title('$\phi$ [-]', fontdict=font_dict_title)
-        plt.colorbar(im7, ax=axs[1][2])
 
         left = 0.05  # the left side of the subplots of the figure
         right = 0.95  # the right side of the subplots of the figure
@@ -413,13 +377,6 @@ class Model(DartsModel):
         hspace = 0.25  # the amount of height reserved for white space between subplots
         plt.subplots_adjust(left=left, bottom=bottom, right=right, top=top, wspace=wspace, hspace=hspace)
 
-        for ii in range(2):
-            for jj in range(3):
-                for tick in axs[ii][jj].xaxis.get_major_ticks():
-                    tick.label.set_fontsize(6)
-
-                for tick in axs[ii][jj].yaxis.get_major_ticks():
-                    tick.label.set_fontsize(6)
 
         plt.tight_layout()
         name = "results_kinetic_2D_" + str(self.nx) + "x" + str(self.ny)

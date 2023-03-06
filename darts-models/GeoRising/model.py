@@ -38,7 +38,7 @@ class Model(DartsModel):
         rcond.fill(181.44)
 
 
-        self.physics = Geothermal(self.timer, n_points, 1, 351, 1000, 10000, cache=False, grav=1)
+        self.physics = Geothermal(self.timer, n_points, 1, 351, 1000, 10000, cache=False)
 
         self.params.first_ts = 1e-3
         self.params.mult_ts = 8
@@ -53,7 +53,7 @@ class Model(DartsModel):
         self.params.newton_type = sim_params.newton_global_chop
         self.params.newton_params = value_vector([1])
 
-        self.runtime = 36500 / 10
+        self.runtime = 365
         # self.physics.engine.silent_mode = 0
         self.timer.node["initialization"].stop()
 
