@@ -7,6 +7,8 @@ stages:
 
 build-linux-3.10:
     only:
+      refs:
+        - main
       variables:
         - $CI_COMMIT_REF_PROTECTED == "true"
     extends: .build-linux-dockcross
@@ -64,6 +66,9 @@ build-linux-3.6:
 ###################################################################################
 
 build-linux-3.10-ODLS:
+    only:
+      refs:
+        - main
     extends: .build-linux-dockcross
     variables:
         PY_VER: '3.10'       # for python image selection in .build-linux
@@ -82,7 +87,7 @@ build-linux-3.8-ODLS:
       refs:
         - main
     extends: .build-linux-dockcross
-    variables:
+      variables:
         PY_VER: '3.8'       # for python image selection in .build-linux
         PY_SUF: 'cp38-cp38' # for python path selection in .build-linux-dockcross
         ODLS: '1'        # build with open-darts linear solvers
@@ -111,6 +116,8 @@ build-linux-3.6-ODLS:
 
 build-windows-3.10:
     only:
+      refs:
+        - main
       variables:
         - $CI_COMMIT_REF_PROTECTED == "true"
     extends: .build-windows
@@ -168,6 +175,9 @@ build-windows-3.6:
 ###################################################################################
         
 build-windows-3.10-ODLS:
+    only:
+      refs:
+        - main
     extends: .build-windows-ODLS
     variables:
         PY_VER: '3.10'
@@ -333,6 +343,9 @@ build-windows-3.6-ODLS:
 ###################################################################################
 
 test-linux-3.10-ODLS:
+    only:
+      refs:
+        - main
     extends: .test-linux
     variables:
         PY_VER: '3.10'       # for python image selection in .test-linux
@@ -390,6 +403,8 @@ test-linux-3.6-ODLS:
 
 test-linux-3.10:
     only:
+      refs:
+        - main
       variables:
         - $CI_COMMIT_REF_PROTECTED == "true"
     extends: .test-linux
@@ -458,6 +473,8 @@ test-linux-3.6:
         
 test-windows-3.10:
     only:
+      refs:
+        - main
       variables:
         - $CI_COMMIT_REF_PROTECTED == "true"
     extends: .test-windows
@@ -525,6 +542,9 @@ test-windows-3.6:
 ###################################################################################
         
 test-windows-3.10-ODLS:
+    only:
+      refs:
+        - main
     extends: .test-windows
     variables:
         PY_VER: '3.10'
