@@ -87,7 +87,7 @@ build-linux-3.8-ODLS:
       refs:
         - main
     extends: .build-linux-dockcross
-      variables:
+    variables:
         PY_VER: '3.8'       # for python image selection in .build-linux
         PY_SUF: 'cp38-cp38' # for python path selection in .build-linux-dockcross
         ODLS: '1'        # build with open-darts linear solvers
