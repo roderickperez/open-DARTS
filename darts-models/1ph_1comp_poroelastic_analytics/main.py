@@ -3,6 +3,7 @@ from darts.engines import *
 import numpy as np
 import meshio
 from math import fabs
+import os
 
 from matplotlib import pyplot as plt
 from matplotlib import rcParams
@@ -132,9 +133,19 @@ def test(case='mandel', scheme='non_stabilized', mesh='rect'):
     time = 0.0
     data = []
 
-    file_name = 'perf_' + case + '_' + scheme + '_' + mesh + '_' + platform.system().lower()[:3] + '.pkl'
-    ref_data = load_performance_data(file_name=file_name)
+    # poromech tests run with direct linear solvers (superlu), but somehow there is a difference
+    # while using old and new lib. To handle this, use '_iter' pkls for old lib
+    pkl_suffix = ''
+    if os.getenv('ODLS') == '0':
+        pkl_suffix = '_iter'
+    file_name = os.path.join('ref', 'perf_' + case + '_' + scheme + '_' + mesh + '_' +
+                             platform.system().lower()[:3] + pkl_suffix + '.pkl')
     failed = 0
+
+    is_plk_exist = os.path.isfile(file_name)
+    if is_plk_exist:
+        ref_data = load_performance_data(file_name=file_name)
+
     for ith_step, dt in enumerate(t):
         time += dt
         m.params.first_ts = dt
@@ -144,11 +155,16 @@ def test(case='mandel', scheme='non_stabilized', mesh='rect'):
         # write a vtk snapshot
         # m.reservoir.write_to_vtk(output_directory, ith_step + 1, m.physics)
         data.append(m.get_performance_data(is_last_ts=(ith_step == t.size - 1)))
-        failed += check_performance_data(ref_data[ith_step], data[ith_step], failed)
-    #m.save_performance_data(data=data, file_name=file_name)
+        if is_plk_exist:
+            failed += check_performance_data(ref_data[ith_step], data[ith_step], failed)
+    if not is_plk_exist:
+        m.save_performance_data(data=data, file_name=file_name)
     # m.print_timers()
 
-    return (failed > 0), data[-1]['simulation time']
+    if is_plk_exist:
+        return (failed > 0), data[-1]['simulation time']
+    else:
+        return False, -1.0
 def run_and_plot(case='mandel', scheme='non_stabilized'):
     ## only with rectangular mesh
     nt = 60
@@ -307,7 +323,8 @@ def run_test(args: list = []):
 #      ['terzaghi_two_layers', 'non_stabilized', 'rect'],
 #      ['terzaghi_two_layers', 'non_stabilized', 'wedge']]
 # ]
-#
+
 # for arg in test_args[0]:
 #     run_test(arg)
 
+# test(case='terzaghi', scheme='stabilized', mesh='rect')
