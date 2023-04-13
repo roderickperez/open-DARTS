@@ -645,14 +645,19 @@ test-windows-3.6-ODLS:
 ###################################################################################
 
 deploy-pypi:
+    # Run only for main branch
     only:
-      variables:
-        - $UPLOAD_PYPI == "true"
+        refs:
+            - main
     extends: .deploy-pypi
     variables:
         PYPI: 'pypi'
 
 deploy-testpypi:
+    # Run deploy only for main branch
+    only:
+        variables:
+            - $TESTPYPI == "1"
     extends: .deploy-pypi
     variables:
         PYPI: 'testpypi'
@@ -660,10 +665,6 @@ deploy-testpypi:
 # pick all whl ODLS-artifacts (windows/linux, different python versions) and upload to test pipy
 # TODO auto-increment package version (in darts-package/setup.py and .gitlab-ci.yml) and add git tag; now it is done manually
 .deploy-pypi:
-    # Run deploy only for main branch
-    only:
-        refs:
-            - main
     stage: deploy
     # just for twine
     image: python:3.9
