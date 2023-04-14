@@ -4,8 +4,9 @@ set lgn=%2
 set pwd=%3
 set commit=%4
 set odls=%5
+set py=%6
 
-set fname=%commit%_%odls%.zip
+set fname=%commit%_%odls%_%py%.zip
 echo %fname%
 
 "C:\Program files\7-Zip\7z.exe" a -r %fname% *.pkl
