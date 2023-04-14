@@ -651,8 +651,8 @@ test-windows-3.6-ODLS:
 deploy-pypi:
     # Run only for main branch
     only:
-        refs:
-            - main
+      variables:
+        - $PYPI == "1"
     extends: .deploy-pypi
     variables:
         PYPI: 'pypi'
