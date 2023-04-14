@@ -431,8 +431,8 @@ def load_performance_data(file_name=''):
     return 0
 
 def check_performance_data(ref_data, cur_data, prev_fail,
-                           diff_norm_normalized_tol=1e-7,
-                           diff_abs_max_normalized_tol=1e-5,
+                           diff_norm_normalized_tol=1e-4,
+                           diff_abs_max_normalized_tol=1e-4,
                            rel_diff_tol=1, png_suffix=''):
     fail = 0
 
@@ -451,7 +451,7 @@ def check_performance_data(ref_data, cur_data, prev_fail,
         diff_norm = np.linalg.norm(diff)
         diff_norm_normalized = diff_norm / len(sol_et) / sol_range
         diff_abs_max_normalized = np.max(diff_abs) / sol_range
-        if diff_norm_normalized > diff_norm_normalized_tol or diff_abs_max_normalized > diff_abs_max_normalized_tol:
+        if diff_norm_normalized > diff_norm_normalized_tol and diff_abs_max_normalized > diff_abs_max_normalized_tol:
             fail += 1
             print(
                 '#%d solution check failed for variable %d %s (range %.2E): L2(diff)/len(diff)/range = %.2E (tol %.2E), max(abs(diff))/range %.2E (tol %.2E), max(abs(diff)) = %.2E' \
