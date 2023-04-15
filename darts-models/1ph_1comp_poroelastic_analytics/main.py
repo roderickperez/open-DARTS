@@ -114,6 +114,7 @@ def run_timestep_python(m, dt, t):
     self.timer.node['simulation'].stop()
     return converged
 def test(case='mandel', scheme='non_stabilized', mesh='rect'):
+    print('case', case, ', scheme', scheme, ', mesh', mesh)
     import platform
 
     nt = 20
