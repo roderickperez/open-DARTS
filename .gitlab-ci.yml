@@ -651,8 +651,8 @@ test-windows-3.6-ODLS:
 deploy-pypi:
     # Run only for main branch
     only:
-      variables:
-        - $PYPI == "1"
+        variables:
+            - $UPLOAD_PYPI == "1"
     extends: .deploy-pypi
     variables:
         PYPI: 'pypi'
@@ -661,7 +661,7 @@ deploy-testpypi:
     # Run deploy only for main branch
     only:
         variables:
-            - $TESTPYPI == "1"
+            - $UPLOAD_TEST_PYPI == "1"
     extends: .deploy-pypi
     variables:
         PYPI: 'testpypi'
