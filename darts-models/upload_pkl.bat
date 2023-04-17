@@ -6,6 +6,8 @@ set commit=%4
 set odls=%5
 set py=%6
 
+if /I !UPLOAD_PKL! NEQ 1 exit
+
 set fname=%commit%_%odls%_%py%.zip
 echo %fname%
 
@@ -15,3 +17,4 @@ rem if (-not (Test-Path $target_dir)) {mkdir $target_dir}
 copy %fname% \\darts-ci.citg.tudelft.nl\opendarts-private-artifacts\pkl_win\
 
 del %fname%
+
