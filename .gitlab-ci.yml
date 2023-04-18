@@ -649,16 +649,17 @@ test-windows-3.6-ODLS:
 ###################################################################################
 
 deploy-pypi:
-    # Run only for main branch
-    only:
-        variables:
-            - $UPLOAD_PYPI == "1"
+    # Publish the release
+    # Runs only for the main branch and if tag has a pattern: v#.#.#, for example "v1.2.3"
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" && $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .deploy-pypi
     variables:
         PYPI: 'pypi'
 
 deploy-testpypi:
-    # Run deploy only for main branch
+    # Test publishing the release
+    # Runs only manually, if variable UPLOAD_TEST_PYPI set to 1
     only:
         variables:
             - $UPLOAD_TEST_PYPI == "1"
