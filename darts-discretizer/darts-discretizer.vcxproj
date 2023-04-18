@@ -69,13 +69,28 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>src;../darts-engines/lib/pybind11;$(PYTHONPATH)\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>src;$(PYTHONPATH)/include;../darts-engines/src;../darts-engines/src/interpolation;../darts-engines/lib/darts_linear_solvers/include;../darts-engines/lib/pybind11</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(PYTHONPATH)\libs</AdditionalLibraryDirectories>
     </Link>
+    <PreBuildEvent>
+      <Command>echo #include "discretizer_build_info.h"&gt; src\discretizer_build_info.cpp
+FOR /F "tokens=* USEBACKQ" %%F IN (`date /t`) DO (SET mydate=%%F)
+set mytime=%time:~0,8%
+echo const char* DISCRETIZER_BUILD_DATE = "%mydate%%mytime%"; &gt;&gt;src\discretizer_build_info.cpp
+echo const char*  DISCRETIZER_BUILD_MACHINE = "%USERNAME%@%COMPUTERNAME%"; &gt;&gt; src\discretizer_build_info.cpp
+FOR /F "tokens=* USEBACKQ" %%F IN (`git describe --always --dirty --first-parent`) DO (SET var=%%F)
+echo const char*  DISCRETIZER_BUILD_GIT_HASH = "%var%"; &gt;&gt; src\discretizer_build_info.cpp
+type src\discretizer_build_info.cpp</Command>
+    </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>cd src
+copy /b discretizer_build_info.cpp+,, &gt;NUL</Command>
+      <Message>Forcing rebuild of build info file</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -85,7 +100,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>src;../darts-engines/lib/pybind11;$(PYTHONPATH)\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>src;$(PYTHONPATH)/include;../darts-engines/src;../darts-engines/src/interpolation;../darts-engines/lib/darts_linear_solvers/include;../darts-engines/lib/pybind11</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -94,9 +109,25 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(PYTHONPATH)\libs</AdditionalLibraryDirectories>
     </Link>
+    <PreBuildEvent>
+      <Command>echo #include "discretizer_build_info.h"&gt; src\discretizer_build_info.cpp
+FOR /F "tokens=* USEBACKQ" %%F IN (`date /t`) DO (SET mydate=%%F)
+set mytime=%time:~0,8%
+echo const char* DISCRETIZER_BUILD_DATE = "%mydate%%mytime%"; &gt;&gt;src\discretizer_build_info.cpp
+echo const char*  DISCRETIZER_BUILD_MACHINE = "%USERNAME%@%COMPUTERNAME%"; &gt;&gt; src\discretizer_build_info.cpp
+FOR /F "tokens=* USEBACKQ" %%F IN (`git describe --always --dirty --first-parent`) DO (SET var=%%F)
+echo const char*  DISCRETIZER_BUILD_GIT_HASH = "%var%"; &gt;&gt; src\discretizer_build_info.cpp
+type src\discretizer_build_info.cpp</Command>
+    </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>cd src
+copy /b discretizer_build_info.cpp+,, &gt;NUL</Command>
+      <Message>Forcing rebuild of build info file</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\discretizer.cpp" />
+    <ClCompile Include="src\discretizer_build_info.cpp" />
     <ClCompile Include="src\mesh\elem.cpp" />
     <ClCompile Include="src\mesh\mesh.cpp" />
     <ClCompile Include="src\mesh\mshio\element_utils.cpp" />
@@ -127,6 +158,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\discretizer.h" />
+    <ClInclude Include="src\discretizer_build_info.h" />
     <ClInclude Include="src\linalg\matrix.h" />
     <ClInclude Include="src\linalg\vector3.h" />
     <ClInclude Include="src\mesh\elem.h" />

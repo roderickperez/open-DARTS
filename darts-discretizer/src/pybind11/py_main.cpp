@@ -1,4 +1,5 @@
 #include "py_global.h"
+#include "discretizer_build_info.h"
 #include "utils.h"
 
 namespace py = pybind11;
@@ -7,6 +8,12 @@ void pybind_elem(py::module &m);
 void pybind_mesh(py::module &m);
 void pybind_discretizer(py::module &m);
 void pybind_linalg(py::module &m);
+
+
+void print_build_info()
+{
+	std::cout << "darts-discretizer built on " << DISCRETIZER_BUILD_DATE << " by " << DISCRETIZER_BUILD_MACHINE << " from " << DISCRETIZER_BUILD_GIT_HASH << std::endl;
+}
 
 PYBIND11_MODULE(discretizer, m)
 {
@@ -31,6 +38,7 @@ PYBIND11_MODULE(discretizer, m)
 	
 	m.def("load_single_float_keyword", utils::load_single_keyword<value_t>);
 	m.def("load_single_int_keyword", utils::load_single_keyword<index_t>);
+	m.def("print_build_info", &print_build_info, "Print build information: date, user, machine, git hash");
 
 	pybind_elem(m);
 	pybind_linalg(m);

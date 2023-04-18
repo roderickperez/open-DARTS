@@ -103,6 +103,9 @@
     <ClCompile Include="src\opm\grid\cpgpreprocess\uniquepoints.c">
       <Filter>Source Files\opm</Filter>
     </ClCompile>
+    <ClCompile Include="src\discretizer_build_info.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pybind11\py_discretizer.h">
@@ -211,6 +214,9 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="src\linalg\vector3.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\discretizer_build_info.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
