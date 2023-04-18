@@ -10,7 +10,7 @@ fi
 fname="$commit"_"$odls"_"$py.tar.gz"
 echo $fname
 
-tar -czf $fname ./*/*.pkl
+tar -czf $fname ./*/*.pkl ./*/ref/*.pkl
 
 #smbclient -U $2%$3 //$1/opendarts-private-artifacts -c "prompt OFF;mkdir pkl"
 smbclient -U $2%$3 //$1/opendarts-private-artifacts -c "put $fname" -D=pkl

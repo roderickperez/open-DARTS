@@ -6,7 +6,7 @@ set commit=%4
 set odls=%5
 set py=%6
 
-if /I !UPLOAD_PKL! NEQ 1 exit
+if /I %UPLOAD_PKL% NEQ 1 exit
 
 set fname=%commit%_%odls%_%py%.zip
 echo %fname%
