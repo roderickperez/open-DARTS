@@ -27,6 +27,11 @@
 #include <string.h>
 #include <math.h>
 
+#ifdef _MSC_VER
+    #define FSCANF(args...) fscanf_s(args)
+#else
+    #define FSCANF(args...) fscanf(args)
+#endif
 
 void
 destroy_grid(struct UnstructuredGrid *g)
@@ -184,7 +189,11 @@ input_error(FILE *fp, const char * const err)
     char errmsg[100];
 
     if (ferror(fp)) {
+#ifdef _MSC_VER
         fprintf(stderr, "%s: %s\n", err, strerror_s(errmsg, errmsglen, save_errno));
+#else
+        fprintf(stderr, "%s: %s\n", err, strerror(save_errno));
+#endif
         clearerr(fp);
     }
     else if (feof(fp)) {
@@ -207,14 +216,14 @@ allocate_grid_from_file(FILE *fp, int *has_tag, int *has_indexmap)
     save_errno = errno;
 
     i = 0;
-    while ((i < GRID_NMETA) && (fscanf_s(fp, " %lu", &tmp) == 1)) {
+    while ((i < GRID_NMETA) && (FSCANF(fp, " %lu", &tmp) == 1)) {
         dimens[i] = tmp;
 
         i += 1;
     }
 
     if (i == GRID_NMETA) {
-        if (fscanf_s(fp, "%d %d", has_tag, has_indexmap) == 2) {
+        if (FSCANF(fp, "%d %d", has_tag, has_indexmap) == 2) {
             G = allocate_grid(dimens[GRID_NDIMS]     ,
                               dimens[GRID_NCELLS]    ,
                               dimens[GRID_NFACES]    ,
@@ -242,7 +251,7 @@ allocate_grid_from_file(FILE *fp, int *has_tag, int *has_indexmap)
 
                 i = 0;
                 while ((i < dimens[GRID_NDIMS]) &&
-                       (fscanf_s(fp, "%d", & G->cartdims[ i ]) == 1)) {
+                       (FSCANF(fp, "%d", & G->cartdims[ i ]) == 1)) {
                     i += 1;
                 }
 
@@ -290,7 +299,7 @@ read_grid_nodes(FILE *fp, struct UnstructuredGrid *G)
 
     i = 0;
     while ((i < n) &&
-           (fscanf_s(fp, " %lf", & G->node_coordinates[ i ]) == 1)) {
+           (FSCANF(fp, " %lf", & G->node_coordinates[ i ]) == 1)) {
         i += 1;
     }
 
@@ -317,7 +326,7 @@ read_grid_faces(FILE *fp, struct UnstructuredGrid *G)
     /* G->face_nodepos */
     i = 0;
     while ((i < nf + 1) &&
-           (fscanf_s(fp, " %d", & G->face_nodepos[ i ]) == 1)) {
+           (FSCANF(fp, " %d", & G->face_nodepos[ i ]) == 1)) {
         i += 1;
     }
     ok = i == nf + 1;
@@ -330,7 +339,7 @@ read_grid_faces(FILE *fp, struct UnstructuredGrid *G)
         nfn = G->face_nodepos[ nf ];
 
         i = 0;
-        while ((i < nfn) && (fscanf_s(fp, " %d", & G->face_nodes[ i ]) == 1)) {
+        while ((i < nfn) && (FSCANF(fp, " %d", & G->face_nodes[ i ]) == 1)) {
             i += 1;
         }
 
@@ -343,7 +352,7 @@ read_grid_faces(FILE *fp, struct UnstructuredGrid *G)
     if (ok) {
         /* G->face_cells */
         i = 0;
-        while ((i < 2 * nf) && (fscanf_s(fp, " %d", & G->face_cells[ i ]) == 1)) {
+        while ((i < 2 * nf) && (FSCANF(fp, " %d", & G->face_cells[ i ]) == 1)) {
             i += 1;
         }
 
@@ -356,7 +365,7 @@ read_grid_faces(FILE *fp, struct UnstructuredGrid *G)
     if (ok) {
         /* G->face_areas */
         i = 0;
-        while ((i < nf) && (fscanf_s(fp, " %lf", & G->face_areas[ i ]) == 1)) {
+        while ((i < nf) && (FSCANF(fp, " %lf", & G->face_areas[ i ]) == 1)) {
             i += 1;
         }
 
@@ -374,7 +383,7 @@ read_grid_faces(FILE *fp, struct UnstructuredGrid *G)
         n *= nf;
 
         i = 0;
-        while ((i < n) && (fscanf_s(fp, " %lf", & G->face_centroids[ i ]) == 1)) {
+        while ((i < n) && (FSCANF(fp, " %lf", & G->face_centroids[ i ]) == 1)) {
             i += 1;
         }
 
@@ -392,7 +401,7 @@ read_grid_faces(FILE *fp, struct UnstructuredGrid *G)
         n *= nf;
 
         i = 0;
-        while ((i < n) && (fscanf_s(fp, " %lf", & G->face_normals[ i ]) == 1)) {
+        while ((i < n) && (FSCANF(fp, " %lf", & G->face_normals[ i ]) == 1)) {
             i += 1;
         }
 
@@ -421,7 +430,7 @@ read_grid_cells(FILE *fp, int has_tag, int has_indexmap,
 
     /* G->cell_facepos */
     i = 0;
-    while ((i < nc + 1) && (fscanf_s(fp, " %d", & G->cell_facepos[ i ]) == 1)) {
+    while ((i < nc + 1) && (FSCANF(fp, " %d", & G->cell_facepos[ i ]) == 1)) {
         i += 1;
     }
     ok = i == nc + 1;
@@ -438,7 +447,7 @@ read_grid_cells(FILE *fp, int has_tag, int has_indexmap,
             assert (G->cell_facetag != NULL);
 
             while ((i < ncf) &&
-                   (fscanf_s(fp, " %d %d",
+                   (FSCANF(fp, " %d %d",
                            & G->cell_faces  [ i ],
                            & G->cell_facetag[ i ]) == 2)) {
                 i += 1;
@@ -446,7 +455,7 @@ read_grid_cells(FILE *fp, int has_tag, int has_indexmap,
         }
         else {
             while ((i < ncf) &&
-                   (fscanf_s(fp, " %d", & G->cell_faces[ i ]) == 1)) {
+                   (FSCANF(fp, " %d", & G->cell_faces[ i ]) == 1)) {
                 i += 1;
             }
         }
@@ -464,14 +473,14 @@ read_grid_cells(FILE *fp, int has_tag, int has_indexmap,
 
             if (G->global_cell != NULL) {
                 while ((i < nc) &&
-                       (fscanf_s(fp, " %d", & G->global_cell[ i ]) == 1)) {
+                       (FSCANF(fp, " %d", & G->global_cell[ i ]) == 1)) {
                     i += 1;
                 }
             }
             else {
                 int discard;
 
-                while ((i < nc) && (fscanf_s(fp, " %d", & discard) == 1)) {
+                while ((i < nc) && (FSCANF(fp, " %d", & discard) == 1)) {
                     i += 1;
                 }
             }
@@ -490,7 +499,7 @@ read_grid_cells(FILE *fp, int has_tag, int has_indexmap,
     if (ok) {
         /* G->cell_volumes */
         i = 0;
-        while ((i < nc) && (fscanf_s(fp, " %lf", & G->cell_volumes[ i ]) == 1)) {
+        while ((i < nc) && (FSCANF(fp, " %lf", & G->cell_volumes[ i ]) == 1)) {
             i += 1;
         }
 
@@ -508,7 +517,7 @@ read_grid_cells(FILE *fp, int has_tag, int has_indexmap,
         n *= nc;
 
         i = 0;
-        while ((i < n) && (fscanf_s(fp, " %lf", & G->cell_centroids[ i ]) == 1)) {
+        while ((i < n) && (FSCANF(fp, " %lf", & G->cell_centroids[ i ]) == 1)) {
             i += 1;
         }
 
@@ -534,8 +543,11 @@ read_grid(const char *fname)
     int has_tag, has_indexmap, ok;
 
     save_errno = errno;
-
+#ifdef _MSC_VER
     fopen_s(&fp, fname, "rt");
+#else
+    fp = fopen(fname, "rt");
+#endif
     if (fp != NULL) {
         G = allocate_grid_from_file(fp, & has_tag, & has_indexmap);
 
