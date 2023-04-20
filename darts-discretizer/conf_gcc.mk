@@ -10,3 +10,16 @@ ARCHFLAGS   	= cr
 RANLIB      	= /usr/bin/ranlib
 
 OMP_FLAG    	= -fopenmp
+
+# Setup build for using opendarts-linear-solvers or deprecated version of linear-solvers
+ifndef $(USE_OPENDARTS_LINEAR_SOLVERS)
+USE_OPENDARTS_LINEAR_SOLVERS = true
+endif
+
+ifeq ($(USE_OPENDARTS_LINEAR_SOLVERS), true)
+$(info Building darts-engines with opendarts-linear-solvers)
+CXXFLAGS += -D OPENDARTS_LINEAR_SOLVERS
+CXXFLAGS_DEBUG += -D OPENDARTS_LINEAR_SOLVERS
+else
+$(info Building darts-engines with bos linear-solvers)
+endif

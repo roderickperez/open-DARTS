@@ -52,7 +52,12 @@ cd ..
 # compile discretizer
 cd darts-discretizer
 make clean
-make -j2
+if [ $ODLS == "0" ] #no cmd arguments
+then
+	make $NT USE_OPENDARTS_LINEAR_SOLVERS=false
+else
+	make $NT USE_OPENDARTS_LINEAR_SOLVERS=true
+fi
 
 if [ $? == 0 ]
 then
