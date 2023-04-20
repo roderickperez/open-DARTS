@@ -235,7 +235,7 @@ build-windows-3.6-ODLS:
         - export PY_SUFFIX=`python -c "import importlib.machinery; print(importlib.machinery.EXTENSION_SUFFIXES[0])"`
         - pip install wheel        
     script:
-        - echo "build engine.pyd on linux started with ODLS=$ODLS"
+        - echo "build *.pyd on linux started with ODLS=$ODLS"
         - ./build_darts.sh "$ODLS"
     artifacts:
       paths:
@@ -257,7 +257,7 @@ build-windows-3.6-ODLS:
         - $env:PY_SUFFIX=python.exe -c "import importlib.machinery; print(importlib.machinery.EXTENSION_SUFFIXES[0])"
         # make sure wheel package could be installed
         - pip install wheel
-        - echo 'build engines.pyd ODLS for windows started'
+        - echo 'build *.pyd ODLS for windows started'
 
         # build opendarts linear solvers step
         - cd opendarts_linear_solvers
@@ -277,6 +277,10 @@ build-windows-3.6-ODLS:
         # Compile engines
         - cd darts-engines
         - msbuild darts-engines.vcxproj /p:Configuration=Release_ODLS /p:Platform=x64 -maxCpuCount:2 
+        - cd ..
+        # Compile discretizer
+        - cd darts-discretizer
+        - msbuild darts-discretizer.vcxproj /p:Configuration=Release /p:Platform=x64 -maxCpuCount:2 
         - cd ..
         # Build whl package
         - echo 'build darts.whl for windows started'
@@ -307,11 +311,15 @@ build-windows-3.6-ODLS:
         - $env:PY_SUFFIX=python.exe -c "import importlib.machinery; print(importlib.machinery.EXTENSION_SUFFIXES[0])"
         # make sure wheel package could be installed
         - pip install wheel
-        - echo 'build engines.pyd for windows started'
+        - echo 'build *.pyd for windows started'
         - cd darts-engines
         - .\update_private_artifacts.bat $env:SMBNAME $env:SMBLOGIN $env:SMBPASS
         # Compile engines
         - msbuild darts-engines.vcxproj /p:Configuration=ReleaseMT /p:Platform=x64 -maxCpuCount:2 
+        - cd ..
+        # Compile discretizer
+        - cd darts-discretizer
+        - msbuild darts-discretizer.vcxproj /p:Configuration=Release /p:Platform=x64 -maxCpuCount:2 
         - cd ..
         # Build whl package
         - echo 'build darts.whl for windows started'

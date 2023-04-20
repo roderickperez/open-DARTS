@@ -49,6 +49,21 @@ fi
 
 cd ..
 
+# compile discretizer
+cd darts-discretizer
+make clean
+make -j2
+
+if [ $? == 0 ]
+then
+    echo "make successfull"
+else
+    echo "make failed"
+    exit 1
+fi
+
+cd ..
+
 # build darts.whl
 cd darts-package
 python3 setup.py clean
