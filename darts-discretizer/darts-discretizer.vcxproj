@@ -67,7 +67,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions);OPENDARTS_LINEAR_SOLVERS</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>src;$(PYTHONPATH)/include;../darts-engines/src;../darts-engines/src/interpolation;../darts-engines/lib/darts_linear_solvers/include;../darts-engines/lib/pybind11</AdditionalIncludeDirectories>
     </ClCompile>
@@ -98,7 +98,7 @@ copy /b discretizer_build_info.cpp+,, &gt;NUL</Command>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions);OPENDARTS_LINEAR_SOLVERS</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>src;$(PYTHONPATH)/include;../darts-engines/src;../darts-engines/src/interpolation;../darts-engines/lib/darts_linear_solvers/include;../darts-engines/lib/pybind11</AdditionalIncludeDirectories>
     </ClCompile>
