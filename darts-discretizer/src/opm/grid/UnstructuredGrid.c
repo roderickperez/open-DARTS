@@ -28,7 +28,7 @@
 #include <math.h>
 
 #ifdef _MSC_VER
-    #define FSCANF(args...) fscanf_s(args)
+    #define FSCANF(...) fscanf_s(__VA_ARGS__)
 #else
     #define FSCANF(args...) fscanf(args)
 #endif
