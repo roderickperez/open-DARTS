@@ -150,7 +150,7 @@ def run_single_test(dir, module_name, args, ret_value):
         # perform required procedures
         print("Running {:<30}".format(dir + ': ' + args_str), flush=True)
         log_file = os.path.join(os.path.join(os.path.abspath(os.pardir), '_logs'),
-                                str(dir) + args_str + '.log')
+                                str(dir) + '_' + args_str + '.log')
         f = open(log_file, 'w')
         f.close()
         log_stream = redirect_all_output(log_file)
