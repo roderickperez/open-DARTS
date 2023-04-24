@@ -1110,7 +1110,7 @@ void pm_discretizer::reconstruct_gradients_per_cell(value_t dt)
 		//	printf("Pressure gradients in cell %d depend on displacements!\n", cell_id);
 	}
 	
-	printf("Pressure gradients depend on displacements with a max coeffcient: %.3e\n", max_dgrad_p_du);
+	printf("Pressure gradients depend on displacements with a max coefficient: %.3e\n", max_dgrad_p_du);
 
 	printf("Gradient reconstruction was done!\n");
 }
