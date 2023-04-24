@@ -449,8 +449,8 @@ def check_performance_data(ref_data, cur_data, prev_fail,
         sol_cur = cur_data['solution'][v:nb * nv:nv]
         sol_range = np.max(sol_et) - np.min(sol_et) + 1.e-12
         # replace small values in solution with eps to avoid difference in normalized diff
-        #sol_et[np.fabs(sol_et) < get_eps(vars[v])] = 0.
-        #sol_cur[np.fabs(sol_cur) < get_eps(vars[v])] = 0.
+        sol_et[np.fabs(sol_et) < get_eps(vars[v])] = 0.
+        sol_cur[np.fabs(sol_cur) < get_eps(vars[v])] = 0.
         diff = sol_cur - sol_et
         diff_abs = np.abs(diff)
         diff_max_abs = diff_abs.max()
