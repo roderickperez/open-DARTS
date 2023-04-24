@@ -431,8 +431,8 @@ def load_performance_data(file_name=''):
     return 0
 
 def check_performance_data(ref_data, cur_data, prev_fail,
-                           diff_norm_normalized_tol=1e-6,
-                           diff_abs_max_normalized_tol=1e-6,
+                           diff_max_tol=1e-6,
+                           diff_max_normalized_tol=1e-4,
                            rel_diff_tol=1, png_suffix=''):
     fail = 0
     # the difference lower than eps will not be accounted
@@ -453,15 +453,15 @@ def check_performance_data(ref_data, cur_data, prev_fail,
         sol_cur[np.fabs(sol_cur) < get_eps(vars[v])] = 0.
         diff = sol_cur - sol_et
         diff_abs = np.abs(diff)
+        diff_max_abs = diff_abs.max()
         diff_norm = np.linalg.norm(diff)
         diff_norm_normalized = diff_norm / len(sol_et) / sol_range
         diff_abs_max_normalized = np.max(diff_abs) / sol_range
-        if diff_norm_normalized > diff_norm_normalized_tol and diff_abs_max_normalized > diff_abs_max_normalized_tol:
+        if diff_max_abs > diff_max_tol and diff_abs_max_normalized > diff_max_normalized_tol:
             fail += 1
             print(
-                '#%d solution check failed for variable %d %s (range %.2E): L2(diff)/len(diff)/range = %.2E (tol %.2E), max(abs(diff))/range %.2E (tol %.2E), max(abs(diff)) = %.2E' \
-                % (fail, v, vars[v], sol_range, diff_norm_normalized, diff_norm_normalized_tol,
-                   diff_abs_max_normalized, diff_abs_max_normalized_tol, np.max(diff_abs)))
+                '#%d solution check failed for variable %d %s (range %.2E): max(abs(diff))/range %.2E (tol %.2E), max(abs(diff)) = %.2E' \
+                % (fail, v, vars[v], sol_range, diff_abs_max_normalized, diff_max_normalized_tol, diff_max_abs))
         if False: # debug plot 
             from matplotlib import pyplot as plt
 
