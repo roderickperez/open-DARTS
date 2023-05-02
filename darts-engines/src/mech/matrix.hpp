@@ -109,13 +109,8 @@ namespace linalg
 			return false;
 		};
 		bool inv();
-		bool lu(std::valarray<size_t>& ri, T* pDet);
 		bool svd(Matrix<T>& vc, std::valarray<T>& w);
-		T det() const;
-		bool eigen(std::valarray<T>& rev, std::valarray<T>& iev) const;
 	protected:
-		void balanc(Matrix<T>& v, bool eivec);
-		bool hqr2(std::valarray<T>& d, std::valarray<T>& e, Matrix<T>& v, bool eivec);
 	};
 	template<typename T>
 	Matrix<T> operator-(const Matrix<T>& m)
