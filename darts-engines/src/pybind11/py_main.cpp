@@ -63,6 +63,24 @@ PYBIND11_MODULE(engines, m)
   m.doc() = "Delft Advanced Research Terra Simulator";
   //auto m1 = m.def_submodule("engines", "Collection of DARTS simulators based on OBL approach");
   py::bind_vector<std::vector<index_t>>(m, "index_vector", py::module_local(true), py::buffer_protocol())
+      .def(py::pickle(
+          [](const std::vector<index_t>& p) { // __getstate__
+              py::tuple t(p.size());
+              for (int i = 0; i < p.size(); i++)
+                  t[i] = p[i];
+
+              return t;
+          },
+          [](py::tuple t) { // __setstate__
+              std::vector<index_t> p(t.size());
+
+              for (int i = 0; i < p.size(); i++)
+                  p[i] = t[i].cast<index_t>();
+
+              //p.setExtra(t[1].cast<int>());
+
+              return p;
+          })) \
       .def("resize",
           (void (std::vector<index_t>::*) (size_t count)) & std::vector<index_t>::resize,
           "changes the number of elements stored");

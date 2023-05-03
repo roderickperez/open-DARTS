@@ -135,13 +135,13 @@ namespace pm
 	};
 
 	enum Scheme { DEFAULT, APPLY_EIGEN_SPLITTING, APPLY_EIGEN_SPLITTING_NEW, AVERAGE };
+	
 	class pm_discretizer
 	{
 	public:
 		struct Gradients { std::vector<index_t> stencil; Matrix mat; Matrix rhs; };
 		struct InnerMatrices { Matrix T1, T2, G1, G2, A1, A2, Q1, Q2, Th1, Th2, R1, R2, y1, y2, S1, S2;	value_t r1, r2, beta_stab1, beta_stab2, k_stab1, k_stab2, c_stab1, c_stab2; };
 	protected:
-		int n_matrix, n_cells, n_fracs, n_faces, nb_faces;
 		static const value_t darcy_constant, heat_cond_constant;
 		std::map<index_t, Matrix> pre_A, pre_rest, pre_rhs_mult;
 		std::map<index_t, Matrix> pre_Ad, pre_restd, pre_rhs_multd;
@@ -186,6 +186,7 @@ namespace pm
 
 		std::vector<Approximation> fluxes, fluxes_th_cond, face_unknowns;
 	public:
+		int n_matrix, n_cells, n_fracs, n_faces, nb_faces;
 		static const Matrix I3;
 		static const Matrix I4;
 
@@ -217,7 +218,6 @@ namespace pm
 		std::vector<Matrix33> diffs;
 		std::vector<Matrix33> biots;
 		std::vector<Matrix> th_expns;
-		std::vector<Matrix33> th_conds;
 		std::vector<Stiffness> stfs;
 		std::vector<Matrix> cell_centers, u0;
 		std::vector<Matrix> bc, bc_prev;
