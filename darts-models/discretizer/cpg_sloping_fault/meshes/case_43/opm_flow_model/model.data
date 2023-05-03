@@ -1,6 +1,6 @@
 
 TITLE
-   case_201
+   case_43
 
 DIMENS
    10 10 10 /
@@ -75,7 +75,7 @@ TRANX TRANY TRANZ DX DY DZ
 PROPS
 -- -------------------------------------------------------------------------
 INCLUDE
-'../../../../models/cpg_test_model1/physics_do.in'
+'../../../pvt.in'
 /
 
 

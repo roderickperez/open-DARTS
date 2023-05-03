@@ -13,57 +13,61 @@ from cpg_tools import save_array
 
 # inherit from darts-models/2ph_do model to use its physics; self.reservoir will be replaced in this file
 # add path to import
-import os, sys, inspect
-current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-darts_dir = os.path.dirname(os.path.dirname(current_dir))  # 2 levels up
-model_dir = os.path.join(darts_dir, '2ph_do')
-sys.path.insert(0, model_dir)
+#import os, sys, inspect
+#current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+#darts_dir = os.path.dirname(os.path.dirname(current_dir))  # 2 levels up
+#model_dir = os.path.join(darts_dir, '2ph_do')
+#sys.path.insert(0, model_dir)
 from model import Model as BaseModel
 
-class Model(BaseModel):
+from model_3ph_bo import Model as BO_Model
+class Model(BO_Model):
     def __init__(self, discr_type='cpp', gridfile='', propfile='', sch_fname='', n_points=1000):
         # measure time spend on reading/initialization
         #self.timer.node["initialization"].start()
         # call base class constructor
-        super().__init__()
+        super().__init__(pvt='pvt.in')
         self.n_points = n_points
 
         self.discr_type = discr_type
+        self.gridfile = gridfile
+        self.propfile = propfile
+        self.sch_fname = sch_fname
+
         if discr_type == 'cpp':
-            self.reservoir = CPG_Reservoir(gridfile, propfile)
+            self.reservoir = CPG_Reservoir(self.gridfile, self.propfile)
         elif discr_type == 'python':
             self.init_struct_rsv()
-
         #self.timer.node["initialization"].stop()
     def init_struct_rsv(self):
         self.dims_cpp = index_vector_discr()
-        load_single_int_keyword(self.dims_cpp, gridfile, "SPECGRID", 3)
+        load_single_int_keyword(self.dims_cpp, self.gridfile, "SPECGRID", 3)
         self.dims = np.array(self.dims_cpp, copy=False)
 
         self.permx_cpp, self.permy_cpp, self.permz_cpp = value_vector_discr(), value_vector_discr(), value_vector_discr()
-        load_single_float_keyword(self.permx_cpp, propfile, 'PERMX', -1)
-        load_single_float_keyword(self.permy_cpp, propfile, 'PERMY', -1)
+        load_single_float_keyword(self.permx_cpp, self.propfile, 'PERMX', -1)
+        load_single_float_keyword(self.permy_cpp, self.propfile, 'PERMY', -1)
         self.permx = np.array(self.permx_cpp, copy=False)
         self.permy = np.array(self.permy_cpp, copy=False)
         for perm_str in ['PERMEABILITYXY', 'PERMEABILITY']:
             if self.permx.size == 0 or self.permy.size == 0:
-                load_single_float_keyword(self.permx_cpp, propfile, perm_str, -1)
+                load_single_float_keyword(self.permx_cpp, self.propfile, perm_str, -1)
                 self.permy_cpp = self.permx_cpp
                 self.permx = np.array(self.permx_cpp, copy=False)
                 self.permy = np.array(self.permy_cpp, copy=False)
-        load_single_float_keyword(self.permz_cpp, propfile, 'PERMZ', -1)
+        load_single_float_keyword(self.permz_cpp, self.propfile, 'PERMZ', -1)
         self.permz = np.array(self.permz_cpp, copy=False)
 
         self.poro_cpp = value_vector_discr()
-        load_single_float_keyword(self.poro_cpp, propfile, 'PORO', -1)
+        load_single_float_keyword(self.poro_cpp, self.propfile, 'PORO', -1)
         self.poro = np.array(self.poro_cpp, copy=False)
 
         self.coord_cpp = value_vector_discr()
-        load_single_float_keyword(self.coord_cpp, gridfile, 'COORD', -1)
+        load_single_float_keyword(self.coord_cpp, self.gridfile, 'COORD', -1)
         self.coord = np.array(self.coord_cpp, copy=False)
 
         self.zcorn_cpp = value_vector_discr()
-        load_single_float_keyword(self.zcorn_cpp, gridfile, 'ZCORN', -1)
+        load_single_float_keyword(self.zcorn_cpp, self.gridfile, 'ZCORN', -1)
         self.zcorn = np.array(self.zcorn_cpp, copy=False)
 
         self.actnum_cpp = index_vector_discr()
@@ -94,13 +98,9 @@ class Model(BaseModel):
                                          is_cpg=True)
 
     def set_initial_conditions(self):
-        self.physics.set_uniform_initial_conditions(self.reservoir.mesh, uniform_pressure=200, uniform_composition=[0.999])
+        self.physics.set_uniform_initial_conditions(self.reservoir.mesh, uniform_pressure=200,
+                                                    uniform_composition=[0.001225901537, 0.7711341309])
         #self.set_initial_pressure_from_file(self.gridfile)
-
-        # save initial array for geomech
-        p_mesh = np.array(self.reservoir.mesh.pressure, copy=True)
-        self.p_initial = p_mesh[:self.reservoir.mesh.n_res_blocks * 2] # nvars=2
-        #TODO save t_initial
 
     def set_initial_pressure_from_file(self, fname):
         # set initial pressure
