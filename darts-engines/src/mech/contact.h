@@ -130,8 +130,7 @@ namespace pm
 
 		contact();
 		~contact();
-		int init_geometry(index_t _fault_tag, pm_discretizer* _discr, conn_mesh* _mesh, std::vector<index_t>& _cell_ids);
-		int init_friction();
+		int init_friction(pm_discretizer* _discr, conn_mesh* _mesh);
 		int init_fault();
 		int init_local_iterations();
 

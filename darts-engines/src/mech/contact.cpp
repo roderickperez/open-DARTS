@@ -46,17 +46,11 @@ contact::~contact()
 		delete timer;
 	}
 }
-int contact::init_geometry(index_t _fault_tag, pm_discretizer* _discr, conn_mesh* _mesh, vector<index_t>& _cell_ids)
+int contact::init_friction(pm_discretizer* _discr, conn_mesh* _mesh)
 {
-	fault_tag = _fault_tag;
 	discr = _discr;
 	mesh = _mesh;
-	cell_ids = _cell_ids;
 
-	return 0;
-}
-int contact::init_friction()
-{
 	assert(mu0.size() == cell_ids.size());
 	assert(mu.size() == cell_ids.size());
 	

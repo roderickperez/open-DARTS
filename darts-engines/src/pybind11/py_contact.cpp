@@ -38,10 +38,9 @@ void pybind_contact(py::module &m)
 {
 	py::class_<contact>(m, "contact") \
 		.def(py::init<>()) \
-		.def("init_geometry", (int(contact::*)(index_t, pm_discretizer*, conn_mesh*, std::vector<index_t>&))& contact::init_geometry) \
 		.def("init_fault", (int(contact::*)())& contact::init_fault) \
 		.def("init_local_iterations", (int(contact::*)())& contact::init_local_iterations) \
-		.def("init_friction", (int(contact::*)())& contact::init_friction) \
+		.def("init_friction", (int(contact::*)(pm_discretizer*, conn_mesh*))& contact::init_friction) \
 		.def("set_state", &contact::set_state) \
 		.def_readwrite("cell_ids", &contact::cell_ids) \
 		.def_readwrite("f_scale", &contact::f_scale) \
