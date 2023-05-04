@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <ostream>
 #include <array>
+#include <numeric>
 #include <valarray>
 #include <assert.h>
 #include "globals.h"
@@ -226,75 +227,84 @@ namespace linalg
 	{
 		return (b >= T(0) ? abs(a) : -abs(a));
 	}
+	
 	template <typename T>
 	bool Matrix<T>::inv()
 	{
-		assert(M == N);
-		size_t n = M;
-		T *pv = &this->values[0];
-		size_t i, j, k, ipos, kpos;
+		assert(this->M == this->N);
 
-		std::valarray<size_t> ri(n);
-		for (i = 0; i < n; i++)
-			ri[i] = i;
+		T* ptr = &this->values[0];
+		T max_column, tmp;
+		index_t i, j, k, i_max, i_flat, j_flat;
 
-		for (k = 0; k < n; k++)
+		std::valarray<index_t> row_index(this->M);
+		std::iota(std::begin(row_index), std::end(row_index), 0);
+
+		for (i = 0; i < this->M; i++)
 		{
-			double ta, tb;
-			T a(0);
-
-			kpos = k * n;
-			i = k;
-			// Maximum over lower diagonal elements per column
-			ta = abs(pv[kpos + k]);
-			for (j = k + 1; j < n; j++)
-				if ((tb = abs(pv[j*n + k])) > ta)
-				{
-					ta = tb;
-					i = j;
-				}
-
-			//if (ta < epsilon(a))
-			//	return false;
-
-			// Swapping rows to put max over column to diagonal
-			if (i != k)
+			// looking for a maximum in each column
+			i_flat = i * this->N;
+			max_column = abs(ptr[i_flat + i]);
+			i_max = i;
+			for (j = i + 1; j < this->M; j++)
 			{
-				std::swap(ri[k], ri[i]);
-				for (ipos = i * n, j = 0; j < n; j++)
-					std::swap(pv[kpos + j], pv[ipos + j]);
+				tmp = abs(ptr[j * this->N + i]);
+				if (tmp > max_column)
+				{
+					i_max = j;
+					max_column = tmp;
+				}
 			}
 
-			// Divide by max
-			a = T(1) / pv[kpos + k];
-			pv[kpos + k] = T(1);
+			//if (max_column < epsilon(a))
+			//{
+			//	return false;
+			//}
 
-			for (j = 0; j < n; j++)
-				pv[kpos + j] *= a;
-
-			// Elimination
-			for (i = 0; i < n; i++)
+			// putting maximum to diagonal
+			if (i_max != i)
 			{
-				if (i != k)
+				std::swap(row_index[i_max], row_index[i]);
+				j_flat = i_max * this->N;
+				for (j = 0; j < this->N; j++)
 				{
-					ipos = i * n;
-					a = pv[ipos + k];
-					pv[ipos + k] = T(0);
-					for (j = 0; j < n; j++)
-						pv[ipos + j] -= a * pv[kpos + j];
+					std::swap(ptr[i_flat + j], ptr[j_flat + j]);
+				}
+			}
+
+			// divide by maximum value
+			tmp = T(1) / ptr[i_flat + i];
+			ptr[i_flat + i] = T(1);
+			for (j = 0; j < this->N; j++)
+			{
+				ptr[i_flat + j] *= tmp;
+			}
+
+			// elimination
+			for (j = 0; j < this->M; j++)
+			{
+				if (j != i)
+				{
+					j_flat = j * this->N;
+					tmp = ptr[j_flat + i];
+					ptr[j_flat + i] = T(0);
+					for (k = 0; k < this->N; k++)
+					{
+						ptr[j_flat + k] -= tmp * ptr[i_flat + k];
+					}
 				}
 			}
 		}
-		for (j = 0; j < n; j++)
+		// swapping columns back
+		for (j = 0; j < this->N; j++)
 		{
-			if (j != ri[j])         // Column is out of order
+			if (j != row_index[j])
 			{
-				k = j + 1;
-				while (j != ri[k])
-					k++;
-				for (i = 0; i < n; i++)
-					std::swap(pv[i*n + j], pv[i*n + k]);
-				std::swap(ri[j], ri[k]);
+				for (k = j + 1; j != row_index[k]; k++) {}
+				
+				for (i = 0; i < this->M; i++)
+					std::swap(ptr[i * this->N + j], ptr[i * this->N + k]);
+				std::swap(row_index[j], row_index[k]);
 			}
 		}
 		return true;
