@@ -57,7 +57,8 @@ setup(
     license='Apache',
 
     # Dependent packages (distributions)
-    install_requires=['matplotlib', 'numpy', 'numba', 'scipy', 'pandas', 'meshio', 'gmsh', 'plotly', 'xlrd', 'pykrige', 'openpyxl'],
+    install_requires=['matplotlib', 'numpy', 'numba', 'scipy', 'pandas', 'meshio', 'gmsh', 'iapws', 
+    'plotly', 'xlrd', 'pykrige', 'openpyxl'],
 
     classifiers=[
         'Programming Language :: Python :: 3',
