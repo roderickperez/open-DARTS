@@ -13,20 +13,22 @@ from cpg_tools import save_array
 
 # inherit from darts-models/2ph_do model to use its physics; self.reservoir will be replaced in this file
 # add path to import
-#import os, sys, inspect
-#current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-#darts_dir = os.path.dirname(os.path.dirname(current_dir))  # 2 levels up
-#model_dir = os.path.join(darts_dir, '2ph_do')
-#sys.path.insert(0, model_dir)
-from model import Model as BaseModel
+import os, sys, inspect
+current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+darts_dir = os.path.dirname(os.path.dirname(current_dir))  # 2 levels up
+model_dir = os.path.join(darts_dir, '2ph_do')
+#model_dir = os.path.join(darts_dir, 'Uniform_Brugge')
+sys.path.insert(0, model_dir)
+from model import Model as DO_Model
 
-from model_3ph_bo import Model as BO_Model
-class Model(BO_Model):
+#from model_3ph_bo import Model as BO_Model
+class Model(DO_Model):
     def __init__(self, discr_type='cpp', gridfile='', propfile='', sch_fname='', n_points=1000):
         # measure time spend on reading/initialization
         #self.timer.node["initialization"].start()
         # call base class constructor
-        super().__init__(pvt='pvt.in')
+        #super().__init__(pvt='physics.in')
+        super().__init__()
         self.n_points = n_points
 
         self.discr_type = discr_type
@@ -99,7 +101,8 @@ class Model(BO_Model):
 
     def set_initial_conditions(self):
         self.physics.set_uniform_initial_conditions(self.reservoir.mesh, uniform_pressure=200,
-                                                    uniform_composition=[0.001225901537, 0.7711341309])
+                                                    uniform_composition=[0.001])
+                                                    #uniform_composition=[0.001225901537, 0.7711341309])
         #self.set_initial_pressure_from_file(self.gridfile)
 
     def set_initial_pressure_from_file(self, fname):

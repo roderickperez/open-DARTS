@@ -77,12 +77,16 @@ class CPG_Reservoir:
         self.vtkobj = 0
         self.vtk_grid_type = 1
 
-    def discretize_cpg(self, gridfile, propfile):
-        frac_aper = 1.E-4
-        self.p_init = 350.0 #TODO
-        self.s_init = 0.2357
+    def discretize_cpg(self, gridfile: str, propfile: str):
+        '''
+        reads grid and reservoir properties, initialize mesh, creates discretizer object and computes
+        transmissibilities using two point flux approximation
+        :param gridfile: text file with DIMENS, COORD, ZCORN data (grdecl)
+        :param propfile: text file with PORO, PERM data (grdecl)
+        :return: None
+        '''
 
-        # physical tags from Gmsh scripts (see meshes/*.geo)
+        # empty dict just to pass to func
         displaced_tags = dict()
         displaced_tags[elem_loc.MATRIX] = set()
         displaced_tags[elem_loc.FRACTURE] = set()
