@@ -57,7 +57,7 @@ def run(discr_type : str, gridfile : str, propfile : str, sch_fname : str,
         if export_vtk:
             m.export_pro_vtk(vtk_filename)
 
-        m.save_cubes(os.path.join(model_dir, 'p_' + str(ti+1)), arr, arr_names)
+        #m.save_cubes(os.path.join(model_dir, 'p_' + str(ti+1)), arr, arr_names)
  
     m.print_timers()
     m.print_stat()
@@ -166,7 +166,7 @@ if __name__ == '__main__':
 
     # small grids
     cases_list = [43] # 10x10x10 sloping fault
-    cases_list = [1] # 10x10x10 sloping fault
+    # cases_list = [1] # 10x10x10 sloping fault
 
     # run all the  grids cases
     #cases_list = []
