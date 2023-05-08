@@ -33,7 +33,7 @@ def run(discr_type : str, gridfile : str, propfile : str, sch_fname : str,
     #    m.reservoir.discr.write_tran_cube(tran_fname, nnc_fname)
 
     # add wells
-    if False:
+    if True:
         m.add_wells(mode='read', sch_fname=sch_fname, verbose=True)#, well_index=1000) # add only perforations
         m.set_wells() # set well controls - for dap (case_201) only
     else:
@@ -57,7 +57,7 @@ def run(discr_type : str, gridfile : str, propfile : str, sch_fname : str,
         if export_vtk:
             m.export_pro_vtk(vtk_filename)
 
-        #m.save_cubes(os.path.join(model_dir, 'p_' + str(ti+1)), arr, arr_names)
+        m.save_cubes(os.path.join(model_dir, 'p_' + str(ti+1)))
  
     m.print_timers()
     m.print_stat()
@@ -92,7 +92,7 @@ def plot_total_rate_darts(darts_df_1, darts_df_2, opm_df, opm_smry, plot_names, 
     acc_df[name_plot_2] = 0
     for col in darts_df_1.columns:
         if search_str in col:
-            if (mode_suffix == 'prod' and 'INJ' not in col) or (mode_suffix != 'prod' and 'INJ' in col):
+            if ('INJ' not in col) or ('INJ' in col):
                 acc_df[name_plot_1] += darts_df_1[col]
                 acc_df[name_plot_2] += darts_df_2[col]
     acc_df[name_plot_1] = acc_df[name_plot_1].abs()
@@ -112,7 +112,7 @@ def plot_total_rate_darts(darts_df_1, darts_df_2, opm_df, opm_smry, plot_names, 
 
 def plot(time_data_1, time_data_2, plot_names, opm_csv_fname=None):
     plt.rc('font', size=12)
-    plt_list = [#(': oil rate',   'prod', 'OPM_FOPR'),
+    plt_list = [(': oil rate',   'prod', 'OPM_FOPR'),
                 (': water rate', 'prod', 'OPM_FWPR'),
                 (': water rate', 'inj',  'OPM_FWIR')]
 

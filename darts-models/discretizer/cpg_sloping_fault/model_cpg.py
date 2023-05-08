@@ -137,6 +137,12 @@ class Model(DO_Model):
             else:
                 w.control = self.physics.new_bhp_prod(100)
 
+    def set_wells(self):
+        for i, w in enumerate(self.reservoir.wells):
+            if "INJ" in w.name:
+                w.control = self.physics.new_bhp_inj(250, value_vector([0.999]))
+            else:
+                w.control = self.physics.new_bhp_prod(100)
 
     #TODO: combine this function with save_few_keywords
     def save_cubes(self, fname, arr_list = [], arr_names = []):
@@ -155,7 +161,7 @@ class Model(DO_Model):
         fname_suf = fname + '_' + suffix + '.grdecl'
 
         arr_list += [P]
-        arr_names += 'PRESSURE'
+        arr_names += ['PRESSURE']
 
         save_array(actnum, fname_suf, 'ACTNUM', actnum, 'w')
         for i in range(len(arr_list)):
