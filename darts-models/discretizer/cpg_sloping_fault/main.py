@@ -18,8 +18,7 @@ from cpg_tools import save_array, make_full_cube
 
 def run(discr_type : str, gridfile : str, propfile : str, sch_fname : str,
         dt : float, n_time_steps : int,
-        export_vtk=False,
-        only_1st_layer=False):
+        export_vtk=False):
     model_suffix = gridfile.split('/')[-2]
     model_dir = os.path.dirname(gridfile)
     vtk_filename = 'Result_' + model_suffix + '_' + discr_type
@@ -28,10 +27,10 @@ def run(discr_type : str, gridfile : str, propfile : str, sch_fname : str,
     m = Model(discr_type=discr_type, gridfile=gridfile, propfile=propfile, sch_fname=sch_fname)
 
     # debug
-    if discr_type == 'cpp':
-        tran_fname = os.path.join(model_dir, 'tran_cpg.grdecl')
-        nnc_fname = os.path.join(model_dir, 'nnc.txt')
-        m.reservoir.discr.write_tran_cube(tran_fname, nnc_fname)
+    #if discr_type == 'cpp':
+    #    tran_fname = os.path.join(model_dir, 'tran_cpg.grdecl')
+    #    nnc_fname = os.path.join(model_dir, 'nnc.txt')
+    #    m.reservoir.discr.write_tran_cube(tran_fname, nnc_fname)
 
     # add wells
     if False:
@@ -58,7 +57,7 @@ def run(discr_type : str, gridfile : str, propfile : str, sch_fname : str,
         if export_vtk:
             m.export_pro_vtk(vtk_filename)
 
-        #m.save_cubes(os.path.join(model_dir, 'p_' + str(ti+1)), arr, arr_names)
+        m.save_cubes(os.path.join(model_dir, 'p_' + str(ti+1)), arr, arr_names)
  
     m.print_timers()
     m.print_stat()
@@ -167,6 +166,7 @@ if __name__ == '__main__':
 
     # small grids
     cases_list = [43] # 10x10x10 sloping fault
+    cases_list = [1] # 10x10x10 sloping fault
 
     # run all the  grids cases
     #cases_list = []

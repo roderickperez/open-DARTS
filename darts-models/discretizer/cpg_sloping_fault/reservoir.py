@@ -41,7 +41,8 @@ class CPG_Reservoir:
         cell_p = np.array(self.discr.cell_p)[ids]
         tran = np.fabs(mpfa_tran[::2][ids])
         tranD = np.zeros(tran.size)
-        self.mesh.init(darts.engines.index_vector(cell_m), darts.engines.index_vector(cell_p), darts.engines.value_vector(tran), darts.engines.value_vector(tranD))
+        self.mesh.init(darts.engines.index_vector(cell_m), darts.engines.index_vector(cell_p),
+                       darts.engines.value_vector(tran), darts.engines.value_vector(tranD))
 
         # Write to files (in case someone needs this for Eclipse or other simulator):
         #self.write_mpfa_conn_to_file()
@@ -96,7 +97,8 @@ class CPG_Reservoir:
         self.discr_mesh = Mesh()
         result_fname = 'results.grdecl'
         minpv_filter = 0
-        r = self.discr_mesh.cpg_mesh_processing_opm(gridfile, propfile, displaced_tags, result_fname, minpv_filter)
+        r = self.discr_mesh.cpg_mesh_processing_opm(gridfile, propfile, displaced_tags,
+                                                    result_fname, minpv_filter)
         if r != 0: # error
             print('Error: cpg_mesh_processing_opm failed with code', r)
             exit(1)
@@ -144,7 +146,7 @@ class CPG_Reservoir:
         print("Number of all cells    = ", n_all)
         print("Number of active cells = ", self.discr_mesh.n_cells)
 
-        # filter porosity
+        # porosity
         self.discr.set_porosity(self.discr_mesh.poro)
         self.mesh.poro = darts.engines.value_vector(self.discr.poro)
         self.poro = np.array(self.discr_mesh.poro, copy=False)
