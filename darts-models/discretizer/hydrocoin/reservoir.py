@@ -11,7 +11,7 @@ currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfram
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
 import darts.discretizer as dis
-from darts.discretizer import Mesh, Elem, Discretizer, BoundaryCondition, elem_loc, elem_type, matrix33, vector_matrix33, vector_vector3, matrix, value_vector
+from darts.discretizer import Mesh, Elem, Discretizer, BoundaryCondition, elem_loc, elem_type, matrix33, vector_matrix33, vector_vector3, matrix, value_vector, index_vector
 import datetime
 from dataclasses import dataclass, field
 from darts.mesh.unstruct_discretizer import UnstructDiscretizer
@@ -68,7 +68,7 @@ class UnstructReservoir:
         else:
             cell_m, cell_p, tran, tran_thermal = self.unstr_discr.calc_connections_all_cells()
             # self.unstr_discr.write_conn2p_to_file(cell_m, cell_p, tran, file_name='conn2p.dat')
-            self.mesh.init(d_index_vector(cell_m), d_index_vector(cell_p), d_value_vector(tran), d_value_vector(tran_thermal))
+            self.mesh.init(index_vector(cell_m), index_vector(cell_p), value_vector(tran), value_vector(tran_thermal))
             self.depth = np.array(self.mesh.depth, copy=False)
             self.volume = np.array(self.mesh.volume, copy=False)
             self.depth[:] = self.unstr_discr.depth_all_cells
@@ -85,24 +85,24 @@ class UnstructReservoir:
         self.conduction = np.array(self.mesh.rock_cond, copy=False)
 
         # Calculate well_index (very primitive way....):
-        rw = 0.1
-        mean_cell_width = np.cbrt(np.mean(self.volume_all_cells[:self.n_matrix]))
-        dx = mean_cell_width
-        dy = mean_cell_width
-        dz = 100.0
-        # WIx
-        wi_x = 0.0
-        # WIy
-        wi_y = 0.0
-        # WIz
-        hz = dz
-        mean_perm_xx = self.perm_mat#np.mean(np.array([self.discr.perms[cell_id].values[0] for cell_id in self.well_cells]))
-        mean_perm_yy = self.perm_mat#np.mean(np.array([self.discr.perms[cell_id].values[4] for cell_id in self.well_cells]))
-        rp_z = 0.28 * np.sqrt((mean_perm_yy / mean_perm_xx) ** 0.5 * dx ** 2 +
-                              (mean_perm_xx / mean_perm_yy) ** 0.5 * dy ** 2) / \
-               ((mean_perm_xx / mean_perm_yy) ** 0.25 + (mean_perm_yy / mean_perm_xx) ** 0.25)
-        wi_z = 2 * np.pi * np.sqrt(mean_perm_xx * mean_perm_yy) * hz / np.log(rp_z / rw)
-        self.well_index = np.sqrt(wi_x ** 2 + wi_y ** 2 + wi_z ** 2)
+        # rw = 0.1
+        # mean_cell_width = np.cbrt(np.mean(self.volume_all_cells[:self.n_matrix]))
+        # dx = mean_cell_width
+        # dy = mean_cell_width
+        # dz = 100.0
+        # # WIx
+        # wi_x = 0.0
+        # # WIy
+        # wi_y = 0.0
+        # # WIz
+        # hz = dz
+        # mean_perm_xx = self.perm_mat#np.mean(np.array([self.discr.perms[cell_id].values[0] for cell_id in self.well_cells]))
+        # mean_perm_yy = self.perm_mat#np.mean(np.array([self.discr.perms[cell_id].values[4] for cell_id in self.well_cells]))
+        # rp_z = 0.28 * np.sqrt((mean_perm_yy / mean_perm_xx) ** 0.5 * dx ** 2 +
+        #                       (mean_perm_xx / mean_perm_yy) ** 0.5 * dy ** 2) / \
+        #        ((mean_perm_xx / mean_perm_yy) ** 0.25 + (mean_perm_yy / mean_perm_xx) ** 0.25)
+        # wi_z = 2 * np.pi * np.sqrt(mean_perm_xx * mean_perm_yy) * hz / np.log(rp_z / rw)
+        # self.well_index = np.sqrt(wi_x ** 2 + wi_y ** 2 + wi_z ** 2)
 
         self.wells = []
 
@@ -116,6 +116,7 @@ class UnstructReservoir:
 
         self.diff_coef = 0.0#8.64e-6
         self.diff_mult = self.diff_coef / self.porperm[0].perm / TransCalculations.darcy_constant
+        frac_aper = 1.E-4
 
         if discr_type == 'mpfa':
             self.mesh_data = meshio.read(self.mesh_file)
@@ -129,8 +130,6 @@ class UnstructReservoir:
 
             self.discr_mesh = Mesh()
 
-            # initial fault apertures
-            frac_aper = 1.E-4
             self.n_fracs = 0
             for i, block in enumerate(self.mesh_data.cell_data['gmsh:physical']):
                 self.n_fracs += np.isin(self.mesh_data.cell_data['gmsh:physical'][i],
