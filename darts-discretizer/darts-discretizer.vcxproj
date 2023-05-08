@@ -1,8 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug_ODLS|x64">
+      <Configuration>Debug_ODLS</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="Debug|x64">
       <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release_ODLS|x64">
+      <Configuration>Release_ODLS</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
     <ProjectConfiguration Include="Release|x64">
@@ -25,7 +33,22 @@
     <CharacterSet>Unicode</CharacterSet>
     <PreferredToolArchitecture>x64</PreferredToolArchitecture>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug_ODLS|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_ODLS|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
@@ -41,7 +64,13 @@
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug_ODLS|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release_ODLS|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
@@ -54,6 +83,14 @@
     </CustomBuildAfterTargets>
     <ExtensionsToDeleteOnClean>*.pyd;$(ExtensionsToDeleteOnClean)</ExtensionsToDeleteOnClean>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug_ODLS|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>..\darts-package\darts\</OutDir>
+    <TargetName>discretizer</TargetName>
+    <TargetExt>.pyd</TargetExt>
+    <CustomBuildAfterTargets />
+    <ExtensionsToDeleteOnClean>*.pyd;$(ExtensionsToDeleteOnClean)</ExtensionsToDeleteOnClean>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>true</LinkIncremental>
     <OutDir>..\darts-package\darts\</OutDir>
@@ -63,7 +100,44 @@
     </CustomBuildAfterTargets>
     <ExtensionsToDeleteOnClean>*.pyd;$(ExtensionsToDeleteOnClean)</ExtensionsToDeleteOnClean>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_ODLS|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>..\darts-package\darts\</OutDir>
+    <TargetName>discretizer</TargetName>
+    <TargetExt>.pyd</TargetExt>
+    <CustomBuildAfterTargets />
+    <ExtensionsToDeleteOnClean>*.pyd;$(ExtensionsToDeleteOnClean)</ExtensionsToDeleteOnClean>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>src;$(PYTHONPATH)/include;../darts-engines/src;../darts-engines/src/interpolation;../darts-engines/lib/darts_linear_solvers/include;../darts-engines/lib/pybind11</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(PYTHONPATH)\libs</AdditionalLibraryDirectories>
+    </Link>
+    <PreBuildEvent>
+      <Command>echo #include "discretizer_build_info.h"&gt; src\discretizer_build_info.cpp
+FOR /F "tokens=* USEBACKQ" %%F IN (`date /t`) DO (SET mydate=%%F)
+set mytime=%time:~0,8%
+echo const char* DISCRETIZER_BUILD_DATE = "%mydate%%mytime%"; &gt;&gt;src\discretizer_build_info.cpp
+echo const char*  DISCRETIZER_BUILD_MACHINE = "%USERNAME%@%COMPUTERNAME%"; &gt;&gt; src\discretizer_build_info.cpp
+FOR /F "tokens=* USEBACKQ" %%F IN (`git describe --always --dirty --first-parent`) DO (SET var=%%F)
+echo const char*  DISCRETIZER_BUILD_GIT_HASH = "%var%"; &gt;&gt; src\discretizer_build_info.cpp
+type src\discretizer_build_info.cpp</Command>
+    </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>cd src
+copy /b discretizer_build_info.cpp+,, &gt;NUL</Command>
+      <Message>Forcing rebuild of build info file</Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug_ODLS|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
@@ -93,6 +167,39 @@ copy /b discretizer_build_info.cpp+,, &gt;NUL</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>src;$(PYTHONPATH)/include;../darts-engines/src;../darts-engines/src/interpolation;../darts-engines/lib/darts_linear_solvers/include;../darts-engines/lib/pybind11</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(PYTHONPATH)\libs</AdditionalLibraryDirectories>
+    </Link>
+    <PreBuildEvent>
+      <Command>echo #include "discretizer_build_info.h"&gt; src\discretizer_build_info.cpp
+FOR /F "tokens=* USEBACKQ" %%F IN (`date /t`) DO (SET mydate=%%F)
+set mytime=%time:~0,8%
+echo const char* DISCRETIZER_BUILD_DATE = "%mydate%%mytime%"; &gt;&gt;src\discretizer_build_info.cpp
+echo const char*  DISCRETIZER_BUILD_MACHINE = "%USERNAME%@%COMPUTERNAME%"; &gt;&gt; src\discretizer_build_info.cpp
+FOR /F "tokens=* USEBACKQ" %%F IN (`git describe --always --dirty --first-parent`) DO (SET var=%%F)
+echo const char*  DISCRETIZER_BUILD_GIT_HASH = "%var%"; &gt;&gt; src\discretizer_build_info.cpp
+type src\discretizer_build_info.cpp</Command>
+    </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>cd src
+copy /b discretizer_build_info.cpp+,, &gt;NUL</Command>
+      <Message>Forcing rebuild of build info file</Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release_ODLS|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <FunctionLevelLinking>true</FunctionLevelLinking>
