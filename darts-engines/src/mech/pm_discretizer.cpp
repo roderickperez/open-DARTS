@@ -1753,7 +1753,7 @@ void pm_discretizer::reconstruct_gradients_thermal_per_cell(value_t dt)
 				const auto& b = bc[face.face_id2];
 				const auto& an = b(0, 0);			const auto& bn = b(1, 0);
 				const auto& at = b(2, 0);			const auto& bt = b(3, 0);
-				if (an != 0.0 || at != 0.0)	n_cur_faces++;
+				if (NEUMANN_BOUNDARIES_GRAD_RECONSTRUCTION || an != 0.0 || at != 0.0)	n_cur_faces++;
 			}
 			else if (face.type != MAT_TO_FRAC) n_cur_faces++;
 		}
@@ -1832,9 +1832,10 @@ void pm_discretizer::reconstruct_gradients_thermal_per_cell(value_t dt)
 				auto& R1 = cur.R1;						auto& R2 = cur.R2;
 				B1n = biots[cell_id1] * n;
 				B2n = biots[cell_id2] * n;
+
+				A1(3, { 3, 1 }, { 4, 1 }) = B1n.values;				A2(3, { 3, 1 }, { 4, 1 }) = B2n.values;
 				if (!isStationary)
 				{
-					A1(3, { 3, 1 }, { 4, 1 }) = B1n.values;				A2(3, { 3, 1 }, { 4, 1 }) = B2n.values;
 					A1(4 * 3, { 3 }, { 1 }) = B1n.transpose().values;	A2(4 * 3, { 3 }, { 1 }) = B2n.transpose().values;
 					R1(3, 0) = -(B1n.transpose() * get_u_face_prev(face.c - c1, cell_id1)).values[0];
 					R2(3, 0) = -(B2n.transpose() * get_u_face_prev(face.c - c2, cell_id2)).values[0];
@@ -2041,6 +2042,7 @@ void pm_discretizer::reconstruct_gradients_thermal_per_cell(value_t dt)
 			}
 		}
 		sq_mat = A.transpose() * A;
+
 		res = sq_mat.inv();
 		if (!res)
 		{
