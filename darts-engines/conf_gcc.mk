@@ -25,6 +25,6 @@ CXXFLAGS += -D OPENDARTS_LINEAR_SOLVERS
 CXXFLAGS_DEBUG += -D OPENDARTS_LINEAR_SOLVERS
 LINEAR_SOLVERS_DIR = ./lib/opendarts_linear_solvers
 else
-$(info Building darts-engines with bos linear-solvers)
+$(info Building darts-engines with iterative linear-solvers)
 LINEAR_SOLVERS_DIR = ./lib/darts_linear_solvers
 endif

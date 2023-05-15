@@ -5,7 +5,7 @@ include conf_gcc.mk
 INCLUDEFLAGS = -I./src \
 				-I../darts-engines/src \
 				-I../darts-engines/src/interpolation \
-				-I../darts-engines/lib/darts_linear_solvers/include \
+				-I$(LINEAR_SOLVERS_DIR)/include  \
 				-I../darts-engines/lib/pybind11 \
 				$(shell python3-config --includes)
 LFLAGS = $(shell python3-config --libs)
