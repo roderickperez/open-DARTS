@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import approx_fprime
 from darts.engines import *
-from darts.physics import *
 
 from numpy import linalg
 
