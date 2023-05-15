@@ -24,9 +24,6 @@ Welcome to DARTS documentation!
    :caption: FOR DEVELOPERS
    
    for_developers/darts_gitlab_setup.md
-   for_developers/build_instructions.md
-   for_developers/contributing.md
-   for_developers/development_tools.md
 
 .. toctree::
    :maxdepth: 2
