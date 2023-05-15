@@ -58,23 +58,28 @@ def run(discr_type : str, gridfile : str, propfile : str, sch_fname : str,
             m.export_pro_vtk(vtk_filename)
 
         m.save_cubes(os.path.join(model_dir, 'p_' + str(ti+1)))
+        m.physics.engine.report()
  
     m.print_timers()
     m.print_stat()
 
     time_data = pd.DataFrame.from_dict(m.physics.engine.time_data)
     time_data.to_pickle(os.path.join(model_dir, 'darts_time_data_' + discr_type + '.pkl'))
+    time_data_report = pd.DataFrame.from_dict(m.physics.engine.time_data_report)
 
     # filter data and write to xlsx
     # list the column names that should be removed
-    press_gridcells = time_data.filter(like='reservoir').columns.tolist()
-    chem_cols = time_data.filter(like='Kmol').columns.tolist()
-    # remove columns from data
-    time_data.drop(columns=press_gridcells + chem_cols, inplace=True)
-    # add time in years
-    time_data['Time (years)'] = time_data['time'] / 365.25
+    for td_ in [time_data, time_data_report]:
+        press_gridcells = td_.filter(like='reservoir').columns.tolist()
+        chem_cols = td_.filter(like='Kmol').columns.tolist()
+        # remove columns from data
+        td_.drop(columns=press_gridcells + chem_cols, inplace=True)
+        # add time in years
+        td_['Time (years)'] = td_['time'] / 365.25
+
     writer = pd.ExcelWriter(os.path.join(model_dir, 'time_data_' + discr_type + '.xlsx'))
-    time_data.to_excel(writer, 'Sheet1')
+    time_data.to_excel(writer, 'time_data')
+    time_data_report.to_excel(writer, 'time_data_report')
     writer.close()
 
     return time_data
