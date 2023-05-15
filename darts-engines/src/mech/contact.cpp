@@ -54,7 +54,7 @@ int contact::init_friction(pm_discretizer* _discr, conn_mesh* _mesh)
 	assert(mu0.size() == cell_ids.size());
 	assert(mu.size() == cell_ids.size());
 	
-	if (friction_model == RSF)
+	if (friction_model == RSF || friction_model == RSF_STAB)
 	{
 		index_t cell_id;
 		value_t flux_t_norm;
@@ -483,12 +483,20 @@ int contact::add_to_jacobian_return_mapping(value_t dt, csr_matrix_base* jacobia
 			slip_vel.values = dg.values / dt;
 			slip_vel(0, 0) = 0.0;
 			slip_vel_norm = dgt_norm / dt;
-			if (friction_model == RSF) slip_vel_norm += rsf.min_vel;
+			if (friction_model == RSF || friction_model == RSF_STAB) slip_vel_norm += rsf.min_vel;
 			// friction and its derivative
-			//auto res0 = getFrictionCoef(i, dt, slip_vel, g);
-			auto res = getStabilizedFrictionCoef(i, dt, slip_vel, g);
-			mu[i] = res[0];
-			dmu.values[0] = res[1];		dmu.values[1] = res[2];		dmu.values[2] = res[3];
+			if (friction_model == RSF)
+			{
+				auto res = getFrictionCoef(i, dt, slip_vel, g);
+				mu[i] = res[0];
+				dmu.values[0] = res[1];		dmu.values[1] = res[2];		dmu.values[2] = res[3];
+			}
+			else
+			{
+				auto res = getStabilizedFrictionCoef(i, dt, slip_vel, g);
+				mu[i] = res[0];
+				dmu.values[0] = res[1];		dmu.values[1] = res[2];		dmu.values[2] = res[3];
+			}
 
 			// trial traction 
 			//max_allowed_gap_change = std::max(max_allowed_gap_change, fabs(sqrt(flux.values[1] * flux.values[1] + flux.values[2] * flux.values[2]) -
@@ -503,7 +511,7 @@ int contact::add_to_jacobian_return_mapping(value_t dt, csr_matrix_base* jacobia
 			phi[i] = Ft_trial_norm - mu[i] * flux(0, 0);
 
 			// radiation dumping
-			if (friction_model == RSF)
+			if (friction_model == RSF || friction_model == RSF_STAB)
 				phi[i] -= eta[i] * slip_vel_norm;
 
 			// normal 
@@ -522,7 +530,7 @@ int contact::add_to_jacobian_return_mapping(value_t dt, csr_matrix_base* jacobia
 			{
 				// static (or zero) friction by default
 				drad_dump.values = 0.0;
-				if (friction_model == RSF)
+				if (friction_model == RSF || friction_model == RSF_STAB)
 					drad_dump.values = eta[i] * slip_vel.values / slip_vel_norm / dt;
 
 				////// friction
@@ -544,7 +552,7 @@ int contact::add_to_jacobian_return_mapping(value_t dt, csr_matrix_base* jacobia
 				buf.values = outer_product(F_trial / Ft_trial_norm, F_trial.transpose() / Ft_trial_norm).values;
 				buf(0, { ND }, { 1 }) = 0.0;
 				// radiation dumping
-				if (friction_model == RSF)
+				if (friction_model == RSF || friction_model == RSF_STAB)
 					F(ND * id, { ND, ND }, { (uint8_t)F.N, 1 }) -= 1.0 / Ft_trial_norm * outer_product(F_trial, drad_dump.transpose()).values;
 				// dFt_trial_norm
 				F(ND * id, { ND, ND }, { (uint8_t)F.N, 1 }) -= -sign_trial * eps_t[i] * buf.values;
@@ -568,7 +576,7 @@ int contact::add_to_jacobian_return_mapping(value_t dt, csr_matrix_base* jacobia
 				//flux -= mu_cur * flux(0, 0) * F_trial / Ft_trial_norm;
 				flux -= alpha * F_trial;
 
-				if (friction_model == RSF)
+				if (friction_model == RSF || friction_model == RSF_STAB)
 				{
 					// radiation damping
 					F(ND * id, { ND, ND }, { (uint8_t)F.N, 1 }) -= eta[i] * I3.values / dt;
@@ -716,7 +724,7 @@ int contact::add_to_jacobian_linear(value_t dt, csr_matrix_base* jacobian, vecto
 
 			slip_vel.values = dg.values / dt;
 			slip_vel_norm = dgt_norm / dt;
-			if (friction_model == RSF) slip_vel_norm += rsf.min_vel;
+			if (friction_model == RSF || friction_model == RSF_STAB) slip_vel_norm += rsf.min_vel;
 			// friction and its derivative
 			auto res = getStabilizedFrictionCoef(i, dt, slip_vel, g);
 			mu[i] = res[0];
@@ -1233,7 +1241,7 @@ vector<value_t> contact::getStabilizedFrictionCoef(const index_t i, const value_
 			mu_cur = sd_props.mu_d;
 		}
 	}
-	else if (friction_model == RSF)
+	else if (friction_model == RSF_STAB)
 	{
 		if ((rsf.law == MIXED && slip_vel_norm > 0.01 * rsf.vel0) || rsf.law == SLIP_LAW)	// slip law
 		{

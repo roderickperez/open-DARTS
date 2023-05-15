@@ -96,6 +96,7 @@ void pybind_contact(py::module &m)
 		.value("STATIC", FrictionModel::STATIC) \
 		.value("SLIP_DEPENDENT", FrictionModel::SLIP_DEPENDENT) \
 		.value("RSF", FrictionModel::RSF) \
+		.value("RSF_STAB", FrictionModel::RSF_STAB) \
 		.value("CNS", FrictionModel::CNS)
 		.export_values();
 

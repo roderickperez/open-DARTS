@@ -18,7 +18,7 @@ using namespace opendarts::linear_solvers;
 namespace pm
 {
 	enum ContactState { TRUE_STUCK, PEN_STUCK, SLIP, FREE };
-	enum FrictionModel { FRICTIONLESS, STATIC, SLIP_DEPENDENT, RSF, CNS };
+	enum FrictionModel { FRICTIONLESS, STATIC, SLIP_DEPENDENT, RSF, RSF_STAB, CNS };
 	enum StateLaw { AGEING_LAW, SLIP_LAW, MIXED };
 	enum ContactSolver { FLUX_FROM_PREVIOUS_ITERATION, RETURN_MAPPING, LOCAL_ITERATIONS };
 	enum CriticalStress { TERZAGHI, BIOT };
@@ -30,6 +30,7 @@ namespace pm
 		std::vector<value_t> theta, theta_n;
 		value_t min_vel;
 		StateLaw law;
+
 	};
 	struct SlipDependentFriction_props
 	{
