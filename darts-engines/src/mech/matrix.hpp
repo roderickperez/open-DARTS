@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <ostream>
 #include <array>
+#include <numeric>
 #include <valarray>
 #include <assert.h>
 #include "globals.h"
@@ -109,13 +110,8 @@ namespace linalg
 			return false;
 		};
 		bool inv();
-		bool lu(std::valarray<size_t>& ri, T* pDet);
 		bool svd(Matrix<T>& vc, std::valarray<T>& w);
-		T det() const;
-		bool eigen(std::valarray<T>& rev, std::valarray<T>& iev) const;
 	protected:
-		void balanc(Matrix<T>& v, bool eivec);
-		bool hqr2(std::valarray<T>& d, std::valarray<T>& e, Matrix<T>& v, bool eivec);
 	};
 	template<typename T>
 	Matrix<T> operator-(const Matrix<T>& m)
@@ -220,159 +216,98 @@ namespace linalg
 		return result;
 	}
 
-	// taken from https://www.techsoftpl.com/matrix/doc/
 	template <typename T>
 	inline double epsilon(const T& v)
 	{
 		T ep = std::numeric_limits<T>::epsilon() * 1e4;
 		return v > 1.0 ? v * ep : ep;
 	}
+	template <class T> 
+	inline T sign(T a, T b)
+	{
+		return (b >= T(0) ? abs(a) : -abs(a));
+	}
+	
 	template <typename T>
 	bool Matrix<T>::inv()
 	{
-		assert(M == N);
-		size_t n = M;
-		T *pv = &this->values[0];
-		size_t i, j, k, ipos, kpos;
+		assert(this->M == this->N);
 
-		std::valarray<size_t> ri(n);
-		for (i = 0; i < n; i++)
-			ri[i] = i;
+		T* ptr = &this->values[0];
+		T max_column, tmp;
+		index_t i, j, k, i_max, i_flat, j_flat;
 
-		for (k = 0; k < n; k++)
+		std::valarray<index_t> row_index(this->M);
+		std::iota(std::begin(row_index), std::end(row_index), 0);
+
+		for (i = 0; i < this->M; i++)
 		{
-			double ta, tb;
-			T a(0);
-
-			kpos = k * n;
-			i = k;
-			// Maximum over lower diagonal elements per column
-			ta = abs(pv[kpos + k]);
-			for (j = k + 1; j < n; j++)
-				if ((tb = abs(pv[j*n + k])) > ta)
+			// looking for a maximum in each column
+			i_flat = i * this->N;
+			max_column = abs(ptr[i_flat + i]);
+			i_max = i;
+			for (j = i + 1; j < this->M; j++)
+			{
+				tmp = abs(ptr[j * this->N + i]);
+				if (tmp > max_column)
 				{
-					ta = tb;
-					i = j;
+					i_max = j;
+					max_column = tmp;
 				}
+			}
 
-			//if (ta < epsilon(a))
+			//if (max_column < epsilon(a))
+			//{
 			//	return false;
+			//}
 
-			// Swapping rows to put max over column to diagonal
-			if (i != k)
+			// putting maximum to diagonal
+			if (i_max != i)
 			{
-				std::swap(ri[k], ri[i]);
-				for (ipos = i * n, j = 0; j < n; j++)
-					std::swap(pv[kpos + j], pv[ipos + j]);
+				std::swap(row_index[i_max], row_index[i]);
+				j_flat = i_max * this->N;
+				for (j = 0; j < this->N; j++)
+				{
+					std::swap(ptr[i_flat + j], ptr[j_flat + j]);
+				}
 			}
 
-			// Divide by max
-			a = T(1) / pv[kpos + k];
-			pv[kpos + k] = T(1);
-
-			for (j = 0; j < n; j++)
-				pv[kpos + j] *= a;
-
-			// Elimination
-			for (i = 0; i < n; i++)
+			// divide by maximum value
+			tmp = T(1) / ptr[i_flat + i];
+			ptr[i_flat + i] = T(1);
+			for (j = 0; j < this->N; j++)
 			{
-				if (i != k)
+				ptr[i_flat + j] *= tmp;
+			}
+
+			// elimination
+			for (j = 0; j < this->M; j++)
+			{
+				if (j != i)
 				{
-					ipos = i * n;
-					a = pv[ipos + k];
-					pv[ipos + k] = T(0);
-					for (j = 0; j < n; j++)
-						pv[ipos + j] -= a * pv[kpos + j];
+					j_flat = j * this->N;
+					tmp = ptr[j_flat + i];
+					ptr[j_flat + i] = T(0);
+					for (k = 0; k < this->N; k++)
+					{
+						ptr[j_flat + k] -= tmp * ptr[i_flat + k];
+					}
 				}
 			}
 		}
-		for (j = 0; j < n; j++)
+		// swapping columns back
+		for (j = 0; j < this->N; j++)
 		{
-			if (j != ri[j])         // Column is out of order
+			if (j != row_index[j])
 			{
-				k = j + 1;
-				while (j != ri[k])
-					k++;
-				for (i = 0; i < n; i++)
-					std::swap(pv[i*n + j], pv[i*n + k]);
-				std::swap(ri[j], ri[k]);
+				for (k = j + 1; j != row_index[k]; k++) {}
+				
+				for (i = 0; i < this->M; i++)
+					std::swap(ptr[i * this->N + j], ptr[i * this->N + k]);
+				std::swap(row_index[j], row_index[k]);
 			}
 		}
 		return true;
-	}
-	template <typename T>
-	bool Matrix<T>::lu(std::valarray<size_t>& ri, T* pDet)
-	{
-		assert(M == N);
-		size_t i, j, k;
-		double ta, tb;
-
-		if (M != ri.size())
-			ri.resize(M);
-
-		if (pDet != NULL)
-			*pDet = T(1);
-
-		size_t n = M;
-		T *pv = &this->values[0];
-
-		for (i = 0; i < n; i++)
-			ri[i] = i;
-
-		for (k = 0; k < n - 1; k++)
-		{
-			j = k;
-			ta = abs(pv[ri[k] * n + k]);
-			for (i = k + 1; i < n; i++)
-				if ((tb = abs(pv[ri[i] * n + k])) > ta)
-				{
-					ta = tb;
-					j = i;
-				}
-			if (j != k)
-			{
-				std::swap(ri[j], ri[k]);
-				if (pDet != NULL)
-					*pDet = -*pDet;
-			}
-			size_t kpos = ri[k] * n;
-
-			if (abs(pv[kpos + k]) < epsilon(pv[kpos + k]))
-				return false;
-
-			if (pDet != NULL)
-				*pDet *= pv[kpos + k];
-
-			for (i = k + 1; i < n; i++)
-			{
-				size_t ipos = ri[i] * n;
-				T a = pv[ipos + k] /= pv[kpos + k];
-
-				for (j = k + 1; j < n; j++)
-					pv[ipos + j] -= a * pv[kpos + j];
-			}
-		}
-		if (pDet != NULL)
-			*pDet *= pv[ri[k] * n + k];
-
-		return true;
-	}
-	template <typename T> 
-	T Matrix<T>::det() const
-	{
-		T d;
-
-		Matrix<T> m(*this);
-		std::valarray<size_t> ri(M);
-		if (!m.lu(ri, &d))
-			d = T(0);
-
-		return d;
-	}
-	template <class T> inline
-	T sign(T a, T b)
-	{
-		return (b >= T(0) ? abs(a) : -abs(a));
 	}
 	template <typename T> 
 	bool Matrix<T>::svd(Matrix<T>& vc, std::valarray<T>& w)
@@ -637,550 +572,6 @@ namespace linalg
 				break;
 		}
 		return true;
-	}
-
-	
-	template <class T> inline
-	void cdiv(const T& xr, const T& xi, const T& yr, const T& yi, T& cdivr, T& cdivi)
-	{
-		T r, d;
-
-		if (abs(yr) > abs(yi))
-		{
-			r = yi / yr;
-			d = yr + r * yi;
-			cdivr = (xr + r * xi) / d;
-			cdivi = (xi - r * xr) / d;
-		}
-		else
-		{
-			r = yr / yi;
-			d = yi + r * yr;
-			cdivr = (r*xr + xi) / d;
-			cdivi = (r*xi - xr) / d;
-		}
-	}
-	template <typename T>
-	void Matrix<T>::balanc(Matrix<T>& v, bool eivec)
-	{
-		size_t i, j, lo, hi, m, n;
-
-
-		n = M;
-		lo = 0;
-		hi = n - 1;
-		std::valarray<T> ort(n);
-		T *pv = nullptr, *pm = &v.values[0];
-		if (eivec)
-			pv = &v(0, 0);
-
-		for (m = lo + 1; m <= hi - 1; m++)
-		{
-			T scale(0);
-			for (i = m; i <= hi; i++)
-				scale += abs(pm[i*n + m - 1]);
-
-			if (scale > epsilon(scale))
-			{
-				T h(0);
-				for (i = hi; i >= m; i--)
-				{
-					ort[i] = pm[i*n + m - 1] / scale;
-					h += ort[i] * ort[i];
-				}
-				T g = sqrt(h);
-				if (ort[m] > T(0))
-					g = -g;
-
-				h -= ort[m] * g;
-				ort[m] -= g;
-
-				for (j = m; j < n; j++)
-				{
-					T f(0);
-					for (i = hi; i >= m; i--)
-						f += ort[i] * pm[i*n + j];
-					f /= h;
-					for (i = m; i <= hi; i++)
-						pm[i*n + j] -= f * ort[i];
-				}
-
-				for (i = 0; i <= hi; i++)
-				{
-					T f(0);
-					for (j = hi; j >= m; j--)
-						f += ort[j] * pm[i*n + j];
-					f /= h;
-					for (j = m; j <= hi; j++)
-						pm[i*n + j] -= f * ort[j];
-				}
-				ort[m] = scale * ort[m];
-				pm[m*n + m - 1] = scale * g;
-			}
-		}
-
-		if (eivec)
-			for (i = 0; i < n; i++)
-				for (j = 0; j < n; j++)
-					pv[i*n + j] = (i == j ? T(1) : T(0));
-
-		for (m = hi - 1; m >= lo + 1; m--)
-		{
-			if (abs(pm[m*n + m - 1]) > T(0))
-			{
-				for (i = m + 1; i <= hi; i++)
-					ort[i] = pm[i*n + m - 1];
-
-				if (eivec)
-					for (j = m; j <= hi; j++)
-					{
-						T g(0);
-						for (i = m; i <= hi; i++)
-							g += ort[i] * pv[i*n + j];
-
-						g = (g / ort[m]) / pm[m*n + m - 1];
-						for (i = m; i <= hi; i++)
-							pv[i*n + j] += g * ort[i];
-					}
-			}
-		}
-	}
-	template <typename  T> 
-	bool Matrix<T>::hqr2(std::valarray<T>& d, std::valarray<T>& e, Matrix<T>& v, bool eivec)
-	{
-	   int i,j,k,l;
-
-	   int nn = this->N;
-	   int n = nn-1;
-	   int low = 0;
-	   int high = nn-1;
-	   T exshift(0);
-	   T p(0),q(0),r(0),s(0),z(0),t,w,x,y;
-	   T cdivr, cdivi;
-
-	   T *pv = nullptr, *pm = &this->values[0];
-	   if (eivec)
-		  pv = &v(0,0);
-
-	   T norm(0);
-	   for (i=0; i < nn; i++) 
-	   {
-		  if (i < low || i > high) 
-		  {
-			 d[i] = pm[i*nn+i];
-			 e[i] = T(0);
-		  }
-		  for (j = std::max(i-1,0); j < nn; j++)
-			 norm += abs( pm[i*nn+j]);
-	   }
-
-	   size_t iter = 0;
-	   while (n >= low) 
-	   {
-		  l = n;
-		  while (l > low) 
-		  {
-			 s = abs( pm[(l-1)*nn+l-1]) + abs( pm[l*nn+l]);
-			 if (s < epsilon(s))
-				s = norm;
-        
-			 if (abs( pm[l*nn+l-1]) < epsilon(pm[l*nn+l-1]) * s)
-				break;
-        
-			 l--;     
-		  }
-    
-		  if (l == n) 
-		  {
-			 pm[n*nn+n] += exshift;
-			 d[n] = pm[n*nn+n];
-			 e[n] = T(0);
-			 n--;
-			 iter = 0;
-		  } 
-		  else if (l == n-1) 
-		  {
-			 w = pm[n*nn+n-1] * pm[(n-1)*nn+n];
-			 p = (pm[(n-1)*nn+n-1] - pm[n*nn+n]) / T(2);
-			 q = p * p + w;
-			 z = sqrt( abs( q));
-			 pm[n*nn+n] += exshift;
-			 pm[(n-1)*nn+n-1] += exshift;
-			 x = pm[n*nn+n];
-
-			 if (q >= T(0)) 
-			 {
-				if (p >= T(0))
-				   z = p + z;
-				else
-				   z = p - z;
-           
-				d[n-1] = x + z;
-				d[n] = d[n-1];
-				if (z != T(0))
-				   d[n] = x - w / z;
-           
-				e[n-1] = T(0);
-				e[n] = T(0);
-
-				x = pm[n*nn+n-1];
-				s = abs( x) + abs( z);
-				p = x / s;
-				q = z / s;
-				r = sqrt( p*p + q*q);
-				p = p / r;
-				q = q / r;
-
-				for (j = n-1; j < nn; j++) 
-				{
-				   z = pm[(n-1)*nn+j];
-				   pm[(n-1)*nn+j] = q * z + p * pm[n*nn+j];
-				   pm[n*nn+j] = q * pm[n*nn+j] - p * z;
-				}
-
-				for (i = 0; i <= n; i++) 
-				{
-				   z = pm[i*nn+n-1];
-				   pm[i*nn+n-1] = q * z + p * pm[i*nn+n];
-				   pm[i*nn+n] = q * pm[i*nn+n] - p * z;
-				}
-
-				if (eivec)
-				   for (i = low; i <= high; i++) 
-				   {
-					  z = pv[i*nn+n-1];
-					  pv[i*nn+n-1] = q * z + p * pv[i*nn+n];
-					  pv[i*nn+n] = q * pv[i*nn+n] - p * z;
-				   }
-			 } 
-			 else 
-			 {
-				d[n-1] = x + p;
-				d[n] = x + p;
-				e[n-1] = z;
-				e[n] = -z;
-			 }
-			 n = n - 2;
-			 iter = 0;
-		  } 
-		  else 
-		  {
-			 x = pm[n*nn+n];
-			 y = T(0);
-			 w = T(0);
-			 if (l < n) 
-			 {
-				y = pm[(n-1)*nn+n-1];
-				w = pm[n*nn+n-1] * pm[(n-1)*nn+n];
-			 }
-
-			 if (iter == 10) 
-			 {
-				exshift += x;
-				for (i = low; i <= n; i++)
-				   pm[i*nn+i] -= x;
-           
-				s = abs( pm[n*nn+n-1]) + abs( pm[(n-1)*nn+n-2]);
-				x = y = 0.75 * s;
-				w = -0.4375 * s * s;
-			 }
-
-			 if (iter == 30) 
-			 {
-				 s = (y - x) / T(2);
-				 s = s * s + w;
-				 if (s > T(0)) 
-				 {
-					 s = sqrt( s);
-					 if (y < x)
-						s = -s;
-                
-					 s = x - w / ((y - x) / T(2) + s);
-					 for (i = low; i <= n; i++)
-						pm[i*nn+i] -= s;
-                 
-					 exshift += s;
-					 x = y = w = 0.964;
-				 }
-			 }
-
-			 if (++iter > 250)
-				return false;
-
-			 int m = n-2;
-			 while (m >= l) 
-			 {
-				z = pm[m*nn+m];
-				r = x - z;
-				s = y - z;
-				p = (r * s - w) / pm[(m+1)*nn+m] + pm[m*nn+m+1];
-				q = pm[(m+1)*nn+m+1] - z - r - s;
-				r = pm[(m+2)*nn+m+1];
-				s = abs( p) + abs( q) + abs( r);
-				p = p / s;
-				q = q / s;
-				r = r / s;
-				if (m == l)
-				   break;
-            
-				if (abs( pm[m*nn+m-1]) * (abs( q) + abs( r)) <
-				   epsilon(r) * (abs( p) * (abs( pm[(m-1)*nn+m-1]) + abs( z) +
-				   abs( pm[(m+1)*nn+m+1])))) {
-					  break;
-				}
-				m--;
-			 }
-
-			 for (i = m+2; i <= n; i++) 
-			 {
-				pm[i*nn+i-2] = T(0);
-				if (i > m+2)
-				   pm[i*nn+i-3] = T(0);
-			 }
-
-			 for (k = m; k <= n-1; k++) 
-			 {
-				bool notlast = (k != n-1);
-				if (k != m) 
-				{
-				   p = pm[k*nn+k-1];
-				   q = pm[(k+1)*nn+k-1];
-				   r = notlast ? pm[(k+2)*nn+k-1] : T(0);
-				   x = abs( p) + abs( q) + abs( r);
-				   if (x > epsilon(x)) 
-				   {
-					  p = p / x;
-					  q = q / x;
-					  r = r / x;
-				   }
-				}
-				if (x < epsilon(x))
-				   break;
-            
-				s = sqrt( p * p + q * q + r * r);
-				if (p < T(0))
-				   s = -s;
-            
-				if (s != T(0)) 
-				{
-				   if (k != m)
-					  pm[k*nn+k-1] = -s * x;
-				   else if (l != m)
-					  pm[k*nn+k-1] = -pm[k*nn+k-1];
-               
-				   p = p + s;
-				   x = p / s;
-				   y = q / s;
-				   z = r / s;
-				   q = q / p;
-				   r = r / p;
-
-				   for (j = k; j < nn; j++) 
-				   {
-					  p = pm[k*nn+j] + q * pm[(k+1)*nn+j];
-					  if (notlast) 
-					  {
-						 p = p + r * pm[(k+2)*nn+j];
-						 pm[(k+2)*nn+j] = pm[(k+2)*nn+j] - p * z;
-					  }
-					  pm[k*nn+j] = pm[k*nn+j] - p * x;
-					  pm[(k+1)*nn+j] = pm[(k+1)*nn+j] - p * y;
-				   }
-
-				   for (i = 0; i <= std::min( n, k+3); i++) 
-				   {
-					  p = x * pm[i*nn+k] + y * pm[i*nn+k+1];
-					  if (notlast) 
-					  {
-						 p = p + z * pm[i*nn+k+2];
-						 pm[i*nn+k+2] = pm[i*nn+k+2] - p * r;
-					  }
-					  pm[i*nn+k] = pm[i*nn+k] - p;
-					  pm[i*nn+k+1] = pm[i*nn+k+1] - p * q;
-				   }
-
-				   if (eivec)
-					  for (i = low; i <= high; i++) 
-					  {
-						 p = x * pv[i*nn+k] + y * pv[i*nn+k+1];
-						 if (notlast) 
-						 {
-							p += z * pv[i*nn+k+2];
-							pv[i*nn+k+2] -= p * r;
-						 }
-						 pv[i*nn+k] -= p;
-						 pv[i*nn+k+1] -= p * q;
-					  }
-				}
-			 }
-		  }
-	   }
-
-	   if (norm < epsilon(norm))
-		  return true;
-
-	   for (n = nn-1; n >= 0; n--) 
-	   {
-		  p = d[n];
-		  q = e[n];
-
-		  if (q == T(0)) 
-		  {
-			 int l = n;
-			 pm[n*nn+n] = T(1);
-			 for (i = n-1; i >= 0; i--) 
-			 {
-				w = pm[i*nn+i] - p;
-				r = T(0);
-				for (j = l; j <= n; j++)
-				   r += pm[i*nn+j] * pm[j*nn+n];
-            
-				if (e[i] < T(0)) 
-				{
-				   z = w;
-				   s = r;
-				} 
-				else 
-				{
-				   l = i;
-				   if (e[i] == T(0)) 
-				   {
-					  if (w != T(0))
-						 pm[i*nn+n] = -r / w;
-					  else
-						 pm[i*nn+n] = -r / (epsilon(norm) * norm);
-				   } 
-				   else 
-				   {
-					  x = pm[i*nn+i+1];
-					  y = pm[(i+1)*nn+i];
-					  q = (d[i] - p) * (d[i] - p) + e[i] * e[i];
-					  t = (x * s - z * r) / q;
-					  pm[i*nn+n] = t;
-					  if (abs( x) > abs( z))
-						 pm[(i+1)*nn+n] = (-r - w * t) / x;
-					  else
-						 pm[(i+1)*nn+n] = (-s - y * t) / z;
-				   }
-
-				   t = abs( pm[i*nn+n]);
-				   if ((epsilon(t) * t) * t > T(1)) 
-					  for (j = i; j <= n; j++)
-						 pm[j*nn+n] /= t;
-				}
-			 }
-		  } 
-		  else if (q < T(0)) 
-		  {
-			 int l = n-1;
-
-			 if (abs( pm[n*nn+n-1]) > abs( pm[(n-1)*nn+n])) 
-			 {
-				pm[(n-1)*nn+n-1] = q / pm[n*nn+n-1];
-				pm[(n-1)*nn+n] = -(pm[n*nn+n] - p) / pm[n*nn+n-1];
-			 } 
-			 else 
-			 {
-				cdiv( 0.0, -pm[(n-1)*nn+n], pm[(n-1)*nn+n-1]-p, q, cdivr, cdivi);
-				pm[(n-1)*nn+n-1] = cdivr;
-				pm[(n-1)*nn+n] = cdivi;
-			 }
-			 pm[n*nn+n-1] = T(0);
-			 pm[n*nn+n] = T(1);
-			 for (i = n-2; i >= 0; i--) 
-			 {
-				T ra(0),sa(0),vr,vi;
-
-				for (j = l; j <= n; j++) 
-				{
-				   ra += pm[i*nn+j] * pm[j*nn+n-1];
-				   sa += pm[i*nn+j] * pm[j*nn+n];
-				}
-				w = pm[i*nn+i] - p;
-
-				if (e[i] < T(0)) 
-				{
-				   z = w;
-				   r = ra;
-				   s = sa;
-				} 
-				else 
-				{
-				   l = i;
-				   if (e[i] == T(0))
-				   {
-					  cdiv( -ra, -sa, w, q, pm[i*nn+n-1], pm[i*nn+n]);
-				   } 
-				   else 
-				   {
-					  x = pm[i*nn+i+1];
-					  y = pm[(i+1)*nn+i];
-					  vr = (d[i] - p) * (d[i] - p) + e[i] * e[i] - q * q;
-					  vi = (d[i] - p) * 2.0 * q;
-					  if (vr == T(0) && vi == T(0)) 
-						 vr = epsilon(norm) * norm * (abs( w) + abs(q) + abs(x) + abs(y) + abs(z));
-
-					  cdiv( x*r - z*ra + q*sa, x*s - z*sa - q*ra, vr, vi, cdivr, cdivi);
-					  pm[i*nn+n-1] = cdivr;
-					  pm[i*nn+n] = cdivi;
-					  if (abs(x) > (abs(z) + abs(q))) 
-					  {
-						 pm[(i+1)*nn+n-1] = (-ra - w * pm[i*nn+n-1] + q * pm[i*nn+n]) / x;
-						 pm[(i+1)*nn+n] = (-sa - w * pm[i*nn+n] - q * pm[i*nn+n-1]) / x;
-					  } 
-					  else 
-					  {
-						 cdiv( -r - y * pm[i*nn+n-1], -s - y * pm[i*nn+n], z, q, cdivr, cdivi);
-						 pm[(i+1)*nn+n-1] = cdivr;
-						 pm[(i+1)*nn+n] = cdivi;
-					  }
-				   }
-
-				   t = std::max( abs( pm[i*nn+n-1]), abs( pm[i*nn+n]));
-				   if ((epsilon(t) * t) * t > T(1)) 
-					  for (j = i; j <= n; j++) 
-					  {
-						 pm[j*nn+n-1] /= t;
-						 pm[j*nn+n] /= t;
-					  }
-				}
-			 }
-		  }
-	   }
-
-	   if (eivec)
-	   {
-		  for (i = 0; i < nn; i++) 
-			 if (i < low || i > high) 
-				for (j = i; j < nn; j++)
-				   pv[i*nn+j] = pm[i*nn+j];
-         
-		  for (j = nn-1; j >= low; j--) 
-			 for (i = low; i <= high; i++) 
-			 {
-				z = T(0);
-				for (k = low; k <= std::min( j, high); k++)
-				   z += pv[i*nn+k] * pm[k*nn+j];
-         
-				pv[i*nn+j] = z;
-			 }
-	   }
-	   return true;
-	}
-	template <typename T> 
-	bool Matrix<T>::eigen(std::valarray<T>& rev, std::valarray<T>& iev) const
-	{
-		assert(this->M == this->N);
-
-		if (rev.size() != this->M)
-			rev.resize(M);
-		if (iev.size() != this->M)
-			iev.resize(this->M);
-
-		Matrix<T> eivec(this->M, this->N), m(*this);
-		m.balanc(eivec, false);
-
-		return m.hqr2(rev, iev, eivec, false);
 	}
 }
 

@@ -18,10 +18,11 @@ using namespace opendarts::linear_solvers;
 namespace pm
 {
 	enum ContactState { TRUE_STUCK, PEN_STUCK, SLIP, FREE };
-	enum FrictionModel { FRICTIONLESS, STATIC, SLIP_DEPENDENT, RSF, CNS };
+	enum FrictionModel { FRICTIONLESS, STATIC, SLIP_DEPENDENT, RSF, RSF_STAB, CNS };
 	enum StateLaw { AGEING_LAW, SLIP_LAW, MIXED };
 	enum ContactSolver { FLUX_FROM_PREVIOUS_ITERATION, RETURN_MAPPING, LOCAL_ITERATIONS };
 	enum CriticalStress { TERZAGHI, BIOT };
+	enum NormalCondition { PENALIZED, ZERO_GAP_CHANGE };
 
 	struct RSF_props 
 	{ 
@@ -29,6 +30,7 @@ namespace pm
 		std::vector<value_t> theta, theta_n;
 		value_t min_vel;
 		StateLaw law;
+
 	};
 	struct SlipDependentFriction_props
 	{
@@ -115,6 +117,8 @@ namespace pm
 		SlipDependentFriction_props sd_props;
 		// effective stresses used for friction criterion and beyond
 		CriticalStress friction_criterion;
+		// the type of normal condition used
+		NormalCondition normal_condition;
 		// fault tag to identify one particular fault in multi-fault system
 		index_t fault_tag;
 
@@ -127,8 +131,7 @@ namespace pm
 
 		contact();
 		~contact();
-		int init_geometry(index_t _fault_tag, pm_discretizer* _discr, conn_mesh* _mesh, std::vector<index_t>& _cell_ids);
-		int init_friction();
+		int init_friction(pm_discretizer* _discr, conn_mesh* _mesh);
 		int init_fault();
 		int init_local_iterations();
 

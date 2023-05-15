@@ -938,7 +938,7 @@ int engine_super_elastic_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t d
 			  {
 				  r_ind = N_STATE * (upwd_idx[0] - n_blocks);
 				  cur_bc = &pz_bounds[r_ind + T_VAR];
-				  ref_bc = &t_ref[upwd_idx[0]];
+				  ref_bc = &pz_bounds[r_ind + T_VAR];// &t_ref[upwd_idx[0]];
 			  }
 			  // thermal induced stresses
 			  for (d = 0; d < ND; d++)

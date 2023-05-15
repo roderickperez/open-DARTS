@@ -38,10 +38,9 @@ void pybind_contact(py::module &m)
 {
 	py::class_<contact>(m, "contact") \
 		.def(py::init<>()) \
-		.def("init_geometry", (int(contact::*)(index_t, pm_discretizer*, conn_mesh*, std::vector<index_t>&))& contact::init_geometry) \
 		.def("init_fault", (int(contact::*)())& contact::init_fault) \
 		.def("init_local_iterations", (int(contact::*)())& contact::init_local_iterations) \
-		.def("init_friction", (int(contact::*)())& contact::init_friction) \
+		.def("init_friction", (int(contact::*)(pm_discretizer*, conn_mesh*))& contact::init_friction) \
 		.def("set_state", &contact::set_state) \
 		.def_readwrite("cell_ids", &contact::cell_ids) \
 		.def_readwrite("f_scale", &contact::f_scale) \
@@ -65,7 +64,8 @@ void pybind_contact(py::module &m)
 		.def_readwrite("eps_n", &contact::eps_n) \
 		.def_readwrite("eta", &contact::eta) \
 		.def_readwrite("rsf", &contact::rsf) \
-		.def_readwrite("sd_props", &contact::sd_props);
+		.def_readwrite("sd_props", &contact::sd_props)
+		.def_readwrite("normal_condition", &contact::normal_condition);
 
 	py::class_<RSF_props>(m, "rsf_props") \
 		.def(py::init<>()) \
@@ -96,6 +96,7 @@ void pybind_contact(py::module &m)
 		.value("STATIC", FrictionModel::STATIC) \
 		.value("SLIP_DEPENDENT", FrictionModel::SLIP_DEPENDENT) \
 		.value("RSF", FrictionModel::RSF) \
+		.value("RSF_STAB", FrictionModel::RSF_STAB) \
 		.value("CNS", FrictionModel::CNS)
 		.export_values();
 
@@ -111,9 +112,14 @@ void pybind_contact(py::module &m)
 		.export_values();
 
 	py::enum_<ContactSolver>(m, "contact_solver")
-		.value("flux_from_previous_iteration", ContactSolver::FLUX_FROM_PREVIOUS_ITERATION) \
-		.value("return_mapping", ContactSolver::RETURN_MAPPING) \
-		.value("local_iterations", ContactSolver::LOCAL_ITERATIONS) \
+		.value("FLUX_FROM_PREVIOUS_ITERATION", ContactSolver::FLUX_FROM_PREVIOUS_ITERATION) \
+		.value("RETURN_MAPPING", ContactSolver::RETURN_MAPPING) \
+		.value("LOCAL_ITERATIONS", ContactSolver::LOCAL_ITERATIONS) \
+		.export_values();
+
+	py::enum_<NormalCondition>(m, "normal_condition")
+		.value("PENALIZED", NormalCondition::PENALIZED) \
+		.value("ZERO_GAP_CHANGE", NormalCondition::ZERO_GAP_CHANGE)
 		.export_values();
 };
 
