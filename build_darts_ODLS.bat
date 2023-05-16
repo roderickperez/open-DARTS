@@ -21,7 +21,7 @@ cd ..
 
 rem 3 Compile discretizer
 cd darts-discretizer
-msbuild darts-discretizer.vcxproj /p:Configuration=Release /p:Platform=x64 -maxCpuCount:2 
+msbuild darts-discretizer.vcxproj /p:Configuration=Release_ODLS /p:Platform=x64 -maxCpuCount:2 
 cd ..
 
 rem 4 Build wheel

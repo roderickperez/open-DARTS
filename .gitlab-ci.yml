@@ -280,7 +280,7 @@ build-windows-3.6-ODLS:
         - cd ..
         # Compile discretizer
         - cd darts-discretizer
-        - msbuild darts-discretizer.vcxproj /p:Configuration=Release /p:Platform=x64 -maxCpuCount:2 
+        - msbuild darts-discretizer.vcxproj /p:Configuration=Release_ODLS /p:Platform=x64 -maxCpuCount:2 
         - cd ..
         # Build whl package
         - echo 'build darts.whl for windows started'
