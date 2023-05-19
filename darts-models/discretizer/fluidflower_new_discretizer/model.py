@@ -146,10 +146,10 @@ class Model(DartsModel):
             self.vars += ['T']
 
         corey = [
-            Corey("very-coarse", nw=2.0, ng=1.5, swc=0.11, sgc=0.06, krwe=0.80, krge=0.85, labda=2., p_entry=0.),
-            Corey("coarse", nw=2.0, ng=1.5, swc=0.12, sgc=0.08, krwe=0.93, krge=0.95, labda=2., p_entry=1e-3),
+            Corey("very-coarse", nw=2.0, ng=1.5, swc=0.11, sgc=0.06, krwe=0.80, krge=0.85, labda=2., p_entry=3e-3),
+            Corey("coarse", nw=2.0, ng=1.5, swc=0.12, sgc=0.08, krwe=0.93, krge=0.95, labda=2., p_entry=3e-3),
             Corey("fine", nw=2.5, ng=2.0, swc=0.14, sgc=0.10, krwe=0.93, krge=0.95, labda=2., p_entry=3e-3),
-            Corey("very-fine", nw=2.5, ng=2.0, swc=0.32, sgc=0.14, krwe=0.71, krge=0.75, labda=2., p_entry=15e-3)
+            Corey("very-fine", nw=2.5, ng=2.0, swc=0.32, sgc=0.14, krwe=0.71, krge=0.75, labda=2., p_entry=3e-3)
         ]
         self.n_property_regions = len(corey)
         self.capillary = True
@@ -517,7 +517,7 @@ class ModCapillaryPressure:
         #     pc = 0
 
         #pc = self.p_entry
-        pc = 0.0#self.p_entry
+        #pc = 0.0#self.p_entry
         Pc = np.array([0, pc], dtype=object)  # V, Aq
         return Pc
 

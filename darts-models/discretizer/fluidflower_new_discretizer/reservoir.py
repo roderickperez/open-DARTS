@@ -302,7 +302,7 @@ class UnstructReservoir:
 
     def fluidflower1(self):
         frac_aper = 1.E-4
-        self.mesh_file = 'meshes/cut_fluidflower3.msh'
+        self.mesh_file = 'meshes/cut_fluidflower1.msh'
         self.water_column_height = 1.5
         self.well_centers = np.array([[0.925, 0.0, 0.32942],
                                     [1.72806, 0.0, 0.72757]])
@@ -759,7 +759,7 @@ class UnstructReservoir:
             f.write(row + '\n')# + row_cells + '\n' + row_vals + '\n')
         f.close()
 
-    def write_to_vtk_mpfa(self, output_directory, cell_property, ith_step, physics):
+    def write_to_vtk_mpfa(self, output_directory, cell_property, ith_step, output_props, physics):
         """
         Class method which writes output of unstructured grid to VTK format
         :param output_directory: directory of output files
@@ -793,6 +793,23 @@ class UnstructReservoir:
                 for i in range(props_num):
                     if cell_property[i] not in cell_data: cell_data[cell_property[i]] = []
                     cell_data[cell_property[i]].append(property_array[props_num * cell_ids + i])
+
+                n_props = output_props.n_props
+                values = value_vector(np.zeros(n_props))
+                property_data = np.zeros((len(cell_ids), n_props))
+                for i, cell_id in enumerate(cell_ids):
+                    state = []
+                    for j in range(props_num):
+                        state.append(property_array[props_num * cell_id + j])
+                    state = value_vector(np.asarray(state))
+                    physics.property_itor.evaluate(state, values)
+
+                    for j in range(n_props):
+                        property_data[i, j] = values[j]
+
+                for i in range(n_props):
+                    if output_props.props[i] not in cell_data: cell_data[output_props.props[i]] = []
+                    cell_data[output_props.props[i]].append(property_data[:,i])
 
                 if ith_step == 0:
                     if 'perm' not in cell_data: cell_data['perm'] = []

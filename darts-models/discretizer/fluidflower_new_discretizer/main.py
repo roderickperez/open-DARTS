@@ -139,7 +139,7 @@ def run(discr_type, init_filename=None):
     if not init_filename:
         run_python(m, 1.e-6)
     if discr_type == 'mpfa':
-        m.reservoir.write_to_vtk_mpfa(output_directory, m.cell_property, 0, m.physics)
+        m.reservoir.write_to_vtk_mpfa(output_directory, m.cell_property, 0, m.output_props, m.physics)
     else:
         tot_unknws = m.reservoir.unstr_discr.fracture_cell_count + m.reservoir.unstr_discr.matrix_cell_count + len(m.reservoir.wells) * 2
         tot_properties = 2
@@ -177,7 +177,7 @@ def run(discr_type, init_filename=None):
         run_python(m, size_report_step)
 
         if discr_type == 'mpfa':
-            m.reservoir.write_to_vtk_mpfa(output_directory, m.cell_property, ith_step + 1, m.physics)
+            m.reservoir.write_to_vtk_mpfa(output_directory, m.cell_property, ith_step + 1, m.output_props, m.physics)
         else:
             pressure_field = m.physics.engine.X[:-1:2]
             saturation_field = m.physics.engine.X[1::2]
