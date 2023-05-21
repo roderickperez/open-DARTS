@@ -7,8 +7,9 @@ INCLUDEFLAGS = -I./src \
 				-I../darts-engines/src/interpolation \
 				-I$(LINEAR_SOLVERS_DIR)/include  \
 				-I../darts-engines/lib/pybind11 \
+				-I../thirdparty/eigen \
 				$(shell python3-config --includes)
-LFLAGS = $(shell python3-config --libs)
+#LFLAGS = $(shell python3-config --libs)
 
 SOURCEDIR = ./src
 

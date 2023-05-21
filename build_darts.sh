@@ -70,8 +70,12 @@ fi
 cd ..
 
 # build darts.whl
-cd darts-package
+
+# generating build info of darts-package
+python darts-package/darts/print_build_info.py
+
 python3 setup.py clean
 python3 setup.py build bdist_wheel
 
-cd ..
+# installing
+#python3 -m pip install .

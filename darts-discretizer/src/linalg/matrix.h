@@ -12,6 +12,7 @@
 #include <fstream>
 #include <limits>
 #include <iomanip>
+#include <Eigen/Dense>
 #define EQUALITY_TOLERANCE 1.E-10 //TODO: move to global.h
 
 namespace linalg
@@ -106,6 +107,7 @@ namespace linalg
 		bool inv();
 		bool lu(std::valarray<size_t>& ri, T* pDet);
 		bool svd(Matrix<T>& vc, std::valarray<T>& w);
+		bool orig_svd(Matrix<T>& vc, std::valarray<T>& w);
 		T det() const;
 
         /*bool eigen(std::valarray<T>& rev, std::valarray<T>& iev) const;
@@ -370,8 +372,9 @@ namespace linalg
 	{
 		return (b >= T(0) ? abs(a) : -abs(a));
 	}
-	template <typename T> 
-	bool Matrix<T>::svd(Matrix<T>& vc, std::valarray<T>& w)
+
+	template <typename T>
+	bool Matrix<T>::orig_svd(Matrix<T>& vc, std::valarray<T>& w)
 	{
 		size_t flag, i, its, j, jj, k, l, nm;
 		T c, f, h, s, x, y, z, tmp;
@@ -383,8 +386,8 @@ namespace linalg
 		if (w.size() != n)
 			w.resize(n);
 
-		T *a = &values[0];
-		T *v = &vc.values[0];
+		T* a = &values[0];
+		T* v = &vc.values[0];
 		std::valarray<T> rv1(n);
 
 		T g(0), scale(0), anorm(0);
@@ -396,30 +399,30 @@ namespace linalg
 			if (i < m)
 			{
 				for (k = i; k < m; k++)
-					scale += abs(a[k*n + i]);
+					scale += abs(a[k * n + i]);
 
 				if (scale > epsilon(scale))
 				{
 					for (k = i; k < m; k++)
 					{
-						tmp = a[k*n + i] /= scale;
+						tmp = a[k * n + i] /= scale;
 						s += tmp * tmp;
 					}
-					f = a[i*n + i];
+					f = a[i * n + i];
 					g = -sign(sqrt(s), f);
 					h = f * g - s;
-					a[i*n + i] = f - g;
+					a[i * n + i] = f - g;
 
 					for (j = l; j < n; j++)
 					{
 						for (s = T(0), k = i; k < m; k++)
-							s += a[k*n + i] * a[k*n + j];
+							s += a[k * n + i] * a[k * n + j];
 						f = s / h;
 						for (k = i; k < m; k++)
-							a[k*n + j] += f * a[k*n + i];
+							a[k * n + j] += f * a[k * n + i];
 					}
 					for (k = i; k < m; k++)
-						a[k*n + i] *= scale;
+						a[k * n + i] *= scale;
 				}
 			}
 			w[i] = scale * g;
@@ -427,32 +430,32 @@ namespace linalg
 			if (i < m && i != n - 1)
 			{
 				for (k = l; k < n; k++)
-					scale += abs(a[i*n + k]);
+					scale += abs(a[i * n + k]);
 
 				if (scale > epsilon(scale))
 				{
 					for (k = l; k < n; k++)
 					{
-						tmp = a[i*n + k] /= scale;
+						tmp = a[i * n + k] /= scale;
 						s += tmp * tmp;
 					}
-					f = a[i*n + l];
+					f = a[i * n + l];
 					g = -sign(sqrt(s), f);
 					h = f * g - s;
-					a[i*n + l] = f - g;
+					a[i * n + l] = f - g;
 
 					for (k = l; k < n; k++)
-						rv1[k] = a[i*n + k] / h;
+						rv1[k] = a[i * n + k] / h;
 
 					for (j = l; j < m; j++)
 					{
 						for (s = T(0), k = l; k < n; k++)
-							s += a[j*n + k] * a[i*n + k];
+							s += a[j * n + k] * a[i * n + k];
 						for (k = l; k < n; k++)
-							a[j*n + k] += s * rv1[k];
+							a[j * n + k] += s * rv1[k];
 					}
 					for (k = l; k < n; k++)
-						a[i*n + k] *= scale;
+						a[i * n + k] *= scale;
 				}
 			}
 			anorm = std::max(anorm, abs(w[i]) + abs(rv1[i]));
@@ -465,20 +468,20 @@ namespace linalg
 				if (abs(g) > epsilon(g))
 				{
 					for (j = l; j < n; j++)
-						v[j*n + i] = (a[i*n + j] / a[i*n + l]) / g;
+						v[j * n + i] = (a[i * n + j] / a[i * n + l]) / g;
 					for (j = l; j < n; j++)
 					{
 						for (s = T(0), k = l; k < n; k++)
-							s += a[i*n + k] * v[k*n + j];
+							s += a[i * n + k] * v[k * n + j];
 
 						for (k = l; k < n; k++)
-							v[k*n + j] += s * v[k*n + i];
+							v[k * n + j] += s * v[k * n + i];
 					}
 				}
 				for (j = l; j < n; j++)
-					v[i*n + j] = v[j*n + i] = T(0);
+					v[i * n + j] = v[j * n + i] = T(0);
 			}
-			v[i*n + i] = T(1);
+			v[i * n + i] = T(1);
 			g = rv1[i];
 			l = i;
 			if (i == 0)
@@ -490,30 +493,30 @@ namespace linalg
 			l = i + 1;
 			g = w[i];
 			for (j = l; j < n; j++)
-				a[i*n + j] = T(0);
+				a[i * n + j] = T(0);
 			if (abs(g) > epsilon(g))
 			{
 				g = T(1) / g;
 				for (j = l; j < n; j++)
 				{
 					for (s = T(0), k = l; k < m; k++)
-						s += a[k*n + i] * a[k*n + j];
+						s += a[k * n + i] * a[k * n + j];
 
-					f = (s / a[i*n + i]) * g;
+					f = (s / a[i * n + i]) * g;
 
 					for (k = i; k < m; k++)
-						a[k*n + j] += f * a[k*n + i];
+						a[k * n + j] += f * a[k * n + i];
 				}
 				for (j = i; j < m; j++)
-					a[j*n + i] *= g;
+					a[j * n + i] *= g;
 
 			}
 			else
 			{
 				for (j = i; j < m; j++)
-					a[j*n + i] = T(0);
+					a[j * n + i] = T(0);
 			}
-			++a[i*n + i];
+			++a[i * n + i];
 			if (i == 0)
 				break;
 		}
@@ -554,10 +557,10 @@ namespace linalg
 						s = -f * h;
 						for (j = 0; j < m; j++)
 						{
-							y = a[j*n + nm];
-							z = a[j*n + i];
-							a[j*n + nm] = y * c + z * s;
-							a[j*n + i] = z * c - y * s;
+							y = a[j * n + nm];
+							z = a[j * n + i];
+							a[j * n + nm] = y * c + z * s;
+							a[j * n + i] = z * c - y * s;
 						}
 					}
 				}
@@ -568,7 +571,7 @@ namespace linalg
 					{
 						w[k] = -z;
 						for (j = 0; j < n; j++)
-							v[j*n + k] = -v[j*n + k];
+							v[j * n + k] = -v[j * n + k];
 					}
 					break;
 				}
@@ -602,10 +605,10 @@ namespace linalg
 					y *= c;
 					for (jj = 0; jj < n; jj++)
 					{
-						x = v[jj*n + j];
-						z = v[jj*n + i];
-						v[jj*n + j] = x * c + z * s;
-						v[jj*n + i] = z * c - x * s;
+						x = v[jj * n + j];
+						z = v[jj * n + i];
+						v[jj * n + j] = x * c + z * s;
+						v[jj * n + i] = z * c - x * s;
 					}
 					z = hypot(f, h);
 					w[j] = z;
@@ -619,10 +622,10 @@ namespace linalg
 					x = c * y - s * g;
 					for (jj = 0; jj < m; jj++)
 					{
-						y = a[jj*n + j];
-						z = a[jj*n + i];
-						a[jj*n + j] = y * c + z * s;
-						a[jj*n + i] = z * c - y * s;
+						y = a[jj * n + j];
+						z = a[jj * n + i];
+						a[jj * n + j] = y * c + z * s;
+						a[jj * n + i] = z * c - y * s;
 					}
 				}
 				rv1[l] = 0.0;
@@ -631,6 +634,45 @@ namespace linalg
 			}
 			if (k == 0)
 				break;
+		}
+		return true;
+	}
+	template <typename T>
+	bool Matrix<T>::svd(Matrix<T>& vc, std::valarray<T>& w)
+	{
+		// create matrix for Eigen with M rows and N cols and pointer to values (without a copy) 
+		Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> > eigen_matrix(&this->values[0], this->M, this->N);
+
+		// perform SVD
+		Eigen::JacobiSVD<Eigen::MatrixXd, Eigen::ComputeThinU | Eigen::ComputeThinV>
+			svd(eigen_matrix);
+
+		const Eigen::MatrixXd U = svd.matrixU();
+		const Eigen::MatrixXd V = svd.matrixV();
+		const Eigen::VectorXd S = svd.singularValues();
+
+		// prepare output arrays
+		size_t m = M;
+		size_t n = N;
+		if (vc.M != n || vc.N != n)
+			vc = Matrix<T>(n, n);
+		if (w.size() != n)
+			w.resize(n);
+
+		// copy from Eigen SVD to output arrays
+		std::fill_n(&vc.values[0], vc.values.size(), 0.0);
+		std::fill_n(&w[0], w.size(), 0.0);
+		std::fill_n(&this->values[0], this->values.size(), 0.0);
+		int n_max = this->N > this->M ? this->N : this->M;
+		for (int i = 0; i < n_max; i++) {
+			if (i < S.rows())
+				w[i] = S(i);
+			for (int j = 0; j < n_max; j++) {
+				if (i < vc.M && j < vc.N)
+					vc(i, j) = i < V.rows() && j < V.cols() ? V(i, j) : 0.;
+				if (i < this->M && j < this->N)
+					this->operator()(i, j) = i < U.rows() && j < U.cols() ? U(i, j) : 0.;
+			}
 		}
 		return true;
 	}

@@ -91,7 +91,7 @@ Here the velocity {math}`\bf{u_j}` follows the extension of Darcy's law to multi
 
 ```{math}
     \small
-    \bf{u_j} = \mathbf{K}\frac{k_{rj}}{\mu_j}(\nabla{p_j}-\bf{\gamma_j}\nabla{z}),
+    \bf{u_j} = -\mathbf{K}\frac{k_{rj}}{\mu_j}(\nabla{p_j}-\bf{\gamma_j}\nabla{z}),
 ```
 
 where {math}`\mathbf{K}` is the permeability tensor {math}`[\mathrm{mD}]`, {math}`k_{rj}` is the relative permeability of phase {math}`j`, {math}`\mu_j` is the viscosity of phase {math}`j` {math}`[\mathrm{mPa\cdot s}]`, {math}`p_j` is the pressure of phase {math}`j` [bars], {math}`\bf{\gamma_j}=\rho_j\bf{g}` is the specific weight {math}`[\mathrm{N/m^3}]` and {math}`z` is the depth vector [m].
