@@ -24,7 +24,7 @@ setup(
     classifiers=[
         'Programming Language :: Python :: 3',
 	    'Programming Language :: C++',
-        'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
+        'License :: OSI Approved :: Apache Software License',
     ],
     distclass=BinaryDistribution,
 )

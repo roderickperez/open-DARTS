@@ -19,7 +19,12 @@ cd darts-engines
 msbuild darts-engines.vcxproj /p:Configuration=Release_ODLS /p:Platform=x64 -maxCpuCount:2 
 cd ..
 
-rem 3 Build wheel
+rem 3 Compile discretizer
+cd darts-discretizer
+msbuild darts-discretizer.vcxproj /p:Configuration=Release_ODLS /p:Platform=x64 -maxCpuCount:2 
+cd ..
+
+rem 4 Build wheel
 echo 'build darts.whl for windows started'
 cd darts-package
 rem copy VS redist libraries 

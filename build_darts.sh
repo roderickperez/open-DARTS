@@ -49,11 +49,31 @@ fi
 
 cd ..
 
+# compile discretizer
+cd darts-discretizer
+make clean
+if [ $ODLS == "0" ] #no cmd arguments
+then
+	make $NT USE_OPENDARTS_LINEAR_SOLVERS=false
+else
+	make $NT USE_OPENDARTS_LINEAR_SOLVERS=true
+fi
+
+if [ $? == 0 ]
+then
+    echo "make successfull"
+else
+    echo "make failed"
+    exit 1
+fi
+
+cd ..
+
+# build darts.whl
+
 # generating build info of darts-package
 python darts-package/darts/print_build_info.py
 
-# build darts.whl (optional)
-echo "Building python package"
 python3 setup.py clean
 python3 setup.py build bdist_wheel
 
