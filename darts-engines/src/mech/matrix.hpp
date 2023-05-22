@@ -112,7 +112,6 @@ namespace linalg
 		};
 		bool inv();
 		bool svd(Matrix<T>& vc, std::valarray<T>& w);
-		T det() const;
 	protected:
 	};
 	template<typename T>
@@ -217,7 +216,6 @@ namespace linalg
 			}
 		return result;
 	}
-
 	template <typename T>
 	inline double epsilon(const T& v)
 	{
@@ -229,7 +227,6 @@ namespace linalg
 	{
 		return (b >= T(0) ? abs(a) : -abs(a));
 	}
-	
 	template <typename T>
 	bool Matrix<T>::inv()
 	{
@@ -243,7 +240,7 @@ namespace linalg
 		std::iota(std::begin(row_index), std::end(row_index), 0);
 
 		for (i = 0; i < this->M; i++)
-				{
+		{
 			// looking for a maximum in each column
 			i_flat = i * this->N;
 			max_column = abs(ptr[i_flat + i]);
@@ -271,7 +268,7 @@ namespace linalg
 				for (j = 0; j < this->N; j++)
 				{
 					std::swap(ptr[i_flat + j], ptr[j_flat + j]);
-			}
+				}
 			}
 
 			// divide by maximum value
@@ -291,15 +288,15 @@ namespace linalg
 					tmp = ptr[j_flat + i];
 					ptr[j_flat + i] = T(0);
 					for (k = 0; k < this->N; k++)
-		{
+					{
 						ptr[j_flat + k] -= tmp * ptr[i_flat + k];
+					}
+				}
 			}
 		}
-	}
-				}
 		// swapping columns back
 		for (j = 0; j < this->N; j++)
-			{
+		{
 			if (j != row_index[j])
 			{
 				for (k = j + 1; j != row_index[k]; k++) {}
@@ -311,19 +308,6 @@ namespace linalg
 		}
 		return true;
 	}
-	template <typename T> 
-	T Matrix<T>::det() const
-	{
-		T d;
-
-		Matrix<T> m(*this);
-		std::valarray<size_t> ri(M);
-		if (!m.lu(ri, &d))
-			d = T(0);
-
-		return d;
-	}
-
 	template <typename T>
 	bool Matrix<T>::svd(Matrix<T>& vc, std::valarray<T>& w)
 	{

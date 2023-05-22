@@ -691,6 +691,12 @@ vector<index_t> Discretizer::find_connections_to_reconstruct_gradient(const inde
 	basis(0, 1) = (cur_conn.c - mesh->centroids[cell_id]).y;
 	basis(0, 2) = (cur_conn.c - mesh->centroids[cell_id]).z;
 
+	auto det3 = [](Matrix& a)
+	{
+		return a(0, 0) * a(1, 1) * a(2, 2) + a(0, 2) * a(1, 0) * a(2, 1) + a(0, 1) * a(1, 2) * a(2, 0) -
+			a(0, 2) * a(1, 1) * a(2, 0) - a(0, 0) * a(1, 2) * a(2, 1) - a(0, 1) * a(1, 0) * a(2, 2);
+	};
+
 	// produce all triplets and calculate their values of objective function
 	std::function<void(const vector<index_t>&, index_t, index_t, index_t, vector<index_t>&)> subset;
 	subset = [&](const vector<index_t>& arr, index_t size, index_t left, index_t index, vector<index_t>& l) {
@@ -708,7 +714,7 @@ vector<index_t> Discretizer::find_connections_to_reconstruct_gradient(const inde
 			basis(2, 0) = (conn2.c - mesh->centroids[cell_id]).x;
 			basis(2, 1) = (conn2.c - mesh->centroids[cell_id]).y;
 			basis(2, 2) = (conn2.c - mesh->centroids[cell_id]).z;
-			det = basis.det();
+			det = det3(basis);
 			det = det == det ? det : 0.0;
 			triplets.push_back({ {cur_conn_id, l[0], l[1]}, proj1 + proj2 - 1 / (fabs(det) + EQUALITY_TOLERANCE) });
 			return;
