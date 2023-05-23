@@ -99,7 +99,7 @@ class UnstructReservoir:
         self.wells.append(well)
         return 0
 
-    def add_perforation(self, well, res_block, well_index):
+    def add_perforation(self, well, res_block, well_index, well_indexD):
         """
         Class method which ads perforation to each (existing!) well
 
@@ -109,5 +109,5 @@ class UnstructReservoir:
         :return:
         """
         well_block = 0
-        well.perforations = well.perforations + [(well_block, res_block, well_index)]
+        well.perforations = well.perforations + [(well_block, res_block, well_index, well_indexD)]
         return 0

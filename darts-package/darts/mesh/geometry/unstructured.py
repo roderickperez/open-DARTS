@@ -1,7 +1,7 @@
 import numpy as np
 import math
 import warnings
-from geometry import Geometry
+from .geometry import Geometry
 
 import gmsh
 

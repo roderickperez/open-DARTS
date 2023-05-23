@@ -1,6 +1,6 @@
 import numpy as np
 import math
-from geometry.shapes import *
+from .shapes import *
 
 
 class Well(Shape):

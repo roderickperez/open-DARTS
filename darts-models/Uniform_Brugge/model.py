@@ -3,7 +3,7 @@ from darts.models.darts_model import DartsModel
 from darts.engines import sim_params
 import numpy as np
 from darts.models.physics_sup.properties_black_oil import *
-from darts.models.physics_sup.property_container import *
+from darts.models.physics_sup.property_container import PropertyContainer
 from reservoir_Brugge import UnstructReservoir
 from mesh_creator import mesh_creator
 import os
@@ -60,6 +60,7 @@ class Model(DartsModel):
                                                    components_name=['g', 'o', 'w'],
                                                    pvt=self.pvt, min_z=self.zero / 10)
 
+        self.components = self.property_container.components_name
         self.phases = self.property_container.phases_name
 
         """ properties correlations """
@@ -79,8 +80,8 @@ class Model(DartsModel):
         self.property_container.rock_compress_ev = RockCompactionEvaluator(self.pvt)
 
         """ Activate physics """
-        self.physics = Compositional(self.property_container, self.timer, n_points=500, min_p=1, max_p=200,
-                                min_z=self.zero / 10, max_z=1 - self.zero / 10)
+        self.physics = Compositional(self.property_container, self.components, self.phases, self.timer,
+                                     n_points=500, min_p=1, max_p=200, min_z=self.zero / 10, max_z=1 - self.zero / 10)
 
         self.inj_stream = [1 - 2e-8, 1e-8]
         # initial composition should be backtracked from saturations
@@ -154,7 +155,7 @@ class Model(DartsModel):
                                                         ['pressure', 'enthalpy', 'temperature'], ith_step + 1)
 
 
-class model_properties(property_container):
+class model_properties(PropertyContainer):
     def __init__(self, phases_name, components_name, pvt, min_z=1e-11):
         # Call base class constructor
         self.nph = len(phases_name)
@@ -227,7 +228,9 @@ class model_properties(property_container):
 
         self.pc = np.array([-pcgo, 0, pcow])
 
-        return self.sat, self.x, self.dens, self.dens_m, self.mu, self.kr, self.pc, ph
+        kin_rates = np.zeros(self.nc)
+
+        return self.sat, self.x, self.dens, self.dens_m, self.mu, kin_rates, self.kr, self.pc, ph
 
     def evaluate_at_cond(self, pressure, zc):
 
