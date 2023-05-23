@@ -2,8 +2,8 @@ import numpy as np
 import math
 import warnings
 # from dataclasses import dataclass, is_dataclass, field
-from geometry.shapes import *
-from geometry.wells import *
+from .shapes import *
+from .wells import *
 
 import gmsh
 

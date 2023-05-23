@@ -4,7 +4,8 @@ from darts.models.darts_model import DartsModel
 from darts.engines import sim_params
 import numpy as np
 from darts.models.physics_sup.properties_black_oil import *
-from darts.models.physics_sup.property_container import *
+from darts.models.physics_sup.property_container import PropertyContainer
+
 
 # Model class creation here!
 class Model(DartsModel):
@@ -44,6 +45,7 @@ class Model(DartsModel):
                                                    components_name=['g', 'o', 'w'],
                                                    pvt='physics.in', min_z=self.zero / 10)
 
+        self.components = self.property_container.components_name
         self.phases = self.property_container.phases_name
 
         """ properties correlations """
@@ -63,8 +65,8 @@ class Model(DartsModel):
         self.property_container.rock_compress_ev = RockCompactionEvaluator(self.pvt)
 
         """ Activate physics """
-        self.physics = Compositional(self.property_container, self.timer, n_points=5000, min_p=1, max_p=450,
-                                min_z=self.zero / 10, max_z=1 - self.zero / 10)
+        self.physics = Compositional(self.property_container, self.components, self.phases, self.timer,
+                                     n_points=5000, min_p=1, max_p=450, min_z=self.zero/10, max_z=1-self.zero/10)
 
         # self.physics = BlackOil(self.timer, n_points=100, min_p=0, max_p=450, min_z=1e-13,
         #                         property_container=self.property_container, grav=1)
@@ -112,7 +114,8 @@ class Model(DartsModel):
 
         return sat[0]
 
-class model_properties(property_container):
+
+class model_properties(PropertyContainer):
     def __init__(self, phases_name, components_name, pvt, min_z=1e-11):
         # Call base class constructor
         self.nph = len(phases_name)
@@ -184,7 +187,9 @@ class model_properties(property_container):
 
         self.pc = np.array([-pcgo, 0, pcow])
 
-        return self.sat, self.x, self.dens, self.dens_m, self.mu, self.kr, self.pc, ph
+        kin_rates = np.zeros(self.nc)
+
+        return self.sat, self.x, self.dens, self.dens_m, self.mu, kin_rates, self.kr, self.pc, ph
 
     def evaluate_at_cond(self, pressure, zc):
 

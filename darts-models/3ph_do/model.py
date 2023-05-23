@@ -3,8 +3,9 @@ from darts.models.physics_sup.physics_comp_sup import Compositional
 from darts.models.darts_model import DartsModel
 from darts.engines import sim_params
 import numpy as np
-from darts.models.physics_sup.properties_basic import *
-from darts.models.physics_sup.property_container import *
+from darts.models.physics_sup.properties_basic import ConstFunc, Density, DensityBrineCo2, PhaseRelPerm
+from darts.models.physics_sup.property_container import PropertyContainer
+
 
 # Model class creation here!
 class Model(DartsModel):
@@ -55,17 +56,17 @@ class Model(DartsModel):
         """ properties correlations """
         self.property_container.density_ev = dict([('gas', Density(compr=1e-3, dens0=200)),
                                                    ('oil', Density(compr=1e-5, dens0=600)),
-                                                   ('wat', Density(compr=1e-5, dens0=1000, x_mult=0))])
-        self.property_container.viscosity_ev = dict([('gas', ViscosityConst(0.05)),
-                                                     ('oil', ViscosityConst(0.5)),
-                                                     ('wat', ViscosityConst(0.5))])
+                                                   ('wat', DensityBrineCo2(components_name, compr=1e-5, dens0=1000, x_mult=0))])
+        self.property_container.viscosity_ev = dict([('gas', ConstFunc(0.05)),
+                                                     ('oil', ConstFunc(0.5)),
+                                                     ('wat', ConstFunc(0.5))])
         self.property_container.rel_perm_ev = dict([('gas', PhaseRelPerm("gas")),
                                                     ('oil', PhaseRelPerm("oil")),
                                                     ('wat', PhaseRelPerm("wat"))])
 
         """ Activate physics """
-        self.physics = Compositional(self.property_container, self.timer, n_points=100, min_p=1, max_p=200,
-                                min_z=self.zero / 10, max_z=1 - self.zero / 10)
+        self.physics = Compositional(self.property_container, self.components, self.phases, self.timer,
+                                     n_points=100, min_p=1, max_p=200, min_z=self.zero / 10, max_z=1 - self.zero / 10)
 
         self.inj_stream = [1 - 2 * self.zero, self.zero]
         self.ini_stream = [0.05, 0.2 - self.zero]
@@ -110,13 +111,14 @@ class Model(DartsModel):
         return sat[0]
 
 
-class model_properties(property_container):
+class model_properties(PropertyContainer):
     def __init__(self, phases_name, components_name, Mw, min_z=1e-11,
                  diff_coef=0, rock_comp=1e-6, solid_dens=[]):
         # Call base class constructor
-        super().__init__(phases_name, components_name, Mw, 0, min_z, diff_coef, rock_comp, solid_dens)
+        super().__init__(phases_name=phases_name, components_name=components_name, Mw=Mw, min_z=min_z,
+                         diff_coef=diff_coef, rock_comp=rock_comp, solid_dens=solid_dens)
 
-    def run_flash(self, pressure, zc):
+    def run_flash(self, pressure, temperature, zc):
 
         ph = [0, 1, 2]
 

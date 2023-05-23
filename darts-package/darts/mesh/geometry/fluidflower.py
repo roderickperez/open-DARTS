@@ -1,4 +1,4 @@
-from geometry.shapes import *
+from .shapes import *
 
 
 class FluidFlower(Shape):
