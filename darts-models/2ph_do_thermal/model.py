@@ -3,11 +3,11 @@ from darts.models.darts_model import DartsModel
 from darts.models.physics_sup.physics_comp_sup import Compositional
 from darts.engines import value_vector
 import numpy as np
-from darts.models.physics_sup.property_container import *
-from darts.models.physics_sup.properties_basic import *
+from darts.models.physics_sup.property_container import PropertyContainer
+from darts.models.physics_sup.properties_basic import ConstFunc, Density, Enthalpy, PhaseRelPerm
+
 
 class Model(DartsModel):
-
     def __init__(self):
         # call base class constructor
         super().__init__()
@@ -41,24 +41,25 @@ class Model(DartsModel):
                                                    min_z=self.zero/10)
 
         # Define property evaluators based on custom properties
-
         self.flash_ev = []
         self.property_container.density_ev = dict([('wat', Density(compr=1e-5, dens0=1014)),
                                                    ('oil', Density(compr=5e-3, dens0=50))])
-        self.property_container.viscosity_ev = dict([('wat', ViscosityConst(0.3)),
-                                                     ('oil', ViscosityConst(0.03))])
+        self.property_container.viscosity_ev = dict([('wat', ConstFunc(0.3)),
+                                                     ('oil', ConstFunc(0.03))])
         self.property_container.rel_perm_ev = dict([('wat', PhaseRelPerm("gas", 0.1, 0.1)),
                                                     ('oil', PhaseRelPerm("oil", 0.1, 0.1))])
         self.property_container.enthalpy_ev = dict([('wat', Enthalpy(hcap=4.18)),
                                                     ('oil', Enthalpy(hcap=0.035))])
+        self.property_container.conductivity_ev = dict([('wat', ConstFunc(1.)),
+                                                        ('oil', ConstFunc(1.))])
 
         self.property_container.rock_energy_ev = Enthalpy(hcap=1.0)
 
 
         # create physics
         self.thermal = 1
-        self.physics = Compositional(self.property_container, self.timer, n_points=400,
-                                     min_p=0, max_p=1000, min_z=self.zero, max_z=1 - self.zero,
+        self.physics = Compositional(self.property_container, self.property_container.components_name, self.property_container.phases_name,
+                                     self.timer, n_points=400, min_p=0, max_p=1000, min_z=self.zero, max_z=1-self.zero,
                                      min_t=273.15 + 20, max_t=273.15 + 200, thermal=self.thermal)
         self.params.first_ts = 0.0001
         self.params.mult_ts = 2
@@ -88,7 +89,8 @@ class Model(DartsModel):
             else:
                 w.control = self.physics.new_bhp_prod(180)
 
-class model_properties(property_container):
+
+class model_properties(PropertyContainer):
     def __init__(self, phases_name, components_name, min_z=1e-11):
         # Call base class constructor
         self.nph = len(phases_name)
@@ -114,25 +116,27 @@ class model_properties(property_container):
         for i in range(self.nph):
             self.x[i, i] = 1
 
-        ph = [0, 1]
+        self.ph = [0, 1]
 
-        for j in ph:
+        for j in self.ph:
             M = 0
             # molar weight of mixture
             for i in range(self.nc):
                 M += self.Mw[i] * self.x[j][i]
-            self.dens[j] = self.density_ev[self.phases_name[j]].evaluate(pressure, 0)  # output in [kg/m3]
+            self.dens[j] = self.density_ev[self.phases_name[j]].evaluate(pressure)  # output in [kg/m3]
             self.dens_m[j] = self.dens[j] / M
             self.mu[j] = self.viscosity_ev[self.phases_name[j]].evaluate()  # output in [cp]
 
         self.nu = zc
-        self.compute_saturation(ph)
+        self.compute_saturation(self.ph)
 
-        for j in ph:
+        for j in self.ph:
             self.kr[j] = self.rel_perm_ev[self.phases_name[j]].evaluate(self.sat[j])
             self.pc[j] = 0
 
-        return self.sat, self.x, self.dens, self.dens_m, self.mu, self.kr, self.pc, ph
+        kin_rates = np.zeros(self.nc)
+
+        return self.sat, self.x, self.dens, self.dens_m, self.mu, kin_rates, self.kr, self.pc, self.ph
 
     def evaluate_at_cond(self, pressure, zc):
 

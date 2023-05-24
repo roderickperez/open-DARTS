@@ -3,8 +3,8 @@ from darts.models.reservoirs.struct_reservoir import StructReservoir
 from darts.models.darts_model import DartsModel
 from darts.engines import sim_params
 import numpy as np
-from darts.models.physics_sup.properties_basic import *
-from darts.models.physics_sup.property_container import *
+from darts.models.physics_sup.properties_basic import ConstFunc, Density, PhaseRelPerm, ConstantK
+from darts.models.physics_sup.property_container import PropertyContainer
 from darts.models.physics_sup.physics_comp_sup import Compositional
 
 from darts.models.opt.opt_module_settings import OptModuleSettings
@@ -12,7 +12,6 @@ from darts.tools.keyword_file_tools import get_table_keyword
 
 
 class Model(DartsModel, OptModuleSettings):
-
     def __init__(self, T, report_step=120, perm=300, poro=0.2, customize_new_operator=False, Peaceman_WI=False):
         # call base class constructor
         super().__init__()
@@ -78,24 +77,24 @@ class Model(DartsModel, OptModuleSettings):
         components_name = ['CO2', 'C1', 'H2O']
         self.thermal = 0
         Mw = [44.01, 16.04, 18.015]
-        self.property_container = property_container(phases_name=['gas', 'oil'],
+        self.property_container = PropertyContainer(phases_name=['gas', 'oil'],
                                                      components_name=components_name,
                                                      Mw=Mw, min_z=self.zero / 10)
         self.components = self.property_container.components_name
         self.phases = self.property_container.phases_name
 
         """ properties correlations """
-        self.property_container.flash_ev = Flash(self.components, [4, 2, 1e-1], self.zero)
+        self.property_container.flash_ev = ConstantK(self.components, [4, 2, 1e-1], self.zero)
         self.property_container.density_ev = dict([('gas', Density(compr=1e-3, dens0=200)),
                                                    ('oil', Density(compr=1e-5, dens0=600))])
-        self.property_container.viscosity_ev = dict([('gas', ViscosityConst(0.05)),
-                                                     ('oil', ViscosityConst(0.5))])
+        self.property_container.viscosity_ev = dict([('gas', ConstFunc(0.05)),
+                                                     ('oil', ConstFunc(0.5))])
         self.property_container.rel_perm_ev = dict([('gas', PhaseRelPerm("gas")),
                                                     ('oil', PhaseRelPerm("oil"))])
 
         """ Activate physics """
-        self.physics = Compositional(self.property_container, self.timer, n_points=200, min_p=1, max_p=300,
-                                     min_z=self.zero/10, max_z=1-self.zero/10)
+        self.physics = Compositional(self.property_container, self.components, self.phases, self.timer,
+                                     n_points=200, min_p=1, max_p=300, min_z=self.zero/10, max_z=1-self.zero/10)
 
         self.inj_stream = [1.0 - 2 * self.zero, self.zero]
         self.ini_stream = [0.1, 0.2]

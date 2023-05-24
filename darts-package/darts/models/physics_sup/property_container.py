@@ -1,9 +1,9 @@
 import numpy as np
 
-class property_container:
-    def __init__(self, phases_name, components_name, Mw, Cm=0, min_z=1e-11,
-                 diff_coef=0, rock_comp=1e-6, solid_dens=None, rate_ann_mat=None):
-        super().__init__()
+
+class PropertyContainer:
+    def __init__(self, phases_name, components_name, Mw, min_z=1e-11,
+                 diff_coef=0., rock_comp=1e-6, solid_dens=None, rate_ann_mat=None, temperature=None):
         # This class contains all the property evaluators required for simulation
         if solid_dens is None:
             solid_dens = []
@@ -11,6 +11,13 @@ class property_container:
         if rate_ann_mat is None:
             rate_ann_mat = np.eye(len(components_name))
         # assert rate_ann_mat.shape[1] == len(components_name)  # necessary check?
+
+        if temperature:  # constant T specified
+            self.thermal = False
+            self.temperature = temperature
+        else:
+            self.thermal = True
+            self.temperature = None
 
         self.nph = len(phases_name)
         self.nm = len(solid_dens)
@@ -23,7 +30,6 @@ class property_container:
         self.phases_name = phases_name
         self.min_z = min_z
         self.Mw = Mw
-        self.Cm = Cm
         self.solid_dens = solid_dens
         for i in range(self.nm):
             solid_dens[i] /= Mw[i + self.ncfl]
@@ -38,9 +44,11 @@ class property_container:
         self.rel_perm_ev = []
         self.rel_well_perm_ev = []
         self.enthalpy_ev = []
+        self.conductivity_ev = []
         self.rock_energy_ev = []
         self.capillary_pressure_ev = []
         self.kinetic_rate_ev = []
+        self.heat_source_ev = []
         self.flash_ev = 0
 
         # passing arguments
@@ -53,9 +61,29 @@ class property_container:
         self.kr = np.zeros(self.nph)
         self.pc = np.zeros(self.nph)
         self.enthalpy = np.zeros(self.nph)
+        self.kappa = np.zeros(self.nph)
 
-        self.phase_props = [self.dens, self.dens_m, self.sat, self.nu, self.mu, self.kr, self.pc, self.enthalpy]
+        self.phase_props = [self.dens, self.dens_m, self.sat, self.nu, self.mu, self.kr, self.pc, self.enthalpy, self.kappa]
 
+    def get_state(self, state):
+        """
+        Get tuple of (pressure, temperature, [z0, ... zn-1]) at current OBL point (state)
+        If isothermal, temperature returns initial temperature
+        """
+        # Composition vector and pressure from state:
+        vec_state_as_np = np.asarray(state)
+        pressure = vec_state_as_np[0]
+
+        zc = np.append(vec_state_as_np[1:self.nc], 1 - np.sum(vec_state_as_np[1:self.nc]))
+        if zc[-1] < 0:
+            zc = self.comp_out_of_bounds(zc)
+
+        if self.thermal:
+            temperature = vec_state_as_np[-1]
+        else:
+            temperature = self.temperature
+
+        return pressure, temperature, zc
 
     def comp_out_of_bounds(self, vec_composition):
         # Check if composition sum is above 1 or element comp below 0, i.e. if point is unphysical:
@@ -88,23 +116,18 @@ class property_container:
             self.x[j][:] = 0
 
     def compute_saturation(self, ph):
-        if len(ph) == 1:
-            self.sat[ph[0]] = 1
-        elif len(ph) == 2:
-            denom = self.dens_m[ph[0]] - self.dens_m[ph[0]] * self.nu[ph[0]] + self.dens_m[ph[1]] * self.nu[ph[0]]
-            self.sat[ph[0]] = self.dens_m[ph[1]] * self.nu[ph[0]] / denom
-            self.sat[ph[1]] = self.dens_m[ph[0]] * self.nu[ph[1]] / denom
-        else:
-            denom = self.dens_m[0] * self.dens_m[1] * self.nu[2] + self.dens_m[0] * self.dens_m[2] * self.nu[1]\
-                  + self.dens_m[1] * self.dens_m[2] * self.nu[0]
-            self.sat[0] = self.dens_m[1] * self.dens_m[2] * self.nu[0] / denom
-            self.sat[1] = self.dens_m[0] * self.dens_m[2] * self.nu[1] / denom
-            self.sat[2] = self.dens_m[0] * self.dens_m[1] * self.nu[2] / denom
+        # Get saturations [volume fraction]
+        Vtot = 0
+        for j in ph:
+            Vtot += self.nu[j] / self.dens_m[j]
+
+        for j in ph:
+            self.sat[j] = (self.nu[j] / self.dens_m[j]) / Vtot
+
         return
 
-    def run_flash(self, pressure, zc):
-
-        (self.x, self.nu) = self.flash_ev.evaluate(pressure, zc)
+    def run_flash(self, pressure, temperature, zc):
+        self.nu, self.x = self.flash_ev.evaluate(pressure, temperature, zc)
 
         ph = []
         for j in range(self.nph):
@@ -116,46 +139,41 @@ class property_container:
 
         return ph
 
-
-
     def evaluate(self, state):
         """
         Class methods which evaluates the state operators for the element based physics
-        :param state: state variables [pres, comp_0, ..., comp_N-1]
+        :param state: state variables [pres, comp_0, ..., comp_N-1, temperature (optional)]
         :param values: values of the operators (used for storing the operator values)
         :return: updated value for operators, stored in values
         """
         # Composition vector and pressure from state:
-        vec_state_as_np = np.asarray(state)
-        pressure = vec_state_as_np[0]
-
-        zc = np.append(vec_state_as_np[1:self.nc], 1 - np.sum(vec_state_as_np[1:self.nc]))
-
-        if zc[-1] < 0:
-            # print(zc)
-            zc = self.comp_out_of_bounds(zc)
+        pressure, temperature, zc = self.get_state(state)
 
         self.clean_arrays()
-        # two-phase flash - assume water phase is always present and water component last
 
-        ph = self.run_flash(pressure, zc)
+        self.ph = self.run_flash(pressure, temperature, zc)
 
-        for j in ph:
-            M = 0
-            # molar weight of mixture (note: self.nc is fluid components here!)
-            for i in range(self.nc):
-                M += self.Mw[i] * self.x[j][i]
-            self.dens[j] = self.density_ev[self.phases_name[j]].evaluate(pressure, self.x[j][0])  # output in [kg/m3]
-            self.dens_m[j] = self.dens[j] / M
-            self.mu[j] = self.viscosity_ev[self.phases_name[j]].evaluate()  # output in [cp]
+        for j in self.ph:
+            M = np.sum(self.Mw * self.x[j][:])
 
-        self.compute_saturation(ph)
+            self.dens[j] = self.density_ev[self.phases_name[j]].evaluate(pressure, temperature, self.x[j][:])  # output in [kg/m3]
+            self.dens_m[j] = self.dens[j] / M  # molar density [kg/m3]/[kg/kmol]=[kmol/m3]
+            self.mu[j] = self.viscosity_ev[self.phases_name[j]].evaluate(pressure, temperature, self.x[j][:], self.dens[j])  # output in [cp]
+        self.compute_saturation(self.ph)
 
-        for j in ph:
+        if self.capillary_pressure_ev:
+            self.pc = self.capillary_pressure_ev.evaluate(self.sat[1])
+
+        for j in self.ph:
             self.kr[j] = self.rel_perm_ev[self.phases_name[j]].evaluate(self.sat[j])
-            self.pc[j] = 0
 
-        return self.sat, self.x, self.dens, self.dens_m, self.mu, self.kr, self.pc, ph
+        kin_rates = np.zeros(self.nc)
+        for j, reaction in enumerate(self.kinetic_rate_ev):
+            rate = reaction.evaluate(pressure, temperature, self.x, zc[-1])
+            # rate = reaction.evaluate(pressure, temperature, self.x, self.sat[-1])
+            kin_rates += rate
+
+        return self.sat, self.x, self.dens, self.dens_m, self.mu, kin_rates, self.kr, self.pc, self.ph
 
     def evaluate_thermal(self, state):
         """
@@ -165,33 +183,36 @@ class property_container:
         :return: updated value for operators, stored in values
         """
         # Composition vector and pressure from state:
-        vec_state_as_np = np.asarray(state)
-        temperature = vec_state_as_np[-1]
-        fluid_cond = np.ones(self.nph)
-        for m in range(self.nph):
-            self.enthalpy[m] = self.enthalpy_ev[self.phases_name[m]].evaluate(temperature)
-            fluid_cond[m] = 1
+        pressure, temperature, zc = self.get_state(state)
 
-        rock_energy = self.rock_energy_ev.evaluate(temperature)
+        for j in self.ph:
+            self.enthalpy[j] = self.enthalpy_ev[self.phases_name[j]].evaluate(pressure, temperature, self.x[j][:])  # kJ/kmol
+            self.kappa[j] = self.conductivity_ev[self.phases_name[j]].evaluate(pressure, temperature, self.x[j][:], self.dens[j])
 
-        return self.enthalpy, fluid_cond, rock_energy
+        rock_energy = self.rock_energy_ev.evaluate(temperature=temperature)
 
-    def evaluate_at_cond(self, pressure, zc):
+        # Heat source and Reaction enthalpy
+        heat_source = 0
+        if self.heat_source_ev:
+            heat_source += self.heat_source_ev.evaluate(state)
 
-        self.sat[:] = 0
+        for j, reaction in enumerate(self.kinetic_rate_ev):
+            heat_source += reaction.evaluate_enthalpy(pressure, temperature, self.x, self.sat[-1])
 
-        if zc[-1] < 0:
-            # print(zc)
-            zc = self.comp_out_of_bounds(zc)
+        return self.enthalpy, self.kappa, rock_energy, heat_source
 
-        ph = self.run_flash(pressure, zc)
+    def evaluate_at_cond(self, state):
+        # Composition vector and pressure from state:
+        pressure, temperature, zc = self.get_state(state)
+
+        ph = self.run_flash(pressure, temperature, zc)
 
         for j in ph:
             M = 0
             # molar weight of mixture
             for i in range(self.nc):
                 M += self.Mw[i] * self.x[j][i]
-            self.dens_m[j] = self.density_ev[self.phases_name[j]].evaluate(pressure, self.x[j][0]) / M
+            self.dens_m[j] = self.density_ev[self.phases_name[j]].evaluate(pressure, temperature, self.x[j][:]) / M
 
         self.compute_saturation(ph)
 

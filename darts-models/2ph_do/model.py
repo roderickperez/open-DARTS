@@ -2,13 +2,13 @@ from darts.models.reservoirs.struct_reservoir import StructReservoir
 from darts.models.darts_model import DartsModel
 from darts.engines import value_vector
 import numpy as np
-from darts.models.physics_sup.property_container import *
-from darts.models.physics_sup.properties_basic import *
+from darts.models.physics_sup.property_container import PropertyContainer
+from darts.models.physics_sup.properties_basic import ConstFunc, Density, PhaseRelPerm
 
 from darts.models.physics_sup.physics_comp_sup import Compositional
 
-class Model(DartsModel):
 
+class Model(DartsModel):
     def __init__(self):
         # call base class constructor
         super().__init__()
@@ -37,20 +37,19 @@ class Model(DartsModel):
         self.property_container = model_properties(phases_name=['wat', 'oil'], components_name=['w', 'o'],
                                                    min_z=self.zero/10)
 
-
         self.flash_ev = []
         self.property_container.density_ev = dict([('wat', Density(compr=1e-5, dens0=1014)),
                                                    ('oil', Density(compr=5e-3, dens0=500))])
-        self.property_container.viscosity_ev = dict([('wat', ViscosityConst(0.3)),
-                                                     ('oil', ViscosityConst(0.03))])
+        self.property_container.viscosity_ev = dict([('wat', ConstFunc(0.3)),
+                                                     ('oil', ConstFunc(0.03))])
         self.property_container.rel_perm_ev = dict([('wat', PhaseRelPerm("wat", 0.1, 0.1)),
                                                     ('oil', PhaseRelPerm("oil", 0.1, 0.1))])
 
         self.thermal = 0
 
         # create physics
-        self.physics = Compositional(self.property_container, self.timer, n_points=400, min_p=0, max_p=1000,
-                                     min_z=self.zero, max_z=1 - self.zero)
+        self.physics = Compositional(self.property_container, self.property_container.components_name, self.property_container.phases_name,
+                                     self.timer, n_points=400, min_p=0, max_p=1000, min_z=self.zero, max_z=1 - self.zero)
         self.params.first_ts = 0.01
         self.params.mult_ts = 2
         self.params.max_ts = 5
@@ -78,7 +77,8 @@ class Model(DartsModel):
             else:
                 w.control = self.physics.new_bhp_prod(350)
 
-class model_properties(property_container):
+
+class model_properties(PropertyContainer):
     def __init__(self, phases_name, components_name, min_z=1e-11):
         # Call base class constructor
         self.nph = len(phases_name)
@@ -111,7 +111,7 @@ class model_properties(property_container):
             # molar weight of mixture
             for i in range(self.nc):
                 M += self.Mw[i] * self.x[j][i]
-            self.dens[j] = self.density_ev[self.phases_name[j]].evaluate(pressure, 0)  # output in [kg/m3]
+            self.dens[j] = self.density_ev[self.phases_name[j]].evaluate(pressure)  # output in [kg/m3]
             self.dens_m[j] = self.dens[j] / M
             self.mu[j] = self.viscosity_ev[self.phases_name[j]].evaluate()  # output in [cp]
 
@@ -122,10 +122,11 @@ class model_properties(property_container):
             self.kr[j] = self.rel_perm_ev[self.phases_name[j]].evaluate(self.sat[j])
             self.pc[j] = 0
 
-        return self.sat, self.x, self.dens, self.dens_m, self.mu, self.kr, self.pc, ph
+        kin_rates = np.zeros(self.nc)
+
+        return self.sat, self.x, self.dens, self.dens_m, self.mu, kin_rates, self.kr, self.pc, ph
 
     def evaluate_at_cond(self, pressure, zc):
-
         self.sat[:] = 0
 
         ph = [0, 1]
@@ -136,6 +137,5 @@ class model_properties(property_container):
 
         self.nu = zc
         self.compute_saturation(ph)
-
 
         return self.sat, self.dens_m

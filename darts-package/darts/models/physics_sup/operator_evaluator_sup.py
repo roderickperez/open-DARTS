@@ -38,7 +38,7 @@ class ReservoirOperators(operator_set_evaluator_iface):
             values[i] = 0
 
         #  some arrays will be reused in thermal
-        (self.sat, self.x, rho, self.rho_m, self.mu, self.kr, self.pc, self.ph) = self.property.evaluate(state)
+        (self.sat, self.x, rho, self.rho_m, self.mu, kin_rates, self.kr, self.pc, self.ph) = self.property.evaluate(state)
 
         self.compr = (1 + self.property.rock_comp * (pressure - self.property.p_ref))  # compressible rock
 
@@ -75,10 +75,8 @@ class ReservoirOperators(operator_set_evaluator_iface):
 
         """ Delta operator for reaction """
         shift += nph * ne
-        if self.property.kinetic_rate_ev:
-            kinetic_rate = self.property.kinetic_rate_ev.evaluate(self.x, zc[nc_fl:])
-            for i in range(nc):
-                values[shift + i] = kinetic_rate[i]
+        for i in range(nc):
+            values[shift + i] = kin_rates[i]
 
         """ Gravity and Capillarity operators """
         shift += ne
@@ -129,7 +127,7 @@ class WellOperators(operator_set_evaluator_iface):
         for i in range(total):
             values[i] = 0
 
-        (sat, x, rho, rho_m, mu, kr, pc, ph) = self.property.evaluate(state)
+        (sat, x, rho, rho_m, mu, kin_rates, kr, pc, ph) = self.property.evaluate(state)
 
         self.compr = (1 + self.property.rock_comp * (pressure - self.property.p_ref))  # compressible rock
 
@@ -161,10 +159,8 @@ class WellOperators(operator_set_evaluator_iface):
 
         """ Delta operator for reaction """
         shift += nph * ne
-        if self.property.kinetic_rate_ev:
-            kinetic_rate = self.property.kinetic_rate_ev.evaluate(x, zc[nc_fl:])
-            for i in range(ne):
-                values[shift + i] = kinetic_rate[i]
+        for i in range(ne):
+            values[shift + i] = kin_rates[i]
 
         """ Gravity and Capillarity operators """
         shift += ne
@@ -198,7 +194,7 @@ class RateOperators(operator_set_evaluator_iface):
         for i in range(self.nph):
             values[i] = 0
 
-        (sat, x, rho, rho_m, mu, kr, pc, ph) = self.property.evaluate(state)
+        (sat, x, rho, rho_m, mu, kin_rates, kr, pc, ph) = self.property.evaluate(state)
 
 
         self.flux[:] = 0
@@ -243,7 +239,7 @@ class ReservoirThermalOperators(ReservoirOperators):
         temperature = vec_state_as_np[-1]
 
         # (enthalpy, rock_energy) = self.property.evaluate_thermal(state)
-        (enthalpy, cond, rock_energy) = self.property.evaluate_thermal(state)
+        (enthalpy, cond, rock_energy, heat_source) = self.property.evaluate_thermal(state)
 
         nc = self.property.nc
         nph = self.property.nph
@@ -268,7 +264,7 @@ class ReservoirThermalOperators(ReservoirOperators):
 
         """ Delta operator for reaction """
         shift += nph * ne
-        values[shift + i] = 0
+        values[shift + i] = heat_source
 
         """ Additional energy operators """
         shift += ne
@@ -285,13 +281,15 @@ class ReservoirThermalOperators(ReservoirOperators):
 
 
 class DefaultPropertyEvaluator(operator_set_evaluator_iface):
-    def __init__(self, property_container, thermal=0):
+    def __init__(self, variables, property_container):
         super().__init__()  # Initialize base-class
-        # Store your input parameters in self here, and initialize other parameters here in self
-        self.min_z = property_container.min_z
+
         self.property = property_container
-        self.thermal = thermal
-        self.n_ops = self.property.nph
+
+        self.vars = variables
+        self.n_vars = len(self.vars)
+        self.props = ['sat_' + str(j) for j in range(self.property.nph)]
+        self.n_props = len(self.props)
 
     def evaluate(self, state, values):
         """
@@ -300,14 +298,9 @@ class DefaultPropertyEvaluator(operator_set_evaluator_iface):
         :param values: values of the operators (used for storing the operator values)
         :return: updated value for operators, stored in values
         """
-        # Composition vector and pressure from state:
+        (self.sat, self.x, rho, self.rho_m, self.mu, kin_rates, self.kr, self.pc, self.ph) = self.property.evaluate(state)
 
-        nph = self.property.nph
-
-        #  some arrays will be reused in thermal
-        (self.sat, self.x, rho, self.rho_m, self.mu, self.kr, self.pc, self.ph) = self.property.evaluate(state)
-
-        for i in range(nph):
+        for i in range(self.property.nph):
             values[i] = self.sat[i]
 
-        return
+        return 0

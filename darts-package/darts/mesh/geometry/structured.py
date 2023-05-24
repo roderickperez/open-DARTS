@@ -2,7 +2,7 @@ import numpy as np
 import math
 import warnings
 import matplotlib.pyplot as plt
-from geometry.geometry import Geometry
+from .geometry import Geometry
 
 import numba
 from numba import jit, njit

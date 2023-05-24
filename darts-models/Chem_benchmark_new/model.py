@@ -2,13 +2,14 @@ from darts.models.reservoirs.struct_reservoir import StructReservoir
 from darts.models.darts_model import DartsModel
 from darts.engines import sim_params, value_vector, operator_set_evaluator_iface
 import numpy as np
-from darts.models.physics_sup.properties_basic import *
-from darts.models.physics_sup.property_container import *
+from darts.models.physics_sup.properties_basic import ConstFunc, Density, PhaseRelPerm, KineticBasic, ConstantK
+from darts.models.physics_sup.property_container import PropertyContainer
 
 from darts.models.physics_sup.physics_comp_sup import Compositional
 from darts.models.physics_sup.operator_evaluator_sup import *
 
 import matplotlib.pyplot as plt
+
 
 def create_map(lx, ly, nx, ny):
 
@@ -30,6 +31,7 @@ def create_map(lx, ly, nx, ny):
     map = np.reshape(map, (nx * ny,), order='F')
 
     return map
+
 
 # Model class creation here!
 class Model(DartsModel):
@@ -132,37 +134,36 @@ class Model(DartsModel):
             # Mw = [44.01, (40.078 + 60.008) / 2, (40.078 + 60.008) / 2, 18.015, 100.086]
 
         self.thermal = 0
-        self.property_container = model_properties(phases_name=['gas', 'wat'],
-                                                   components_name=components_name, rock_comp=1e-7, Mw=Mw,
+        self.property_container = model_properties(phases_name=['gas', 'wat'], components_name=components_name, Mw=Mw,
                                                    min_z=self.zero / 10, diff_coef=1e-9 * 60 * 60 * 24,
-                                                   solid_dens=[2000])
+                                                   rock_comp=1e-7, solid_dens=[2000])
 
         self.components = self.property_container.components_name
         self.phases = self.property_container.phases_name
 
         """ properties correlations """
         if self.combined_ions:
-            self.property_container.flash_ev = Flash(self.components[:-1], [10, 1e-12, 1e-1], self.zero)
+            self.property_container.flash_ev = ConstantK(self.components[:-1], [10, 1e-12, 1e-1], self.zero)
         else:
-            self.property_container.flash_ev = Flash(self.components[:-1], [10, 1e-12, 1e-12, 1e-1], self.zero)
+            self.property_container.flash_ev = ConstantK(self.components[:-1], [10, 1e-12, 1e-12, 1e-1], self.zero)
 
         self.property_container.density_ev = dict([('gas', Density(compr=1e-4, dens0=100)),
                                                    ('wat', Density(compr=1e-6, dens0=1000))])
-        self.property_container.viscosity_ev = dict([('gas', ViscosityConst(0.1)),
-                                                     ('wat', ViscosityConst(1))])
+        self.property_container.viscosity_ev = dict([('gas', ConstFunc(0.1)),
+                                                     ('wat', ConstFunc(1))])
         self.property_container.rel_perm_ev = dict([('gas', PhaseRelPerm("gas")),
                                                     ('wat', PhaseRelPerm("wat"))])
 
 
         ne = self.property_container.nc + self.thermal
-        self.property_container.kinetic_rate_ev = kinetic_basic(equi_prod, 1e-0, ne, self.combined_ions)
+        self.property_container.kinetic_rate_ev.append(KineticBasic(equi_prod, 1e-0, ne, self.combined_ions))
 
         """ Activate physics """
         delta_volume = self.dx * self.dy * 10
         num_well_blocks = int(self.ny / 2)
-        self.physics = CustomPhysics(self.property_container, self.timer, n_points=401, min_p=1, max_p=1000,
-                                     min_z=self.zero/10, max_z=1-self.zero/10, cache=0, volume=delta_volume,
-                                     num_wells=num_well_blocks)
+        self.physics = CustomPhysics(self.property_container, self.components, self.phases, self.timer,
+                                     n_points=401, min_p=1, max_p=1000, min_z=self.zero/10, max_z=1-self.zero/10,
+                                     cache=0, volume=delta_volume, num_wells=num_well_blocks)
 
         if self.combined_ions:
             zc_fl_inj_stream_gas = [1 - 2 * self.zero / (1 - solid_inject), self.zero / (1 - solid_inject)]
@@ -269,7 +270,7 @@ class Model(DartsModel):
         for ii in range(self.reservoir.nb):
             x_list = Xn[ii*nc:(ii+1)*nc]
             state = value_vector(x_list)
-            (sat, x, rho, rho_m, mu, kr, pc, ph) = self.property_container.evaluate(state)
+            (sat, x, rho, rho_m, mu, kin_rates, kr, pc, ph) = self.property_container.evaluate(state)
 
             rel_perm[ii, :] = kr
             visc[ii, :] = mu
@@ -347,7 +348,7 @@ class Model(DartsModel):
         for ii in range(self.reservoir.nb):
             x_list = Xn[ii * nc:(ii + 1) * nc]
             state = value_vector(x_list)
-            (sat, x, rho, rho_m, mu, kr, pc, ph) = self.property_container.evaluate(state)
+            (sat, x, rho, rho_m, mu, kin_rates, kr, pc, ph) = self.property_container.evaluate(state)
 
             X[ii, :, 0] = x[1][:-1]
             X[ii, :, 1] = x[0][:-1]
@@ -386,7 +387,7 @@ class Model(DartsModel):
         return 0
 
 
-class model_properties(property_container):
+class model_properties(PropertyContainer):
     def __init__(self, phases_name, components_name, Mw, min_z=1e-11,
                  diff_coef=0.0, rock_comp=1e-6, solid_dens=None):
         # Call base class constructor
@@ -397,13 +398,13 @@ class model_properties(property_container):
         super().__init__(phases_name, components_name, Mw, min_z=min_z, diff_coef=diff_coef,
                          rock_comp=rock_comp, solid_dens=solid_dens)
 
-    def run_flash(self, pressure, zc):
+    def run_flash(self, pressure, temperature, zc):
 
         nc_fl = self.nc - self.nm
         norm = 1 - np.sum(zc[nc_fl:])
 
         zc_r = zc[:nc_fl] / norm
-        (xr, nu) = self.flash_ev.evaluate(pressure, zc_r)
+        (nu, xr) = self.flash_ev.evaluate(pressure, temperature, zc_r)
         V = nu[0]
 
         if V <= 0:
@@ -425,6 +426,7 @@ class model_properties(property_container):
         self.nu[1] = (1 - V)
 
         return ph
+
 
 class PropertyEvaluator(operator_set_evaluator_iface):
     def __init__(self, property_container, thermal=0):
@@ -457,40 +459,43 @@ class PropertyEvaluator(operator_set_evaluator_iface):
 
 
 class CustomPhysics(Compositional):
-    def __init__(self, property_container, timer, n_points, min_p, max_p, min_z, max_z, min_t=-1, max_t=-1, thermal=0,
+    def __init__(self, property_container, components, phases,
+                 timer, n_points, min_p, max_p, min_z, max_z, min_t=-1, max_t=-1, thermal=0,
                  platform='cpu', itor_type='multilinear', itor_mode='adaptive', itor_precision='d', cache=False,
                  volume=0, num_wells=0):
 
         self.delta_volume = volume
         self.num_well_blocks = num_wells
 
-        super().__init__(property_container, timer, n_points, min_p, max_p, min_z, max_z, min_t, max_t, thermal,
-                 platform, itor_type, itor_mode, itor_precision, cache)
+        super().__init__(property_container, components, phases,
+                         timer, n_points, min_p, max_p, min_z, max_z, min_t, max_t, thermal,
+                         platform, itor_type, itor_mode, itor_precision, cache)
 
+    def set_operators(self, property_container, thermal, output_props=None):  # default definition of operators
 
+        # operators = self.operators_storage()
 
-    def set_operators(self, property_container, thermal):  # default definition of operators
+        self.reservoir_operators[0] = ReservoirOperators(property_container[0])
+        self.wellbore_operators = ReservoirOperators(property_container[0])
 
-        operators = self.operators_storage()
-
-        operators.reservoir_operators[0] = ReservoirOperators(property_container)
-        operators.wellbore_operators = ReservoirOperators(property_container)
-
-        operators.reservoir_operators[1] = ReservoirWithSourceOperators(property_container, comp_inj_id=0,
+        self.reservoir_operators[1] = ReservoirWithSourceOperators(property_container[0], comp_inj_id=0,
                                                                         delta_volume=self.delta_volume,
                                                                         num_well_blocks=self.num_well_blocks)
 
-        operators.reservoir_operators[2] = ReservoirWithSourceOperators(property_container, comp_inj_id=1,
+        self.reservoir_operators[2] = ReservoirWithSourceOperators(property_container[0], comp_inj_id=1,
                                                                         delta_volume=self.delta_volume,
                                                                         num_well_blocks=self.num_well_blocks)
 
 
 
-        operators.rate_operators = RateOperators(property_container)
+        self.rate_operators = RateOperators(property_container[0])
 
-        operators.property_operators = DefaultPropertyEvaluator(property_container)
+        if output_props is None:
+            self.property_operators = DefaultPropertyEvaluator(self.vars, property_container[0])
+        else:
+            self.property_operators = output_props
 
-        return operators
+        return
 
 
 class ReservoirWithSourceOperators(ReservoirOperators):
