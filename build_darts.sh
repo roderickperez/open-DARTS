@@ -1,3 +1,6 @@
+# update submodules
+git submodule update --recursive --remote --init
+
 ODLS="0" # default linear solvers
 if [ $# -gt 0 ] # use the first cmd argument if it is passed
 then 
