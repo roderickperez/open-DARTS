@@ -287,6 +287,9 @@ build-windows-3.6-ODLS:
         - copy $env:VCToolsRedistDir\x64\Microsoft.VC143.CRT\msvcp140.dll .\darts
         - copy $env:VCToolsRedistDir\x64\Microsoft.VC143.CRT\vcruntime140.dll .\darts
         - copy $env:VCToolsRedistDir\x64\Microsoft.VC143.OpenMP\vcomp140.dll .\darts
+        - cd darts-engines
+        - .\update_private_artifacts.bat $env:SMBNAME $env:SMBLOGIN $env:SMBPASS
+        - cd ..
         # compile and make the wheel
         - .\build_darts_iter.bat
     artifacts:
