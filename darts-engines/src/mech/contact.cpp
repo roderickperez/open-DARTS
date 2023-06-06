@@ -54,7 +54,11 @@ int contact::init_friction(pm_discretizer* _discr, conn_mesh* _mesh)
 
 	assert(mu0.size() == cell_ids.size());
 	assert(mu.size() == cell_ids.size());
-	
+
+	min_cell_id = *std::min_element(cell_ids.begin(), cell_ids.end());
+	const index_t max_cell_id = *std::max_element(cell_ids.begin(), cell_ids.end());
+	assert(max_cell_id - min_cell_id + 1 == cell_ids.size());
+
 	if (friction_model == RSF || friction_model == RSF_STAB)
 	{
 		index_t cell_id;
@@ -132,7 +136,7 @@ int contact::init_fault()
 		const auto face1 = faces[faces.size() - 1];
 		const auto face2 = faces[faces.size() - 2];
 		const auto& n_ref = face1.n;
-		const auto& conn_ids = mesh->fault_conn_id[cell_id - n_matrix];
+		const auto& conn_ids = mesh->fault_conn_id[cell_id - min_cell_id];
 		//sign = ((discr->cell_centers[mesh->block_p[conn_ids[0]]] - discr->cell_centers[mesh->block_m[conn_ids[0]]]).transpose() * n_ref).values[0] >= 0.0 ? 1.0 : -1.0;//discr->get_fault_sign(n_ref);
 		
 		n = discr->get_fault_sign(n_ref, cell_ids[0]) * n_ref;
@@ -250,7 +254,7 @@ void contact::merge_tractions_biot(const index_t i, const vector<value_t>& fluxe
 
 	// merge tractions approximated from two sides
 	const auto& cell_id = cell_ids[i];
-	const auto& conn_ids = mesh->fault_conn_id[cell_id - n_matrix];
+	const auto& conn_ids = mesh->fault_conn_id[cell_id - min_cell_id];
 	n = discr->faces[cell_id].back().n * discr->faces[cell_id].back().area;
 	if ((n.transpose() * (discr->cell_centers[mesh->block_p[conn_ids[0]]] - discr->cell_centers[mesh->block_m[conn_ids[0]]])).values[0] < 0.0) n = -n;
 	sign = discr->get_fault_sign(n, cell_ids[0]);// / 2.0;
@@ -333,7 +337,7 @@ void contact::merge_tractions_terzaghi(const index_t i, const vector<value_t>& f
 
 	// merge tractions approximated from two sides
 	const auto& cell_id = cell_ids[i];
-	const auto& conn_ids = mesh->fault_conn_id[cell_id - n_matrix];
+	const auto& conn_ids = mesh->fault_conn_id[cell_id - min_cell_id];
 	n = discr->faces[cell_id].back().n * discr->faces[cell_id].back().area;
 	if ((n.transpose() * (discr->cell_centers[mesh->block_p[conn_ids[0]]] - discr->cell_centers[mesh->block_m[conn_ids[0]]])).values[0] < 0.0) n = -n;
 	sign = discr->get_fault_sign(n, cell_ids[0]);// / 2.0;
@@ -461,7 +465,7 @@ int contact::add_to_jacobian_return_mapping(value_t dt, csr_matrix_base* jacobia
 
 			// local basis
 			const auto& n_ref = discr->faces[cell_id].back().n;
-			const auto& conn_ids = mesh->fault_conn_id[cell_id - n_matrix];
+			const auto& conn_ids = mesh->fault_conn_id[cell_id - min_cell_id];
 			//sign = ((discr->cell_centers[mesh->block_p[conn_ids[0]]] - discr->cell_centers[mesh->block_m[conn_ids[0]]]).transpose() * n_ref).values[0] >= 0.0 ? 1.0 : -1.0;//discr->get_fault_sign(n_ref);
 			n = discr->get_fault_sign(n_ref, cell_ids[0]) * n_ref;
 			const auto& S_cur = S[i];
@@ -703,7 +707,7 @@ int contact::add_to_jacobian_linear(value_t dt, csr_matrix_base* jacobian, vecto
 
 			// local basis
 			const auto& n_ref = discr->faces[cell_id].back().n;
-			const auto& conn_ids = mesh->fault_conn_id[cell_id - n_matrix];
+			const auto& conn_ids = mesh->fault_conn_id[cell_id - min_cell_id];
 			//sign = ((discr->cell_centers[mesh->block_p[conn_ids[0]]] - discr->cell_centers[mesh->block_m[conn_ids[0]]]).transpose() * n_ref).values[0] >= 0.0 ? 1.0 : -1.0;//discr->get_fault_sign(n_ref);
 			n = discr->get_fault_sign(n_ref, cell_ids[0]) * n_ref;
 			const auto& S_cur = S[i];
@@ -938,7 +942,7 @@ int contact::add_to_jacobian_local_iters(value_t dt, csr_matrix_base* jacobian, 
 					X[N_VARS * cell_id + U_VAR + d] -= dg_local[ND * i + d];
 
 				// update fluxes
-				const auto& conn_ids = mesh->fault_conn_id[cell_id - n_matrix];
+				const auto& conn_ids = mesh->fault_conn_id[cell_id - min_cell_id];
 				for (uint8_t k = 0; k < conn_ids.size(); k++)
 				{
 					const auto& conn_id = conn_ids[k];
@@ -1007,7 +1011,7 @@ int contact::add_to_jacobian_slip(index_t cell_id, value_t dt, vector<value_t>& 
 }
 int contact::add_to_jacobian_stuck(index_t cell_id, value_t dt, vector<value_t>& RHS)
 {
-	index_t conn_st_id = 0, st_id;
+	index_t conn_st_id = 0, st_id, id = cell_id - min_cell_id;
 	uint8_t d;
 	const index_t csr_idx_start = rows[cell_id];
 	const index_t csr_idx_end = rows[cell_id + 1];
@@ -1025,7 +1029,7 @@ int contact::add_to_jacobian_stuck(index_t cell_id, value_t dt, vector<value_t>&
 	for (d = 0; d < ND; d++)
 	{
 		Jac[diag_idx + (U_VAR + d) * N_VARS + (U_VAR + d)] = implicit_scheme_multiplier * 1.0;
-		jacobian_explicit_scheme[cell_id * ND + d] = 1.0;
+		jacobian_explicit_scheme[id * ND + d] = 1.0;
 		RHS[N_VARS * cell_id + U_VAR + d] = dg.values[d];
 	}
 	return 0;
@@ -1068,7 +1072,7 @@ int contact::apply_direction_chop(const std::vector<value_t>& X, const std::vect
 			new_flux = flux;
 
 			// calculate new fault stress
-			const auto& conn_ids = mesh->fault_conn_id[cell_id - n_matrix];
+			const auto& conn_ids = mesh->fault_conn_id[cell_id - min_cell_id];
 			n = discr->faces[cell_id].back().n * discr->faces[cell_id].back().area;
 			if ((n.transpose() * (discr->cell_centers[mesh->block_p[conn_ids[0]]] - discr->cell_centers[mesh->block_m[conn_ids[0]]])).values[0] < 0.0) n = -n;
 			sign = discr->get_fault_sign(n, cell_ids[0]);// / 2.0;
