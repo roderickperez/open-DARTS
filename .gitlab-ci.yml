@@ -174,7 +174,7 @@ build-windows-3.9-ODLS:
     rules:
         - if: $CI_COMMIT_REF_PROTECTED == "true"
         - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    extends: .build-windows-ODLS
+    extends: .build-windows
     variables:
         PY_VER: '3.9'
         PYTHONPATH: 'D:\Python39'        
@@ -184,7 +184,7 @@ build-windows-3.8-ODLS:
     only:
       refs:
         - main
-    extends: .build-windows-ODLS
+    extends: .build-windows
     variables:
         PY_VER: '3.8'
         PYTHONPATH: 'D:\Python38'
@@ -194,7 +194,7 @@ build-windows-3.7-ODLS:
     only:
       refs:
         - main
-    extends: .build-windows-ODLS
+    extends: .build-windows
     variables:
         PY_VER: '3.7'
         PYTHONPATH: 'D:\Python374'
@@ -204,7 +204,7 @@ build-windows-3.6-ODLS:
     only:
       refs:
         - main
-    extends: .build-windows-ODLS
+    extends: .build-windows
     variables:
         PY_VER: '3.6'
         PYTHONPATH: 'D:\Python365'
