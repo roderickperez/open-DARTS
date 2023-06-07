@@ -4,6 +4,7 @@
 set -e
 
 # update submodules
+rm -rf thirdparty
 git submodule update --recursive --remote --init
 
 ODLS="0" # default linear solvers
