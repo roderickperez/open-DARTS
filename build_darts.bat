@@ -3,7 +3,7 @@ git submodule update --recursive --remote --init || goto :error
 echo "build_darts arg:" "%1"
 if "%1"=="0" (
   cd darts-engines
-  .\update_private_artifacts.bat %SMBNAME% %SMBLOGIN% %SMBPASS% || goto :error
+  call update_private_artifacts.bat %SMBNAME% %SMBLOGIN% %SMBPASS% || goto :error
   cd ..
   rem 2 Compile engines with iterative linear solver
   set configengine=ReleaseMT
