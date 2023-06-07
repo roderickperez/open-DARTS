@@ -1,3 +1,8 @@
+#!/bin/bash
+
+# Exit when any command fails
+set -e
+
 # update submodules
 git submodule update --recursive --remote --init
 
