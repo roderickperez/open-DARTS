@@ -558,7 +558,7 @@ int contact::add_to_jacobian_return_mapping(value_t dt, csr_matrix_base* jacobia
 				Fpres -= mu[i] / Ft_trial_norm * outer_product(F_trial, Fn_pres);
 				// dmu
 				F(ND * id, { ND, ND }, { (uint8_t)F.N, 1 }) -= flux(0, 0) / Ft_trial_norm * outer_product(F_trial, dmu.transpose()).values;
-				jacobian_explicit_scheme[i] = -flux(0, 0) / Ft_trial_norm * outer_product(F_trial, Matrix(jacobian_explicit_scheme[i](0, {ND}, {1}), 1, ND)).values;
+				jacobian_explicit_scheme[i].values = -flux(0, 0) / Ft_trial_norm * outer_product(F_trial, Matrix(jacobian_explicit_scheme[i](0, {ND}, {1}), 1, ND)).values;
 
 				buf.values = outer_product(F_trial / Ft_trial_norm, F_trial.transpose() / Ft_trial_norm).values;
 				buf(0, { ND }, { 1 }) = 0.0;
