@@ -188,7 +188,7 @@ int contact::init_fault()
 	}
 	phi.resize(cell_ids.size());
 	fault_stress.resize(ND * cell_ids.size());
-	jacobian_explicit_scheme.resize(ND * cell_ids.size());
+	jacobian_explicit_scheme.resize(cell_ids.size());
 
 	return 0;
 }
@@ -429,11 +429,12 @@ int contact::add_to_jacobian_return_mapping(value_t dt, csr_matrix_base* jacobia
 	std::string fname = "sol_poromechanics/friction_output_" + std::to_string(file_id++) + ".txt";
 	pFile = fopen(fname.c_str(), "w");*/
 	
-	fill_n(jacobian_explicit_scheme.begin(), jacobian_explicit_scheme.size(), 0.0);
-
 	for (index_t i = 0; i < cell_ids.size(); i++)
 	{
+		jacobian_explicit_scheme[i].values = 0.0;
+
 		cell_id = cell_ids[i];
+
 		// set gap change
 		for (d = 0; d < ND; d++)
 		{
@@ -557,6 +558,8 @@ int contact::add_to_jacobian_return_mapping(value_t dt, csr_matrix_base* jacobia
 				Fpres -= mu[i] / Ft_trial_norm * outer_product(F_trial, Fn_pres);
 				// dmu
 				F(ND * id, { ND, ND }, { (uint8_t)F.N, 1 }) -= flux(0, 0) / Ft_trial_norm * outer_product(F_trial, dmu.transpose()).values;
+				jacobian_explicit_scheme[i] = -flux(0, 0) / Ft_trial_norm * outer_product(F_trial, Matrix(jacobian_explicit_scheme[i](0, {ND}, {1}), 1, ND)).values;
+
 				buf.values = outer_product(F_trial / Ft_trial_norm, F_trial.transpose() / Ft_trial_norm).values;
 				buf(0, { ND }, { 1 }) = 0.0;
 				// radiation dumping
@@ -564,10 +567,13 @@ int contact::add_to_jacobian_return_mapping(value_t dt, csr_matrix_base* jacobia
 					F(ND * id, { ND, ND }, { (uint8_t)F.N, 1 }) -= 1.0 / Ft_trial_norm * outer_product(F_trial, drad_dump.transpose()).values;
 				// dFt_trial_norm
 				F(ND * id, { ND, ND }, { (uint8_t)F.N, 1 }) -= -sign_trial * eps_t[i] * buf.values;
+				jacobian_explicit_scheme[i].values += sign_trial * eps_t[i] * buf.values;
 				//// d(1/Ft_trial_norm)
 				F(ND * id, { ND, ND }, { (uint8_t)F.N, 1 }) -= phi[i] / Ft_trial_norm * sign_trial * eps_t[i] * buf.values;
+				jacobian_explicit_scheme[i].values -= phi[i] / Ft_trial_norm * sign_trial * eps_t[i] * buf.values;
 				//// dF_trial
 				F(ND * id, { ND, ND }, { (uint8_t)F.N, 1 }) -= alpha * sign_trial * eps_t[i] * I3.values;
+				jacobian_explicit_scheme[i].values -= alpha * sign_trial * eps_t[i] * I3.values;
 
 				// trial traction as direction (Garipov)
 				//F -= mu_cur / Ft_trial_norm * outer_product(F_trial, Fn);
@@ -600,6 +606,7 @@ int contact::add_to_jacobian_return_mapping(value_t dt, csr_matrix_base* jacobia
 				//fill_n(&Fpres.values[0], Fpres.values.size(), 0.0);
 				//fill_n(&Frhs.values[0], Frhs.values.size(), 0.0);
 				F(ND * id, { ND, ND }, { (uint8_t)F.N, 1 }) -= sign_trial * eps_t[i] * I3.values;
+				jacobian_explicit_scheme[i].values -= sign_trial * eps_t[i] * I3.values;
 				flux -= F_trial;
 				//flux -= flux + sign_trial * eps_t[i] * dg;
 
@@ -615,23 +622,29 @@ int contact::add_to_jacobian_return_mapping(value_t dt, csr_matrix_base* jacobia
 				Fpres(0, { (uint8_t)Fpres.N }, { 1 }) = Fn_pres.values;
 				F(0, ND * id) -= (g(0, 0) >= 0.0 ? 1.0 : 0.0) * eps_n[i];
 				flux(0, 0) -= eps_n[i] * ( g(0,0) + fabs(g(0,0)) ) / 2;
+				jacobian_explicit_scheme[i](0, 0) = (g(0, 0) >= 0.0 ? 1.0 : 0.0) * eps_n[i];
 			}
 			else if (normal_condition == ZERO_GAP_CHANGE)
 			{
 				//// dg_n = 0
 				F(0, { (uint8_t)F.N }, { 1 }) = 0.0;
 				Fpres(0, { (uint8_t)Fpres.N }, { 1 }) = 0.0;
-				F(0, ND * id) = 1.0;
-				flux(0, 0) = dg(0, 0);
+				F(0, ND * id) = eps_n[i];
+				flux(0, 0) = eps_n[i] * dg(0, 0);
+				jacobian_explicit_scheme[i](0, 0) = eps_n[i];
 			}
+			jacobian_explicit_scheme[i](0, 1) = 0.0;
+			jacobian_explicit_scheme[i](0, 2) = 0.0;
 
 			// scale the equations
 			F.values /= sqrt(eps_n[i]);
 			Fpres.values /= sqrt(eps_n[i]);
 			flux.values /= sqrt(eps_n[i]);
+			jacobian_explicit_scheme[i].values /= sqrt(eps_n[i]);
 
 			// stay with 'x' vector in Cartesian coordinates
 			F.values = (F * make_block_diagonal(S_cur, st.size())).values;
+			jacobian_explicit_scheme[i].values = (jacobian_explicit_scheme[i] * S_cur).values;
 
 			// permutation of equations
 			permut[0] = 0;
@@ -973,6 +986,28 @@ int contact::add_to_jacobian_local_iters(value_t dt, csr_matrix_base* jacobian, 
 	}
 	return 0;
 }
+int contact::solve_explicit_scheme(std::vector<value_t>& RHS, std::vector<value_t>& dX)
+{
+	bool res;
+	uint8_t d, c;
+	index_t l_id;
+
+	for (index_t i = 0; i < cell_ids.size(); i++)
+	{
+		auto& jac = jacobian_explicit_scheme[i];
+		res = jac.inv();
+		if (!res) { cout << "Inversion failed!\n"; exit(-1); }
+
+		const auto& cell_id = cell_ids[i];
+		l_id = cell_id * N_VARS + U_VAR;
+		for (d = 0; d < ND; d++)
+		{
+			dX[l_id + d] = 0.0;
+			for (c = 0; c < ND; c++)
+				dX[l_id + d] += jac(d, c) * RHS[l_id + c];
+		}
+	}
+}
 int contact::add_to_jacobian_slip(index_t cell_id, value_t dt, vector<value_t>& RHS)
 {
 	const auto& F = pre_F[st.size()];
@@ -1029,7 +1064,7 @@ int contact::add_to_jacobian_stuck(index_t cell_id, value_t dt, vector<value_t>&
 	for (d = 0; d < ND; d++)
 	{
 		Jac[diag_idx + (U_VAR + d) * N_VARS + (U_VAR + d)] = implicit_scheme_multiplier * 1.0;
-		jacobian_explicit_scheme[id * ND + d] = 1.0;
+		jacobian_explicit_scheme[id](d, d) = 1.0;
 		RHS[N_VARS * cell_id + U_VAR + d] = dg.values[d];
 	}
 	return 0;
@@ -1191,6 +1226,7 @@ vector<value_t> contact::getFrictionCoef(const index_t i, const value_t dt, Matr
 		{
 			mu_cur += rsf.a * log(slip_vel_norm / rsf.vel0);
 			dmu.values += rsf.a * slip_vel.values / dt / slip_vel_norm / slip_vel_norm;
+			jacobian_explicit_scheme[i](0, { ND }, { 1 }) += rsf.a * slip_vel.values / dt / slip_vel_norm / slip_vel_norm;
 
 			if ( (rsf.law == MIXED && slip_vel_norm > 0.01 * rsf.vel0) || rsf.law == SLIP_LAW )	// slip law
 			{
