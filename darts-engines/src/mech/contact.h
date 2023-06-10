@@ -96,7 +96,7 @@ namespace pm
 		std::vector<index_t> cell_ids;
 		std::vector<ContactState> states, states_n;
 		std::vector<Matrix> S, Sinv, S_fault;
-		index_t min_cell_id;
+		index_t min_cell_id, max_cell_id;
 
 		//// friction properties
 		// friction model

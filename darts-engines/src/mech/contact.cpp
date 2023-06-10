@@ -56,7 +56,7 @@ int contact::init_friction(pm_discretizer* _discr, conn_mesh* _mesh)
 	assert(mu.size() == cell_ids.size());
 
 	min_cell_id = *std::min_element(cell_ids.begin(), cell_ids.end());
-	const index_t max_cell_id = *std::max_element(cell_ids.begin(), cell_ids.end());
+	max_cell_id = *std::max_element(cell_ids.begin(), cell_ids.end());
 	assert(max_cell_id - min_cell_id + 1 == cell_ids.size());
 
 	if (friction_model == RSF || friction_model == RSF_STAB)
@@ -456,7 +456,7 @@ int contact::add_to_jacobian_return_mapping(value_t dt, csr_matrix_base* jacobia
 		{
 			add_to_jacobian_stuck(cell_id, dt, RHS);
 		}
-		else if (state == PEN_STUCK || state == SLIP)
+		else if (state == PEN_STUCK || state == SLIP || state == FREE)
 		{
 			// set tangential condition
 			auto& F = pre_F[st.size()];
@@ -530,12 +530,17 @@ int contact::add_to_jacobian_return_mapping(value_t dt, csr_matrix_base* jacobia
 			Fn_pres.values = Fpres(0, { (uint8_t)Fpres.N }, { 1 });
 			 
 			// update state
-			if (phi[i] >= 0.0 || (state == SLIP && dgt_iter_norm > 100 * EQUALITY_TOLERANCE))
+			if (flux(0, 0) < -100 * EQUALITY_TOLERANCE)
+				state = FREE;
+			else if (phi[i] >= 0.0 || (state == SLIP && dgt_iter_norm > 100 * EQUALITY_TOLERANCE))
 				state = SLIP;
 			else
 				state = PEN_STUCK;
 
-			if (state == SLIP && Ft_trial_norm > EQUALITY_TOLERANCE / 100)
+			if (state == FREE)
+			{
+			}
+			else if (state == SLIP && Ft_trial_norm > EQUALITY_TOLERANCE / 100)
 			{
 				// static (or zero) friction by default
 				drad_dump.values = 0.0;
@@ -617,12 +622,13 @@ int contact::add_to_jacobian_return_mapping(value_t dt, csr_matrix_base* jacobia
 			//// set normal condition (first row)
 			if (normal_condition == PENALIZED)
 			{
+				//printf("%d:\t#%d\t%f\tn:%f %f %f\n", fault_tag, cell_id, sign_trial, n.values[0], n.values[1], n.values[2]);
 				//// f_n - eps_n * <g_n> = 0
 				F(0, { (uint8_t)F.N }, { 1 }) = Fn.values;
 				Fpres(0, { (uint8_t)Fpres.N }, { 1 }) = Fn_pres.values;
-				F(0, ND * id) -= (g(0, 0) >= 0.0 ? 1.0 : 0.0) * eps_n[i];
-				flux(0, 0) -= eps_n[i] * ( g(0,0) + fabs(g(0,0)) ) / 2;
-				jacobian_explicit_scheme[i](0, 0) = (g(0, 0) >= 0.0 ? 1.0 : 0.0) * eps_n[i];
+				F(0, ND * id) += sign_trial * (g(0, 0) >= 0.0 ? 1.0 : 0.0) * eps_n[i];
+				flux(0, 0) += sign_trial * eps_n[i] * ( g(0,0) + fabs(g(0,0)) ) / 2;
+				jacobian_explicit_scheme[i](0, 0) = (g(0, 0) >= 0.0 ? 1.0 : 0.0) * sign_trial * eps_n[i];
 			}
 			else if (normal_condition == ZERO_GAP_CHANGE)
 			{
@@ -910,7 +916,7 @@ int contact::add_to_jacobian_local_iters(value_t dt, csr_matrix_base* jacobian, 
 
 				for (index_t st_id = csr_idx_start; st_id < csr_idx_end; st_id++)
 				{
-					if (cols[st_id] == n_matrix + cols_loc[st_id_loc])
+					if (cols[st_id] == min_cell_id + cols_loc[st_id_loc])
 					{
 						for (uint8_t d = 0; d < ND; d++)
 							for (uint8_t v = 0; v < ND; v++)
@@ -955,14 +961,14 @@ int contact::add_to_jacobian_local_iters(value_t dt, csr_matrix_base* jacobian, 
 					X[N_VARS * cell_id + U_VAR + d] -= dg_local[ND * i + d];
 
 				// update fluxes
-				const auto& conn_ids = mesh->fault_conn_id[cell_id - n_matrix];
+				const auto& conn_ids = mesh->fault_conn_id[cell_id - min_cell_id];
 				for (uint8_t k = 0; k < conn_ids.size(); k++)
 				{
 					const auto& conn_id = conn_ids[k];
 					for (conn_st_id = offset[conn_id]; conn_st_id < offset[conn_id + 1]; conn_st_id++)
 					{
-						id = stencil[conn_st_id] - n_matrix;
-						if (id >= 0 && id < n_res_blocks - n_matrix)
+						id = stencil[conn_st_id] - min_cell_id;
+						if (id >= 0 && id < n_res_blocks - min_cell_id)
 						{
 							for (d = 0; d < ND; d++)
 							{
@@ -1357,8 +1363,8 @@ int contact::init_local_jacobian_structure()
 		rows_ptr[i + 1] = rows_ptr[i];
 		for (const auto& st : cur)
 		{
-			if (st >= n_matrix && st < n_res_blocks)
-				cols_ind[rows_ptr[i + 1]++] = st - n_matrix;
+			if (st >= min_cell_id && st <= max_cell_id)
+				cols_ind[rows_ptr[i + 1]++] = st - min_cell_id;
 		}
 		diag_ind[i] = index_t(intptr_t(std::find(cols_ind + rows_ptr[i], cols_ind + rows_ptr[i + 1], cell_id) - cols_ind - rows_ptr[i]));
 	}
