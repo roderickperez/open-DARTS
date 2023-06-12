@@ -666,7 +666,7 @@ int engine_super_elastic_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t d
 				  (buf[P_VAR] - buf_prev[P_VAR]) / dt;
 			  // heat conduction
 			  if (THERMAL)
-				t_diff += tranD[conn_st_id] * buf[T_VAR];
+				t_diff -= tranD[conn_st_id] * buf[T_VAR];
 
 			  conn_st_id++;
 		  }
@@ -702,6 +702,8 @@ int engine_super_elastic_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t d
 				  }
 			  }
 		  }
+		  // rock heat conduction
+		  fluxes[N_VARS * conn_id + T_VAR] += t_diff;
 		  // [3] loop over stencil, contribution from UNKNOWNS to flux
 		  conn_st_id = offset[conn_id];
 		  for (st_id = csr_idx_start; st_id < csr_idx_end && conn_st_id < offset[conn_id + 1]; st_id++)
@@ -768,22 +770,6 @@ int engine_super_elastic_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t d
 						  (op_vals_arr[i * N_OPS + ACC_OP + c] * X[r_ind + P_VAR] - op_vals_arr_n[i * N_OPS + ACC_OP + c] * Xn[r_ind + P_VAR]);
 					  Jac[l_ind1 + P_VAR] += op_vals_arr[i * N_OPS + ACC_OP + c] * tran_biot[r_ind1 + P_VAR_T];
 				  }
-				  // rock energy
-				  if (THERMAL)
-				  {
-					  l_ind1 = st_id * N_VARS_SQ + T_VAR * N_VARS;
-					  // displacements contribution to flux
-					  for (v = 0; v < ND; v++)
-					  {
-						  RHS[i * N_VARS + T_VAR] -= hcap[i] * tran_biot[r_ind1 + U_VAR_T + v] *
-							  (op_vals_arr[i * N_OPS + RE_INTER_OP] * X[r_ind + U_VAR + v] - op_vals_arr_n[i * N_OPS + RE_INTER_OP] * Xn[r_ind + U_VAR + v]);
-						  Jac[l_ind1 + U_VAR + v] -= hcap[i] * tran_biot[r_ind1 + U_VAR_T + v] * op_vals_arr[i * N_OPS + RE_INTER_OP];
-					  }
-					  // pressure contribution to flux
-					  RHS[i * N_VARS + T_VAR] -= hcap[i] * tran_biot[r_ind1 + P_VAR_T] *
-						  (op_vals_arr[i * N_OPS + RE_INTER_OP] * X[r_ind + P_VAR] - op_vals_arr_n[i * N_OPS + RE_INTER_OP] * Xn[r_ind + P_VAR]);
-					  Jac[l_ind1 + P_VAR] -= hcap[i] * tran_biot[r_ind1 + P_VAR_T] * op_vals_arr[i * N_OPS + RE_INTER_OP];			      
-				  }
 				  // biot term in porosity in gravitational forces
 				  for (d = 0; d < ND; d++)
 				  {
@@ -797,6 +783,26 @@ int engine_super_elastic_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t d
 					  // pressure contribution to flux
 					  RHS[i * N_VARS + U_VAR + d] += V[i] * f[i * N_VARS + U_VAR + d] * eff_density * tran_biot[r_ind1 + P_VAR_T] * X[r_ind + P_VAR];
 					  Jac[l_ind1 + P_VAR] += V[i] * f[i * N_VARS + U_VAR + d] * eff_density * tran_biot[r_ind1 + P_VAR_T];
+				  }
+				  //// heat fluxes
+				  if (THERMAL)
+				  {
+					  // rock energy
+					  l_ind1 = st_id * N_VARS_SQ + T_VAR * N_VARS;
+					  // displacements contribution to flux
+					  for (v = 0; v < ND; v++)
+					  {
+						  RHS[i * N_VARS + T_VAR] -= hcap[i] * tran_biot[r_ind1 + U_VAR_T + v] *
+							  (op_vals_arr[i * N_OPS + RE_INTER_OP] * X[r_ind + U_VAR + v] - op_vals_arr_n[i * N_OPS + RE_INTER_OP] * Xn[r_ind + U_VAR + v]);
+						  Jac[l_ind1 + U_VAR + v] -= hcap[i] * tran_biot[r_ind1 + U_VAR_T + v] * op_vals_arr[i * N_OPS + RE_INTER_OP];
+					  }
+					  // pressure contribution to flux
+					  RHS[i * N_VARS + T_VAR] -= hcap[i] * tran_biot[r_ind1 + P_VAR_T] *
+						  (op_vals_arr[i * N_OPS + RE_INTER_OP] * X[r_ind + P_VAR] - op_vals_arr_n[i * N_OPS + RE_INTER_OP] * Xn[r_ind + P_VAR]);
+					  Jac[l_ind1 + P_VAR] -= hcap[i] * tran_biot[r_ind1 + P_VAR_T] * op_vals_arr[i * N_OPS + RE_INTER_OP];
+
+					  // heat conduction
+					  Jac[l_ind1 + T_VAR] -= dt * tranD[conn_st_id];
 				  }
 
 				  conn_st_id++;
@@ -842,6 +848,17 @@ int engine_super_elastic_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t d
 					  RHS[i * N_VARS + P_VAR + c] += tran_biot[r_ind + P_VAR_T] *
 						  (op_vals_arr[i * N_OPS + ACC_OP + c] * cur_bc[P_VAR] - op_vals_arr_n[i * N_OPS + ACC_OP + c] * cur_bc_prev[P_VAR]);
 				  }
+				  // biot term in porosity in gravitational forces
+				  for (d = 0; d < ND; d++)
+				  {
+					  // displacements contribution to flux
+					  for (v = 0; v < ND; v++)
+					  {
+						  RHS[i * N_VARS + U_VAR + d] += V[i] * f[i * N_VARS + U_VAR + d] * eff_density * tran_biot[r_ind + U_VAR_T + v] * cur_bc[U_VAR + v];
+					  }
+					  // pressure contribution to flux
+					  RHS[i * N_VARS + U_VAR + d] += V[i] * f[i * N_VARS + U_VAR + d] * eff_density * tran_biot[r_ind + P_VAR_T] * cur_bc[P_VAR];
+				  }
 				  // rock energy
 				  if (THERMAL)
 				  {
@@ -853,18 +870,7 @@ int engine_super_elastic_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t d
 					  }
 					  // pressure contribution to flux
 					  RHS[i * N_VARS + T_VAR] -= hcap[i] * tran_biot[r_ind + P_VAR_T] *
-						  (op_vals_arr[i * N_OPS + RE_INTER_OP] * cur_bc[P_VAR] - op_vals_arr_n[i * N_OPS + RE_INTER_OP] * cur_bc_prev[P_VAR]);	      
-				  }
-				  // biot term in porosity in gravitational forces
-				  for (d = 0; d < ND; d++)
-				  {
-					  // displacements contribution to flux
-					  for (v = 0; v < ND; v++)
-					  {
-						  RHS[i * N_VARS + U_VAR + d] += V[i] * f[i * N_VARS + U_VAR + d] * eff_density * tran_biot[r_ind + U_VAR_T + v] * cur_bc[U_VAR + v];
-					  }
-					  // pressure contribution to flux
-					  RHS[i * N_VARS + U_VAR + d] += V[i] * f[i * N_VARS + U_VAR + d] * eff_density * tran_biot[r_ind + P_VAR_T] * cur_bc[P_VAR];
+						  (op_vals_arr[i * N_OPS + RE_INTER_OP] * cur_bc[P_VAR] - op_vals_arr_n[i * N_OPS + RE_INTER_OP] * cur_bc_prev[P_VAR]);
 				  }
 			  }
 		  }
