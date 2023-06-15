@@ -1,0 +1,11 @@
+workspace.xml
+.idea/vcs.xml
+.idea/misc.xml
+.idea/dictionaries/
+*.pyc
+darts
+*.xlsx
+*.vts
+.idea
+
+_logs/*.log

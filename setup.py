@@ -1,7 +1,6 @@
 from setuptools import setup, find_packages, Distribution
-import os
 
-# custom class to inform setuptools about self-comiled extensions in the distribution
+# custom class to inform setuptools about self-compiled extensions in the distribution
 # and hence enforce it to create platform wheel
 class BinaryDistribution(Distribution):
     def has_ext_modules(foo):
@@ -9,22 +8,16 @@ class BinaryDistribution(Distribution):
 
 setup(
     # Add packages that are inside folder darts-package
-    package_dir={'': "darts-package"},
+    packages = find_packages(
+    	where = '.',
+        exclude = ['darts-discretizer', 'darts-engines', 'models', 'opendarts_linear_solvers', 'docs', 'thirdparty']),
 
-    # Now only include already built libraries
-    package_data={'darts': ['*.pyd', '*.so', '*.dll', 'html/*.*', 'docs/*.pdf', 'hdata/*.*', 'build_info.txt', 'whatsnew.txt']},
+    # Now only include already built libraries, and build_info, otherwise it will not find the file when using darts.
+    package_data={'darts': ['*.pyd', '*.so', '*.dll', 'build_info.txt']},
 
     # Package metadata
     description='Delft Advanced Research Terra Simulator',
 
-    # Dependent packages (distributions)
-    install_requires=['matplotlib', 'numpy', 'numba', 'scipy', 'pandas', 'meshio', 'gmsh', 'iapws', 
-    'plotly', 'xlrd', 'pykrige', 'openpyxl'],
-
-    classifiers=[
-        'Programming Language :: Python :: 3',
-	    'Programming Language :: C++',
-        'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
-    ],
-    distclass=BinaryDistribution,
+    # handle correct platform wheel names
+    distclass=BinaryDistribution
 )
