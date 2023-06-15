@@ -251,12 +251,6 @@ copy /b discretizer_build_info.cpp+,, &gt;NUL</Command>
     <ClCompile Include="src\mesh\mshio\load_msh_physical_groups.cpp" />
     <ClCompile Include="src\mesh\mshio\load_msh_post_process.cpp" />
     <ClCompile Include="src\mesh\mshio\validate_spec.cpp" />
-    <ClCompile Include="src\opm\grid\cornerpoint_grid.c" />
-    <ClCompile Include="src\opm\grid\cpgpreprocess\facetopology.c" />
-    <ClCompile Include="src\opm\grid\cpgpreprocess\geometry.c" />
-    <ClCompile Include="src\opm\grid\cpgpreprocess\preprocess.c" />
-    <ClCompile Include="src\opm\grid\cpgpreprocess\uniquepoints.c" />
-    <ClCompile Include="src\opm\grid\UnstructuredGrid.c" />
     <ClCompile Include="src\pybind11\py_discretizer.cpp" />
     <ClCompile Include="src\pybind11\py_elem.cpp" />
     <ClCompile Include="src\pybind11\py_linalg.cpp" />
@@ -288,14 +282,6 @@ copy /b discretizer_build_info.cpp+,, &gt;NUL</Command>
     <ClInclude Include="src\mesh\mshio\mshspec.h" />
     <ClInclude Include="src\mesh\mshio\mshspecext.h" />
     <ClInclude Include="src\mesh\vtksnapshotter.h" />
-    <ClInclude Include="src\opm\config.h" />
-    <ClInclude Include="src\opm\grid\cornerpoint_grid.h" />
-    <ClInclude Include="src\opm\grid\cpgpreprocess\facetopology.h" />
-    <ClInclude Include="src\opm\grid\cpgpreprocess\geometry.h" />
-    <ClInclude Include="src\opm\grid\cpgpreprocess\preprocess.h" />
-    <ClInclude Include="src\opm\grid\cpgpreprocess\uniquepoints.h" />
-    <ClInclude Include="src\opm\grid\MinpvProcessor.hpp" />
-    <ClInclude Include="src\opm\grid\UnstructuredGrid.h" />
     <ClInclude Include="src\pybind11\py_discretizer.h" />
     <ClInclude Include="src\pybind11\py_elem.h" />
     <ClInclude Include="src\pybind11\py_global.h" />

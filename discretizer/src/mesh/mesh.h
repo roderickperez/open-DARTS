@@ -8,9 +8,6 @@
 
 #include "elem.h"
 
-#include "opm/grid/UnstructuredGrid.h"
-#include "opm/grid/cpgpreprocess/preprocess.h"
-
 namespace mesh
 {
 	typedef std::unordered_map<ElemLoc, std::set<index_t>> PhysicalTags;
@@ -94,17 +91,6 @@ namespace mesh
 
 		Mesh();
 		~Mesh();
-
-		int cpg_mesh_processing_opm(std::string gridname, std::string propname, const PhysicalTags& tags,
-																std::string result_fname, int minpv_filter=0);
-
-		std::vector<int> opm_mesh_fill_elems_nodes(const UnstructuredGrid *ug_, std::vector<int> &shift_faces);
-		
-		void opm_mesh_construct_connections(const UnstructuredGrid *ug_, const PhysicalTags& tags);
-		
-		void opm_get_cell_props(const UnstructuredGrid *ug_, 
-			std::vector<value_t> &cell_volumes, std::vector<Vector3> &cell_centroids, std::vector<value_t> &cell_depths,
-			  const int bnd_faces_num, const std::vector<int> &shift_faces);
 
 		void gmsh_mesh_processing(std::string filename, const PhysicalTags& tags);
 
@@ -213,11 +199,6 @@ namespace mesh
 		void gmsh_mesh_construct_connections(const PhysicalTags& tags);
 		void generate_adjacency_matrix();
 
-		void cpg_filter_small_volumes(grdecl& g, std::vector<value_t>& coord, std::vector<value_t>& zcorn,
-			std::vector<index_t>& actnum,
-			const index_t nx, const index_t ny, const index_t nz,
-			std::string gridname, std::string propname, const value_t p, const value_t z_tolerance,
-			std::string result_fname);
 	}; //class Mesh
 
 }//namespace mesh

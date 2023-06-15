@@ -43,7 +43,6 @@ void pybind_mesh(py::module &m)
 		.def_readwrite("adj_matrix_offset", &Mesh::adj_matrix_offset)
 
 		.def("gmsh_mesh_processing", &Mesh::gmsh_mesh_processing)
-		.def("cpg_mesh_processing_opm", &Mesh::cpg_mesh_processing_opm)
 		.def("get_global_index", &Mesh::get_global_index)
 		.def("get_ijk", &Mesh::get_ijk)
 		.def("get_ijk_as_str", &Mesh::get_ijk_as_str)
