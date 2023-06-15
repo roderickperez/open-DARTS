@@ -1,0 +1,54 @@
+{
+  "creators": [
+    {
+      "affiliation": "TU Delft",
+      "name": "Denis Voskov, Denis",
+      "orcid": "0000-0002-5399-1755"
+    },
+    {
+      "affiliation": "TU Delft",
+      "name": "Khait, Mark",
+      "orcid": "0000-0002-8420-3416"
+    },
+    {
+      "affiliation": "TU Delft",
+      "name": "Saifullin, Ilshat "
+    },
+    {
+      "affiliation": "TU Delft",
+      "name": "Wang, Yang"
+    },
+    {
+      "affiliation": "TU Delft",
+      "name": "Lyu, Xiaocong "
+    },
+    {
+      "affiliation": "TU Delft",
+      "name": "Wapperom, Michiel"
+    },
+    {
+      "affiliation": "TU Delft",
+      "name": "Tian, Xiaoming "
+    },
+    {
+      "affiliation": "Netherlands eScience Center",
+      "name": "Palha, Artur",
+      "orcid": "0000-0002-3217-0747"
+    },
+    {
+      "affiliation": "Netherlands eScience Center",
+      "name": "Orozco, Luisa",
+      "orcid": "0000-0002-9153-650X"
+    }
+  ],
+  "description": "Subsurface reservoirs are used for various applications that are part of the energy transition toward zero-carbon energy sources. They can serve as a direct source of energy (geothermal production), cyclic energy storage required by renewable energy production technologies (sun and wind) and sequestration of “energy waste” (carbon dioxide sequestration). Making optimal use of subsurface reservoirs is a great challenge for both academia and society. Open-DARTS is a numerical framework capable of modeling and optimizing energy transition applications relevant to subsurface reservoirs. DARTS modeling results can be directly used for more efficient energy production, risk assessment in energy transition applications and various legislative initiatives.",
+  "keywords": [
+    "energy transition",
+    "geothermal production",
+    "CO2 sequestration",
+    "open-source software",
+    "reservoir simulation",
+    "induced seismicity"
+  ],
+  "title": "open Delft Advanced Research Terra Simulator (open-DARTS)"
+}
