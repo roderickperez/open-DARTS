@@ -14,9 +14,6 @@
     <Filter Include="Source Files\mesh\mshio">
       <UniqueIdentifier>{5f80fd6b-80ac-4d41-9200-05706f10d99c}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\opm">
-      <UniqueIdentifier>{b1f3bacc-b769-4b88-9eea-207aa3931f77}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\pybind11\py_discretizer.cpp">
@@ -84,24 +81,6 @@
     </ClCompile>
     <ClCompile Include="src\utils.cpp">
       <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\opm\grid\cornerpoint_grid.c">
-      <Filter>Source Files\opm</Filter>
-    </ClCompile>
-    <ClCompile Include="src\opm\grid\UnstructuredGrid.c">
-      <Filter>Source Files\opm</Filter>
-    </ClCompile>
-    <ClCompile Include="src\opm\grid\cpgpreprocess\facetopology.c">
-      <Filter>Source Files\opm</Filter>
-    </ClCompile>
-    <ClCompile Include="src\opm\grid\cpgpreprocess\geometry.c">
-      <Filter>Source Files\opm</Filter>
-    </ClCompile>
-    <ClCompile Include="src\opm\grid\cpgpreprocess\preprocess.c">
-      <Filter>Source Files\opm</Filter>
-    </ClCompile>
-    <ClCompile Include="src\opm\grid\cpgpreprocess\uniquepoints.c">
-      <Filter>Source Files\opm</Filter>
     </ClCompile>
     <ClCompile Include="src\discretizer_build_info.cpp">
       <Filter>Source Files</Filter>
@@ -185,30 +164,6 @@
     </ClInclude>
     <ClInclude Include="src\utils.h">
       <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\opm\config.h">
-      <Filter>Source Files\opm</Filter>
-    </ClInclude>
-    <ClInclude Include="src\opm\grid\cornerpoint_grid.h">
-      <Filter>Source Files\opm</Filter>
-    </ClInclude>
-    <ClInclude Include="src\opm\grid\MinpvProcessor.hpp">
-      <Filter>Source Files\opm</Filter>
-    </ClInclude>
-    <ClInclude Include="src\opm\grid\UnstructuredGrid.h">
-      <Filter>Source Files\opm</Filter>
-    </ClInclude>
-    <ClInclude Include="src\opm\grid\cpgpreprocess\facetopology.h">
-      <Filter>Source Files\opm</Filter>
-    </ClInclude>
-    <ClInclude Include="src\opm\grid\cpgpreprocess\geometry.h">
-      <Filter>Source Files\opm</Filter>
-    </ClInclude>
-    <ClInclude Include="src\opm\grid\cpgpreprocess\preprocess.h">
-      <Filter>Source Files\opm</Filter>
-    </ClInclude>
-    <ClInclude Include="src\opm\grid\cpgpreprocess\uniquepoints.h">
-      <Filter>Source Files\opm</Filter>
     </ClInclude>
     <ClInclude Include="src\linalg\matrix.h">
       <Filter>Source Files</Filter>
