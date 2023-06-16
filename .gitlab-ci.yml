@@ -44,16 +44,6 @@ build-linux-3.7:
         PY_SUF: 'cp37-cp37m' # for python path selection in .build-linux-dockcross
         ODLS: '0'
         
-build-linux-3.6:
-    only:
-      refs:
-        - main
-    extends: .build-linux-dockcross
-    variables:
-        PY_VER: '3.6'
-        PY_SUF: 'cp36-cp36m'
-        ODLS: '0'
-        
 ###################################################################################
 
 build-linux-3.10-ODLS:
@@ -94,16 +84,6 @@ build-linux-3.7-ODLS:
     variables:
         PY_VER: '3.7'        # for python image selection in .build-linux
         PY_SUF: 'cp37-cp37m' # for python path selection in .build-linux-dockcross
-        ODLS: '1'         # build with open-darts linear solvers
-        
-build-linux-3.6-ODLS:
-    only:
-      refs:
-        - main
-    extends: .build-linux-dockcross
-    variables:
-        PY_VER: '3.6'
-        PY_SUF: 'cp36-cp36m'
         ODLS: '1'         # build with open-darts linear solvers
         
 ###################################################################################
@@ -147,23 +127,13 @@ build-windows-3.7:
         PYTHONPATH: 'D:\Python374'
         ODLS: '0'
         
-build-windows-3.6:
-    only:
-      refs:
-        - main
-    extends: .build-windows
-    variables:
-        PY_VER: '3.6'
-        PYTHONPATH: 'D:\Python365'
-        ODLS: '0'
-        
 ###################################################################################
         
 build-windows-3.10-ODLS:
     only:
       refs:
         - main
-    extends: .build-windows-ODLS
+    extends: .build-windows
     variables:
         PY_VER: '3.10'
         PYTHONPATH: 'D:\Python310'        
@@ -174,7 +144,7 @@ build-windows-3.9-ODLS:
     rules:
         - if: $CI_COMMIT_REF_PROTECTED == "true"
         - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    extends: .build-windows-ODLS
+    extends: .build-windows
     variables:
         PY_VER: '3.9'
         PYTHONPATH: 'D:\Python39'        
@@ -184,7 +154,7 @@ build-windows-3.8-ODLS:
     only:
       refs:
         - main
-    extends: .build-windows-ODLS
+    extends: .build-windows
     variables:
         PY_VER: '3.8'
         PYTHONPATH: 'D:\Python38'
@@ -194,20 +164,10 @@ build-windows-3.7-ODLS:
     only:
       refs:
         - main
-    extends: .build-windows-ODLS
+    extends: .build-windows
     variables:
         PY_VER: '3.7'
         PYTHONPATH: 'D:\Python374'
-        ODLS: '1'         # build with open-darts linear solvers
-        
-build-windows-3.6-ODLS:
-    only:
-      refs:
-        - main
-    extends: .build-windows-ODLS
-    variables:
-        PY_VER: '3.6'
-        PYTHONPATH: 'D:\Python365'
         ODLS: '1'         # build with open-darts linear solvers
         
 ###################################################################################
@@ -235,63 +195,13 @@ build-windows-3.6-ODLS:
         - export PY_SUFFIX=`python -c "import importlib.machinery; print(importlib.machinery.EXTENSION_SUFFIXES[0])"`
         - pip install wheel        
     script:
-        - echo "build engine.pyd on linux started with ODLS=$ODLS"
+        - echo "build *.pyd on linux started with ODLS=$ODLS"
         - ./build_darts.sh "$ODLS"
     artifacts:
       paths:
-        - './darts-package/dist/*.whl'
+        - './dist/*.whl'
       expire_in: 1 months
       
-###################################################################################
-
-.build-windows-ODLS:
-    stage: build
-    # Will be executed on runner with windows shell tag - that assumed to run on windows host with shell executor
-    tags: 
-        - windows-shell
-    script:
-        # Load MS Build Tools environment to the powershell
-        - D:\BuildTools\build_vars.ps1
-        # Add python folder to PATH
-        - $env:PATH +=";" + $env:PYTHONPATH + ";" + $env:PYTHONPATH + "\Scripts"
-        - $env:PY_SUFFIX=python.exe -c "import importlib.machinery; print(importlib.machinery.EXTENSION_SUFFIXES[0])"
-        # make sure wheel package could be installed
-        - pip install wheel
-        - echo 'build engines.pyd ODLS for windows started'
-
-        # build opendarts linear solvers step
-        - cd opendarts_linear_solvers
-        # build superLU
-        - cd thirdparty\SuperLU_5.2.1
-        - msbuild superlu.sln /p:Configuration=Release /p:Platform=x64 -maxCpuCount:2
-        # build opendarts linear solvers
-        - cd ..\..
-        - mkdir build
-        - cd build
-        - cmake -DCMAKE_INSTALL_PREFIX=install -DENABLE_TESTING=TRUE ..
-        - msbuild opendarts_linear_solvers.sln /p:Configuration=Release /p:Platform=x64 -maxCpuCount:2
-        - msbuild INSTALL.vcxproj /p:Configuration=Release /p:Platform=x64 -maxCpuCount:1
-        - move install ..\..\darts-engines\lib\darts_linear_solvers
-        - cd ..\..
-        
-        # Compile engines
-        - cd darts-engines
-        - msbuild darts-engines.vcxproj /p:Configuration=Release_ODLS /p:Platform=x64 -maxCpuCount:2 
-        - cd ..
-        # Build whl package
-        - echo 'build darts.whl for windows started'
-        - cd darts-package
-        # copy VS redist libraries 
-        - copy $env:VCToolsRedistDir\x64\Microsoft.VC143.CRT\msvcp140.dll .\darts
-        - copy $env:VCToolsRedistDir\x64\Microsoft.VC143.CRT\vcruntime140.dll .\darts
-        - copy $env:VCToolsRedistDir\x64\Microsoft.VC143.OpenMP\vcomp140.dll .\darts
-        - python setup.py build bdist_wheel --plat-name=win-amd64
-        - cd ..
-    artifacts:
-      paths:
-        - '.\darts-package\dist\*.whl'
-      expire_in: 1 months
-
 ###################################################################################
 
 .build-windows:
@@ -307,26 +217,17 @@ build-windows-3.6-ODLS:
         - $env:PY_SUFFIX=python.exe -c "import importlib.machinery; print(importlib.machinery.EXTENSION_SUFFIXES[0])"
         # make sure wheel package could be installed
         - pip install wheel
-        - echo 'build engines.pyd for windows started'
-        - cd darts-engines
-        - .\update_private_artifacts.bat $env:SMBNAME $env:SMBLOGIN $env:SMBPASS
-        # Compile engines
-        - msbuild darts-engines.vcxproj /p:Configuration=ReleaseMT /p:Platform=x64 -maxCpuCount:2 
-        - cd ..
-        # Build whl package
-        - echo 'build darts.whl for windows started'
-        - cd darts-package
         # copy VS redist libraries 
         - copy $env:VCToolsRedistDir\x64\Microsoft.VC143.CRT\msvcp140.dll .\darts
         - copy $env:VCToolsRedistDir\x64\Microsoft.VC143.CRT\vcruntime140.dll .\darts
         - copy $env:VCToolsRedistDir\x64\Microsoft.VC143.OpenMP\vcomp140.dll .\darts
-        - python setup.py build bdist_wheel --plat-name=win-amd64
-        - cd ..
+        - echo "ODLS:" $env:ODLS
+        # compile and make the wheel
+        - .\build_darts.bat $env:ODLS
     artifacts:
       paths:
-        - '.\darts-package\dist\*.whl'
+        - '.\dist\*.whl'
       expire_in: 1 months
-
 
 ###################################################################################
 
@@ -377,18 +278,6 @@ test-linux-3.7-ODLS:
         ODLS: '1'        # test with open-darts linear solvers
     dependencies:
         - build-linux-3.7-ODLS
-        
-test-linux-3.6-ODLS:
-    only:
-      refs:
-        - main
-    extends: .test-linux
-    variables:
-        PY_VER: '3.6'
-        PY_SUF: 'cp36-cp36m'
-        ODLS: '1'        # test with open-darts linear solvers
-    dependencies:
-        - build-linux-3.6-ODLS
 
 ###################################################################################
 
@@ -438,18 +327,6 @@ test-linux-3.7:
         ODLS: '0'
     dependencies:
         - build-linux-3.7
-        
-test-linux-3.6:
-    only:
-      refs:
-        - main
-    extends: .test-linux
-    variables:
-        PY_VER: '3.6'
-        PY_SUF: 'cp36-cp36m'
-        ODLS: '0'
-    dependencies:
-        - build-linux-3.6
 
 ###################################################################################
         
@@ -499,18 +376,6 @@ test-windows-3.7:
         ODLS: '0'
     dependencies:
         - build-windows-3.7
-        
-test-windows-3.6:
-    only:
-      refs:
-        - main
-    extends: .test-windows
-    variables:
-        PY_VER: '3.6'
-        PYTHONPATH: 'D:\Python365'
-        ODLS: '0'
-    dependencies:
-        - build-windows-3.6
 
 ###################################################################################
         
@@ -561,18 +426,6 @@ test-windows-3.7-ODLS:
         ODLS: '1'
     dependencies:
         - build-windows-3.7-ODLS
-        
-test-windows-3.6-ODLS:
-    only:
-      refs:
-        - main
-    extends: .test-windows
-    variables:
-        PY_VER: '3.6'
-        PYTHONPATH: 'D:\Python365'
-        ODLS: '1'
-    dependencies:
-        - build-windows-3.6-ODLS
        
 ###################################################################################
 
@@ -589,18 +442,18 @@ test-windows-3.6-ODLS:
         - apt-get update -qq && apt-get install -y -qq libxinerama1     # for gmsh
         - export PYTHONUNBUFFERED=1
         # complex command to create fake wheel and figure out the proper name for current python and platform
-        - export WHEEL_NAME=`python -c "from setuptools.dist import Distribution;from distutils.core import  Extension;dist = Distribution({'name':'open_darts', 'version':'0.1.4', 'ext_modules':[Extension('mylib', ['mysrc.pyx', 'native.c'])]});bdist_wheel_cmd = dist.get_command_obj('bdist_wheel');print(bdist_wheel_cmd.wheel_dist_name + '-' + '-'.join(bdist_wheel_cmd.get_tag())+ '.whl');"`
+        - export WHEEL_NAME=`python -c "from setuptools.dist import Distribution;from distutils.core import  Extension;dist = Distribution({'name':'open_darts', 'version':'1.0.0', 'ext_modules':[Extension('mylib', ['mysrc.pyx', 'native.c'])]});bdist_wheel_cmd = dist.get_command_obj('bdist_wheel');print(bdist_wheel_cmd.wheel_dist_name + '-' + '-'.join(bdist_wheel_cmd.get_tag())+ '.whl');"`
         # upgrade pip package first
         - python -m pip install --upgrade pip
-        - ls ./darts-package/dist/*
+        - ls ./dist/*
         # force reinstall of darts wheel only (need to force because darts wheel version is not incremented)
         # note: need to force here only for Windows actually, but lets be consistent and force for Linux too in case its behaviour will change
-        - pip install --force-reinstall --no-deps ./darts-package/dist/$WHEEL_NAME
+        - pip install --force-reinstall --no-deps ./dist/$WHEEL_NAME
         # force-reinstall of dependencies takes too much time, lets only upgrade (eagerly!) them
-        - pip install --upgrade --upgrade-strategy eager ./darts-package/dist/$WHEEL_NAME
+        - pip install --upgrade --upgrade-strategy eager ./dist/$WHEEL_NAME
     script:
         # run simulation fot test models set
-        - cd darts-models
+        - cd models
         # passing additional argument to trigger verbose check performance
         - python run_test_suite2.py LOG
         - echo "run_test_suite2 returned" $?
@@ -609,7 +462,7 @@ test-windows-3.6-ODLS:
         - echo "test finished"
     artifacts:
       paths:
-        - './darts-models/_logs/*.log'
+        - './models/_logs/*.log'
       when: always
       expire_in: 1 year
 
@@ -626,48 +479,49 @@ test-windows-3.6-ODLS:
         - $env:PYTHONUNBUFFERED = 1
         - $env:PYTHONLEGACYWINDOWSSTDIO = 1
         # complex command to create fake wheel and figure out the proper name for current python and platform
-        - $env:WHEEL_NAME=python.exe -c "from setuptools.dist import Distribution;from distutils.core import  Extension;dist = Distribution({'name':'open_darts', 'version':'0.1.4', 'ext_modules':[Extension('mylib', ['mysrc.pyx', 'native.c'])]});bdist_wheel_cmd = dist.get_command_obj('bdist_wheel');print(bdist_wheel_cmd.wheel_dist_name + '-' + '-'.join(bdist_wheel_cmd.get_tag())+ '.whl');"
+        - $env:WHEEL_NAME=python.exe -c "from setuptools.dist import Distribution;from distutils.core import  Extension;dist = Distribution({'name':'open_darts', 'version':'1.0.0', 'ext_modules':[Extension('mylib', ['mysrc.pyx', 'native.c'])]});bdist_wheel_cmd = dist.get_command_obj('bdist_wheel');print(bdist_wheel_cmd.wheel_dist_name + '-' + '-'.join(bdist_wheel_cmd.get_tag())+ '.whl');"
         # upgrade pip package first
         - python -m pip install --upgrade pip
         # force reinstall of darts wheel only (need to force because darts wheel version is not incremented)
-        - pip install --force-reinstall --no-deps .\darts-package\dist\$env:WHEEL_NAME
+        - pip install --force-reinstall --no-deps .\dist\$env:WHEEL_NAME
         # force-reinstall of dependencies takes too much time, lets only upgrade (eagerly!) them
-        - pip install --upgrade --upgrade-strategy eager .\darts-package\dist\$env:WHEEL_NAME
+        - pip install --upgrade --upgrade-strategy eager .\dist\$env:WHEEL_NAME
     script:
         # run simulation fot test models set
-        - cd darts-models
+        - cd models
         # passing additional argument to trigger verbose check performance
         - python run_test_suite2.py LOG
         - .\upload_pkl.bat $env:SMBNAME $env:SMBLOGIN $env:SMBPASS $env:CI_COMMIT_SHORT_SHA $env:ODLS $PY_VER
         - cd ..
     artifacts:
       paths:
-        - '.\darts-models\_logs\*.log'
+        - '.\models\_logs\*.log'
       when: always
       expire_in: 1 year
 
 ###################################################################################
 
 deploy-pypi:
-    # Run only for main branch
-    only:
-      variables:
-        - $PYPI == "1"
+    # Publish the release
+    # Runs only for the main branch and if tag has a pattern: v#.#.#, for example "v1.2.3"
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" && $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .deploy-pypi
     variables:
         PYPI: 'pypi'
 
 deploy-testpypi:
-    # Run deploy only for main branch
+    # Test publishing the release
+    # Runs only manually, if variable UPLOAD_TEST_PYPI set to 1
     only:
         variables:
-            - $TESTPYPI == "1"
+            - $UPLOAD_TEST_PYPI == "1"
     extends: .deploy-pypi
     variables:
         PYPI: 'testpypi'
 
 # pick all whl ODLS-artifacts (windows/linux, different python versions) and upload to test pipy
-# TODO auto-increment package version (in darts-package/setup.py and .gitlab-ci.yml) and add git tag; now it is done manually
+# TODO auto-increment package version (in setup.py and .gitlab-ci.yml) and add git tag; now it is done manually
 .deploy-pypi:
     stage: deploy
     # just for twine
@@ -681,19 +535,28 @@ deploy-testpypi:
         - pip install twine
     script:
         # upload to test-pypi or pypi depending on $PYPI var
-        - cd darts-package
         - ./rename_whls.sh # rename linux whls to make uploadable to test-pypi 
         - ls ./dist/*
         - twine upload -u $TESTPYPIUSER -p $TESTPYPIPWD --repository $PYPI dist/*
     dependencies:
-        - build-linux-3.6-ODLS
         - build-linux-3.7-ODLS
         - build-linux-3.8-ODLS
         - build-linux-3.9-ODLS
         - build-linux-3.10-ODLS
-        - build-windows-3.6-ODLS
         - build-windows-3.7-ODLS
         - build-windows-3.8-ODLS
         - build-windows-3.9-ODLS
         - build-windows-3.10-ODLS
 
+deploy-zenodo:
+    stage: deploy
+    rules:
+        - if: $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+/
+    tags:
+        - linux
+    image: python:3.9
+    script:
+        - pip install gitlab2zenodo
+        - git archive --format zip --output ${CI_COMMIT_TAG#v}.zip ${CI_COMMIT_TAG}
+        # -s is for publishing to zenodo sandbox
+        - g2z-send -i $zenodo_record -m .zenodo.json ${CI_COMMIT_TAG#v}.zip
