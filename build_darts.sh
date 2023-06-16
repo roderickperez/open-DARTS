@@ -5,6 +5,8 @@ ODLS="0" # default linear solvers
 
 # update submodules
 echo -e "\n- Update submodules: START\n"
+rm -rf thirdparty/eigen
+git submodule sync --recursive
 git submodule update --recursive --remote --init
 
 if [ $# -gt 0 ] # use the first cmd argument if it is passed
@@ -12,7 +14,7 @@ then
     ODLS=$1
 fi
 
-NT="-j 1" # number of threads used to compile
+NT="-j 8" # number of threads used to compile
 if [ $# -gt 1 ] # use the second cmd argument if it is passed
 then
     NT="-j $2"

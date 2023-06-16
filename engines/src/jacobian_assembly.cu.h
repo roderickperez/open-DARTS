@@ -1,13 +1,3 @@
-/*
- ============================================================================
- Name        : jacobian_assembly.cu.h
- Author      : Mark Khait
- Version     :
- Copyright   : © 2016 MARK KHAIT ALL RIGHTS RESERVED
- Description : Jacobian assembly (BSR, 2x2) kernel
- ============================================================================
- */
-
 // Option 1: assemble in single pass, one block (row) per thread
 template<typename IndexType, typename ValueType, typename InterpValueType,
     int _BLOCK_SIZE>

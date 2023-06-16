@@ -1,12 +1,3 @@
-/*
- ============================================================================
- Name        : engines_build_info.h
- Author      : Mark Khait
- Version     :
- Copyright   : � 2020 MARK KHAIT ALL RIGHTS RESERVED
- Description : Build information
- ============================================================================
- */
 #ifndef ENGINES_BUILD_INFO_H
 #define ENGINES_BUILD_INFO_H
 
