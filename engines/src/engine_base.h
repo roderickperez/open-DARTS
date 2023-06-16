@@ -46,6 +46,10 @@
 #include "linsolv_hypre_amg.h"
 #endif
 
+#ifdef WITH_SAMG
+#include "linsolv_samg.h"
+#endif
+
 #ifdef OPENDARTS_LINEAR_SOLVERS
 using namespace opendarts::auxiliary;
 using namespace opendarts::linear_solvers;

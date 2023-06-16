@@ -122,6 +122,14 @@ int engine_pm_cpu::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_list
 			break;
 		}
 #endif
+#ifdef WITH_SAMG
+		case sim_params::CPU_SAMG:
+		{
+			linear_solver = new linsolv_samg<N_VARS>;
+			static_cast<linsolv_samg<N_VARS>*>(linear_solver)->set_block_sizes(mesh->n_matrix, mesh->n_fracs, mesh->n_blocks - mesh->n_res_blocks);
+			break;
+		}
+#endif
 		case sim_params::CPU_SUPERLU:
 		{
 			linear_solver = new linsolv_superlu<N_VARS>;

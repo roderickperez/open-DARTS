@@ -67,6 +67,7 @@ public:
     CPU_GMRES_CPR_AMG = 0,
     CPU_GMRES_CPR_AMG1R5,
     CPU_GMRES_FS_CPR,
+    CPU_SAMG,
     CPU_GMRES_ILU0,
     CPU_SUPERLU,
     GPU_GMRES_CPR_AMG, // <<<---- Should be the first GPU method for correct Jacobian treatment
