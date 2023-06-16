@@ -537,4 +537,4 @@ deploy-zenodo:
         - pip install gitlab2zenodo
         - git archive --format zip --output ${CI_COMMIT_TAG#v}.zip ${CI_COMMIT_TAG}
         # -s is for publishing to zenodo sandbox
-        - g2z-send -i $zenodo_record -m .zenodo.json ${CI_COMMIT_TAG#v}.zip
+        - g2z-send -i $zenodo_record -t $zenodo_token -m .zenodo.json ${CI_COMMIT_TAG#v}.zip
