@@ -556,7 +556,6 @@ deploy-zenodo:
         - linux
     image: python:3.9
     script:
-        - export zenodo_token=$ZENODO_SANDBOX_TEST_LUISA
         - pip install gitlab2zenodo
         - git archive --format zip --output ${CI_COMMIT_TAG#v}.zip ${CI_COMMIT_TAG}
         # -s is for publishing to zenodo sandbox
