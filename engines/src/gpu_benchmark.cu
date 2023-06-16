@@ -1,14 +1,3 @@
-/*
- ============================================================================
- Name        : gpu_benchmark.cu
- Author      : Mark Khait
- Version     :
- Copyright   : © 2016 MARK KHAIT ALL RIGHTS RESERVED
- Description : GPU Benchmark for interpolation kernel
- ============================================================================
- */
-
-
 #include <iostream>
 #include <numeric>
 #include <stdlib.h>
