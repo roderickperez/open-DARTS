@@ -6,9 +6,8 @@ stages:
 ###################################################################################
 
 build-linux-3.10:
-    only:
-      refs:
-        - main
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .build-linux-dockcross
     variables:
         PY_VER: '3.10'       # for python image selection in .build-linux
@@ -25,9 +24,8 @@ build-linux-3.9: # for protected branches only
         ODLS: '0'
         
 build-linux-3.8:
-    only:
-      refs:
-        - main
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .build-linux-dockcross
     variables:
         PY_VER: '3.8'       # for python image selection in .build-linux
@@ -35,9 +33,8 @@ build-linux-3.8:
         ODLS: '0'
         
 build-linux-3.7:
-    only:
-      refs:
-        - main
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .build-linux-dockcross
     variables:
         PY_VER: '3.7'        # for python image selection in .build-linux
@@ -87,9 +84,8 @@ build-linux-3.7-ODLS:
 ###################################################################################
 
 build-windows-3.10:
-    only:
-      refs:
-        - main
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .build-windows
     variables:
         PY_VER: '3.10'
@@ -106,9 +102,8 @@ build-windows-3.9:  # for protected branches only
         ODLS: '0'
         
 build-windows-3.8:
-    only:
-      refs:
-        - main
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .build-windows
     variables:
         PY_VER: '3.8'
@@ -116,9 +111,8 @@ build-windows-3.8:
         ODLS: '0'
         
 build-windows-3.7:
-    only:
-      refs:
-        - main
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .build-windows
     variables:
         PY_VER: '3.7'
@@ -228,9 +222,8 @@ build-windows-3.7-ODLS:
 ###################################################################################
 
 test-linux-3.10-ODLS:
-    only:
-      refs:
-        - main
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .test-linux
     variables:
         PY_VER: '3.10'       # for python image selection in .test-linux
@@ -252,9 +245,8 @@ test-linux-3.9-ODLS:
         - build-linux-3.9-ODLS
         
 test-linux-3.8-ODLS:
-    only:
-      refs:
-        - main
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .test-linux
     variables:
         PY_VER: '3.8'       # for python image selection in .test-linux
@@ -264,9 +256,8 @@ test-linux-3.8-ODLS:
         - build-linux-3.8-ODLS
         
 test-linux-3.7-ODLS:
-    only:
-      refs:
-        - main
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .test-linux
     variables:
         PY_VER: '3.7'        # for python image selection in .test-linux
@@ -278,9 +269,8 @@ test-linux-3.7-ODLS:
 ###################################################################################
 
 test-linux-3.10:
-    only:
-      refs:
-        - main
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .test-linux
     variables:
         PY_VER: '3.10'       # for python image selection in .test-linux
@@ -301,9 +291,8 @@ test-linux-3.9:  # for protected branches only
         - build-linux-3.9
         
 test-linux-3.8:
-    only:
-      refs:
-        - main
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .test-linux
     variables:
         PY_VER: '3.8'       # for python image selection in .test-linux
@@ -313,9 +302,8 @@ test-linux-3.8:
         - build-linux-3.8
         
 test-linux-3.7:
-    only:
-      refs:
-        - main
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .test-linux
     variables:
         PY_VER: '3.7'        # for python image selection in .test-linux
@@ -327,9 +315,8 @@ test-linux-3.7:
 ###################################################################################
         
 test-windows-3.10:
-    only:
-      refs:
-        - main
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .test-windows
     variables:
         PY_VER: '3.10'
@@ -350,9 +337,8 @@ test-windows-3.9:  # for protected branches only
         - build-windows-3.9
         
 test-windows-3.8:
-    only:
-      refs:
-        - main
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .test-windows
     variables:
         PY_VER: '3.8'
@@ -362,9 +348,8 @@ test-windows-3.8:
         - build-windows-3.8
         
 test-windows-3.7:
-    only:
-      refs:
-        - main
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .test-windows
     variables:
         PY_VER: '3.7'
@@ -376,9 +361,8 @@ test-windows-3.7:
 ###################################################################################
         
 test-windows-3.10-ODLS:
-    only:
-      refs:
-        - main
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .test-windows
     variables:
         PY_VER: '3.10'
@@ -400,9 +384,8 @@ test-windows-3.9-ODLS:
         - build-windows-3.9-ODLS
         
 test-windows-3.8-ODLS:
-    only:
-      refs:
-        - main
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .test-windows
     variables:
         PY_VER: '3.8'
@@ -412,9 +395,8 @@ test-windows-3.8-ODLS:
         - build-windows-3.8-ODLS
         
 test-windows-3.7-ODLS:
-    only:
-      refs:
-        - main
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .test-windows
     variables:
         PY_VER: '3.7'
