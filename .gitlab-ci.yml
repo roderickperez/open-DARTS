@@ -6,8 +6,9 @@ stages:
 ###################################################################################
 
 build-linux-3.10:
-    rules: 
-        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+    only:
+      refs:
+        - main
     extends: .build-linux-dockcross
     variables:
         PY_VER: '3.10'       # for python image selection in .build-linux
@@ -46,9 +47,8 @@ build-linux-3.7:
 ###################################################################################
 
 build-linux-3.10-ODLS:
-    only:
-      refs:
-        - main
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .build-linux-dockcross
     variables:
         PY_VER: '3.10'       # for python image selection in .build-linux
@@ -58,7 +58,8 @@ build-linux-3.10-ODLS:
 build-linux-3.9-ODLS:
     rules:
         - if: $CI_COMMIT_REF_PROTECTED == "true"
-        - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+        - if: '$CI_PIPELINE_SOURCE == "merge_request_event"' 
+        - if: $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .build-linux-dockcross
     variables:
         PY_VER: '3.9'       # for python image selection in .build-linux
@@ -66,9 +67,8 @@ build-linux-3.9-ODLS:
         ODLS: '1'        # build with open-darts linear solvers
         
 build-linux-3.8-ODLS:
-    only:
-      refs:
-        - main
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .build-linux-dockcross
     variables:
         PY_VER: '3.8'       # for python image selection in .build-linux
@@ -76,9 +76,8 @@ build-linux-3.8-ODLS:
         ODLS: '1'        # build with open-darts linear solvers
         
 build-linux-3.7-ODLS:
-    only:
-      refs:
-        - main
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .build-linux-dockcross
     variables:
         PY_VER: '3.7'        # for python image selection in .build-linux
@@ -129,9 +128,8 @@ build-windows-3.7:
 ###################################################################################
         
 build-windows-3.10-ODLS:
-    only:
-      refs:
-        - main
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .build-windows
     variables:
         PY_VER: '3.10'
@@ -142,7 +140,8 @@ build-windows-3.10-ODLS:
 build-windows-3.9-ODLS:
     rules:
         - if: $CI_COMMIT_REF_PROTECTED == "true"
-        - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+        - if: '$CI_PIPELINE_SOURCE == "merge_request_event"' 
+        - if: $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .build-windows
     variables:
         PY_VER: '3.9'
@@ -150,9 +149,8 @@ build-windows-3.9-ODLS:
         ODLS: '1'         # build with open-darts linear solvers
         
 build-windows-3.8-ODLS:
-    only:
-      refs:
-        - main
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .build-windows
     variables:
         PY_VER: '3.8'
@@ -160,9 +158,8 @@ build-windows-3.8-ODLS:
         ODLS: '1'         # build with open-darts linear solvers
         
 build-windows-3.7-ODLS:
-    only:
-      refs:
-        - main
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .build-windows
     variables:
         PY_VER: '3.7'
