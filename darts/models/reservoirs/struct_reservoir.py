@@ -326,10 +326,10 @@ class StructReservoir:
 
         self.vtk_filenames_and_times[vtk_file_name] = t
 
-        self.group = hl.VtkGroup(file_name)
-        for fname, t in self.vtk_filenames_and_times.items():
-            self.group.addFile(fname, t)
-        self.group.save()
+        # self.group = hl.VtkGroup(file_name)
+        # for fname, t in self.vtk_filenames_and_times.items():
+        #     self.group.addFile(fname, t)
+        # self.group.save()
 
     def generate_vtk_grid(self, strict_vertical_layers=True, compute_depth_by_dz_sum=True):
         # interpolate 2d array using grid (xx, yy) and specified method
