@@ -84,6 +84,7 @@ public:
   void apply_obl_axis_local_correction(std::vector<value_t> &X, std::vector<value_t> &dX);
   int run_single_newton_iteration(value_t deltat);
   int post_newtonloop(value_t deltat, value_t time);
+  int post_explicit(value_t deltat, value_t time);
   // fluxes at current and previous time steps, fluxes for reference state at current and previous time steps
   std::vector<value_t> fluxes, fluxes_n, fluxes_biot, fluxes_biot_n, fluxes_ref, fluxes_biot_ref, fluxes_ref_n, fluxes_biot_ref_n;
   std::vector<value_t> Xref, Xn_ref;
@@ -116,7 +117,12 @@ public:
 
 
 public:
-  bool FIND_EQUILIBRIUM, PRINT_LINEAR_SYSTEM, TIME_DEPENDENT_DISCRETIZATION, EXPLICIT_SCHEME, SCALE_ROWS;
+  bool FIND_EQUILIBRIUM, PRINT_LINEAR_SYSTEM, TIME_DEPENDENT_DISCRETIZATION, EXPLICIT_SCHEME, SCALE_ROWS, SCALE_DIMLESS;
   pm::ContactSolver contact_solver;
+  
+  value_t t_dim, x_dim, p_dim;
+protected:
+  void scale_rows();
+  void make_dimensionless();
 };
 #endif /* CPU_SIMULATOR_PM_HPP */

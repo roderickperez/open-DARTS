@@ -17,14 +17,19 @@ void pybind_engine_pm_cpu(py::module& m)
 		.def("calc_newton_dev", &engine_pm_cpu::calc_newton_dev) \
 		.def("apply_newton_update", &engine_pm_cpu::apply_newton_update) \
 		.def("post_newtonloop", &engine_pm_cpu::post_newtonloop) \
+		.def("post_explicit", &engine_pm_cpu::post_explicit) \
 		.def("update_uu_jacobian", &engine_pm_cpu::update_uu_jacobian) \
 		.def_readwrite("find_equilibrium", &engine_pm_cpu::FIND_EQUILIBRIUM) \
 		.def_readwrite("print_linear_system", &engine_pm_cpu::PRINT_LINEAR_SYSTEM) \
 		.def_readwrite("time_dependent_discretization", &engine_pm_cpu::TIME_DEPENDENT_DISCRETIZATION) \
 		.def_readwrite("explicit_scheme", &engine_pm_cpu::EXPLICIT_SCHEME) \
 		.def_readwrite("scale_rows", &engine_pm_cpu::SCALE_ROWS) \
+		.def_readwrite("scale_dimless", &engine_pm_cpu::SCALE_DIMLESS) \
 		.def_readwrite("geomechanics_mode", &engine_pm_cpu::geomechanics_mode) \
 		.def_readwrite("newton_update_coefficient", &engine_pm_cpu::newton_update_coefficient) \
+		.def_readwrite("t_dim", &engine_pm_cpu::t_dim) \
+		.def_readwrite("x_dim", &engine_pm_cpu::x_dim) \
+		.def_readwrite("p_dim", &engine_pm_cpu::p_dim) \
 		.def_readwrite("dev_u", &engine_pm_cpu::dev_u) \
 		.def_readwrite("dev_p", &engine_pm_cpu::dev_p) \
 		.def_readwrite("dev_g", &engine_pm_cpu::dev_g) \
