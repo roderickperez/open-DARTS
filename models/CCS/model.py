@@ -13,7 +13,7 @@ from darts.physics.properties.viscosity import Fenghour1998, Islam2012
 
 from dartsflash.flash import NF2
 from dartsflash.libflash import PR, Ziabakhsh2012, FlashParams
-from dartsflash.components import ComponentProperties, EnthalpyIdeal
+from dartsflash.components import CompData, EnthalpyIdeal
 from dartsflash.eos_properties import EoSDensity, EoSEnthalpy
 
 
@@ -96,7 +96,9 @@ class Model(DartsModel):
         components = ["CO2", "H2O"]
         phases = ["Aq", "V"]
         nc = len(components)
-        comp_data = ComponentProperties.comp_data(ComponentProperties(), components)
+        comp_data = CompData(components)
+        comp_data.set_properties()
+
         pr = PR(components, comp_data)
         # aq = Jager2003(components, [])
         aq = Ziabakhsh2012(components, [])
@@ -106,7 +108,7 @@ class Model(DartsModel):
         # EoS-related parameters
         flash_params.add_eos("PR", pr)
         flash_params.add_eos("AQ", aq)
-        flash_params.eos_used = ["AQ", "PR"]
+        eos_used = ["AQ", "PR"]
 
         from dartsflash.libflash import Henry
         henry = Henry(components, comp_data, 1)
@@ -127,11 +129,11 @@ class Model(DartsModel):
             self.init_temp = temperature
 
         """ properties correlations """
-        property_container = PropertyContainer(phases_name=phases, components_name=components, Mw=comp_data["Mw"],
+        property_container = PropertyContainer(phases_name=phases, components_name=components, Mw=comp_data.Mw,
                                                temperature=self.temperature, min_z=self.zero/10)
 
-        property_container.flash_ev = NF2(nc, flash_params)
-        property_container.density_ev = dict([('V', EoSDensity(pr, comp_data["Mw"])),
+        property_container.flash_ev = NF2(nc, flash_params, eos_name=eos_used)
+        property_container.density_ev = dict([('V', EoSDensity(pr, comp_data.Mw)),
                                               ('Aq', Garcia2001(components))])
         property_container.viscosity_ev = dict([('V', Fenghour1998()),
                                                 ('Aq', Islam2012(components))])
