@@ -1,4 +1,5 @@
 import numpy as np
+from darts.physics.properties.flash import Flash
 from darts.physics.properties.basic import CapillaryPressure, Diffusion, RockCompactionEvaluator, RockEnergyEvaluator
 
 
@@ -48,7 +49,7 @@ class PropertyContainer:
         self.diffusion_ev = Diffusion(diff_coeff=diff_coef)
         self.kinetic_rate_ev = {}
         self.energy_source_ev = []
-        self.flash_ev = 0
+        self.flash_ev: Flash = 0
 
         # passing arguments
         self.x = np.zeros((self.nph, self.nc))
@@ -126,7 +127,10 @@ class PropertyContainer:
         return
 
     def run_flash(self, pressure, temperature, zc):
-        self.nu, self.x = self.flash_ev.evaluate(pressure, temperature, zc)
+        # Evaluates flash, then uses getter for nu and x - for compatibility with DARTS-flash
+        error_output = self.flash_ev.evaluate(pressure, temperature, zc)
+        self.nu = np.array(self.flash_ev.getnu())
+        self.x = np.array(self.flash_ev.getx())
 
         ph = []
         for j in range(self.nph):

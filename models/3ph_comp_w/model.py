@@ -119,7 +119,9 @@ class ModelProperties(PropertyContainer):
     def run_flash(self, pressure, temperature, zc):
 
         zc_r = zc[:-1] / (1 - zc[-1])
-        (nu, xr) = self.flash_ev.evaluate(pressure, temperature, zc_r)
+        self.flash_ev.evaluate(pressure, temperature, zc_r)
+        nu = self.flash_ev.getnu()
+        xr = self.flash_ev.getx()
         V = nu[0]
 
         if V <= 0:

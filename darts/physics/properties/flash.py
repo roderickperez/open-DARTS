@@ -3,13 +3,24 @@ import numpy as np
 
 
 class Flash:
-    def __init__(self, nph, nc):
+    nu: []
+    x: []
+
+    def __init__(self, nph, nc, ni=0):
         self.nph = nph
         self.nc = nc
+        self.ni = ni
+        self.ns = nc + ni
 
     @abc.abstractmethod
     def evaluate(self, pressure, temperature, zc):
         pass
+
+    def getnu(self):
+        return self.nu
+
+    def getx(self):
+        return self.x
 
 
 class ConstantK(Flash):
@@ -20,9 +31,8 @@ class ConstantK(Flash):
         self.K_values = np.array(ki)
 
     def evaluate(self, pressure, temperature, zc):
-        V, x = RR2(self.K_values, zc, self.min_z)
-        return np.array(V), np.array(x)
-        # return RR2(self.K_values, zc, self.min_z)
+        self.nu, self.x = RR2(self.K_values, zc, self.min_z)
+        return 0
 
 
 from numba import jit
@@ -53,12 +63,13 @@ def RR2(k, zc, eps):
     return [V, 1-V], [y, x]
 
 
-class SolidFlash:
-    def __init__(self, flash: Flash, nc_sol: int = 0, np_sol: int = 0):
+class SolidFlash(Flash):
+    def __init__(self, flash: Flash, nc_fl: int, np_fl: int, ni: int = 0, nc_sol: int = 0, np_sol: int = 0):
+        super().__init__(np_fl, nc_fl, ni)
         self.flash = flash
 
-        self.nc_fl = flash.nc
-        self.np_fl = flash.nph
+        self.nc_fl = self.ns
+        self.np_fl = self.nph
         self.nc_sol = nc_sol
         self.np_sol = np_sol
 
@@ -70,7 +81,9 @@ class SolidFlash:
         zc_norm = zc[:self.nc_fl]/(1.-zc_sol_tot)
 
         # Evaluate flash for normalized composition
-        nu, x = self.flash.evaluate(pressure, temperature, zc_norm)
+        error_output = self.flash.evaluate(pressure, temperature, zc_norm)
+        nu = np.array(self.flash.getnu())
+        x = np.array(self.flash.getx())
 
         # Re-normalize solids and append to nu, x
         NU = np.zeros(self.np_fl + self.np_sol)
@@ -83,7 +96,7 @@ class SolidFlash:
             NU[self.np_fl+j] = zc_sol[j]
             X[self.np_fl+j, self.nc_fl+j] = 1.
 
-        return NU, X
+        self.nu = NU
+        self.x = X
 
-    def fugacity(self, pressure, temperature, x, eos_name: str):
-        return self.flash.fugacity(pressure, temperature, x[:self.nc_fl], eos_name)
+        return error_output

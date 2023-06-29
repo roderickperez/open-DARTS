@@ -11,7 +11,7 @@ from darts.physics.properties.basic import PhaseRelPerm, CapillaryPressure, Rock
 from darts.physics.properties.density import Garcia2001
 from darts.physics.properties.viscosity import Fenghour1998, Islam2012
 
-from dartsflash.flash import NF2
+from dartsflash.libflash import NegativeFlash2
 from dartsflash.libflash import PR, Ziabakhsh2012, FlashParams
 from dartsflash.components import CompData, EnthalpyIdeal
 from dartsflash.eos_properties import EoSDensity, EoSEnthalpy
@@ -108,7 +108,7 @@ class Model(DartsModel):
         # EoS-related parameters
         flash_params.add_eos("PR", pr)
         flash_params.add_eos("AQ", aq)
-        eos_used = ["AQ", "PR"]
+        flash_params.eos_used = ["AQ", "PR"]
 
         from dartsflash.libflash import Henry
         henry = Henry(components, comp_data, 1)
@@ -132,7 +132,7 @@ class Model(DartsModel):
         property_container = PropertyContainer(phases_name=phases, components_name=components, Mw=comp_data.Mw,
                                                temperature=self.temperature, min_z=self.zero/10)
 
-        property_container.flash_ev = NF2(nc, flash_params, eos_name=eos_used)
+        property_container.flash_ev = NegativeFlash2(flash_params)
         property_container.density_ev = dict([('V', EoSDensity(pr, comp_data.Mw)),
                                               ('Aq', Garcia2001(components))])
         property_container.viscosity_ev = dict([('V', Fenghour1998()),
