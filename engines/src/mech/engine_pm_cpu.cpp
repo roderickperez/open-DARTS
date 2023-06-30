@@ -1755,7 +1755,7 @@ int engine_pm_cpu::solve_linear_equation()
             #endif  // OPENDARTS_LINEAR_SOLVERS
 		//Jacobian->write_matrix_to_file(("jac_dar_" + std::to_string(output_counter) + ".csr").c_str());
 		write_vector_to_file("jac_nc_dar_" + std::to_string(output_counter) + ".rhs", RHS);
-		write_vector_to_file("jac_nc_dar_" + std::to_string(output_counter) + ".sol", X);
+		write_vector_to_file("jac_nc_dar_" + std::to_string(output_counter) + ".sol", dX);
 		output_counter++;
 		//apply_newton_update(deltat);
 		//write_vector_to_file("X_nc_dar", X);
@@ -1824,9 +1824,8 @@ int engine_pm_cpu::solve_linear_equation()
 	return 0;
 }
 
-int engine_pm_cpu::post_newtonloop(value_t deltat, value_t time)
+int engine_pm_cpu::post_newtonloop(value_t deltat, value_t time, index_t converged)
 {
-	int converged = 0;
 	char buffer[1024];
 	double well_tolerance_coefficient = 1e2;
 
@@ -1848,7 +1847,7 @@ int engine_pm_cpu::post_newtonloop(value_t deltat, value_t time)
 	}
 	else
 	{
-		converged = 1;
+		converged *= 1;
 	}
 
 	dev_u = dev_p = well_residual_last_dt = std::numeric_limits<value_t>::infinity();
@@ -1859,6 +1858,11 @@ int engine_pm_cpu::post_newtonloop(value_t deltat, value_t time)
 		stat.n_linear_wasted += n_linear_last_dt;
 		stat.n_timesteps_wasted++;
 		converged = 0;
+
+		for (auto& contact : contacts)
+		{
+		  std::copy(contact.states_n.begin(), contact.states_n.end(), contact.states.begin());
+		}
 
 		X = Xn;
 		Xref = Xn_ref;
@@ -2077,6 +2081,7 @@ void engine_pm_cpu::make_dimensionless()
   const index_t n_res_blocks = mesh->n_res_blocks;
   value_t* Jac = Jacobian->get_values();
   const index_t* rows = Jacobian->get_rows_ptr();
+  const value_t* V = mesh->volume.data();
   index_t csr_idx_start, csr_idx_end;
 
   const value_t mom_dim = p_dim / x_dim;
@@ -2115,9 +2120,9 @@ void engine_pm_cpu::make_dimensionless()
 	// residual
 	for (uint8_t c = U_VAR; c < U_VAR + ND_; c++)
 	{
-	  RHS[i * N_VARS + c] /= mom_dim;
+	  RHS[i * N_VARS + c] /= (mom_dim);
 	}
-	RHS[i * N_VARS + P_VAR] /= mass_dim;
+	RHS[i * N_VARS + P_VAR] /= (mass_dim);
   }
 
   // wells
@@ -2142,7 +2147,7 @@ void engine_pm_cpu::make_dimensionless()
 	  Jac[j * N_VARS_SQ + P_VAR * N_VARS + P_VAR] /= (mass_dim);
 	}
 	// residual
-	RHS[w->well_body_idx * N_VARS + P_VAR] /= mass_dim;
+	RHS[w->well_body_idx * N_VARS + P_VAR] /= (mass_dim);
   }
 }
 
