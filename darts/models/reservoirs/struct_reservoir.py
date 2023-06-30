@@ -4,7 +4,7 @@ from math import pi
 import numpy as np
 from darts.engines import conn_mesh, ms_well, ms_well_vector, timer_node, value_vector, index_vector
 from darts.mesh.struct_discretizer import StructDiscretizer
-from pyevtk import hl
+from pyevtk import hl, vtk
 from scipy.interpolate import griddata
 
 
@@ -326,10 +326,10 @@ class StructReservoir:
 
         self.vtk_filenames_and_times[vtk_file_name] = t
 
-        # self.group = hl.VtkGroup(file_name)
-        # for fname, t in self.vtk_filenames_and_times.items():
-        #     self.group.addFile(fname, t)
-        # self.group.save()
+        self.group = vtk.VtkGroup(file_name)
+        for fname, t in self.vtk_filenames_and_times.items():
+            self.group.addFile(fname, t)
+        self.group.save()
 
     def generate_vtk_grid(self, strict_vertical_layers=True, compute_depth_by_dz_sum=True):
         # interpolate 2d array using grid (xx, yy) and specified method
