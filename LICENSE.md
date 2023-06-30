@@ -35,6 +35,10 @@ Used in [struct-reservoir](/darts/models/reservoirs/struct_reservoir.py) to writ
 Used in [engines](/engines/src/stream.cpp).
 [License](https://www.cs.virginia.edu/stream/FTP/Code/LICENSE.txt)
 
+- [Eigen](https://eigen.tuxfamily.org/index.php?title=Main_Page)
+Used in [SVD for poromechanics](/engines/src/mech/matrix.hpp).
+[License](https://gitlab.com/libeigen/eigen/-/blob/master/COPYING.APACHE)
+
 ## Data
 
 The data used as input for the models is distributed under CC0 Creative Commons Public Domain Dedication license.

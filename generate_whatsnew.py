@@ -2,9 +2,9 @@ import git
 from openpyxl import Workbook
 
 # works from current folder, so synchronize it first
-repo = git.Repo("..")
+repo = git.Repo(".")
 
-ver = '1.0.1'  # previous release version
+ver = 'v1.0.0'  # previous release version
 branch = 'development'  #  branch for processing
 
 # commit which corresponds to previous release

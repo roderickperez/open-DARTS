@@ -180,8 +180,8 @@ int contact::init_fault()
 		avg_mu = (discr->stfs[face1.cell_id2](SUM_N(ND) - 1, SUM_N(ND) - 1) + discr->stfs[face1.cell_id2](SUM_N(ND) - 1, SUM_N(ND) - 1) ) / 2.0;
 		avg_lam = (discr->stfs[face1.cell_id2](0, 1) + discr->stfs[face1.cell_id2](0, 1) ) / 2.0;
 		avg_young = avg_mu * (3 * avg_lam + 2 * avg_mu) / (avg_lam + avg_mu);
-		eps_t.push_back(f_scale * avg_mu * face1.area * face1.area / avg_vol );
-		eps_n.push_back(f_scale * avg_young * face1.area * face1.area / avg_vol );
+		eps_t.push_back(f_scale * avg_mu);// *face1.area* face1.area / avg_vol );
+		eps_n.push_back(f_scale * avg_young);// *face1.area* face1.area / avg_vol );
 		value_t density = 2500.0;
 		value_t s_velocity = sqrt(avg_mu * 1e+5 / density) * 86400.0;
 		eta.push_back(avg_mu / s_velocity / 2.0);
@@ -492,7 +492,7 @@ int contact::add_to_jacobian_return_mapping(value_t dt, csr_matrix_base* jacobia
 			slip_vel.values = dg.values / dt;
 			slip_vel(0, 0) = 0.0;
 			slip_vel_norm = dgt_norm / dt;
-			if (friction_model == RSF || friction_model == RSF_STAB) slip_vel_norm += rsf.min_vel;
+			if (eta[i] != 0.0 || friction_model == RSF || friction_model == RSF_STAB) slip_vel_norm += rsf.min_vel;
 			// friction and its derivative
 			if (friction_model == RSF)
 			{
@@ -520,8 +520,7 @@ int contact::add_to_jacobian_return_mapping(value_t dt, csr_matrix_base* jacobia
 			phi[i] = Ft_trial_norm - mu[i] * flux(0, 0);
 
 			// radiation dumping
-			if (friction_model == RSF || friction_model == RSF_STAB)
-				phi[i] -= eta[i] * slip_vel_norm;
+			phi[i] -= eta[i] * slip_vel_norm;
 
 			// normal 
 			auto& Fn = pre_Fn[st.size()];
@@ -544,8 +543,7 @@ int contact::add_to_jacobian_return_mapping(value_t dt, csr_matrix_base* jacobia
 			{
 				// static (or zero) friction by default
 				drad_dump.values = 0.0;
-				if (friction_model == RSF || friction_model == RSF_STAB)
-					drad_dump.values = eta[i] * slip_vel.values / slip_vel_norm / dt;
+				drad_dump.values = eta[i] * slip_vel.values / slip_vel_norm / dt;
 
 				////// friction
 				//// if use gap derivatives as direction
@@ -568,8 +566,7 @@ int contact::add_to_jacobian_return_mapping(value_t dt, csr_matrix_base* jacobia
 				buf.values = outer_product(F_trial / Ft_trial_norm, F_trial.transpose() / Ft_trial_norm).values;
 				buf(0, { ND }, { 1 }) = 0.0;
 				// radiation dumping
-				if (friction_model == RSF || friction_model == RSF_STAB)
-					F(ND * id, { ND, ND }, { (uint8_t)F.N, 1 }) -= 1.0 / Ft_trial_norm * outer_product(F_trial, drad_dump.transpose()).values;
+				F(ND * id, { ND, ND }, { (uint8_t)F.N, 1 }) -= 1.0 / Ft_trial_norm * outer_product(F_trial, drad_dump.transpose()).values;
 				// dFt_trial_norm
 				F(ND * id, { ND, ND }, { (uint8_t)F.N, 1 }) -= -sign_trial * eps_t[i] * buf.values;
 				jacobian_explicit_scheme[i].values += sign_trial * eps_t[i] * buf.values;
@@ -595,13 +592,13 @@ int contact::add_to_jacobian_return_mapping(value_t dt, csr_matrix_base* jacobia
 				//flux -= mu_cur * flux(0, 0) * F_trial / Ft_trial_norm;
 				flux -= alpha * F_trial;
 
-				if (friction_model == RSF || friction_model == RSF_STAB)
-				{
+				//if (friction_model == RSF || friction_model == RSF_STAB)
+				//{
 					// radiation damping
 					F(ND * id, { ND, ND }, { (uint8_t)F.N, 1 }) -= eta[i] * I3.values / dt;
 					flux -= eta[i] * slip_vel;
 					//fprintf(pFile, "%d\t%d\t%.10e\t%.10e\t%.10e\t%.10e\t%.10e\t%.10e\t%.10e\n", i, 1, flux.values[1], F(1, ND * id + 1), mu_cur, dmu.values[1], slip_vel.values[1], g.values[1], dg.values[1]);
-				}
+				//}
 			}
 			else
 			{
@@ -1069,9 +1066,9 @@ int contact::add_to_jacobian_stuck(index_t cell_id, value_t dt, vector<value_t>&
 	diag_idx = N_VARS_SQ * diag_ind[cell_id];
 	for (d = 0; d < ND; d++)
 	{
-		Jac[diag_idx + (U_VAR + d) * N_VARS + (U_VAR + d)] = implicit_scheme_multiplier * 1.0;
-		jacobian_explicit_scheme[id](d, d) = 1.0;
-		RHS[N_VARS * cell_id + U_VAR + d] = dg.values[d];
+		Jac[diag_idx + (U_VAR + d) * N_VARS + (U_VAR + d)] = implicit_scheme_multiplier * eps_t[id];
+		jacobian_explicit_scheme[id](d, d) = eps_t[id];
+		RHS[N_VARS * cell_id + U_VAR + d] = eps_t[id] * dg.values[d];
 	}
 	return 0;
 }

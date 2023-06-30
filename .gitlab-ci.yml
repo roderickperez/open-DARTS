@@ -5,9 +5,20 @@ stages:
 
 ###################################################################################
 
+build-linux-3.11:
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
+    extends: .build-linux-dockcross
+    variables:
+        PY_VER: '3.11'       # for python image selection in .build-linux
+        PY_SUF: 'cp311-cp311' # for python path selection in .build-linux-dockcross
+        ODLS: '0'
+
 build-linux-3.10:
     rules: 
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .build-linux-dockcross
     variables:
         PY_VER: '3.10'       # for python image selection in .build-linux
@@ -17,6 +28,8 @@ build-linux-3.10:
 build-linux-3.9: # for protected branches only
     rules:
         - if: $CI_COMMIT_REF_PROTECTED == "true"
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .build-linux-dockcross
     variables:
         PY_VER: '3.9'       # for python image selection in .build-linux
@@ -26,6 +39,7 @@ build-linux-3.9: # for protected branches only
 build-linux-3.8:
     rules: 
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .build-linux-dockcross
     variables:
         PY_VER: '3.8'       # for python image selection in .build-linux
@@ -35,6 +49,7 @@ build-linux-3.8:
 build-linux-3.7:
     rules: 
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .build-linux-dockcross
     variables:
         PY_VER: '3.7'        # for python image selection in .build-linux
@@ -43,9 +58,20 @@ build-linux-3.7:
         
 ###################################################################################
 
+build-linux-3.11-ODLS:
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
+    extends: .build-linux-dockcross
+    variables:
+        PY_VER: '3.11'       # for python image selection in .build-linux
+        PY_SUF: 'cp311-cp311' # for python path selection in .build-linux-dockcross
+        ODLS: '1'        # build with open-darts linear solvers
+        
 build-linux-3.10-ODLS:
     rules: 
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .build-linux-dockcross
     variables:
         PY_VER: '3.10'       # for python image selection in .build-linux
@@ -55,8 +81,9 @@ build-linux-3.10-ODLS:
 build-linux-3.9-ODLS:
     rules:
         - if: $CI_COMMIT_REF_PROTECTED == "true"
-        - if: '$CI_PIPELINE_SOURCE == "merge_request_event"' 
-        - if: $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .build-linux-dockcross
     variables:
         PY_VER: '3.9'       # for python image selection in .build-linux
@@ -66,6 +93,7 @@ build-linux-3.9-ODLS:
 build-linux-3.8-ODLS:
     rules: 
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .build-linux-dockcross
     variables:
         PY_VER: '3.8'       # for python image selection in .build-linux
@@ -75,6 +103,7 @@ build-linux-3.8-ODLS:
 build-linux-3.7-ODLS:
     rules: 
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .build-linux-dockcross
     variables:
         PY_VER: '3.7'        # for python image selection in .build-linux
@@ -83,9 +112,20 @@ build-linux-3.7-ODLS:
         
 ###################################################################################
 
+build-windows-3.11:
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
+    extends: .build-windows
+    variables:
+        PY_VER: '3.11'
+        PYTHONPATH: 'D:\Python311'        
+        ODLS: '0' 
+
 build-windows-3.10:
     rules: 
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .build-windows
     variables:
         PY_VER: '3.10'
@@ -95,6 +135,8 @@ build-windows-3.10:
 build-windows-3.9:  # for protected branches only
     rules:
         - if: $CI_COMMIT_REF_PROTECTED == "true"
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .build-windows
     variables:
         PY_VER: '3.9'
@@ -104,6 +146,7 @@ build-windows-3.9:  # for protected branches only
 build-windows-3.8:
     rules: 
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .build-windows
     variables:
         PY_VER: '3.8'
@@ -113,6 +156,7 @@ build-windows-3.8:
 build-windows-3.7:
     rules: 
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .build-windows
     variables:
         PY_VER: '3.7'
@@ -120,10 +164,21 @@ build-windows-3.7:
         ODLS: '0'
         
 ###################################################################################
-        
+
+build-windows-3.11-ODLS:
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
+    extends: .build-windows
+    variables:
+        PY_VER: '3.11'
+        PYTHONPATH: 'D:\Python311'        
+        ODLS: '1'         # build with open-darts linear solvers
+                
 build-windows-3.10-ODLS:
     rules: 
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .build-windows
     variables:
         PY_VER: '3.10'
@@ -134,8 +189,9 @@ build-windows-3.10-ODLS:
 build-windows-3.9-ODLS:
     rules:
         - if: $CI_COMMIT_REF_PROTECTED == "true"
-        - if: '$CI_PIPELINE_SOURCE == "merge_request_event"' 
-        - if: $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .build-windows
     variables:
         PY_VER: '3.9'
@@ -145,6 +201,7 @@ build-windows-3.9-ODLS:
 build-windows-3.8-ODLS:
     rules: 
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .build-windows
     variables:
         PY_VER: '3.8'
@@ -154,6 +211,7 @@ build-windows-3.8-ODLS:
 build-windows-3.7-ODLS:
     rules: 
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .build-windows
     variables:
         PY_VER: '3.7'
@@ -221,9 +279,22 @@ build-windows-3.7-ODLS:
 
 ###################################################################################
 
+test-linux-3.11-ODLS:
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
+    extends: .test-linux
+    variables:
+        PY_VER: '3.11'       # for python image selection in .test-linux
+        PY_SUF: 'cp311-cp311' # for python path selection in .test-linux
+        ODLS: '1'           # test with open-darts linear solvers
+    dependencies:
+        - build-linux-3.11-ODLS
+
 test-linux-3.10-ODLS:
     rules: 
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .test-linux
     variables:
         PY_VER: '3.10'       # for python image selection in .test-linux
@@ -235,7 +306,9 @@ test-linux-3.10-ODLS:
 test-linux-3.9-ODLS:
     rules:
         - if: $CI_COMMIT_REF_PROTECTED == "true"
-        - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+        - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .test-linux
     variables:
         PY_VER: '3.9'       # for python image selection in .test-linux
@@ -247,6 +320,7 @@ test-linux-3.9-ODLS:
 test-linux-3.8-ODLS:
     rules: 
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .test-linux
     variables:
         PY_VER: '3.8'       # for python image selection in .test-linux
@@ -258,6 +332,7 @@ test-linux-3.8-ODLS:
 test-linux-3.7-ODLS:
     rules: 
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .test-linux
     variables:
         PY_VER: '3.7'        # for python image selection in .test-linux
@@ -268,9 +343,22 @@ test-linux-3.7-ODLS:
 
 ###################################################################################
 
+test-linux-3.11:
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
+    extends: .test-linux
+    variables:
+        PY_VER: '3.11'       # for python image selection in .test-linux
+        PY_SUF: 'cp311-cp311' # for python path selection in .test-linux
+        ODLS: '0'
+    dependencies:
+        - build-linux-3.11
+
 test-linux-3.10:
     rules: 
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .test-linux
     variables:
         PY_VER: '3.10'       # for python image selection in .test-linux
@@ -282,6 +370,8 @@ test-linux-3.10:
 test-linux-3.9:  # for protected branches only
     rules:
         - if: $CI_COMMIT_REF_PROTECTED == "true"
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .test-linux
     variables:
         PY_VER: '3.9'       # for python image selection in .test-linux
@@ -293,6 +383,7 @@ test-linux-3.9:  # for protected branches only
 test-linux-3.8:
     rules: 
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .test-linux
     variables:
         PY_VER: '3.8'       # for python image selection in .test-linux
@@ -304,6 +395,7 @@ test-linux-3.8:
 test-linux-3.7:
     rules: 
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .test-linux
     variables:
         PY_VER: '3.7'        # for python image selection in .test-linux
@@ -313,10 +405,23 @@ test-linux-3.7:
         - build-linux-3.7
 
 ###################################################################################
-        
+
+test-windows-3.11:
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
+    extends: .test-windows
+    variables:
+        PY_VER: '3.11'
+        PYTHONPATH: 'D:\Python311' 
+        ODLS: '0'
+    dependencies:
+        - build-windows-3.11
+     
 test-windows-3.10:
     rules: 
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .test-windows
     variables:
         PY_VER: '3.10'
@@ -328,6 +433,8 @@ test-windows-3.10:
 test-windows-3.9:  # for protected branches only
     rules:
         - if: $CI_COMMIT_REF_PROTECTED == "true"
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .test-windows
     variables:
         PY_VER: '3.9'
@@ -339,6 +446,7 @@ test-windows-3.9:  # for protected branches only
 test-windows-3.8:
     rules: 
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .test-windows
     variables:
         PY_VER: '3.8'
@@ -350,6 +458,7 @@ test-windows-3.8:
 test-windows-3.7:
     rules: 
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .test-windows
     variables:
         PY_VER: '3.7'
@@ -359,10 +468,23 @@ test-windows-3.7:
         - build-windows-3.7
 
 ###################################################################################
-        
+
+test-windows-3.11-ODLS:
+    rules: 
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
+    extends: .test-windows
+    variables:
+        PY_VER: '3.11'
+        PYTHONPATH: 'D:\Python311'
+        ODLS: '1'
+    dependencies:
+        - build-windows-3.11-ODLS
+     
 test-windows-3.10-ODLS:
     rules: 
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .test-windows
     variables:
         PY_VER: '3.10'
@@ -374,7 +496,9 @@ test-windows-3.10-ODLS:
 test-windows-3.9-ODLS:
     rules:
         - if: $CI_COMMIT_REF_PROTECTED == "true"
-        - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+        - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .test-windows
     variables:
         PY_VER: '3.9'
@@ -386,6 +510,7 @@ test-windows-3.9-ODLS:
 test-windows-3.8-ODLS:
     rules: 
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .test-windows
     variables:
         PY_VER: '3.8'
@@ -397,6 +522,7 @@ test-windows-3.8-ODLS:
 test-windows-3.7-ODLS:
     rules: 
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1" && $CI_COMMIT_REF_PROTECTED == "true"
     extends: .test-windows
     variables:
         PY_VER: '3.7'
@@ -420,7 +546,7 @@ test-windows-3.7-ODLS:
         - apt-get update -qq && apt-get install -y -qq libxinerama1     # for gmsh
         - export PYTHONUNBUFFERED=1
         # complex command to create fake wheel and figure out the proper name for current python and platform
-        - export WHEEL_NAME=`python -c "from setuptools.dist import Distribution;from distutils.core import  Extension;dist = Distribution({'name':'open_darts', 'version':'1.0.1', 'ext_modules':[Extension('mylib', ['mysrc.pyx', 'native.c'])]});bdist_wheel_cmd = dist.get_command_obj('bdist_wheel');print(bdist_wheel_cmd.wheel_dist_name + '-' + '-'.join(bdist_wheel_cmd.get_tag())+ '.whl');"`
+        - export WHEEL_NAME=`python -c "from setuptools.dist import Distribution;from distutils.core import  Extension;dist = Distribution({'name':'open_darts', 'version':'1.0.2', 'ext_modules':[Extension('mylib', ['mysrc.pyx', 'native.c'])]});bdist_wheel_cmd = dist.get_command_obj('bdist_wheel');print(bdist_wheel_cmd.wheel_dist_name + '-' + '-'.join(bdist_wheel_cmd.get_tag())+ '.whl');"`
         # upgrade pip package first
         - python -m pip install --upgrade pip
         - ls ./dist/*
@@ -457,7 +583,7 @@ test-windows-3.7-ODLS:
         - $env:PYTHONUNBUFFERED = 1
         - $env:PYTHONLEGACYWINDOWSSTDIO = 1
         # complex command to create fake wheel and figure out the proper name for current python and platform
-        - $env:WHEEL_NAME=python.exe -c "from setuptools.dist import Distribution;from distutils.core import  Extension;dist = Distribution({'name':'open_darts', 'version':'1.0.1', 'ext_modules':[Extension('mylib', ['mysrc.pyx', 'native.c'])]});bdist_wheel_cmd = dist.get_command_obj('bdist_wheel');print(bdist_wheel_cmd.wheel_dist_name + '-' + '-'.join(bdist_wheel_cmd.get_tag())+ '.whl');"
+        - $env:WHEEL_NAME=python.exe -c "from setuptools.dist import Distribution;from distutils.core import  Extension;dist = Distribution({'name':'open_darts', 'version':'1.0.2', 'ext_modules':[Extension('mylib', ['mysrc.pyx', 'native.c'])]});bdist_wheel_cmd = dist.get_command_obj('bdist_wheel');print(bdist_wheel_cmd.wheel_dist_name + '-' + '-'.join(bdist_wheel_cmd.get_tag())+ '.whl');"
         # upgrade pip package first
         - python -m pip install --upgrade pip
         # force reinstall of darts wheel only (need to force because darts wheel version is not incremented)
@@ -521,11 +647,13 @@ deploy-testpypi:
         - build-linux-3.8-ODLS
         - build-linux-3.9-ODLS
         - build-linux-3.10-ODLS
+        - build-linux-3.11-ODLS        
         - build-windows-3.7-ODLS
         - build-windows-3.8-ODLS
         - build-windows-3.9-ODLS
         - build-windows-3.10-ODLS
-
+        - build-windows-3.11-ODLS
+        
 deploy-zenodo:
     stage: deploy
     rules:
@@ -537,4 +665,4 @@ deploy-zenodo:
         - pip install gitlab2zenodo
         - git archive --format zip --output ${CI_COMMIT_TAG#v}.zip ${CI_COMMIT_TAG}
         # -s is for publishing to zenodo sandbox
-        - g2z-send -m .zenodo.json ${CI_COMMIT_TAG#v}.zip
+        - g2z-send -i $zenodo_record -m .zenodo.json ${CI_COMMIT_TAG#v}.zip

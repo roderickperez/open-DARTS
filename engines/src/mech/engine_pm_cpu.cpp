@@ -25,6 +25,7 @@ int engine_pm_cpu::init(conn_mesh *mesh_, std::vector<ms_well *> &well_list_,
 	PRINT_LINEAR_SYSTEM = false;
 	TIME_DEPENDENT_DISCRETIZATION = false;
 	SCALE_ROWS = false;
+	SCALE_DIMLESS = false;
 	geomechanics_mode.resize(mesh_->n_blocks, 0);
 	dt1 = 0.0;
 	momentum_inertia = 0.0;
@@ -1297,8 +1298,8 @@ int engine_pm_cpu::solve_explicit_scheme(value_t _dt)
 			{
 				RHS[i * N_VARS + U_VAR + d] += fluxes_ref[N_VARS * conn_id + U_VAR + d] + fluxes[N_VARS * conn_id + U_VAR + d];
 				RHS[i * N_VARS + U_VAR + d] += fluxes_biot_ref[N_VARS * conn_id + U_VAR + d] + fluxes_biot[N_VARS * conn_id + U_VAR + d];
-				CFL_mech[d] += fluxes_ref[N_VARS * conn_id + U_VAR + d] + fluxes[N_VARS * conn_id + U_VAR + d] +
-					fluxes_biot_ref[N_VARS * conn_id + U_VAR + d] + fluxes_biot[N_VARS * conn_id + U_VAR + d];
+				CFL_mech[d] += fluxes_ref_n[N_VARS * conn_id + U_VAR + d] + fluxes_n[N_VARS * conn_id + U_VAR + d] +
+					fluxes_biot_ref_n[N_VARS * conn_id + U_VAR + d] + fluxes_biot_n[N_VARS * conn_id + U_VAR + d];
 			}
 			RHS[i * N_VARS + P_VAR] += dt * op_vals_arr[upwd_idx * N_OPS + FLUX_OP] * gamma;
 			//RHS[i * N_VARS + P_VAR] += op_vals_arr[i * N_OPS + ACC_OP] * (fluxes_biot_ref[N_VARS * conn_id + P_VAR] + fluxes_biot[N_VARS * conn_id + P_VAR]) -
@@ -1368,17 +1369,17 @@ int engine_pm_cpu::solve_explicit_scheme(value_t _dt)
 			}
 			RHS[i * N_VARS + P_VAR] += V[i] * dt * f[i * N_VARS + P_VAR];
 
-			if (fabs(momentum_inertia) > 0.0 && dt > 0.0)
+			if (fabs(momentum_inertia) > 0.0 && dt1 > 0.0)
 			{
 				CFL_max_local = 0.0;
 				for (uint8_t d = 0; d < ND_; d++)
 				{
 					tmp = engine_pm_cpu::BAR_DAY2_TO_PA_S2 * CFL_mech[d] / momentum_inertia / mesh->volume[i] /
-						((X[i * N_VARS + U_VAR + d] - Xn[i * N_VARS + U_VAR + d]) / dt / dt);
-					CFL_max_local += tmp * tmp;
+						((Xn[i * N_VARS + U_VAR + d] - Xn1[i * N_VARS + U_VAR + d]) / dt1 / dt1);
+					if (fabs(Xn[i * N_VARS + U_VAR + d] - Xn1[i * N_VARS + U_VAR + d]) > 0.0)
+					  CFL_max_local += tmp * tmp;
 				}
-				if (fabs(X[i * N_VARS + U_VAR + d] - Xn[i * N_VARS + U_VAR + d]) > EQUALITY_TOLERANCE)
-					CFL_max_global = std::max(CFL_max_global, sqrt(CFL_max_local));
+			  	CFL_max_global = std::max(CFL_max_global, sqrt(CFL_max_local));
 			}
 		}
 
@@ -1719,52 +1720,13 @@ int engine_pm_cpu::solve_linear_equation()
 	//return 0;
 	}*/
 
-	// scaling rows
+	// scaling according to dimensions
+	if (SCALE_DIMLESS)
+	  make_dimensionless();
+	
+	// row-wise scaling
 	if (SCALE_ROWS)
-	{
-		index_t n_blocks = mesh->n_blocks;
-		value_t* Jac = Jacobian->get_values();
-		index_t* rows = Jacobian->get_rows_ptr();
-		index_t csr_idx_start, csr_idx_end;
-		value_t tmp;
-		std::fill_n(max_row_values.data(), n_blocks * N_VARS, 0.0);
-		for (index_t i = 0; i < n_blocks; i++)
-		{
-			csr_idx_start = rows[i];
-			csr_idx_end = rows[i + 1];
-			for (index_t j = csr_idx_start; j < csr_idx_end; j++)
-			{
-				for (uint8_t c = 0; c < N_VARS; c++)
-				{
-					for (uint8_t v = 0; v < N_VARS; v++)
-					{
-						tmp = fabs(Jac[j * N_VARS_SQ + c * N_VARS + v]);
-						if (max_row_values[i * N_VARS + c] < tmp)
-							max_row_values[i * N_VARS + c] = tmp;
-					}
-				}
-			}
-		}
-		for (index_t i = 0; i < n_blocks; i++)
-		{
-			csr_idx_start = rows[i];
-			csr_idx_end = rows[i + 1];
-			for (index_t j = csr_idx_start; j < csr_idx_end; j++)
-			{
-				for (uint8_t c = 0; c < N_VARS; c++)
-				{
-					for (uint8_t v = 0; v < N_VARS; v++)
-					{
-						Jac[j * N_VARS_SQ + c * N_VARS + v] /= max_row_values[i * N_VARS + c];
-					}
-				}
-			}
-			for (uint8_t c = 0; c < N_VARS; c++)
-			{
-				RHS[i * N_VARS + c] /= max_row_values[i * N_VARS + c];
-			}
-		}
-	}
+	  scale_rows();
 
 	timer->node["linear solver setup"].start();
 	//static_cast<linsolv_bos_fs_cpr<N_VARS>*>(static_cast<linsolv_bos_gmres<N_VARS>*>(linear_solver)->prec)->set_block_sizes(mesh->n_matrix, mesh->n_fracs, mesh->n_blocks - mesh->n_res_blocks);
@@ -1805,6 +1767,42 @@ int engine_pm_cpu::solve_linear_equation()
 		//exit(0);
 		//return 0;
 	}
+
+	/*if (SCALE_DIMLESS)
+	{
+	  const value_t mom_dim = p_dim / x_dim;
+	  const value_t mass_dim_base = p_dim * t_dim * t_dim * x_dim;
+	  const value_t mass_dim_geom = p_dim * x_dim * x_dim * x_dim;
+	  value_t mass_dim;
+	  // matrix + frac
+	  for (index_t i = 0; i < mesh->n_res_blocks; i++)
+	  {
+		if (geomechanics_mode[i])
+		  mass_dim = mass_dim_geom;
+		else
+		  mass_dim = mass_dim_base;
+
+		for (index_t c = U_VAR; c < U_VAR + ND_; c++)
+		{
+		  RHS[i * N_VARS + c] *= mom_dim;
+		  dX[i * N_VARS + c] *= x_dim;
+		}
+		RHS[i * N_VARS + P_VAR] *= mass_dim;
+		dX[i * N_VARS + P_VAR] *= p_dim;
+	  }
+
+	  // wells
+	  /*for (ms_well* w : wells)
+	  {
+		if (geomechanics_mode[w->well_body_idx])
+		  mass_dim = mass_dim_geom;
+		else
+		  mass_dim = mass_dim_base;
+
+		RHS[w->well_body_idx * N_VARS + P_VAR] *= mass_dim;
+		dX[w->well_body_idx * N_VARS + P_VAR] *= p_dim;
+	  }
+	}*/
 
 	if (r_code)
 	{
@@ -1942,10 +1940,212 @@ int engine_pm_cpu::post_newtonloop(value_t deltat, value_t time)
 	return converged;
 }
 
+int engine_pm_cpu::post_explicit(value_t deltat, value_t time)
+{
+  int converged = 0;
+  char buffer[1024];
+  double well_tolerance_coefficient = 1e2;
+
+  stat.n_newton_total += n_newton_last_dt;
+  stat.n_linear_total += n_linear_last_dt;
+  stat.n_timesteps_total++;
+  converged = 1;
+
+  print_timestep(time + deltat, deltat);
+
+  time_data["time"].push_back(time + deltat);
+
+  for (ms_well* w : wells)
+  {
+	w->calc_rates(X, op_vals_arr, time_data);
+  }
+
+  // calculate FIPS
+  FIPS.assign(nc, 0);
+  for (index_t i = 0; i < mesh->n_res_blocks; i++)
+  {
+	for (uint8_t c = 0; c < nc; c++)
+	{
+	  // assuming ACC_OP is 0
+	  FIPS[c] += PV[i] * op_vals_arr[i * n_ops + 0 + c];
+	}
+  }
+
+  for (uint8_t c = 0; c < nc; c++)
+  {
+	time_data["FIPS c " + std::to_string(c) + " (kmol)"].push_back(FIPS[c]);
+  }
+
+  // fault contacts
+  for (auto& contact : contacts)
+	contact.states_n = contact.states;
+
+  Xn1 = Xn;
+  Xn = X;
+  Xn_ref = Xref;
+  std::copy(fluxes.begin(), fluxes.end(), fluxes_n.begin());
+  std::copy(fluxes_biot.begin(), fluxes_biot.end(), fluxes_biot_n.begin());
+  std::copy(fluxes_ref.begin(), fluxes_ref.end(), fluxes_ref_n.begin());
+  std::copy(fluxes_biot_ref.begin(), fluxes_biot_ref.end(), fluxes_biot_ref_n.begin());
+  //std::copy(fluxes.begin(), fluxes.end(), fluxes_iter.begin());
+  op_vals_arr_n = op_vals_arr;
+
+  if (TIME_DEPENDENT_DISCRETIZATION)
+  {
+	if (FIND_EQUILIBRIUM)
+	{
+	  mesh->tran_ref = mesh->tran;
+	  mesh->rhs_ref = mesh->rhs;
+	  mesh->tran_biot_ref = mesh->tran_biot;
+	  mesh->rhs_biot_ref = mesh->rhs_biot;
+	}
+
+	std::copy(mesh->tran_biot.begin(), mesh->tran_biot.end(), mesh->tran_biot_n.begin());
+	std::copy(mesh->rhs_biot.begin(), mesh->rhs_biot.end(), mesh->rhs_biot_n.begin());
+  }
+
+  for (auto& contact : contacts)
+  {
+	assert(contact.rsf.theta.size() == contact.rsf.theta_n.size());
+	std::copy(contact.rsf.theta.begin(), contact.rsf.theta.end(), contact.rsf.theta_n.begin());
+  }
+
+  dt1 = deltat;
+  t += deltat;
+
+  return converged;
+}
+
 void engine_pm_cpu::update_uu_jacobian()
 {
 	static_cast<linsolv_bos_fs_cpr<N_VARS>*>(static_cast<linsolv_bos_gmres<N_VARS>*>(linear_solver)->prec)->do_update_uu();
 }
+
+void engine_pm_cpu::scale_rows()
+{
+  const index_t n_blocks = mesh->n_blocks;
+  value_t* Jac = Jacobian->get_values();
+  const index_t* rows = Jacobian->get_rows_ptr();
+  index_t csr_idx_start, csr_idx_end;
+  value_t tmp;
+
+  // maximum values
+  std::fill_n(max_row_values.data(), n_blocks * N_VARS, 0.0);
+  for (index_t i = 0; i < n_blocks; i++)
+  {
+	csr_idx_start = rows[i];
+	csr_idx_end = rows[i + 1];
+	for (index_t j = csr_idx_start; j < csr_idx_end; j++)
+	{
+	  for (uint8_t c = 0; c < N_VARS; c++)
+	  {
+		for (uint8_t v = 0; v < N_VARS; v++)
+		{
+		  tmp = fabs(Jac[j * N_VARS_SQ + c * N_VARS + v]);
+		  if (max_row_values[i * N_VARS + c] < tmp)
+			max_row_values[i * N_VARS + c] = tmp;
+		}
+	  }
+	}
+  }
+
+  // scaling
+  for (index_t i = 0; i < n_blocks; i++)
+  {
+	csr_idx_start = rows[i];
+	csr_idx_end = rows[i + 1];
+	for (index_t j = csr_idx_start; j < csr_idx_end; j++)
+	{
+	  for (uint8_t c = 0; c < N_VARS; c++)
+	  {
+		for (uint8_t v = 0; v < N_VARS; v++)
+		{
+		  Jac[j * N_VARS_SQ + c * N_VARS + v] /= max_row_values[i * N_VARS + c];
+		}
+	  }
+	}
+	for (uint8_t c = 0; c < N_VARS; c++)
+	{
+	  RHS[i * N_VARS + c] /= max_row_values[i * N_VARS + c];
+	}
+  }
+}
+
+void engine_pm_cpu::make_dimensionless()
+{
+  const index_t n_blocks = mesh->n_blocks;
+  const index_t n_res_blocks = mesh->n_res_blocks;
+  value_t* Jac = Jacobian->get_values();
+  const index_t* rows = Jacobian->get_rows_ptr();
+  index_t csr_idx_start, csr_idx_end;
+
+  const value_t mom_dim = p_dim / x_dim;
+  const value_t mass_dim_base = p_dim * t_dim * t_dim * x_dim;
+  const value_t mass_dim_geom = p_dim * x_dim * x_dim * x_dim;
+  value_t mass_dim;
+
+  // matrix + fractures
+  for (index_t i = 0; i < n_res_blocks; i++)
+  {
+	if (geomechanics_mode[i])
+	  mass_dim = mass_dim_geom;
+	else
+	  mass_dim = mass_dim_base;
+
+	csr_idx_start = rows[i];
+	csr_idx_end = rows[i + 1];
+	for (index_t j = csr_idx_start; j < csr_idx_end; j++)
+	{ 
+	  // jacobian (momentum)
+	  for (uint8_t c = U_VAR; c < U_VAR + ND_; c++)
+	  {
+		for (uint8_t v = U_VAR; v < U_VAR + ND_; v++)
+		{
+		  Jac[j * N_VARS_SQ + c * N_VARS + v] /= (mom_dim);
+		}
+		Jac[j * N_VARS_SQ + c * N_VARS + P_VAR] /= (mom_dim);
+	  }
+	  // jacobian (fluid mass)
+	  for (uint8_t v = U_VAR; v < U_VAR + ND_; v++)
+	  {
+		Jac[j * N_VARS_SQ + P_VAR * N_VARS + v] /= (mass_dim);
+	  }
+	  Jac[j * N_VARS_SQ + P_VAR * N_VARS + P_VAR] /= (mass_dim);
+	}
+	// residual
+	for (uint8_t c = U_VAR; c < U_VAR + ND_; c++)
+	{
+	  RHS[i * N_VARS + c] /= mom_dim;
+	}
+	RHS[i * N_VARS + P_VAR] /= mass_dim;
+  }
+
+  // wells
+  for (ms_well* w : wells)
+  {
+	if (geomechanics_mode[w->well_body_idx])
+	  mass_dim = mass_dim_geom;
+	else
+	  mass_dim = mass_dim_base;
+
+	// well body
+	csr_idx_start = rows[w->well_body_idx];
+	csr_idx_end = rows[w->well_body_idx + 1];
+
+	for (index_t j = csr_idx_start; j < csr_idx_end; j++)
+	{
+	  // jacobian (fluid mass)
+	  for (uint8_t v = U_VAR; v < U_VAR + ND_; v++)
+	  {
+		Jac[j * N_VARS_SQ + P_VAR * N_VARS + v] /= (mass_dim);
+	  }
+	  Jac[j * N_VARS_SQ + P_VAR * N_VARS + P_VAR] /= (mass_dim);
+	}
+	// residual
+	RHS[w->well_body_idx * N_VARS + P_VAR] /= mass_dim;
+  }
+}
+
 int engine_pm_cpu::adjoint_gradient_assembly(value_t dt, std::vector<value_t>& X, csr_matrix_base* jacobian, std::vector<value_t>& RHS)
 {
 	return 0;
