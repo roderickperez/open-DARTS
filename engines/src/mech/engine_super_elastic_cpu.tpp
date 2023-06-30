@@ -399,16 +399,19 @@ int engine_super_elastic_cpu<NC, NP, THERMAL>::init_base(conn_mesh *mesh_, std::
 	time_data.clear();
 	time_data_report.clear();
 
-	if (params->log_transform == 0)
+	if (NC_ > 1)
 	{
+	  if (params->log_transform == 0)
+	  {
 		min_zc = acc_flux_op_set_list[0]->get_axis_min(z_var) * params->obl_min_fac;
 		max_zc = 1 - min_zc * params->obl_min_fac;
 		//max_zc = acc_flux_op_set_list[0]->get_maxzc();
-	}
-	else if (params->log_transform == 1)
-	{
+	  }
+	  else if (params->log_transform == 1)
+	  {
 		min_zc = exp(acc_flux_op_set_list[0]->get_axis_min(z_var)) * params->obl_min_fac; //log based composition
 		max_zc = exp(acc_flux_op_set_list[0]->get_axis_max(z_var));						  //log based composition
+	  }
 	}
 
 	return 0;
