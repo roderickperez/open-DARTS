@@ -673,6 +673,6 @@ deploy-zenodo:
         # making a .zip containing the source files
         - git archive --format zip --output ${CI_COMMIT_TAG#v}.zip ${CI_COMMIT_TAG}
         # command that publishes to zenodo
-        - export zenodo_record = 1185325
-        - export zenodo_token = $ZENODO_SANDBOX_TEST_LUISA
+        - export zenodo_record="1185325"
+        - export zenodo_token=$ZENODO_SANDBOX_TEST_LUISA
         - g2z-send -s -m .zenodo.json ${CI_COMMIT_TAG#v}.zip
