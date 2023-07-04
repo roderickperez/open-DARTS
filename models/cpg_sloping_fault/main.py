@@ -14,8 +14,7 @@ import time
 
 import os
 
-from cpg_tools import save_array, make_full_cube
-
+from darts.models.reservoirs.cpg_reservoir import save_array, make_full_cube
 def run(discr_type : str, gridfile : str, propfile : str, sch_fname : str,
         dt : float, n_time_steps : int,
         export_vtk=False):
@@ -41,9 +40,9 @@ def run(discr_type : str, gridfile : str, propfile : str, sch_fname : str,
 
     m.init()
     if export_vtk:
-        m.export_pro_vtk(vtk_filename)
+        m.export_vtk(vtk_filename)
     m.params.max_ts = dt
-    m.save_cubes(os.path.join(model_dir, 'p_0')) # debug
+    m.save_cubes(os.path.join(model_dir, 'res_init'))
 
     t = 0
     #print_range(m, t)
@@ -55,32 +54,34 @@ def run(discr_type : str, gridfile : str, propfile : str, sch_fname : str,
         t += dt
 
         if export_vtk:
-            m.export_pro_vtk(vtk_filename)
+            m.export_vtk(vtk_filename)
 
-        m.save_cubes(os.path.join(model_dir, 'p_' + str(ti+1)))
+        #m.save_cubes(os.path.join(model_dir, 'res_' + str(ti+1)))
         m.physics.engine.report()
- 
+
+    m.save_cubes(os.path.join(model_dir, 'res_last'))
     m.print_timers()
     m.print_stat()
 
     time_data = pd.DataFrame.from_dict(m.physics.engine.time_data)
-    time_data.to_pickle(os.path.join(model_dir, 'darts_time_data_' + discr_type + '.pkl'))
+    time_data.to_pickle(os.path.join(model_dir, 'time_data_' + discr_type + '.pkl'))
     time_data_report = pd.DataFrame.from_dict(m.physics.engine.time_data_report)
 
-    # filter data and write to xlsx
-    # list the column names that should be removed
-    for td_ in [time_data, time_data_report]:
-        press_gridcells = td_.filter(like='reservoir').columns.tolist()
-        chem_cols = td_.filter(like='Kmol').columns.tolist()
-        # remove columns from data
-        td_.drop(columns=press_gridcells + chem_cols, inplace=True)
-        # add time in years
-        td_['Time (years)'] = td_['time'] / 365.25
+    if False: # write xls
+        # filter data and write to xlsx
+        # list the column names that should be removed
+        for td_ in [time_data, time_data_report]:
+            press_gridcells = td_.filter(like='reservoir').columns.tolist()
+            chem_cols = td_.filter(like='Kmol').columns.tolist()
+            # remove columns from data
+            td_.drop(columns=press_gridcells + chem_cols, inplace=True)
+            # add time in years
+            td_['Time (years)'] = td_['time'] / 365.25
 
-    writer = pd.ExcelWriter(os.path.join(model_dir, 'time_data_' + discr_type + '.xlsx'))
-    time_data.to_excel(writer, 'time_data')
-    time_data_report.to_excel(writer, 'time_data_report')
-    writer.close()
+        writer = pd.ExcelWriter(os.path.join(model_dir, 'time_data_' + discr_type + '.xlsx'))
+        time_data.to_excel(writer, 'time_data')
+        time_data_report.to_excel(writer, 'time_data_report')
+        writer.close()
 
     return time_data
 
@@ -115,7 +116,7 @@ def plot_total_rate_darts(darts_df_1, darts_df_2, opm_df, opm_smry, plot_names, 
     #plt.show(block=False)
     return ax
 
-def plot(time_data_1, time_data_2, plot_names, opm_csv_fname=None):
+def plot(prefix, time_data_1, time_data_2, plot_names, opm_csv_fname=None):
     plt.rc('font', size=12)
     plt_list = [(': oil rate',   'prod', 'OPM_FOPR'),
                 (': water rate', 'prod', 'OPM_FWPR'),
@@ -134,44 +135,43 @@ def plot(time_data_1, time_data_2, plot_names, opm_csv_fname=None):
         ax1.set(xlabel="Days", ylabel=title, title=title)
         #counter += 1
         #plt.show()
-        model_suffix = gridfile.split('/')[-2]
-        model_dir = os.path.dirname(gridfile)
-        png_fname = os.path.join(model_dir, mode_suffix + '_' + plt_str[2:] + '.png')
+        png_fname = os.path.join(prefix, mode_suffix + '_' + plt_str[2:] + '.png')
         plt.savefig(png_fname)
         print('File', png_fname, 'saved')
 
 #####################################################
 def get_case_files(case):
     prefix = r'meshes/case_' + str(case)
-    gridfile = prefix + '/grid.grdecl'
-    propfile = prefix + '/reservoir.in'
-
-    sch_dir = os.path.join(prefix, 'opm_flow_model')
-    sch_file = os.path.join(sch_dir, 'SCH.INC')
-    if not os.path.exists(sch_dir):
-        os.mkdir(sch_dir)
+    gridfile = prefix + r'/grid.grdecl'
+    propfile = prefix + r'/reservoir.in'
+    sch_file = prefix + r'/SCH.INC'
     return gridfile, propfile, sch_file
 
 
 #####################################################
-if __name__ == '__main__':
 
+def run_test(args: list = []):
+    if len(args) > 1:
+        return test(case=args[0], overwrite=args[1])
+    else:
+        print('Not enough arguments provided')
+        return 1, 0.0
+
+def test(case, overwrite='0'):
     # 3 years by 1 month
     dt = 30
-    n_time_steps = 12*3
+    n_time_steps = 12
 
-    export_vtk = False # slow for big models
+    export_vtk = False#True
 
-    #dt = 10
-    #n_time_steps = 1
-
-    discr_types_list = ['cpp'] #cpg
+    #discr_types_list = ['cpp'] #cpg
     #discr_types_list = ['python'] #struct
-    #discr_types_list = ['cpp', 'python']
+    discr_types_list = ['cpp', 'python']
 
     # small grids
-    cases_list = [43] # 10x10x10 sloping fault
-    # cases_list = [1] # 10x10x10 sloping fault
+    #cases_list = [43] # 10x10x10 sloping fault
+    #cases_list = [40] # 10x10x10 no fault
+    #cases_list = [40, 43]
 
     # run all the  grids cases
     #cases_list = []
@@ -179,7 +179,7 @@ if __name__ == '__main__':
     #    if c.startswith("Case_"):
     #        cases_list.append(c)
 
-    print('cases_list:', cases_list)
+    print('cases :', case)
 
     mode = 'run'      # run and plot results
     #mode = 'compare' # plot results
@@ -187,27 +187,33 @@ if __name__ == '__main__':
 
     results = dict()
 
+    gridfile, propfile, sch_fname = get_case_files(case)
+    prefix = r'./meshes/case_' + str(case)
+    if mode == 'run':
+        for discr_type in discr_types_list:
+            start = time.perf_counter()
+            results[discr_type] = run(discr_type=discr_type, gridfile=gridfile, propfile=propfile,
+                                      sch_fname=sch_fname, dt=dt, n_time_steps=n_time_steps,
+                                      export_vtk=export_vtk)
+            end = time.perf_counter()
+    elif mode == 'compare':
+        for discr_type in discr_types_list:
+            results[discr_type] = pd.read_pickle(prefix + '/darts_time_data_' + discr_type + '.pkl')
+
+    opm_fname = prefix + '/opm_flow_model/opm_rates.csv'
+    if not os.path.exists(opm_fname):
+        opm_fname = None
+
+    if len(discr_types_list) > 1 and not results[discr_types_list[0]].empty and not results[discr_types_list[1]].empty:
+        plot(prefix, results[discr_types_list[0]], results[discr_types_list[1]], discr_types_list, opm_fname)
+    else:
+        # if only one case did run, then plot it twice, because need to pass 2-nd arg to plot function
+        plot(prefix, results[discr_types_list[0]], results[discr_types_list[0]], discr_types_list + ['None'], opm_fname)
+        print('case', case, ': Skipped plotting due to some of data absence!')
+
+    return 0, 0.0
+
+if __name__ == '__main__':
+    cases_list = [40, 43]
     for case in cases_list:
-        gridfile, propfile, sch_fname = get_case_files(case)
-        prefix = r'./meshes/case_' + str(case)
-        if mode == 'run':
-            for discr_type in discr_types_list:
-                start = time.perf_counter()
-                results[discr_type] = run(discr_type=discr_type, gridfile=gridfile, propfile=propfile,
-                                          sch_fname=sch_fname, dt=dt, n_time_steps=n_time_steps,
-                                          export_vtk=export_vtk)
-                end = time.perf_counter()
-        elif mode == 'compare':
-            for discr_type in discr_types_list:
-                results[discr_type] = pd.read_pickle(prefix + '/darts_time_data_' + discr_type + '.pkl')
-
-        opm_fname = prefix + '/opm_flow_model/opm_rates.csv'
-        if not os.path.exists(opm_fname):
-            opm_fname = None
-
-        if len(discr_types_list) > 1 and not results[discr_types_list[0]].empty and not results[discr_types_list[1]].empty:
-            plot(results[discr_types_list[0]], results[discr_types_list[1]], discr_types_list, opm_fname)
-        else:
-            # if only one case did run, then plot it twice, because need to pass 2-nd arg to plot function
-            plot(results[discr_types_list[0]], results[discr_types_list[0]], discr_types_list + ['None'], opm_fname)
-            print('case', case, ': Skipped plotting due to some of data absence!')
+        test(case)
