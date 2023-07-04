@@ -124,6 +124,8 @@ namespace dis
 		/* Fluxes */
 		// array of fluxes through elements
 		std::vector<value_t> flux_vals;
+		// thermal transmissibilities
+		std::vector<value_t> flux_vals_thermal;
 		// array of fluxes through matrix elements ! USED ONLY FOR DEBUGGING PURPOSES
 		std::vector<Matrix> fluxes_matrix;
 		// array of offsets of fluxes

@@ -41,7 +41,8 @@ void pybind_mesh(py::module &m)
 		.def_readwrite("adj_matrix", &Mesh::adj_matrix)
 		.def_readwrite("adj_matrix_cols", &Mesh::adj_matrix_cols)
 		.def_readwrite("adj_matrix_offset", &Mesh::adj_matrix_offset)
-
+		.def("construct_local_global", &Mesh::construct_local_global)
+		.def("generate_adjacency_matrix", &Mesh::generate_adjacency_matrix)
 		.def("gmsh_mesh_processing", &Mesh::gmsh_mesh_processing)
 		.def("get_global_index", &Mesh::get_global_index)
 		.def("get_ijk", &Mesh::get_ijk)
@@ -52,5 +53,8 @@ void pybind_mesh(py::module &m)
 		.def("calc_cell_nodes", &Mesh::calc_cell_nodes)
 		.def("get_prisms", &Mesh::get_prisms)
 		.def("get_centers", &Mesh::get_centers)
+		.def("cpg_elems_nodes", &Mesh::cpg_elems_nodes)
+		.def("cpg_cell_props", &Mesh::cpg_cell_props)
+		.def("cpg_connections", &Mesh::cpg_connections)
 		;
 }

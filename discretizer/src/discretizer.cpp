@@ -77,6 +77,7 @@ void Discretizer::calc_tpfa_transmissibilities(const PhysicalTags& tags)
 
 	// allocate memory
 	flux_vals.reserve(2 * mesh->adj_matrix.size());
+	flux_vals_thermal.reserve(2 * mesh->adj_matrix.size());
 	flux_offset.reserve(mesh->adj_matrix.size() + 1);
 	flux_stencil.reserve(2 * mesh->adj_matrix.size());
 	flux_rhs.reserve(mesh->adj_matrix.size());
@@ -85,6 +86,8 @@ void Discretizer::calc_tpfa_transmissibilities(const PhysicalTags& tags)
 
 	vector<vector<value_t>> half_trans;
 	half_trans.resize(mesh->conns.size());
+	vector<vector<value_t>> half_trans_thermal;
+	half_trans_thermal.resize(mesh->conns.size());
 
 	// mesh->region_ranges.at(mesh::FRACTURE).second
 	for (index_t i = 0; i < mesh->elems.size(); i++)
@@ -98,8 +101,14 @@ void Discretizer::calc_tpfa_transmissibilities(const PhysicalTags& tags)
 			if (!tags.at(mesh::BOUNDARY).count(el1_tag))
 			{
 				// calculate semi-transmissibilites
-				value_t T;
+				value_t T, Td;
 				Matrix K = perms[i];
+				//Matrix C = cond[i];//TODO use conductivity for half-trans
+				Matrix C(3,3); // identical matrix
+				for (int ii = 0; ii < 3; ii++)
+					for (int jj = 0; jj < 3; jj++)
+					  C(ii, jj) = double(ii == jj);
+
 
 				index_t el_id2;
 				const auto& conn = mesh->conns[mesh->adj_matrix[j]];
@@ -133,7 +142,11 @@ void Discretizer::calc_tpfa_transmissibilities(const PhysicalTags& tags)
 				Vector3 Kn = matrix_vector_product(K, n);
 				T = dot(d, Kn) * A / dot(d, d);
 
+				Vector3 Cn = matrix_vector_product(C, n);
+				Td = dot(d, Cn) * A / dot(d, d);
+
 				half_trans[mesh->conns[mesh->adj_matrix[j]].conn_id].push_back(T);
+				half_trans_thermal[mesh->conns[mesh->adj_matrix[j]].conn_id].push_back(Td);
 
 #ifdef DEBUG_TRANS
 				std::cout << "----- TPFA CPP -----" << std::endl;
@@ -178,6 +191,13 @@ void Discretizer::calc_tpfa_transmissibilities(const PhysicalTags& tags)
 			else
 				Transmissibility = (half_trans[i][0] * half_trans[i][1]) / det_t;
 
+			value_t det_t_thermal = half_trans_thermal[i][0] + half_trans_thermal[i][1];
+			value_t Transmissibility_thermal;
+			if (det_t_thermal < 1e-12)
+				Transmissibility_thermal = 0.;
+			else
+				Transmissibility_thermal = (half_trans_thermal[i][0] * half_trans_thermal[i][1]) / det_t_thermal;
+
 			// index of trans2d is the conn id of that interface
 			cell_m.push_back(mesh->conns[i].elem_id1);
 			cell_p.push_back(mesh->conns[i].elem_id2);
@@ -200,6 +220,11 @@ void Discretizer::calc_tpfa_transmissibilities(const PhysicalTags& tags)
 			flux_offset.push_back(counter);
 			counter += static_cast<index_t>(half_trans[i].size());
 			flux_rhs.push_back(-Transmissibility * DARCY_CONSTANT * dot(grav_vec, (mesh->centroids[mesh->conns[i].elem_id2] - mesh->centroids[mesh->conns[i].elem_id1])));
+
+			flux_vals_thermal.push_back(-1 * Transmissibility_thermal);
+			flux_vals_thermal.push_back(Transmissibility_thermal);
+			flux_vals_thermal.push_back(-1 * Transmissibility_thermal);
+			flux_vals_thermal.push_back(Transmissibility_thermal);
 #ifdef DEBUG_TRANS
 			cell_i_idx.push_back(mesh->conns[i].elem_id1);
 			cell_j_idx.push_back(mesh->conns[i].elem_id2);

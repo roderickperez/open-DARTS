@@ -743,3 +743,405 @@ Mesh::get_centers() const
 
 	return centers_vec;
 }
+
+
+std::vector<int>
+Mesh::cpg_elems_nodes(
+	const int _number_of_nodes,
+	const int num_of_cells,// number of active cells 
+	const int number_of_faces,
+	const std::vector<double>& node_coords,
+	const std::vector<int>& face_nodes,
+	const std::vector<int>& face_nodepos,
+	const std::vector<int>& face_cells,
+	const std::vector<int>& cell_faces,
+	const std::vector<int>& cell_facepos,
+	const std::vector<double>& cell_volumes,
+	std::vector<int>& face_order)
+{
+	mesh_type = CPG;
+
+	num_of_nodes = _number_of_nodes;
+	nodes.reserve(num_of_nodes);
+
+	// fill nodes coordinates (x,y,z)
+	for (index_t i = 0; i < num_of_nodes * ND; i += ND) {
+		nodes.emplace_back(node_coords[i], node_coords[i + 1], node_coords[i + 2]);
+		//cout << "Node " << i / ND << ": (" << node_coords[i] << ", " << node_coords[i + 1] << ", " << node_coords[i + 2] << ")\n";
+	}
+
+	// create elements for cells, faces will be processed later
+
+	// fill elem_nodes and 
+	// collect nodes that belong to each face or cell, using intermediate sets to remove duplicates
+	std::map<int, std::set<index_t>> elems_of_node_set; // map<node, elem_face_set> - use set to make elements from nodes unique 
+	std::map<int, std::set<index_t>> face_nodes_set; // map<face, node_set> - use set to make nodes from faces unique
+
+	// calculate temporary array shift_faces 
+	// will be used for shift faces indexes to remove internal (non-boundary) faces from faces indexation
+	int bnd_faces_num = 0;
+	for (int f = 0, non_bnd_faces_counter = 0; f < cell_facepos[num_of_cells]; ++f) {
+		int face = cell_faces[f];
+		bool face_is_boundary = face_cells[2 * face] < 0 || face_cells[2 * face + 1] < 0;
+		//cout << "Face " << face << " is boundary: " << face_is_boundary << "\n";
+		bool face_processed = face_nodes_set.find(face) != face_nodes_set.end(); // process the face only once
+		if (face_processed) // if we have already met this face from the previous cells, skip it to avoid duplicate work
+			continue;
+		face_nodes_set[face]; // add face to dict
+
+		if (!face_is_boundary) {
+			non_bnd_faces_counter++;
+		}
+		else
+			bnd_faces_num++;
+	}// loop by all faces
+
+	face_nodes_set.clear();
+
+	num_of_elements = num_of_cells + bnd_faces_num;
+	elems.resize(num_of_elements);
+	element_tags.resize(num_of_elements);
+	elem_nodes.reserve(MAX_PTS_PER_3D_ELEM * num_of_elements);
+	elem_nodes_sorted.reserve(MAX_PTS_PER_3D_ELEM * num_of_elements);
+	volumes.resize(num_of_elements);
+	centroids.resize(num_of_elements);
+
+	index_t face_counter = 0, counter = 0, offset = 0, cell_offset = 0;
+	for (index_t c = 0; c < num_of_cells; ++c) {
+		std::set<index_t> cell_nodes_set; // use set to make nodes from faces unique
+		//cout << "Cell " << c << "\n";
+		// for each cell go through it's faces
+		for (int f = cell_facepos[c]; f < cell_facepos[c + 1]; ++f) {
+			int face = cell_faces[f];
+			//int face_2 = face - shift_faces[face];
+			bool face_processed = face_nodes_set.find(face_counter) != face_nodes_set.end(); // process the face only once
+			if (face_processed) // if we have already met this face from the previous cells, skip it to avoid duplicate work
+				continue;
+			bool face_is_boundary = face_cells[2 * face] < 0 || face_cells[2 * face + 1] < 0;
+			std::set<index_t>* f_nodes = 0;
+			if (face_is_boundary) {
+				f_nodes = &face_nodes_set[face_counter];
+			}
+			//if (face_is_boundary) cout << "\t Face " << face << " (" << num_of_cells + face_counter << "). Nodes: ";
+			//for each face go through it's nodes
+			for (int k = face_nodepos[face]; k < face_nodepos[face + 1]; ++k) {
+				int node = face_nodes[k];
+				cell_nodes_set.insert(node);
+				elems_of_node_set[node].insert(c);
+				if (face_is_boundary) {// need only boundary faces
+					f_nodes->insert(node);
+					elems_of_node_set[node].insert(num_of_cells + face_counter);// faces after cells
+				}
+				//if (face_is_boundary) cout << node << " ";
+			} // loop by nodes of face
+
+			// fill elems by boundary faces
+			if (!face_processed && face_is_boundary) {
+				// element
+				Elem el;
+				el.loc = BOUNDARY;
+				el.type = QUAD;
+				el.elem_id = num_of_cells + face_counter;
+				el.n_pts = static_cast<uint8_t>(f_nodes->size());
+				element_tags[el.elem_id] = 0;
+
+				elems[num_of_cells + face_counter] = el;
+				face_order.push_back(face);
+				face_counter++;
+			}
+			//if (face_is_boundary) cout << "\n";
+		} // loop by faces of cell
+
+		// fill elems by cell
+		Elem el;
+		el.loc = MATRIX;
+		el.type = HEX;
+		el.elem_id = counter;
+		el.n_pts = static_cast<uint8_t>(cell_nodes_set.size());
+		element_tags[el.elem_id] = 0;
+		elems[counter] = el;
+
+		counter++;
+
+		// add cells to elem_nodes
+#if 0 // for volume calc by gmsh method
+		// need a specific order to properly calculate geometry (volume)
+		std::vector<index_t> cell_nodes_vec(cell_nodes_set.begin(), cell_nodes_set.end());
+		elem_nodes.push_back(cell_nodes_vec[0]);
+		elem_nodes.push_back(cell_nodes_vec[2]);
+		elem_nodes.push_back(cell_nodes_vec[6]);
+		elem_nodes.push_back(cell_nodes_vec[4]);
+		elem_nodes.push_back(cell_nodes_vec[1]);
+		elem_nodes.push_back(cell_nodes_vec[3]);
+		elem_nodes.push_back(cell_nodes_vec[7]);
+		elem_nodes.push_back(cell_nodes_vec[5]);
+#else
+		for (auto n : cell_nodes_set)
+			elem_nodes.push_back(n);
+#endif
+		for (auto n : cell_nodes_set) //set is already sorted
+			elem_nodes_sorted.push_back(n);
+	} // loop by cells
+
+	offset = 0;
+	for (auto& el : elems) {
+		el.pts_offset = offset;
+		offset += el.n_pts;
+	}
+
+	// add boundary faces to elem_nodes
+	//for (auto face_nodes_i : face_nodes_set) {
+	//for (auto face_2 : face_order) {
+	for (int face_2 = 0; face_2 < face_order.size(); face_2++) {
+		auto face_nodes_i = &face_nodes_set[face_2];
+		// need a specific order to properly calculate geometry (area)
+		//std::vector<index_t> face_nodes_vec(face_nodes_i.second.begin(), face_nodes_i.second.end());
+#if 0 // for volume calc by gmsh method
+		std::vector<index_t> face_nodes_vec(face_nodes_i->begin(), face_nodes_i->end());
+		elem_nodes.push_back(face_nodes_vec[0]);
+		elem_nodes.push_back(face_nodes_vec[1]);
+		elem_nodes.push_back(face_nodes_vec[3]);
+		elem_nodes.push_back(face_nodes_vec[2]);
+#else
+		for (auto n : *face_nodes_i) {
+			elem_nodes.push_back(n);
+		}
+#endif
+		for (auto n : *face_nodes_i)//set is already sorted
+			elem_nodes_sorted.push_back(n);
+	}
+
+	cout << "num_of_elements: " << num_of_elements << "\n";
+	cout << "num_of_cells:    " << nx * ny * nz << "\n";
+	cout << "active_cells:    " << num_of_cells << "\n";
+	cout << "number_of_faces: " << number_of_faces << "\n";
+	cout << "bnd_faces_num:   " << bnd_faces_num << "\n";
+
+	// fill elems_of_node, elems_of_node_offset
+	elems_of_node_offset.reserve(num_of_nodes * 8); // This is estimated value. Internal node belongs to 8 cells. Boundary faces are not counted.
+	size_t n_elems_accum = 0;
+	elems_of_node_offset.push_back(0);
+
+	index_t max_node_id = *std::max_element(face_nodes.begin(), face_nodes.end());
+
+	for (index_t node_id = 0; node_id <= max_node_id; node_id++)
+	{
+		if (elems_of_node_set.find(node_id) != elems_of_node_set.end())
+		{
+			const auto& elems = elems_of_node_set.at(node_id);
+			for (const auto& n : elems)
+			{
+				elems_of_node.push_back(n);
+			}
+			n_elems_accum += elems.size();
+		}
+		elems_of_node_offset.push_back(static_cast<index_t>(n_elems_accum));
+	}
+
+#if 0 //works wrong in fault case because number of points for cell might be > 8
+	// calculate the volume and centroid for the element
+	for (auto el : elems) {
+		el.calculate_volume_and_centroid(nodes, elem_nodes, volumes[el.elem_id], centroids[el.elem_id]);
+
+#ifdef DEBUG_TRANS
+		cout << "CPP CPG ID=" << el.elem_id << ", L= " << el.loc << ", T= " << el.type << ", V= " << volumes[el.elem_id] << ", C= " << centroids[el.elem_id] << "\n";
+#endif // DEBUG_TRANS
+	}//loop by elements
+#endif //0
+
+	std::vector<int> result;
+	result.push_back(bnd_faces_num);
+	return result;
+}
+
+
+// uses: bnd_faces_num, face_order array
+// fills: cell volumes, cell centroids, cell depths
+void Mesh::cpg_cell_props(
+	const int _number_of_nodes,
+	const int num_of_cells,// number of active cells 
+	const int number_of_faces,
+	const std::vector<double>& cell_volumes,
+	const std::vector<double>& cell_centroids,
+	const std::vector<int>& global_cell,
+	const std::vector<double>& face_areas,
+	const std::vector<double>& face_centroids,
+	const int bnd_faces_num, 
+	const std::vector<int>& face_order)
+{
+	volumes.resize(num_of_cells + bnd_faces_num);
+	centroids.resize(num_of_cells + bnd_faces_num);
+	depths.resize(num_of_cells + bnd_faces_num);
+
+	//fill cell properties. cell ordering in OPM and discretizer is the same
+	for (int i = 0, j = 0; i < num_of_cells; i++) {
+		volumes[j] = fabs(cell_volumes[i]);
+#if 0 //baricenters
+		centroids[j] = Vector3(cell_centroids[3 * i], cell_centroids[3 * i + 1], cell_centroids[3 * i + 2]);
+#else //simple centers
+		int i1, j1, k1;
+		get_ijk(i, i1, j1, k1, false);
+		std::array<value_t, 3> center = calc_cell_center(i1, j1, k1);
+		centroids[j] = Vector3(center[0], center[1], center[2]);
+#endif
+		depths[j] = centroids[j].z;
+		j++;
+	}
+
+	//fill face properties, the order in OPM and discretizer is different, so use face_order
+	for (int i = 0; i < bnd_faces_num; i++) {
+		int j = face_order[i];
+		volumes[num_of_cells + i] = fabs(face_areas[j]);
+		centroids[num_of_cells + i] = Vector3(face_centroids[3 * j], face_centroids[3 * j + 1], face_centroids[3 * j + 2]);
+		depths[num_of_cells + i] = face_centroids[3 * j + 2];
+	}
+
+}
+
+
+// fills: conns
+// difference from prev. method: two centers `c` and `c_2` for the connection are calculated
+// centers computed for original face, not the splitted face because of fault
+// these centers will used in compute half-trans to make this consistent with reservoir simulators
+void Mesh::cpg_connections(
+	const int num_of_cells,// number of active cells 
+	const int number_of_faces,
+	const std::vector<double>& node_coords,
+	const std::vector<int>& face_nodes,
+	const std::vector<int>& face_nodepos,
+	const std::vector<int>& face_cells,
+	const std::vector<int>& cell_faces,
+	const std::vector<int>& cell_facepos,
+	const std::vector<double>& face_centroids,
+	const std::vector<double>& face_areas,
+	const std::vector<double>& face_normals,
+	const std::vector<int>& cell_facetag,
+	const PhysicalTags& tags)
+{
+	index_t nebr_id, counter = 0, offset = 0, node_id;
+	std::map<int, int> face_nodes_set; // map<face, node_set> - use set to make nodes from faces unique
+	conns.reserve(number_of_faces);
+
+	unordered_set<std::pair<index_t, index_t>>::const_iterator it;
+	pair<index_t, index_t> ids;
+	ElemConnectionTable::const_iterator conn_type_it;
+	std::vector<double_t> x, y, z; // only for the current face direction (face_tag)
+	x.reserve(100); y.reserve(100); z.reserve(100);
+
+	for (index_t c = 0; c < num_of_cells; ++c) {
+
+		//cout << "Cell " << c << "\n";
+		std::set<index_t> cell_nodes_set; // use set to make nodes from faces unique
+		std::map<int, Vector3> local_face_centers;
+
+		// fill local_face_nodes node vector for each face_tag
+		std::map<int, std::vector<int>> local_face_nodes;
+		bool first_face = true;
+		// for each cell go through it's faces
+		for (int f = cell_facepos[c]; f < cell_facepos[c + 1]; ++f) {
+			int face = cell_faces[f];
+			int face_tag = cell_facetag[f];
+
+			//for each face go through it's nodes and fill local_face_nodes
+			for (int k = face_nodepos[face]; k < face_nodepos[face + 1]; ++k) {
+				local_face_nodes[face_tag].push_back(face_nodes[k]);
+			}
+		}
+
+		// fill node coordinates and calc center for 'original' non-splitted face
+		for (auto& faces_dir : local_face_nodes) { // loop by face sides (X+, X-, Y+,..)
+			x.clear(); y.clear(); z.clear();
+			// collect all nodes from faces with the same side (face_tag)
+			int cc = 0;
+			int c_nodes = faces_dir.second.size();
+			for (auto& node_idx : faces_dir.second) { // loop by nodes of face
+				// for cell sides which have more than 4 nodes (cell side with more that 1 neighbour)
+				// use only first 2 (top) and last 2 (bottom) nodes to make original face
+				if (c_nodes > 4 && (cc > 1 && cc < c_nodes - 2)) {
+					cc++;
+					continue;
+				}
+				else
+					cc++;
+				x.push_back(nodes[node_idx].x);
+				y.push_back(nodes[node_idx].y);
+				z.push_back(nodes[node_idx].z);
+			}
+
+			// take two top and two bottom points 
+			// calculate the 'original' face center as arithmetic mean of these 4 nodes
+			Vector3 center_orig_face;
+			for (int ii = 0; ii < x.size(); ii++) {
+				center_orig_face.x += x[ii];
+				center_orig_face.y += y[ii];
+				center_orig_face.z += z[ii];
+			}
+			center_orig_face /= x.size();
+
+			local_face_centers[faces_dir.first] = center_orig_face;
+		} // face dirs loop
+	//}// faces loop
+
+	// for each cell go through its faces
+		for (int f = cell_facepos[c]; f < cell_facepos[c + 1]; ++f) {
+			int face = cell_faces[f];
+			int face_tag = cell_facetag[f];
+			bool face_processed = face_nodes_set.find(face) != face_nodes_set.end(); // process the face only once
+
+			node_id = face_cells[2 * face];
+			nebr_id = face_cells[2 * face + 1];
+			bool face_is_boundary = node_id < 0 || nebr_id < 0;
+			if (face_is_boundary)
+				continue;
+
+			// skip the same element
+			if (nebr_id == node_id)
+				continue;
+
+			if (face_processed) // if we have already met this face from the neighbour cell:
+				// 1) no need to add new connection
+				// 2) put the second face center to existing connection
+			{
+				// `face` is global face index, so use `face_nodes_set[face]` to find the Connection which has been already added by the neighbour cell
+				Connection& conn_tmp = conns[face_nodes_set[face]];
+				conn_tmp.c_2 = local_face_centers[face_tag]; // `conn_tmp.c` has been already added because `face_processed=true`)
+				index_t c_id = conn_tmp.elem_id1 == c ? conn_tmp.elem_id2 : conn_tmp.elem_id1;
+				if (c_id > c) // take care on which of two neighbour cells uses `c`, and which one uses `c_2` (should be consistend with discretizer calc_trans)
+					std::swap(conn_tmp.c, conn_tmp.c_2); // cell with greater index uses c_2
+				continue;
+			}
+
+			face_nodes_set[face] = counter; // add face to dict
+			Connection conn;
+			conn.n_pts = static_cast<uint8_t>(face_nodepos[face + 1] - face_nodepos[face]);
+			conn.conn_id = counter;
+			conn.pts_offset = offset;
+			offset += conn.n_pts;
+			counter++;
+
+			//for each face go through it's nodes
+			for (int k = face_nodepos[face]; k < face_nodepos[face + 1]; ++k) {
+				conn_nodes.push_back(face_nodes[k]);
+			}
+			conn.elem_id1 = node_id;
+			conn.elem_id2 = nebr_id;
+
+			conn.c = local_face_centers[face_tag];
+			conn.n = Vector3(face_normals[3 * face], face_normals[3 * face + 1], face_normals[3 * face + 2]);
+			conn.n /= conn.n.norm();
+
+			conn.area = face_areas[face];
+
+			//cout << "Conn " << conn.elem_id1 << " " << conn.elem_id2 << " Face " << f << " area= " << conn.area << "\n";
+
+
+			// Find connection type
+			conn.type = face_is_boundary ? MAT_BOUND : MAT_MAT;
+
+			conns.push_back(conn);
+		}//faces loop
+
+	}//cells loop
+
+	cout << conns.size() << " connections:\n";
+}
