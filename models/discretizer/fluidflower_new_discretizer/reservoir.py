@@ -17,6 +17,11 @@ import datetime
 from dataclasses import dataclass, field
 from darts.mesh.transcalc import TransCalculations
 import copy
+from matplotlib import pyplot as plt
+from matplotlib import rcParams
+#rcParams["text.usetex"]=False
+# rcParams["font.sans-serif"] = ["Liberation Sans"]
+# rcParams["font.serif"] = ["Liberation Serif"]
 
 @dataclass
 class PorPerm:
@@ -150,7 +155,7 @@ class UnstructReservoir:
 
             self.discr_mesh = Mesh()
             self.discr_mesh.gmsh_mesh_processing(self.mesh_file, domain_tags)
-
+            #self.measure_non_orthogonality_distribution()
             self.discr = Discretizer()
             self.discr.grav_vec = matrix([0.0, 0.0, -9.80665e-5], 1, 3)
             self.cpp_bc = self.set_boundary_conditions(domain_tags)
@@ -168,7 +173,7 @@ class UnstructReservoir:
 
             # self.perm_base = np.diag([1000.0, 10.0, 10.0])
             # L = max([pt.values[0] for pt in self.discr_mesh.nodes])
-            tags = np.array([elem.tag for elem in self.discr_mesh.elems], dtype=np.int64)
+            tags = np.array([elem.loc for elem in self.discr_mesh.elems], dtype=np.int64)
             self.well_cells = np.where(tags == 9001)[0]
             self.layers = [[], [], [], [], [], [], [], [], []]
             centroids = np.array(self.discr_mesh.centroids, copy=False)
@@ -193,7 +198,7 @@ class UnstructReservoir:
                     l_id = tag - 90001
                     pp = self.porperm[l_id]
                 else:
-                    l_id = self.discr_mesh.elems[self.discr_mesh.adj_matrix_cols[self.discr_mesh.adj_matrix_offset[i]]].tag - 90000
+                    l_id = self.discr_mesh.elems[self.discr_mesh.adj_matrix_cols[self.discr_mesh.adj_matrix_offset[i]]].loc - 90000
                     pp = self.porperm[l_id]
 
                 self.discr.perms.append(matrix33(pp.perm * pp.anisotropy[0],
@@ -407,6 +412,7 @@ class UnstructReservoir:
 
             self.discr_mesh = Mesh()
             self.discr_mesh.gmsh_mesh_processing(self.mesh_file, domain_tags)
+            #self.measure_non_orthogonality_distribution()
 
             self.discr = Discretizer()
             self.discr.grav_vec = matrix([0.0, 0.0, -9.80665e-5], 1, 3)
@@ -540,6 +546,38 @@ class UnstructReservoir:
             self.cell_permz = np.zeros(self.unstr_discr.volume_all_cells.size)
             self.cell_to_layer = np.zeros(self.unstr_discr.volume_all_cells.size)
             self.assign_layer_properties(self.layer_perm, self.layer_poro)
+
+    def measure_non_orthogonality_distribution(self):
+        offset = np.array(self.discr_mesh.adj_matrix_offset, copy=False)
+        cells_p = np.array(self.discr_mesh.adj_matrix_cols, copy=False)
+        conn_ids = np.array(self.discr_mesh.adj_matrix, copy=False)
+        angles = []#np.zeros(offset[-1])
+        counter = 0
+        cell_centroids = np.array([c.values for c in self.discr_mesh.centroids])
+        conn_centroids = np.array([c.c.values for c in self.discr_mesh.conns])
+
+        for cell_m in range(self.discr_mesh.n_cells):
+            for k in range(offset[cell_m], offset[cell_m+1]):
+                cell_p = cells_p[k]
+                d1 = conn_centroids[conn_ids[k]] - cell_centroids[cell_m]
+                d2 = cell_centroids[cell_p] - cell_centroids[cell_m]
+                val = d1.dot(d2) / np.linalg.norm(d1) / np.linalg.norm(d2)
+                if val > 1.0 and val < 1.00001:
+                    angles.append(0.0)
+                else:
+                    angles.append(np.arccos(val))
+
+                counter += 1
+
+        np.savetxt(fname='angles_14k.txt', X=np.array(angles) * 180 / np.pi)
+        # plt.hist(np.array(angles) * 180 / np.pi, density=True, bins=100, color='b')
+        #
+        # plt.yscale("log")
+        # #plt.title("Histogram of angles for the grid of " + str(self.discr_mesh.n_cells) + " cells")
+        # plt.xlabel('angle', fontsize=18)
+        # plt.ylabel('relative frequency', fontsize=18)
+        # plt.savefig("hist_angles_log.png")
+        # plt.show()
 
     def find_well_cells(self, well_center):
         dist0 = None
