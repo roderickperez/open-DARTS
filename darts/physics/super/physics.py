@@ -6,13 +6,6 @@ from .operator_evaluator import *
 
 
 class Compositional(PhysicsBase):
-    property_containers = {}
-
-    reservoir_operators = {}
-    wellbore_operators = {}
-    rate_operators = {}
-    property_operators = {}
-
     def __init__(self, components, phases, timer, n_points, min_p, max_p, min_z, max_z, min_t=None, max_t=None, thermal=0,
                  cache=False):
         super().__init__(timer, cache)
@@ -38,10 +31,6 @@ class Compositional(PhysicsBase):
         else:
             self.n_axes_min = value_vector([min_p] + [min_z] * (self.nc - 1))
             self.n_axes_max = value_vector([max_p] + [max_z] * (self.nc - 1))
-
-    def add_property_region(self, property_container, region=0):
-        self.property_containers[region] = property_container
-        return
 
     def set_operators(self, regions, output_properties=None):  # default definition of operators
         if self.thermal:

@@ -13,6 +13,13 @@ from darts.engines import *
 
 
 class PhysicsBase:
+    property_containers = {}
+
+    reservoir_operators = {}
+    wellbore_operators = {}
+    rate_operators = {}
+    property_operators = {}
+
     def __init__(self, timer, cache=True):
         self.timer = timer.node["simulation"]
         self.cache = cache
@@ -29,9 +36,9 @@ class PhysicsBase:
         self.set_well_controls()
         return
 
-    @abc.abstractmethod
     def add_property_region(self, property_container, region=0):
-        pass
+        self.property_containers[region] = property_container
+        return
 
     def set_operators(self, regions, output_properties=None):
         pass

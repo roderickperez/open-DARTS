@@ -1,7 +1,10 @@
-from darts.physics.physics_base import PhysicsBase
-from darts.physics.geothermal.operator_evaluator import *
+from darts.engines import *
 
-from darts.models.physics.iapws.iapws_property import *
+from darts.physics.physics_base import PhysicsBase
+from .operator_evaluator import *
+from .property_container import PropertyContainer
+from .iapws.iapws_property import *
+
 from darts.tools.keyword_file_tools import *
 
 
@@ -17,8 +20,7 @@ class Geothermal(PhysicsBase):
             - well_control (rate, bhp)
     """
 
-    def __init__(self, timer, n_points, min_p, max_p, min_e, max_e, mass_rate=False,
-                 platform='cpu', itor_type='multilinear', itor_mode='adaptive', itor_precision='d', cache=True):
+    def __init__(self, timer, property_container, n_points, min_p, max_p, min_e, max_e, mass_rate=False, cache=True):
         """"
            Initialize Geothermal class.
            Arguments:
@@ -42,7 +44,9 @@ class Geothermal(PhysicsBase):
         self.thermal = 1
         self.n_vars = self.n_components + self.thermal * 1
         self.n_ops = 2 * self.n_components + self.thermal * 6
-        if mass_rate:
+
+        self.mass_rate = mass_rate
+        if self.mass_rate:
             self.phases = ['water_mass', 'steam_mass', 'temperature', 'energy']
         else:
             self.phases = ['water', 'steam', 'temperature', 'energy']
@@ -57,38 +61,48 @@ class Geothermal(PhysicsBase):
 
         # evaluate names of required classes depending on amount of components, self.phases, and selected physics
         self.n_ops = 12
-        self.property_data = property_data()
-        self.engine = eval("engine_nce_g_%s%d_%d" % (platform, self.n_components, self.n_phases - 2))()
-        self.acc_flux_etor = acc_flux_gravity_evaluator_python(self.property_data)
-        self.acc_flux_etor_well = acc_flux_gravity_evaluator_python_well(self.property_data)
+        self.add_property_region(property_container)
 
-        self.acc_flux_itor = self.create_interpolator(self.acc_flux_etor, self.n_vars, self.n_ops,
-                                                      self.n_axes_points, self.n_axes_min, self.n_axes_max,
-                                                      platform=platform, algorithm=itor_type, mode=itor_mode,
-                                                      precision=itor_precision)
-
-        self.acc_flux_itor_well = self.create_interpolator(self.acc_flux_etor_well, self.n_vars, self.n_ops,
-                                                           self.n_axes_points, self.n_axes_min, self.n_axes_max,
-                                                           platform=platform, algorithm=itor_type, mode=itor_mode,
-                                                           precision=itor_precision)
+    def set_operators(self, regions, output_properties=None):
+        for region, prop_container in self.property_containers.items():
+            self.reservoir_operators[region] = acc_flux_gravity_evaluator_python(prop_container)
+        self.wellbore_operators = acc_flux_gravity_evaluator_python_well(self.property_containers[regions[0]])
 
         # create rate operators evaluator
-        if mass_rate:
-            self.rate_etor = geothermal_mass_rate_custom_evaluator_python(self.property_data)
+        if self.mass_rate:
+            self.rate_operators = geothermal_mass_rate_custom_evaluator_python(self.property_containers[regions[0]])
         else:
-            self.rate_etor = geothermal_rate_custom_evaluator_python(self.property_data)
+            self.rate_operators = geothermal_rate_custom_evaluator_python(self.property_containers[regions[0]])
+        return
+
+    def set_interpolators(self, platform='cpu', itor_type='multilinear', itor_mode='adaptive', itor_precision='d'):
+        self.engine = eval("engine_nce_g_%s%d_%d" % (platform, self.n_components, self.n_phases - 2))()
+
+        self.acc_flux_itor = {}
+        for region, operators in self.reservoir_operators.items():
+            self.acc_flux_itor[region] = self.create_interpolator(operators, self.n_vars, self.n_ops,
+                                                                  self.n_axes_points, self.n_axes_min, self.n_axes_max,
+                                                                  platform=platform, algorithm=itor_type, mode=itor_mode,
+                                                                  precision=itor_precision)
+            self.create_itor_timers(self.acc_flux_itor[region], 'reservoir %d interpolation' % region)
+
+        self.acc_flux_w_itor = self.create_interpolator(self.wellbore_operators, self.n_vars, self.n_ops,
+                                                        self.n_axes_points, self.n_axes_min, self.n_axes_max,
+                                                        platform=platform, algorithm=itor_type, mode=itor_mode,
+                                                        precision=itor_precision)
 
         # interpolator platform is 'cpu' since rates are always computed on cpu
-        self.rate_itor = self.create_interpolator(self.rate_etor, self.n_vars, self.n_rate_temp_ops,
+        self.rate_itor = self.create_interpolator(self.rate_operators, self.n_vars, self.n_rate_temp_ops,
                                                   self.n_axes_points, self.n_axes_min, self.n_axes_max,
                                                   platform='cpu', algorithm=itor_type, mode=itor_mode,
                                                   precision=itor_precision)
 
         # set up timers
-        self.create_itor_timers(self.acc_flux_itor, 'reservoir interpolation')
-        self.create_itor_timers(self.acc_flux_itor_well, 'well interpolation')
+        self.create_itor_timers(self.acc_flux_w_itor, 'well interpolation')
         self.create_itor_timers(self.rate_itor, 'well controls interpolation')
+        return
 
+    def set_well_controls(self):
         # create well controls
         # water stream
         # pure water injection at constant temperature
@@ -117,6 +131,7 @@ class Geothermal(PhysicsBase):
         # water production with mass rate control
         self.new_mass_rate_water_prod = lambda rate: gt_mass_rate_prod_well_control(self.phases, 0, self.n_vars,
                                                                                     rate, self.rate_itor)
+        return
 
     def init_wells(self, wells):
         """""
