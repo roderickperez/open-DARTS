@@ -95,6 +95,12 @@ if __name__ == '__main__':
 
     failed = for_each_model(model_dir, check_performance, accepted_dirs)
 
+    # discretizer tests
+    n_tot = n_failed = 0
+    n_tot, n_failed = run_tests(model_dir, test_dirs=['cpg_sloping_fault'], test_args=[[['40'],['43']]],
+                                overwrite=overwrite)
+    failed += n_failed
+
     # poromechanic tests
     n_tot = n_failed = 0
     # n_tot, n_failed = run_tests(model_dir, test_dirs, test_args, overwrite)
