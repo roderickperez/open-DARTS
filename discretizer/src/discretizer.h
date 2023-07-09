@@ -21,7 +21,8 @@ namespace dis
 	class BoundaryCondition
 	{
 	public:
-		std::vector<value_t> a, b, r;
+		std::vector<value_t> a_p, b_p, r_p;
+		std::vector<value_t> a_th, b_th, r_th;
 		BoundaryCondition() {};
 		~BoundaryCondition() {};
 	};
@@ -55,7 +56,7 @@ namespace dis
 			rhs = Matrix(M, 1);
 			stencil.resize(N);
 		};
-		Matrix a, rhs;
+		Matrix a, rhs, a_thermal;
 		std::vector<index_t> stencil;
 	};
 
@@ -65,13 +66,14 @@ namespace dis
 	protected:
 		Mesh* mesh;
 
-		std::unordered_map<index_t, Matrix> pre_grad_A, pre_grad_R, pre_grad_rhs;
+		std::unordered_map<index_t, Matrix> pre_grad_A_p, pre_grad_R_p, pre_grad_rhs_p;
+		std::unordered_map<index_t, Matrix> pre_grad_A_th, pre_grad_R_th;
 		std::unordered_map<index_t, Matrix> pre_Wsvd, pre_Zsvd, pre_w_svd;
 		std::vector<Approximation> pre_merged_flux, fluxes;
 
-		void calc_matrix_matrix(const mesh::Connection& conn, Approximation& flux, const index_t adj_mat_id1, const index_t adj_mat_id2);
+		void calc_matrix_matrix(const mesh::Connection& conn, Approximation& flux, const index_t adj_mat_id1, const index_t adj_mat_id2, const bool with_thermal = false);
 		void calc_fault_fault(const mesh::Connection& conn, Approximation& flux);
-		void calc_matrix_boundary(const mesh::Connection& conn, Approximation& flux, const index_t adj_mat_id1);
+		void calc_matrix_boundary(const mesh::Connection& conn, Approximation& flux, const index_t adj_mat_id1, const bool with_thermal = false);
 
 		inline void write_trans(const Approximation& flux)
 		{
@@ -91,6 +93,26 @@ namespace dis
 			// offset
 			flux_offset.push_back(static_cast<index_t>(flux_stencil.size()));
 		};
+		inline void write_trans_thermal(const Approximation& flux)
+		{
+		  value_t buf, buf_t;
+		  // free term (gravity)
+		  flux_rhs.push_back(flux.rhs.values[0]);
+		  // stencil & transmissibilities
+		  for (uint8_t st_id = 0; st_id < flux.stencil.size(); st_id++)
+		  {
+			buf = flux.a.values[st_id];
+			buf_t = flux.a_thermal.values[st_id];
+			if (fabs(buf) + fabs(buf_t) > EQUALITY_TOLERANCE)
+			{
+			  flux_vals.push_back(buf);
+			  flux_vals_thermal.push_back(buf_t);
+			  flux_stencil.push_back(flux.stencil[st_id]);
+			}
+		  }
+		  // offset
+		  flux_offset.push_back(static_cast<index_t>(flux_stencil.size()));
+		};
 		std::vector<index_t> find_connections_to_reconstruct_gradient(const index_t cell_id, const index_t cur_conn_id);
 	public:
 		void set_mesh(Mesh* _mesh);
@@ -103,6 +125,8 @@ namespace dis
 		std::vector<Matrix33> perms;
 		// Arrays of scalar permeabilities (diagonal entries in tensor) in the case of CPG
 		std::vector<value_t> permx, permy, permz;
+		// Array with heat conductivity matrices;
+		std::vector<Matrix33> heat_conductions;
 		// Array of porosities in the case of CPG
 		std::vector<value_t> poro;
 		// Arrays of cell IDs for each connection
@@ -111,14 +135,17 @@ namespace dis
 
 		/* MPFA */
 
-		// pressure gradient transmissibilities
-		std::vector<value_t> grad_vals;
-		// pressure gradient offsets
+		// gradient offsets
 		std::vector<index_t> grad_offset;
-		// pressure gradient stencil
+		// gradient stencil
 		std::vector<index_t> grad_stencil;
+		// pressure gradient transmissibilities
+		std::vector<value_t> p_grad_vals;
 		// pressure gradient free-term (gravity)
-		std::vector<value_t> grad_rhs;
+		std::vector<value_t> p_grad_rhs;
+		// pressure gradient transmissibilities
+		std::vector<value_t> t_grad_vals;
+
 
 		//std::vector<double> pressuregrad;
 		/* Fluxes */
@@ -141,8 +168,9 @@ namespace dis
 		void calc_tpfa_transmissibilities(const PhysicalTags& tags);
 		// Multi-Point Flux Approximation
 		void reconstruct_pressure_gradients_per_cell(const BoundaryCondition& bc);
+		void reconstruct_pressure_temperature_gradients_per_cell(const BoundaryCondition& bc);
 		void reconstruct_pressure_gradients_per_face(const BoundaryCondition& bc);
-		void calc_mpfa_transmissibilities(BoundaryCondition& _bc);
+		void calc_mpfa_transmissibilities(BoundaryCondition& _bc, const bool with_thermal = false);
 
 		void calcPermeabilitySimple(const double permx = 1, const double permy = 1, const double permz = 1);
 		void set_permeability(std::vector<value_t> &permx, std::vector<value_t> &permy, std::vector<value_t> &permz);

@@ -40,12 +40,14 @@ void Discretizer::init()
 {
 	for (index_t i = mesh::MIN_CONNS_PER_ELEM; i < mesh::MAX_CONNS_PER_ELEM; i++)
 	{
-		pre_grad_A[i] = Matrix(i, ND);
-		pre_grad_R[i] = Matrix(i, i + 1);
-		pre_grad_rhs[i] = Matrix(i, 1);
+		pre_grad_A_p[i] = Matrix(i, ND);
+		pre_grad_R_p[i] = Matrix(i, i + 1);
+		pre_grad_rhs_p[i] = Matrix(i, 1);
 		pre_Wsvd[i] = Matrix(i, i);
 		pre_w_svd[i] = Matrix(i, 1);
 		pre_Zsvd[i] = Matrix(i, i);
+		pre_grad_A_th[i] = Matrix(i, ND);
+		pre_grad_R_th[i] = Matrix(i, i + 1);
 	}
 
 	const uint8_t BLOCK_SIZE = 1;
@@ -297,8 +299,8 @@ void Discretizer::reconstruct_pressure_gradients_per_cell(const BoundaryConditio
 	// allocate memory for arrays
 	grad_stencil.reserve(mesh->num_of_elements * MAX_STENCIL);
 	grad_offset.reserve(mesh->num_of_elements + 1);
-	grad_vals.reserve(ND * mesh->num_of_elements * MAX_STENCIL);
-	grad_rhs.reserve(ND * mesh->num_of_elements);
+	p_grad_vals.reserve(ND * mesh->num_of_elements * MAX_STENCIL);
+	p_grad_rhs.reserve(ND * mesh->num_of_elements);
 
 	steady_clock::time_point t1, t2;
 	t1 = steady_clock::now();
@@ -330,13 +332,13 @@ void Discretizer::reconstruct_pressure_gradients_per_cell(const BoundaryConditio
 		if (conns_num != 0)
 		{
 			// matrix of coefficients in front of gradients in equations
-			auto& A = pre_grad_A[conns_num];
+			auto& A = pre_grad_A_p[conns_num];
 			A.values = 0.0;
 			// matrix of coefficients in front of pressures and boundary conditions in equations
-			auto& R = pre_grad_R[conns_num];
+			auto& R = pre_grad_R_p[conns_num];
 			R.values = 0.0;
 			// free term (gravity) in equations
-			auto& rhs = pre_grad_rhs[conns_num];
+			auto& rhs = pre_grad_rhs_p[conns_num];
 			rhs.values = 0.0;
 
 			const auto& el1 = mesh->elems[i];
@@ -397,8 +399,8 @@ void Discretizer::reconstruct_pressure_gradients_per_cell(const BoundaryConditio
 					//TODO Implement other BC
 
 					// Coefficients that define boundary condition
-					const auto& alpha = bc.a[conn.elem_id2 - mesh->n_cells];
-					const auto& beta = bc.b[conn.elem_id2 - mesh->n_cells];
+					const auto& alpha = bc.a_p[conn.elem_id2 - mesh->n_cells];
+					const auto& beta = bc.b_p[conn.elem_id2 - mesh->n_cells];
 
 					temp = beta / mu * matrix_vector_product(perms[i], n);
 
@@ -461,10 +463,10 @@ void Discretizer::reconstruct_pressure_gradients_per_cell(const BoundaryConditio
                 // push sorted coefficients & rhs
                 for (int row = 0; row < tempGrad.M; row++) 
 				{
-					grad_rhs.push_back(rhsGrad(row, 0));
+					p_grad_rhs.push_back(rhsGrad(row, 0));
                     for (int col = 0; col < tempGrad.N; col++) 
 					{
-                        grad_vals.push_back(tempGrad(row, sort_vec[col].second));
+                        p_grad_vals.push_back(tempGrad(row, sort_vec[col].second));
                     }
                 }
 			}
@@ -515,13 +517,13 @@ void Discretizer::reconstruct_pressure_gradients_per_cell(const BoundaryConditio
 		if (conns_num != 0)
 		{
 			// matrix of coefficients in front of gradients in equations
-			auto& A = pre_grad_A[conns_num];
+			auto& A = pre_grad_A_p[conns_num];
 			A.values = 0.0;
 			// matrix of coefficients in front of pressures and boundary conditions in equations
-			auto& R = pre_grad_R[conns_num];
+			auto& R = pre_grad_R_p[conns_num];
 			R.values = 0.0;
 			// free term (gravity) in equations
-			auto& rhs = pre_grad_rhs[conns_num];
+			auto& rhs = pre_grad_rhs_p[conns_num];
 			rhs.values = 0.0;
 
 			const auto& el1 = mesh->elems[i];
@@ -579,7 +581,6 @@ void Discretizer::reconstruct_pressure_gradients_per_cell(const BoundaryConditio
 				}
 				else if (conn.type == mesh::FRACTURE_BOUNDARY)
 				{
-					value_t aaa = 1;
 					temp_stencil[counter++] = el_id2;
 				}
 
@@ -655,10 +656,10 @@ void Discretizer::reconstruct_pressure_gradients_per_cell(const BoundaryConditio
 				// push sorted coefficients & rhs
 				for (int row = 0; row < tempGrad.M; row++)
 				{
-					grad_rhs.push_back(rhsGrad(row, 0));
+					p_grad_rhs.push_back(rhsGrad(row, 0));
 					for (int col = 0; col < tempGrad.N; col++)
 					{
-						grad_vals.push_back(tempGrad(row, sort_vec[col].second));
+						p_grad_vals.push_back(tempGrad(row, sort_vec[col].second));
 					}
 				}
 			}
@@ -697,6 +698,500 @@ void Discretizer::reconstruct_pressure_gradients_per_cell(const BoundaryConditio
 
 	t2 = steady_clock::now();
 	cout << "Reconstruction of gradients:\t" << duration_cast<std::chrono::milliseconds>(t2 - t1).count() << "\t[ms]" << endl;
+}
+
+void Discretizer::reconstruct_pressure_temperature_gradients_per_cell(const BoundaryCondition& bc)
+{
+  USE_CONNECTION_BASED_GRADIENTS = false;
+
+  // allocate memory for arrays
+  grad_stencil.reserve(mesh->num_of_elements * MAX_STENCIL);
+  grad_offset.reserve(mesh->num_of_elements + 1);
+  p_grad_vals.reserve(ND * mesh->num_of_elements * MAX_STENCIL);
+  p_grad_rhs.reserve(ND * mesh->num_of_elements);
+  t_grad_vals.reserve(ND * mesh->num_of_elements * MAX_STENCIL);
+
+  steady_clock::time_point t1, t2;
+  t1 = steady_clock::now();
+
+  // viscosity should be provided from outside
+  const value_t mu = 1.0;
+  index_t el_id1, el_id2;
+  uint8_t conns_num, stencil_size;
+  value_t d2, lambda2, kappa2, scale_boundary;
+  Vector3 n, x1, x2, temp;
+  Matrix to_invert(ND, ND);
+  bool no_neumann_conns, res;
+  std::vector<std::pair<index_t, index_t>> sort_vec(MAX_STENCIL);
+
+  // loop through the adjacency matrix (matrix cells)
+  for (int i = 0; i < mesh->region_ranges.at(mesh::MATRIX).second; i++)
+  {
+	// Resize the dims of A and R that depend on the amount of connections
+	conns_num = 0;// mesh->adj_matrix_offset[i + 1] - mesh->adj_matrix_offset[i];
+	for (int j = mesh->adj_matrix_offset[i]; j < mesh->adj_matrix_offset[i + 1]; j++)
+	{
+	  const auto& conn = mesh->conns[mesh->adj_matrix[j]];
+	  if (conn.type == mesh::MAT_MAT ||
+		conn.type == mesh::MAT_FRAC ||
+		conn.type == mesh::FRAC_MAT ||
+		conn.type == mesh::MAT_BOUND)
+		conns_num++;
+	}
+	stencil_size = conns_num + 1;
+	if (conns_num != 0)
+	{
+	  // matrix of coefficients in front of pressure gradients in equations
+	  auto& A_p = pre_grad_A_p[conns_num];
+	  A_p.values = 0.0;
+	  // matrix of coefficients in front of pressures and boundary conditions in equations
+	  auto& R_p = pre_grad_R_p[conns_num];
+	  R_p.values = 0.0;
+	  // free term (gravity) in equations
+	  auto& rhs_p = pre_grad_rhs_p[conns_num];
+	  rhs_p.values = 0.0;
+	  // matrix of coefficients in front of temperature gradients in equations
+	  auto& A_th = pre_grad_A_th[conns_num];
+	  A_th.values = 0.0;
+	  // matrix of coefficients in front of temperature and boundary conditions in equations
+	  auto& R_th = pre_grad_R_th[conns_num];
+	  R_th.values = 0.0;
+
+
+	  const auto& el1 = mesh->elems[i];
+	  x1 = mesh->centroids[i];
+	  el_id1 = el1.elem_id;
+	  std::vector<index_t> temp_stencil(conns_num + 1);
+
+	  no_neumann_conns = true;
+	  index_t counter = 0;
+	  for (int j = mesh->adj_matrix_offset[i]; j < mesh->adj_matrix_offset[i + 1]; j++)
+	  {
+		const auto& conn = mesh->conns[mesh->adj_matrix[j]];
+		if (conn.elem_id1 != el_id1)
+		  el_id2 = conn.elem_id1;
+		else
+		  el_id2 = conn.elem_id2;
+
+		n = conn.n;
+		if (dot((conn.c - mesh->centroids[i]), n) < 0) n = -n;
+
+		// check the connection type (whether is a matrix matrix or boundary matrix)
+		if (conn.type == mesh::MAT_MAT || conn.type == mesh::MAT_FRAC || conn.type == mesh::FRAC_MAT)
+		{
+		  // Location of connecting element centroid
+		  x2 = mesh->centroids[el_id2];
+		  // Projection from centroid of connecting element to interface surface
+		  d2 = abs(dot(x2 - conn.c, n));
+		  // Co-normal hydraulic conductivity for each connection
+		  lambda2 = dot(n, matrix_vector_product(perms[el_id2], n));
+		  // Co-normal heat conductivity for each connection
+		  kappa2 = dot(n, matrix_vector_product(heat_conductions[el_id2], n));
+
+		  // fluid flux balance
+		  if (lambda2 > EQUALITY_TOLERANCE)
+		  {
+			// pseudo: A[row] = x2 - x1 + d2 / lambda2 * (Perm[cell_1] - Perm[cell_2]) * n
+			// equation 17 Terekhov's paper
+			temp = (d2 / lambda2) * matrix_vector_product(perms[el_id1] - perms[el_id2], n);
+			A_p(counter, 0) = x2.x - x1.x + temp.x;
+			A_p(counter, 1) = x2.y - x1.y + temp.y;
+			A_p(counter, 2) = x2.z - x1.z + temp.z;
+
+			R_p(counter, R_p.N - 1) = -1.0;
+			R_p(counter, counter) = 1.0;
+
+			rhs_p(counter, 0) = dot(grav_vec, temp);
+		  }
+		  else
+		  {
+			temp = matrix_vector_product(perms[i], n);
+			A_p(counter, 0) = temp.x;
+			A_p(counter, 1) = temp.y;
+			A_p(counter, 2) = temp.z;
+
+			rhs_p(counter, 0) = dot(grav_vec, temp);
+		  }
+		  // heat conduction flux balance
+		  if (kappa2 > EQUALITY_TOLERANCE)
+		  {
+			temp = (d2 / kappa2) * matrix_vector_product(heat_conductions[el_id1] - heat_conductions[el_id2], n);
+			A_th(counter, 0) = x2.x - x1.x + temp.x;
+			A_th(counter, 1) = x2.y - x1.y + temp.y;
+			A_th(counter, 2) = x2.z - x1.z + temp.z;
+
+			R_th(counter, R_p.N - 1) = -1.0;
+			R_th(counter, counter) = 1.0;
+		  }
+		  else
+		  {
+			temp = matrix_vector_product(heat_conductions[i], n);
+			A_th(counter, 0) = temp.x;
+			A_th(counter, 1) = temp.y;
+			A_th(counter, 2) = temp.z;
+		  }
+
+		  temp_stencil[counter++] = el_id2;
+		}
+		else if (conn.type == mesh::MAT_BOUND)
+		{
+		  //TODO Implement other BC
+
+		  //// fluid flux constraint
+		  // Coefficients that define pressure boundary condition
+		  const auto& alpha_p = bc.a_p[conn.elem_id2 - mesh->n_cells];
+		  const auto& beta_p = bc.b_p[conn.elem_id2 - mesh->n_cells];
+
+		  temp = beta_p / mu * matrix_vector_product(perms[i], n);
+
+		  // scaling factor
+		  if (alpha_p != 1.0 || beta_p != 0.0)
+		  {
+			no_neumann_conns = false;
+			scale_boundary = sqrt((conn.c.x - x1.x) * (conn.c.x - x1.x) + (conn.c.y - x1.y) * (conn.c.y - x1.y) + (conn.c.z - x1.z) * (conn.c.z - x1.z))
+			  / sqrt(temp.x * temp.x + temp.y * temp.y + temp.z * temp.z);
+			if (scale_boundary != scale_boundary || std::isinf(scale_boundary))
+			  scale_boundary = 1.0;
+		  }
+		  else
+		  {
+			scale_boundary = 1.0;
+		  }
+
+		  A_p(counter, 0) = scale_boundary * (alpha_p * (conn.c.x - x1.x) + temp.x);
+		  A_p(counter, 1) = scale_boundary * (alpha_p * (conn.c.y - x1.y) + temp.y);
+		  A_p(counter, 2) = scale_boundary * (alpha_p * (conn.c.z - x1.z) + temp.z);
+
+		  // update the row on matrix R
+		  // the p1 term has to be -alpha, all other elements have to be 0 except for the last
+		  // element which is going to be rp
+		  R_p(counter, R_p.N - 1) = -scale_boundary * alpha_p;
+		  R_p(counter, counter) = scale_boundary;
+
+		  rhs_p(counter, 0) = scale_boundary * dot(grav_vec, temp);
+
+		  //// heat conduction flux constraint
+		  // Coefficients that define pressure boundary condition
+		  const auto& alpha_th = bc.a_th[conn.elem_id2 - mesh->n_cells];
+		  const auto& beta_th = bc.b_th[conn.elem_id2 - mesh->n_cells];
+
+		  temp = beta_th * matrix_vector_product(heat_conductions[i], n);
+
+		  // scaling factor
+		  if (alpha_th != 1.0 || beta_th != 0.0)
+		  {
+			no_neumann_conns = false;
+			scale_boundary = sqrt((conn.c.x - x1.x) * (conn.c.x - x1.x) + (conn.c.y - x1.y) * (conn.c.y - x1.y) + (conn.c.z - x1.z) * (conn.c.z - x1.z))
+			  / sqrt(temp.x * temp.x + temp.y * temp.y + temp.z * temp.z);
+			if (scale_boundary != scale_boundary || std::isinf(scale_boundary))
+			  scale_boundary = 1.0;
+		  }
+		  else
+		  {
+			scale_boundary = 1.0;
+		  }
+
+		  A_th(counter, 0) = scale_boundary * (alpha_th * (conn.c.x - x1.x) + temp.x);
+		  A_th(counter, 1) = scale_boundary * (alpha_th * (conn.c.y - x1.y) + temp.y);
+		  A_th(counter, 2) = scale_boundary * (alpha_th * (conn.c.z - x1.z) + temp.z);
+
+		  // update the row on matrix R
+		  R_th(counter, R_p.N - 1) = -scale_boundary * alpha_th;
+		  R_th(counter, counter) = scale_boundary;
+
+		  temp_stencil[counter++] = el_id2;
+		}
+	  }
+	  temp_stencil[counter] = el_id1;
+
+	  // computing the least squares solution for nabla p = (A^T * A) ^(-1) * (A^T) * R
+	  to_invert = A_p.transpose() * A_p;
+	  try {
+		to_invert.inv();
+
+		// check inversion
+		for (const auto& val : to_invert.values)
+		  assert(val == val && std::isfinite(val));
+
+		Matrix tempGrad = to_invert * A_p.transpose() * R_p;
+		Matrix rhsGrad = to_invert * A_p.transpose() * rhs_p;
+
+		sort_vec.resize(tempGrad.N);
+		for (index_t row = 0; row < tempGrad.N; row++)
+		{
+		  sort_vec[row] = std::make_pair(temp_stencil[row], row);
+		}
+		std::sort(sort_vec.begin(), sort_vec.end(), [](auto& left, auto& right) { return left.first < right.first; });
+
+		grad_offset.push_back(static_cast<index_t>(grad_stencil.size()));
+
+		// push sorted stencil
+		for (const auto& st : sort_vec)
+		  grad_stencil.push_back(st.first);
+
+		// push sorted coefficients & rhs
+		for (int row = 0; row < tempGrad.M; row++)
+		{
+		  p_grad_rhs.push_back(rhsGrad(row, 0));
+		  for (int col = 0; col < tempGrad.N; col++)
+		  {
+			p_grad_vals.push_back(tempGrad(row, sort_vec[col].second));
+		  }
+		}
+	  }
+	  catch (const std::exception&)
+	  {
+		throw "Pressure gradient matrix is not invertible";
+	  }
+
+	  // computing the least squares solution for nabla \theta = (A^T * A) ^(-1) * (A^T) * R
+	  to_invert = A_th.transpose() * A_th;
+	  try {
+		to_invert.inv();
+
+		// check inversion
+		for (const auto& val : to_invert.values)
+		  assert(val == val && std::isfinite(val));
+
+		Matrix tempGrad = to_invert * A_th.transpose() * R_th;
+
+		// push sorted coefficients & rhs
+		for (int row = 0; row < tempGrad.M; row++)
+		{
+		  for (int col = 0; col < tempGrad.N; col++)
+		  {
+			t_grad_vals.push_back(tempGrad(row, sort_vec[col].second));
+		  }
+		}
+	  }
+	  catch (const std::exception&)
+	  {
+		throw "Temperature gradient matrix is not invertible";
+	  }
+
+#ifdef DEBUG_TRANS
+	  // check sum of coefficients
+	  if (no_neumann_conns)
+	  {
+		// recover gradient matrix from array
+		Matrix cur(ND, conns_num + 1);
+
+		int grad_value_idx = ND * grad_offset.back();
+		for (int row = 0; row < cur.M; row++)
+		{
+		  for (int col = 0; col < cur.N; col++)
+		  {
+			cur(row, col) = grad_vals[grad_value_idx++];
+		  }
+		}
+
+		for (uint8_t c = 0; c < ND; c++)
+		{
+		  lambda2 = fabs(std::accumulate(&cur.values[c * cur.N], &cur.values[c * cur.N] + cur.N, 0.0));
+		  assert(lambda2 < EQUALITY_TOLERANCE);
+		}
+	  }
+#endif /* DEBUG_TRANS */
+	}
+  }
+
+  // loop through the adjacency matrix (fracture cells)
+  for (int i = mesh->region_ranges.at(mesh::FRACTURE).first; i < mesh->region_ranges.at(mesh::FRACTURE).second; i++)
+  {
+	// Resize the dims of A and R that depend on the amount of connections
+	conns_num = 0;// mesh->adj_matrix_offset[i + 1] - mesh->adj_matrix_offset[i];
+	for (int j = mesh->adj_matrix_offset[i]; j < mesh->adj_matrix_offset[i + 1]; j++)
+	{
+	  const auto& conn = mesh->conns[mesh->adj_matrix[j]];
+	  if (conn.type == mesh::FRAC_FRAC || conn.type == mesh::FRAC_FRAC)
+		conns_num++;
+	}
+
+	stencil_size = conns_num + 1;
+	if (conns_num != 0)
+	{
+	  // matrix of coefficients in front of gradients in equations
+	  auto& A_p = pre_grad_A_p[conns_num];
+	  A_p.values = 0.0;
+	  // matrix of coefficients in front of pressures and boundary conditions in equations
+	  auto& R_p = pre_grad_R_p[conns_num];
+	  R_p.values = 0.0;
+	  // free term (gravity) in equations
+	  auto& rhs_p = pre_grad_rhs_p[conns_num];
+	  rhs_p.values = 0.0;
+
+	  const auto& el1 = mesh->elems[i];
+	  x1 = mesh->centroids[i];
+	  el_id1 = el1.elem_id;
+	  std::vector<index_t> temp_stencil(conns_num + 1);
+
+	  no_neumann_conns = true;
+	  index_t counter = 0;
+	  for (int j = mesh->adj_matrix_offset[i]; j < mesh->adj_matrix_offset[i + 1]; j++)
+	  {
+		const auto& conn = mesh->conns[mesh->adj_matrix[j]];
+		if (conn.elem_id1 != el_id1)
+		  el_id2 = conn.elem_id1;
+		else
+		  el_id2 = conn.elem_id2;
+
+		n = conn.n;
+		if (dot((conn.c - mesh->centroids[i]), n) < 0) n = -n;
+
+		// check the connection type (whether is a matrix matrix or boundary matrix)
+		if (conn.type == mesh::FRAC_FRAC)
+		{
+		  // Location of connecting element centroid
+		  x2 = mesh->centroids[el_id2];
+		  // Projection from centroid of connecting element to interface surface
+		  d2 = abs(dot(x2 - conn.c, n));
+		  // Coefficient lambda for each connection
+		  lambda2 = dot(n, matrix_vector_product(perms[el_id2], n));
+
+		  if (lambda2 > EQUALITY_TOLERANCE)
+		  {
+			// pseudo: A[row] = x2 - x1 + d2 / lambda2 * (Perm[cell_1] - Perm[cell_2]) * n
+			// equation 17 Terekhov's paper
+			temp = (d2 / lambda2) * matrix_vector_product(perms[el_id1] - perms[el_id2], n);
+			A_p(counter, 0) = x2.x - x1.x + temp.x;
+			A_p(counter, 1) = x2.y - x1.y + temp.y;
+			A_p(counter, 2) = x2.z - x1.z + temp.z;
+
+			R_p(counter, R_p.N - 1) = -1.0;
+			R_p(counter, counter) = 1.0;
+
+			rhs_p(counter, 0) = dot(grav_vec, temp);
+		  }
+		  else
+		  {
+			temp = matrix_vector_product(perms[i], n);
+			A_p(counter, 0) = temp.x;
+			A_p(counter, 1) = temp.y;
+			A_p(counter, 2) = temp.z;
+
+			rhs_p(counter, 0) = dot(grav_vec, temp);
+		  }
+		  temp_stencil[counter++] = el_id2;
+		}
+		else if (conn.type == mesh::FRACTURE_BOUNDARY)
+		{
+		  temp_stencil[counter++] = el_id2;
+		}
+
+	  }
+	  temp_stencil[counter] = el_id1;
+
+	  // inversion
+	  // SVD is produced for M x N matrix where M >= N, decompose transposed otherwise
+	  counter = (counter > ND) ? ND : counter;
+	  //assert(face_count_id == n_cur_faces);
+	  auto& Wsvd = pre_Wsvd[counter];
+	  auto& Zsvd = pre_Zsvd[counter];
+	  auto& w_svd = pre_w_svd[counter].values;
+	  std::fill_n(&Wsvd.values[0], Wsvd.values.size(), 0.0);
+	  std::fill_n(&Zsvd.values[0], Zsvd.values.size(), 0.0);
+	  std::fill_n(&w_svd[0], w_svd.size(), 0.0);
+	  try {
+		Matrix tempGrad, rhsGrad;
+		if (A_p.M >= A_p.N)
+		{
+		  // SVD decomposition A = M W Z*
+		  if (Zsvd.M != A_p.N) { printf("Wrong matrix dimension!\n"); exit(-1); }
+		  res = A_p.svd(Zsvd, w_svd);
+		  assert(Zsvd.M == counter && Zsvd.N == counter);
+		  if (!res) { cout << "SVD failed!\n"; /*sq_mat.write_in_file("sq_mat_" + std::to_string(cell_id) + ".txt");*/ exit(-1); }
+		  // check SVD
+		  //Wsvd.set_diagonal(w_svd);
+		  //assert(A == M * Wsvd * Zsvd.transpose());
+		  for (index_t i = 0; i < w_svd.size(); i++)
+			w_svd[i] = (fabs(w_svd[i]) < 1000 * EQUALITY_TOLERANCE) ? 0.0 /*w_svd[i]*/ : 1.0 / w_svd[i];
+		  Wsvd.set_diagonal(w_svd);
+		  // check pseudo-inverse
+		  //Matrix Ainv = Zsvd * Wsvd * M.transpose();
+		  //assert(A * Ainv * A == A && Ainv * A * Ainv == Ainv);
+		  tempGrad = Zsvd * Wsvd * A_p.transpose() * R_p;
+		  rhsGrad = Zsvd * Wsvd * A_p.transpose() * rhs_p;
+		}
+		else
+		{
+		  // SVD decomposition A* = M W Z*
+		  A_p.transposeInplace();
+		  if (Zsvd.M != A_p.N) { printf("Wrong matrix dimension!\n"); exit(-1); }
+		  res = A_p.svd(Zsvd, w_svd);
+		  assert(Zsvd.M == counter && Zsvd.N == counter);
+		  if (!res) { cout << "SVD failed!\n"; /*sq_mat.write_in_file("sq_mat_" + std::to_string(cell_id) + ".txt");*/ exit(-1); }
+		  // check SVD
+		  //Wsvd.set_diagonal(w_svd);
+		  //assert(A.transpose() == M * Wsvd * Zsvd.transpose());
+		  for (index_t i = 0; i < w_svd.size(); i++)
+			w_svd[i] = (fabs(w_svd[i]) < 1000 * EQUALITY_TOLERANCE) ? 0.0 /*w_svd[i]*/ : 1.0 / w_svd[i];
+		  Wsvd.set_diagonal(w_svd);
+		  // check pseudo-inverse
+		  //Matrix Ainv = M * Wsvd * Zsvd.transpose();
+		  //assert(A * Ainv * A == A && Ainv * A * Ainv == Ainv);
+		  tempGrad = A_p * Wsvd * Zsvd.transpose() * R_p;
+		  rhsGrad = A_p * Wsvd * Zsvd.transpose() * rhs_p;
+		  A_p.transposeInplace();
+		}
+
+		std::vector<std::pair<index_t, index_t>> sort_vec(tempGrad.N);
+		for (index_t row = 0; row < tempGrad.N; row++)
+		{
+		  sort_vec[row] = std::make_pair(temp_stencil[row], row);
+		}
+		std::sort(sort_vec.begin(), sort_vec.end(), [](auto& left, auto& right) { return left.first < right.first; });
+
+		grad_offset.push_back(static_cast<index_t>(grad_stencil.size()));
+
+		// push sorted stencil
+		for (const auto& st : sort_vec)
+		  grad_stencil.push_back(st.first);
+
+		// push sorted coefficients & rhs
+		for (int row = 0; row < tempGrad.M; row++)
+		{
+		  p_grad_rhs.push_back(rhsGrad(row, 0));
+		  for (int col = 0; col < tempGrad.N; col++)
+		  {
+			p_grad_vals.push_back(tempGrad(row, sort_vec[col].second));
+		  }
+		}
+	  }
+	  catch (const std::exception&)
+	  {
+		throw "Matrix is not invertible";
+	  }
+
+#ifdef DEBUG_TRANS
+	  // check sum of coefficients
+	  if (no_neumann_conns)
+	  {
+		// recover gradient matrix from array
+		Matrix cur(ND, conns_num + 1);
+
+		int grad_value_idx = ND * grad_offset.back();
+		for (int row = 0; row < cur.M; row++)
+		{
+		  for (int col = 0; col < cur.N; col++)
+		  {
+			cur(row, col) = grad_vals[grad_value_idx++];
+		  }
+		}
+
+		for (uint8_t c = 0; c < ND; c++)
+		{
+		  lambda2 = fabs(std::accumulate(&cur.values[c * cur.N], &cur.values[c * cur.N] + cur.N, 0.0));
+		  //assert(lambda2 < EQUALITY_TOLERANCE);
+		}
+	  }
+#endif /* DEBUG_TRANS */
+	}
+  }
+
+  grad_offset.push_back(static_cast<index_t>(grad_stencil.size()));
+
+  t2 = steady_clock::now();
+  cout << "Reconstruction of gradients:\t" << duration_cast<std::chrono::milliseconds>(t2 - t1).count() << "\t[ms]" << endl;
 }
 
 vector<index_t> Discretizer::find_connections_to_reconstruct_gradient(const index_t cell_id, const index_t cur_conn_id)
@@ -756,7 +1251,7 @@ vector<index_t> Discretizer::find_connections_to_reconstruct_gradient(const inde
 		if (conn_id != cur_conn_id)
 			conns.push_back(conn_id);
 
-	subset(conns, conns.size(), 2, 0, buf);
+	subset(conns, (index_t)conns.size(), 2, 0, buf);
 
 
 	std::sort(triplets.begin(), triplets.end(),
@@ -775,8 +1270,8 @@ void Discretizer::reconstruct_pressure_gradients_per_face(const BoundaryConditio
 	// allocate memory for arrays
 	grad_stencil.reserve(2 * mesh->conns.size() * MAX_STENCIL);
 	grad_offset.reserve(2 * mesh->conns.size() + 1);
-	grad_vals.reserve(2 * mesh->conns.size() * MAX_STENCIL);
-	grad_rhs.reserve(2 * mesh->conns.size());
+	p_grad_vals.reserve(2 * mesh->conns.size() * MAX_STENCIL);
+	p_grad_rhs.reserve(2 * mesh->conns.size());
 
 	steady_clock::time_point t1, t2;
 	t1 = steady_clock::now();
@@ -785,7 +1280,7 @@ void Discretizer::reconstruct_pressure_gradients_per_face(const BoundaryConditio
 	const value_t mu = 1.0;
 	index_t el_id1, el_id2, row_id;
 	uint8_t conns_num, stencil_size;
-	value_t d2, lambda2, tmp;
+	value_t d2, lambda2;
 	Vector3 n, x1, x2, temp;
 	Matrix to_invert(ND, ND);
 	bool no_neumann_conns;
@@ -798,17 +1293,17 @@ void Discretizer::reconstruct_pressure_gradients_per_face(const BoundaryConditio
 			auto conns_for_reconstruction = find_connections_to_reconstruct_gradient(i, conn_id);
 
 			// Resize the dims of A and R that depend on the amount of connections
-			conns_num = conns_for_reconstruction.size();
+			conns_num = (uint8_t)conns_for_reconstruction.size();
 			assert(conns_num >= ND);
 			stencil_size = conns_num + 1;
 			// matrix of coefficients in front of gradients in equations
-			auto& A = pre_grad_A[conns_num];
+			auto& A = pre_grad_A_p[conns_num];
 			A.values = 0.0;
 			// matrix of coefficients in front of pressures and boundary conditions in equations
-			auto& R = pre_grad_R[conns_num];
+			auto& R = pre_grad_R_p[conns_num];
 			R.values = 0.0;
 			// free term (gravity) in equations
-			auto& rhs = pre_grad_rhs[conns_num];
+			auto& rhs = pre_grad_rhs_p[conns_num];
 			rhs.values = 0.0;
 
 			x1 = mesh->centroids[i];
@@ -871,8 +1366,8 @@ void Discretizer::reconstruct_pressure_gradients_per_face(const BoundaryConditio
 					//TODO Implement other BC
 
 					// Coefficients that define boundary condition
-					const auto& alpha = bc.a[conn.elem_id2 - mesh->n_cells];
-					const auto& beta = bc.b[conn.elem_id2 - mesh->n_cells];
+					const auto& alpha = bc.a_p[conn.elem_id2 - mesh->n_cells];
+					const auto& beta = bc.b_p[conn.elem_id2 - mesh->n_cells];
 
 					// for debuging purposes
 					if (alpha != 1.0 || beta != 0.0) no_neumann_conns = false;
@@ -920,10 +1415,10 @@ void Discretizer::reconstruct_pressure_gradients_per_face(const BoundaryConditio
 				// push sorted coefficients & rhs
 				for (int row = 0; row < tempGrad.M; row++)
 				{
-					grad_rhs.push_back(rhsGrad(row, 0));
+					p_grad_rhs.push_back(rhsGrad(row, 0));
 					for (int col = 0; col < tempGrad.N; col++)
 					{
-						grad_vals.push_back(tempGrad(row, sort_vec[col].second));
+						p_grad_vals.push_back(tempGrad(row, sort_vec[col].second));
 					}
 				}
 			}
@@ -965,11 +1460,11 @@ void Discretizer::reconstruct_pressure_gradients_per_face(const BoundaryConditio
 	cout << "Reconstruction of gradients:\t" << duration_cast<std::chrono::milliseconds>(t2 - t1).count() << "\t[ms]" << endl;
 }
 
-void Discretizer::calc_mpfa_transmissibilities(BoundaryCondition& _bc) 
+void Discretizer::calc_mpfa_transmissibilities(BoundaryCondition& _bc, const bool with_thermal) 
 {
 	steady_clock::time_point t1, t2;
 	t1 = steady_clock::now();
-	value_t sum, sign;
+	value_t sign;
 	index_t cell_id1, cell_id2, adj_nebr_id;
 
 	bc = _bc;
@@ -977,10 +1472,12 @@ void Discretizer::calc_mpfa_transmissibilities(BoundaryCondition& _bc)
 	cell_m.clear();	cell_p.clear();
 	cell_m.reserve(mesh->adj_matrix.size());
 	cell_p.reserve(mesh->adj_matrix.size());
-	flux_vals.reserve(mesh->adj_matrix.size());
+	flux_vals.reserve(mesh->adj_matrix.size() * dis::MAX_STENCIL);
 	flux_rhs.reserve(mesh->adj_matrix.size() * dis::MAX_STENCIL);
 	flux_stencil.reserve(mesh->adj_matrix.size() * dis::MAX_STENCIL);
 	flux_offset.reserve(mesh->adj_matrix.size() + 1);
+	if (with_thermal)
+	  flux_vals_thermal.reserve(mesh->adj_matrix.size() * dis::MAX_STENCIL);
 
 	flux_offset.push_back(0);
 	// loop through matrix elements
@@ -999,18 +1496,18 @@ void Discretizer::calc_mpfa_transmissibilities(BoundaryCondition& _bc)
 			{
 				auto& flux = fluxes[0];
 				for (index_t k = mesh->adj_matrix_offset[cell_id2]; k < mesh->adj_matrix_offset[cell_id2 + 1]; k++) { if (mesh->adj_matrix_cols[k] == cell_id1) { adj_nebr_id = k; break; } }
-				calc_matrix_matrix(conn, flux, j, adj_nebr_id);
+				calc_matrix_matrix(conn, flux, j, adj_nebr_id, with_thermal);
 				
 				flux.a.values *= sign * conn.area;
 				flux.rhs.values *= sign * conn.area;
 
 				cell_m.push_back(cell_id1);
 				cell_p.push_back(cell_id2);
-				//flux_vals.insert(flux_vals.end(), std::begin(flux.a.values), std::end(flux.a.values));
-				//flux_rhs.push_back(flux.rhs.values[0]);
-				//flux_stencil.insert(flux_stencil.end(), flux.stencil.begin(), flux.stencil.end());
-				//flux_offset.push_back(flux_offset.back() + static_cast<index_t>(flux.stencil.size()));
-				write_trans(flux);
+
+				if (with_thermal)
+				  write_trans_thermal(flux);
+				else
+				  write_trans(flux);
 
 #ifdef DEBUG_TRANS
 				sum = 0.0;
@@ -1031,18 +1528,18 @@ void Discretizer::calc_mpfa_transmissibilities(BoundaryCondition& _bc)
 			else if (conn.type == mesh::MAT_BOUND)
 			{
 				auto& flux = fluxes[0];
-				calc_matrix_boundary(conn, flux, j);
+				calc_matrix_boundary(conn, flux, j, with_thermal);
 
 				flux.a.values *= conn.area;
 				flux.rhs.values *= conn.area;
 
 				cell_m.push_back(cell_id1);
 				cell_p.push_back(cell_id2);
-				//flux_vals.insert(flux_vals.end(), std::begin(flux.a.values), std::end(flux.a.values));
-				//flux_rhs.push_back(flux.rhs.values[0]);
-				//flux_stencil.insert(flux_stencil.end(), flux.stencil.begin(), flux.stencil.end());
-				//flux_offset.push_back(flux_offset.back() + static_cast<index_t>(flux.stencil.size()));
-				write_trans(flux);
+
+				if (with_thermal)
+				  write_trans_thermal(flux);
+				else
+				  write_trans(flux);
 			}
 			else if (conn.type == mesh::MAT_FRAC || conn.type == mesh::FRAC_MAT)
 			{
@@ -1121,7 +1618,7 @@ void Discretizer::calc_mpfa_transmissibilities(BoundaryCondition& _bc)
 	cout << "Find MPFA trans: \t" << duration_cast<std::chrono::milliseconds>(t2 - t1).count() << "\t[ms]" << endl;
 }
 
-void Discretizer::calc_matrix_matrix(const mesh::Connection& conn, Approximation& flux, const index_t adj_mat_id1, const index_t adj_mat_id2)
+void Discretizer::calc_matrix_matrix(const mesh::Connection& conn, Approximation& flux, const index_t adj_mat_id1, const index_t adj_mat_id2, const bool with_thermal)
 {
 	uint8_t id1, id2;
 	value_t lam1, lam2, d1, d2, Fh;
@@ -1165,12 +1662,12 @@ void Discretizer::calc_matrix_matrix(const mesh::Connection& conn, Approximation
 
 	// merging gradients
 	std::copy_n(grad_stencil.begin() + grad_offset[grad_id1], n_st1, g1.stencil.begin());
-	std::copy_n(grad_vals.data() + ND * grad_offset[grad_id1], ND * n_st1, std::begin(g1.a.values));
-	std::copy_n(grad_rhs.data() + ND * grad_id1, ND, std::begin(g1.rhs.values));
+	std::copy_n(p_grad_vals.data() + ND * grad_offset[grad_id1], ND * n_st1, std::begin(g1.a.values));
+	std::copy_n(p_grad_rhs.data() + ND * grad_id1, ND, std::begin(g1.rhs.values));
 
 	std::copy_n(grad_stencil.begin() + grad_offset[grad_id2], n_st2, g2.stencil.begin());
-	std::copy_n(grad_vals.data() + ND * grad_offset[grad_id2], ND * n_st2, std::begin(g2.a.values));
-	std::copy_n(grad_rhs.data() + ND * grad_id2, ND, std::begin(g2.rhs.values));
+	std::copy_n(p_grad_vals.data() + ND * grad_offset[grad_id2], ND * n_st2, std::begin(g2.a.values));
+	std::copy_n(p_grad_rhs.data() + ND * grad_id2, ND, std::begin(g2.rhs.values));
 
 	flux.stencil.clear();
 	Matrix nabla_p = mergeMatrices(g1.a, g2.a, g1.stencil, g2.stencil, flux.stencil);
@@ -1188,6 +1685,27 @@ void Discretizer::calc_matrix_matrix(const mesh::Connection& conn, Approximation
 	id2 = static_cast<uint8_t>(std::distance(flux.stencil.begin(), it2));
 	flux.a(0, id1) -= Fh;
 	flux.a(0, id2) += Fh;
+
+	if (with_thermal)
+	{
+	  // co-normal decomposition
+	  K1n = heat_conductions[conn.elem_id1] * n;
+	  K2n = heat_conductions[conn.elem_id2] * n;
+	  lam1 = (n.transpose() * K1n).values[0];
+	  lam2 = (n.transpose() * K2n).values[0];
+	  gam1 = K1n - lam1 * n;
+	  gam2 = K2n - lam2 * n;
+	  // temperature gradients
+	  std::copy_n(t_grad_vals.data() + ND * grad_offset[grad_id1], ND * n_st1, std::begin(g1.a.values));
+	  std::copy_n(t_grad_vals.data() + ND * grad_offset[grad_id2], ND * n_st2, std::begin(g2.a.values));
+	  nabla_p = mergeMatrices(g1.a, g2.a, g1.stencil, g2.stencil, flux.stencil);
+	  // flux approximation
+	  grad_coef = -(lam1 * lam2 * (y1 - y2).transpose() + lam1 * d2 * gam2.transpose() + lam2 * d1 * gam1.transpose()) / (lam1 * d2 + lam2 * d1);
+	  flux.a_thermal = grad_coef * nabla_p;
+	  Fh = -lam1 * lam2 / (lam1 * d2 + lam2 * d1);
+	  flux.a_thermal(0, id1) -= Fh;
+	  flux.a_thermal(0, id2) += Fh;
+	}
 }
 
 void Discretizer::calc_fault_fault(const mesh::Connection& conn, Approximation& flux)
@@ -1230,7 +1748,7 @@ void Discretizer::calc_fault_fault(const mesh::Connection& conn, Approximation& 
 	flux.a(0, id2) += Fh;
 }
 
-void Discretizer::calc_matrix_boundary(const mesh::Connection& conn, Approximation& flux, const index_t adj_mat_id1)
+void Discretizer::calc_matrix_boundary(const mesh::Connection& conn, Approximation& flux, const index_t adj_mat_id1, const bool with_thermal)
 {
 	uint8_t id1, id2;
 	value_t lam1, d1;
@@ -1245,9 +1763,9 @@ void Discretizer::calc_matrix_boundary(const mesh::Connection& conn, Approximati
 	if (dot(conn.c - x1, conn.n) < 0.0) n.values *= -1.0;
 
 	// boundary conditions: a*p + b*f = r 
-	const auto& a = bc.a[conn.elem_id2 - mesh->n_cells];
-	const auto& b = bc.b[conn.elem_id2 - mesh->n_cells];
-	const auto& r = bc.r[conn.elem_id2 - mesh->n_cells];
+	const auto& a = bc.a_p[conn.elem_id2 - mesh->n_cells];
+	const auto& b = bc.b_p[conn.elem_id2 - mesh->n_cells];
+	const auto& r = bc.r_p[conn.elem_id2 - mesh->n_cells];
 
 	// co-normal decomposition
 	lam1 = (n.transpose() * DARCY_CONSTANT * perms[conn.elem_id1] * n).values[0];
@@ -1273,8 +1791,8 @@ void Discretizer::calc_matrix_boundary(const mesh::Connection& conn, Approximati
 	// gradient
 	flux.stencil.resize(n_st1);
 	std::copy_n(grad_stencil.begin() + grad_offset[grad_id1], n_st1, flux.stencil.begin());
-	std::copy_n(grad_vals.data() + ND * grad_offset[grad_id1], ND * n_st1, std::begin(g1.a.values));
-	std::copy_n(grad_rhs.data() + ND * grad_id1, ND, std::begin(g1.rhs.values));
+	std::copy_n(p_grad_vals.data() + ND * grad_offset[grad_id1], ND * n_st1, std::begin(g1.a.values));
+	std::copy_n(p_grad_rhs.data() + ND * grad_id1, ND, std::begin(g1.rhs.values));
 
 	// flux approximation
 	value_t mult = 1.0 / (a + b * lam1 / mu / d1);
@@ -1290,6 +1808,26 @@ void Discretizer::calc_matrix_boundary(const mesh::Connection& conn, Approximati
 	id2 = static_cast<uint8_t>(std::distance(flux.stencil.begin(), it2));
 	flux.a(0, id1) += lam1 / d1 / mu * mult * a;
 	flux.a(0, id2) += -lam1 / d1 / mu * mult;
+
+	if (with_thermal)
+	{
+	  // boundary conditions: a*p + b*f = r 
+	  const auto& a = bc.a_th[conn.elem_id2 - mesh->n_cells];
+	  const auto& b = bc.b_th[conn.elem_id2 - mesh->n_cells];
+	  const auto& r = bc.r_th[conn.elem_id2 - mesh->n_cells];
+
+	  // co-normal decomposition
+	  lam1 = (n.transpose() * heat_conductions[conn.elem_id1] * n).values[0];
+	  gam1 = heat_conductions[conn.elem_id1] * n - lam1 * n;
+
+	  // temperature gradient
+	  std::copy_n(t_grad_vals.data() + ND * grad_offset[grad_id1], ND * n_st1, std::begin(g1.a.values));
+
+	  // flux approximation
+	  mult = 1.0 / (a + b * lam1 / mu / d1);
+	  grad_coef = -mult / mu * a * (lam1 / d1 * (y1 - c2).transpose() + gam1.transpose());
+	  flux.a_thermal = grad_coef * g1.a;
+	}
 }
 
 index_t dis::Discretizer::nbContributors(std::vector<index_t>& cont1, std::vector<index_t>& cont2, std::vector<index_t> &comb_cont)
