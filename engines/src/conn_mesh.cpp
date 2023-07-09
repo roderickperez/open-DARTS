@@ -224,8 +224,9 @@ conn_mesh::init_mpfa_e(std::vector<index_t>& block_m,
 	std::vector<index_t>& _fstencil,
 	std::vector<index_t>& _fst_offset,
 	std::vector<value_t>& _ftran,
-	std::vector<value_t>& _htran,
 	std::vector<value_t>& _rhs,
+	std::vector<value_t>& _dtran,
+	std::vector<value_t>& _htran,
 	index_t _n_matrix, index_t _n_bounds, index_t _n_fracs)
 {
 	n_vars = 1;
@@ -236,7 +237,8 @@ conn_mesh::init_mpfa_e(std::vector<index_t>& block_m,
 	one_way_stencil = _fstencil;
 	one_way_offset = _fst_offset;
 	one_way_tran = _ftran;
-	one_way_tranD = _htran;
+	one_way_tranD = _dtran;
+	one_way_tran_heat_cond = _htran;
 	one_way_rhs = _rhs;
 
 	n_matrix = _n_matrix;
@@ -1076,8 +1078,9 @@ conn_mesh::reverse_and_sort_mpfa()
 	block_m.resize(n_two_way_conns);
 	block_p.resize(n_two_way_conns);
 	tran.resize(n_two_way_stencil);
-	const bool thermal_trans_initialized = (one_way_tranD.size()) ? true : false;
-	if (thermal_trans_initialized) tranD.resize(n_two_way_stencil);
+	tranD.resize(n_two_way_stencil);
+	const bool thermal_trans_initialized = (one_way_tran_heat_cond.size()) ? true : false;
+	if (thermal_trans_initialized) tran_heat_cond.resize(n_two_way_stencil);
 	stencil.resize(n_two_way_stencil);
 	offset.resize(n_two_way_conns + 1);
 	rhs.resize(n_two_way_conns);
@@ -1108,10 +1111,9 @@ conn_mesh::reverse_and_sort_mpfa()
 			{
 			    stencil[j + f_acc] = one_way_stencil[ind[j]];
 			    tran[j + f_acc] = one_way_tran[ind[j]];
-				if (thermal_trans_initialized) tranD[j + f_acc] = one_way_tranD[ind[j]];
+			    tranD[j + f_acc] = one_way_tranD[ind[j]];
+				if (thermal_trans_initialized) tran_heat_cond[j + f_acc] = one_way_tran_heat_cond[ind[j]];
 			}
-			//tranD[conn_counter] = one_way_tranD[conn_id];
-
 
 			f_acc += size;
 		}

@@ -92,8 +92,9 @@ public:
 	  std::vector<index_t>& _fstencil,
 	  std::vector<index_t>& _fst_offset,
 	  std::vector<value_t>& _ftran,
-	  std::vector<value_t>& _htran,
 	  std::vector<value_t>& _rhs,
+	  std::vector<value_t>& _dtran,
+	  std::vector<value_t>& _htran,
 	  index_t _n_matrix, index_t _n_bounds, index_t _n_fracs);
 
   /// @brief init mesh by reading MPFA connections with provided flux
@@ -198,7 +199,9 @@ public:
   /// [n_conns] array of transissibility values for given connection                        
   std::vector<value_t> tran;            
   /// [n_conns] array of diffusion transissibility values for given connection (transmis value)                        
-  std::vector<value_t> tranD;          
+  std::vector<value_t> tranD;    
+  /// [n_conns] array of heat conduction transissibility values for given connection (transmis value)                        
+  std::vector<value_t> tran_heat_cond;
   /// [n_conns] array of transmissibilities that describe the forces due to thermal dilation
   std::vector<value_t> tran_th_expn;
   /// [n_conns] array of gravity coefficient for every connection ( = (depth[block_m] - depth[block_p]) * g)                        
@@ -324,6 +327,7 @@ private:
   std::vector <index_t> one_way_block_m;
   std::vector <index_t> one_way_block_p;
   std::vector <value_t> one_way_tran;
+  std::vector <value_t> one_way_tran_heat_cond;
   std::vector <value_t> one_way_tranD;
   std::vector <value_t> one_way_tran_th_expn;
   // arrays for multi-point approximation

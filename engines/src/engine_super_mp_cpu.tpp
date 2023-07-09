@@ -437,7 +437,7 @@ int engine_super_mp_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, st
 	const value_t *rhs = mesh->rhs.data();
 	const value_t *f = mesh->f.data();
 	const value_t *V = mesh->volume.data();
-
+	const value_t* tran_heat_cond = mesh->tran_heat_cond.data();
 	const value_t *tranD = mesh->tranD.data();
 	const value_t *hcap = mesh->heat_capacity.data();
 	const value_t *kin_fac = mesh->kin_factor.data(); // default value of 1
@@ -566,7 +566,7 @@ int engine_super_mp_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, st
 				p_diff += tran[conn_st_id] * buf[P_VAR];
 				// heat conduction
 				if (THERMAL)
-					t_diff += tranD[conn_st_id] * buf[T_VAR];
+					t_diff -= tran_heat_cond[conn_st_id] * buf[T_VAR];
 				
 				for (p = 0; p < NP; p++)
 				{
@@ -614,7 +614,6 @@ int engine_super_mp_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, st
 						fluxes[N_VARS * conn_id + P_VAR + c] += phase_p_diff[p] * op_vals_arr[upwd_idx[p] * N_OPS + FLUX_OP + p * NE + c];
 					}
 				}
-
 				// identify upwind diffusion direction
 				for (c = 0; c < NE; c++)
 				{
@@ -630,6 +629,8 @@ int engine_super_mp_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, st
 					}
 				}
 			}
+			// rock heat conduction
+			fluxes[N_VARS * conn_id + T_VAR] += t_diff;
 
 			// [3] loop over stencil, contribution from UNKNOWNS to flux
 			if (j < mesh->n_res_blocks)
@@ -664,6 +665,15 @@ int engine_super_mp_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, st
 							}
 						}
 					}
+					//// heat fluxes
+					if (THERMAL)
+					{
+					  // rock energy
+					  l_ind1 = st_id * N_VARS_SQ + T_VAR * N_VARS;
+					  // heat conduction
+					  Jac[l_ind1 + T_VAR] -= dt * tran_heat_cond[conn_st_id];
+					}
+
 					conn_st_id++;
 				}
 			}
