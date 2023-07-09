@@ -1626,6 +1626,7 @@ void Discretizer::calc_matrix_matrix(const mesh::Connection& conn, Approximation
 	const auto& x1 = mesh->centroids[conn.elem_id1];
 	const auto& x2 = mesh->centroids[conn.elem_id2];
 	index_t grad_id1, grad_id2;
+	std::vector<index_t> th_stencil;
 	
 	// normal vector
 	copy_n(std::begin(conn.n.values), ND, std::begin(n.values));
@@ -1698,7 +1699,7 @@ void Discretizer::calc_matrix_matrix(const mesh::Connection& conn, Approximation
 	  // temperature gradients
 	  std::copy_n(t_grad_vals.data() + ND * grad_offset[grad_id1], ND * n_st1, std::begin(g1.a.values));
 	  std::copy_n(t_grad_vals.data() + ND * grad_offset[grad_id2], ND * n_st2, std::begin(g2.a.values));
-	  nabla_p = mergeMatrices(g1.a, g2.a, g1.stencil, g2.stencil, flux.stencil);
+	  nabla_p = mergeMatrices(g1.a, g2.a, g1.stencil, g2.stencil, th_stencil);
 	  // flux approximation
 	  grad_coef = -(lam1 * lam2 * (y1 - y2).transpose() + lam1 * d2 * gam2.transpose() + lam2 * d1 * gam1.transpose()) / (lam1 * d2 + lam2 * d1);
 	  flux.a_thermal = grad_coef * nabla_p;
