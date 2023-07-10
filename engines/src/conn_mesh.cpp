@@ -654,6 +654,11 @@ conn_mesh::add_conn_block(index_t block_m, index_t block_p, value_t trans, value
 		one_way_tranD.push_back(transD);
 		one_way_tranD.push_back(-transD);
 	}
+	if (one_way_tran_heat_cond.size())
+	{
+	  one_way_tran_heat_cond.push_back(transD);
+	  one_way_tran_heat_cond.push_back(-transD);
+	}
 	if (one_way_tran_biot.size())
 	{
 		one_way_tran_biot.insert(one_way_tran_biot.end(), tblock_zero.begin(), tblock_zero.end());
@@ -681,8 +686,13 @@ conn_mesh::add_conn_block(index_t block_m, index_t block_p, value_t trans, value
 	one_way_offset.push_back(one_way_stencil.size());
 	if (one_way_tranD.size())
 	{
-		one_way_tranD.push_back(10 * trans);
-		one_way_tranD.push_back(-10 * trans);
+		one_way_tranD.push_back(transD);
+		one_way_tranD.push_back(-transD);
+	}
+	if (one_way_tran_heat_cond.size())
+	{
+	  one_way_tran_heat_cond.push_back(transD);
+	  one_way_tran_heat_cond.push_back(-transD);
 	}
 	if (one_way_tran_biot.size())
 	{
