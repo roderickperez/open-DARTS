@@ -1,6 +1,6 @@
 from darts.models.reservoirs.struct_reservoir import StructReservoir
 from darts.models.darts_model import DartsModel, sim_params
-from darts.models.physics.iapws.iapws_property_vec import _Backward1_T_Ph_vec
+from darts.physics.properties.iapws.iapws_property_vec import _Backward1_T_Ph_vec
 from darts.tools.keyword_file_tools import load_single_keyword
 import numpy as np
 from darts.engines import value_vector
@@ -92,7 +92,6 @@ class Model(DartsModel):
                 # w.control = self.physics.new_bhp_prod(180)
 
     def compute_temperature(self, X):
-        from darts.models.physics.iapws.iapws_property_vec import _Backward1_T_Ph_vec
         nb = self.reservoir.mesh.n_res_blocks
         temp = _Backward1_T_Ph_vec(X[0:2 * nb:2] / 10, X[1:2 * nb:2] / 18.015)
         return temp
