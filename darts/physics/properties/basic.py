@@ -11,26 +11,26 @@ class ConstFunc:
 
 
 class PhaseRelPerm:
-    def __init__(self, phase, swc=0, sgr=0):
+    def __init__(self, phase, swc=0., sgr=0., kre=1., n=2.):
         self.phase = phase
 
         self.Swc = swc
         self.Sgr = sgr
         if phase == "oil":
-            self.kre = 1
-            self.sr = self.Swc
-            self.sr1 = self.Sgr
-            self.n = 2
+            self.kre = kre
+            self.sr = swc
+            self.sr1 = sgr
+            self.n = n
         elif phase == 'gas':
-            self.kre = 1
-            self.sr = self.Sgr
-            self.sr1 = self.Swc
-            self.n = 2
+            self.kre = kre
+            self.sr = sgr
+            self.sr1 = swc
+            self.n = n
         else:  # water
-            self.kre = 1
+            self.kre = kre
             self.sr = 0
             self.sr1 = 0
-            self.n = 2
+            self.n = n
 
     def evaluate(self, sat):
         if sat >= 1 - self.sr1:
