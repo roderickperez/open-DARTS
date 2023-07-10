@@ -9,10 +9,8 @@ from darts.physics.super.property_container import PropertyContainer
 from darts.physics.properties.basic import ConstFunc, PhaseRelPerm
 from darts.physics.properties.flash import ConstantK
 from darts.physics.properties.density import DensityBasic, DensityBrineCO2
-# from darts.models.physics_sup.properties_basic import ConstFunc, Density, DensityBrineCo2, PhaseRelPerm, ConstantK
 
 
-# Model class creation here!
 class Model(DartsModel):
     def __init__(self):
         # Call base class constructor
