@@ -2,7 +2,7 @@ import numpy as np
 from darts.engines import *
 from darts.physics.physics_base import PhysicsBase
 
-from .operator_evaluator import *
+from darts.physics.super.operator_evaluator import *
 
 
 class Compositional(PhysicsBase):
@@ -14,7 +14,7 @@ class Compositional(PhysicsBase):
     property_operators = {}
 
     def __init__(self, components, phases, timer, n_points, min_p, max_p, min_z, max_z, min_t=None, max_t=None, thermal=0,
-                 cache=False):
+                 discr_type='tpfa', cache=False):
         super().__init__(timer, cache)
         # Obtain properties from user input during initialization:
         self.components = components
@@ -24,6 +24,7 @@ class Compositional(PhysicsBase):
         self.thermal = thermal
         self.n_vars = self.nc + self.thermal
         self.n_points = n_points
+        self.discr_type = discr_type
 
         self.n_axes_points = index_vector([n_points] * self.n_vars)
 
@@ -63,10 +64,16 @@ class Compositional(PhysicsBase):
         return
 
     def set_interpolators(self, platform='cpu', itor_type='multilinear', itor_mode='adaptive', itor_precision='d'):
-        if self.thermal:
-            self.engine = eval("engine_super_%s%d_%d_t" % (platform, self.nc, self.nph))()
+        if self.discr_type == 'mpfa':
+            if self.thermal:
+                self.engine = eval("engine_super_mp_%s%d_%d_t" % (platform, self.nc, self.nph))()
+            else:
+                self.engine = eval("engine_super_mp_%s%d_%d" % (platform, self.nc, self.nph))()
         else:
-            self.engine = eval("engine_super_%s%d_%d" % (platform, self.nc, self.nph))()
+            if self.thermal:
+                self.engine = eval("engine_super_%s%d_%d_t" % (platform, self.nc, self.nph))()
+            else:
+                self.engine = eval("engine_super_%s%d_%d" % (platform, self.nc, self.nph))()
 
         self.acc_flux_itor = {}
         for region, operators in self.reservoir_operators.items():

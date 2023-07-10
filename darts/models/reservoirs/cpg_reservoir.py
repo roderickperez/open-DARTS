@@ -1,29 +1,33 @@
 from darts.engines import conn_mesh, ms_well, ms_well_vector
-
-from scipy.spatial.transform import Rotation
+from darts.discretizer import load_single_float_keyword, load_single_int_keyword
+from darts.discretizer import value_vector as value_vector_discr
+from darts.discretizer import index_vector as index_vector_discr
 import numpy as np
-import meshio
-from math import inf, pi
-from itertools import compress
 
-import os, sys, inspect
-currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parentdir = os.path.dirname(currentdir)
-sys.path.insert(0, parentdir)
+from opmcpg._cpggrid import UnstructuredGrid, process_cpg_grid
+from opmcpg._cpggrid import value_vector as value_vector_cpggrid
+from opmcpg._cpggrid import index_vector as index_vector_cpggrid
 
 from darts.discretizer import Mesh, Elem, Discretizer, BoundaryCondition, elem_loc, elem_type
 from darts.discretizer import index_vector, value_vector, matrix33, vector_matrix33, vector_vector3
 from darts.discretizer import load_single_float_keyword
+
 import datetime
 import darts
-from darts.tools.pyevtk import hl
+from pyevtk import hl, vtk
 from darts.mesh.struct_discretizer import StructDiscretizer
 
-from cpg_tools import save_array, make_full_cube
+import os
+import sys
+import inspect
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+parentdir2 = os.path.dirname(parentdir)
+sys.path.insert(0, os.path.join(parentdir2, 'python'))
 
 # Definitions for the unstructured reservoir class:
 class CPG_Reservoir:
-    def __init__(self, gridfile, propfile):
+    def __init__(self, gridfile, propfile, faultfile=None):
         """
         Class constructor for UnstructReservoir class
         :param gridfile: file that contains CPG grid
@@ -36,35 +40,39 @@ class CPG_Reservoir:
         #self.discr.write_mpfa_results('conn.dat')
 
         mpfa_tran = np.array(self.discr.flux_vals, copy=False)
+        mpfa_tranD = np.array(self.discr.flux_vals_thermal, copy=False)
         ids = np.array(self.discr.get_one_way_tpfa_transmissibilities())
         cell_m = np.array(self.discr.cell_m)[ids]
         cell_p = np.array(self.discr.cell_p)[ids]
-        tran = np.fabs(mpfa_tran[::2][ids])
-        tranD = np.zeros(tran.size)
+        tran = mpfa_tran[::2][ids]
+        tranD = mpfa_tranD[1::2][ids]
+
+        #self.discr.write_tran_cube('tran_cpg.grdecl', 'nnc_cpg.txt')
+        if faultfile is not None:
+            self.apply_fault_mult(faultfile, cell_m, cell_p, mpfa_tran, ids)
+            #self.discr.write_tran_cube('tran_faultmult.grdecl', 'nnc_faultmult.txt')
+
+        tran = np.fabs(tran)
         self.mesh.init(darts.engines.index_vector(cell_m), darts.engines.index_vector(cell_p),
                        darts.engines.value_vector(tran), darts.engines.value_vector(tranD))
 
-        # Write to files (in case someone needs this for Eclipse or other simulator):
-        #self.write_mpfa_conn_to_file()
-        #self.unstr_discr.write_volume_to_file(file_name='vol.dat')
-        #self.unstr_discr.write_depth_to_file(file_name='depth.dat')
+        # debug
+        #d = {'cell_m': cell_m, 'cell_p': cell_p, 'tran': tran, 'tranD': tranD}
+        #import pandas as pd
+        #df_cpg = pd.DataFrame(data=d)
+        #df_struct = pd.read_excel('tran_struct.xlsx')
+        #with pd.ExcelWriter('tran.xlsx') as writer:
+        #    df_struct.to_excel(writer, sheet_name='struct')
+        #    df_cpg.to_excel(writer, sheet_name='cpg')
 
         # Create numpy arrays wrapped around mesh data (no copying, this will severely slow down the process!)
         self.mesh.depth = darts.engines.value_vector(self.discr_mesh.depths)
         self.mesh.volume = darts.engines.value_vector(self.discr_mesh.volumes)
         self.bc = np.array(self.mesh.bc, copy=False)
-        self.mesh.pz_bounds.resize(2 * self.n_bounds)
-        self.pz_bounds = np.array(self.mesh.pz_bounds, copy=False)
 
         # rock thermal properties
         self.hcap = np.array(self.mesh.heat_capacity, copy=False)
         self.conduction = np.array(self.mesh.rock_cond, copy=False)
-
-        # Since we use copy==False above, we have to store the values by using the Python slicing option, if we don't
-        # do this we will overwrite the variable, e.g. self.poro = poro --> overwrite self.poro with the variable poro
-        # instead of storing the variable poro in self.mesh.poro (therefore "numpy array wrapped around mesh data!!!):
-        # self.bc[:] = self.bc_flow
-        # self.pz_bounds[:] = self.pz_bounds
 
         # create list of wells
         self.wells = []
@@ -77,6 +85,48 @@ class CPG_Reservoir:
         self.vtk_filenames_and_times = {}
         self.vtkobj = 0
         self.vtk_grid_type = 1
+
+    def read_arrays(self, gridfile: str, propfile: str):
+        self.dims_cpp = index_vector_discr()
+        load_single_int_keyword(self.dims_cpp, gridfile, "SPECGRID", 3)
+        self.dims = np.array(self.dims_cpp, copy=False)
+
+        self.permx_cpp, self.permy_cpp, self.permz_cpp = value_vector_discr(), value_vector_discr(), value_vector_discr()
+        load_single_float_keyword(self.permx_cpp, propfile, 'PERMX', -1)
+        load_single_float_keyword(self.permy_cpp, propfile, 'PERMY', -1)
+        self.permx = np.array(self.permx_cpp, copy=False)
+        self.permy = np.array(self.permy_cpp, copy=False)
+        for perm_str in ['PERMEABILITYXY', 'PERMEABILITY']:
+            if self.permx.size == 0 or self.permy.size == 0:
+                load_single_float_keyword(self.permx_cpp, propfile, perm_str, -1)
+                self.permy_cpp = self.permx_cpp
+                self.permx = np.array(self.permx_cpp, copy=False)
+                self.permy = np.array(self.permy_cpp, copy=False)
+        load_single_float_keyword(self.permz_cpp, propfile, 'PERMZ', -1)
+        self.permz = np.array(self.permz_cpp, copy=False)
+
+        self.poro_cpp = self.discr_mesh.poro
+        load_single_float_keyword(self.poro_cpp, propfile, 'PORO', -1)
+        self.poro = np.array(self.poro_cpp, copy=False)
+
+        self.coord_cpp = self.discr_mesh.coord
+        load_single_float_keyword(self.coord_cpp, gridfile, 'COORD', -1)
+        self.coord = np.array(self.coord_cpp, copy=False)
+
+        self.zcorn_cpp = self.discr_mesh.zcorn
+        load_single_float_keyword(self.zcorn_cpp, gridfile, 'ZCORN', -1)
+        self.zcorn = np.array(self.zcorn_cpp, copy=False)
+
+        self.actnum_cpp = self.discr_mesh.actnum
+        self.actnum = np.array([])
+        for fname in [gridfile, propfile]:
+            if self.actnum.size == 0:
+                load_single_int_keyword(self.actnum_cpp, fname, 'ACTNUM', -1)
+                self.actnum = np.array(self.actnum_cpp, copy=False)
+        if self.actnum.size == 0:
+            self.actnum = np.ones(self.dims[0] * self.dims[1] * self.dims[2])
+            print('No ACTNUM found in input files. ACTNUM=1 will be used')
+
 
     def discretize_cpg(self, gridfile: str, propfile: str):
         '''
@@ -96,57 +146,87 @@ class CPG_Reservoir:
 
         self.discr_mesh = Mesh()
         result_fname = 'results.grdecl'
-        minpv_filter = 0
-        r = self.discr_mesh.cpg_mesh_processing_opm(gridfile, propfile, displaced_tags,
-                                                    result_fname, minpv_filter)
-        if r != 0: # error
-            print('Error: cpg_mesh_processing_opm failed with code', r)
-            exit(1)
+        minpv = 0
+
+        self.read_arrays(gridfile, propfile)
+
+        dims_cpp = index_vector_cpggrid(self.dims)
+        coord_cpp = value_vector_cpggrid(self.coord)
+        zcorn_cpp = value_vector_cpggrid(self.zcorn)
+        actnum_cpp = index_vector_cpggrid(self.actnum)
+        ugrid = process_cpg_grid(dims_cpp, coord_cpp, zcorn_cpp, actnum_cpp, minpv, result_fname)
+
+        self.nx = self.discr_mesh.nx = self.dims[0]
+        self.ny = self.discr_mesh.ny = self.dims[1]
+        self.nz = self.discr_mesh.nz = self.dims[2]
+        self.discr_mesh.n_cells = ugrid.number_of_cells
+        # cells + boundary_faces, approximate
+        self.discr_mesh.num_of_elements = self.discr_mesh.n_cells + \
+                                          2 * (self.nx * self.ny +
+                                               self.ny * self.nz +
+                                               self.nx * self.nz)
+
+        number_of_nodes = ugrid.number_of_nodes
+        number_of_cells = ugrid.number_of_cells
+        number_of_faces = ugrid.number_of_faces
+        node_coordinates = value_vector(np.array(ugrid.node_coordinates, copy=False))
+        face_nodes = index_vector(np.array(ugrid.face_nodes, copy=False))
+        face_nodepos = index_vector(np.array(ugrid.face_nodepos, copy=False))
+        face_cells = index_vector(np.array(ugrid.face_cells, copy=False))
+        cell_faces = index_vector(np.array(ugrid.cell_faces, copy=False))
+        cell_facetag = index_vector(np.array(ugrid.cell_facetag, copy=False))
+        global_cell = index_vector(np.array(ugrid.global_cell, copy=False))
+        cell_facepos = index_vector(np.array(ugrid.cell_facepos, copy=False))
+        cell_volumes = value_vector(np.array(ugrid.cell_volumes, copy=False))
+        cell_centroids = value_vector(np.array(ugrid.cell_centroids, copy=False))
+        face_normals = value_vector(np.array(ugrid.face_normals, copy=False))
+        face_areas = value_vector(np.array(ugrid.face_areas, copy=False))
+        face_centroids = value_vector(np.array(ugrid.face_centroids, copy=False))
+
+        face_order = index_vector()
+
+        res = self.discr_mesh.cpg_elems_nodes(
+            number_of_nodes, number_of_cells, number_of_faces,
+            node_coordinates, face_nodes, face_nodepos,
+            face_cells, cell_faces, cell_facepos,
+            cell_volumes, face_order)
+
+        bnd_faces_num = res[0]
+        #self.discr_mesh.print_elems_nodes()
+
+        self.discr_mesh.construct_local_global()
+
+        self.discr_mesh.cpg_cell_props(number_of_nodes, number_of_cells, number_of_faces,
+                                           cell_volumes, cell_centroids, global_cell,
+                                           face_areas, face_centroids,
+                                           bnd_faces_num, face_order)
+
+        self.discr_mesh.cpg_connections(number_of_cells, number_of_faces,
+                                                       node_coordinates, face_nodes, face_nodepos,
+                                                       face_cells, cell_faces, cell_facepos,
+                                                       face_centroids, face_areas, face_normals,
+                                                       cell_facetag, displaced_tags)
+
+        self.discr_mesh.generate_adjacency_matrix()
 
         self.discr = Discretizer()
         self.cpp_bc = self.set_boundary_conditions(displaced_tags)
         self.discr.set_mesh(self.discr_mesh)
         self.discr.init()
 
-        self.n_matrix = self.discr_mesh.region_ranges[elem_loc.MATRIX][1] - self.discr_mesh.region_ranges[elem_loc.MATRIX][0]
-        self.n_fracs = self.discr_mesh.region_ranges[elem_loc.FRACTURE][1] - self.discr_mesh.region_ranges[elem_loc.FRACTURE][0]
-        self.n_bounds = self.discr_mesh.region_ranges[elem_loc.BOUNDARY][1] - self.discr_mesh.region_ranges[elem_loc.BOUNDARY][0]
-        self.nx = self.discr_mesh.nx
-        self.ny = self.discr_mesh.ny
-        self.nz = self.discr_mesh.nz
-
-        self.depth_all_cells = np.array(self.discr_mesh.depths, copy=False)
         self.volume_all_cells = np.array(self.discr_mesh.volumes, copy=False)
+        self.depth_all_cells = np.array(self.discr_mesh.depths, copy=False)
         self.actnum = np.array(self.discr_mesh.actnum, copy=False)
         # self.centroids = np.array(self.discr_mesh.centroids, copy=False)
 
-        load_single_float_keyword(self.discr.permx, propfile, 'PERMX', -1)
-        load_single_float_keyword(self.discr.permy, propfile, 'PERMY', -1)
-        self.permx = np.array(self.discr.permx, copy=False)
-        self.permy = np.array(self.discr.permy, copy=False)
-        for perm_str in ['PERMEABILITYXY', 'PERMEABILITY']:
-            if self.permx.size == 0 or self.permy.size == 0:
-                load_single_float_keyword(self.discr.permx, propfile, perm_str, -1)
-                self.discr.permy = self.discr.permx
-                self.permx = np.array(self.discr.permx, copy=False)
-                self.permy = np.array(self.discr.permy, copy=False)
-        load_single_float_keyword(self.discr.permz, propfile, 'PERMZ', -1)
-        self.permz = np.array(self.discr.permz, copy=False)
-
-        if self.permy.size == 0:
-            print('PERMY not found! Using PERMY=PERMX')
-            self.permy = self.permx
-        if self.permz.size == 0:
-            print('PERMZ not found! Using PERMZ=PERMX*0.1')
-            self.permz = self.permx * 0.1
-
-        self.discr.set_permeability(self.discr.permx, self.discr.permy, self.discr.permz)
+        self.discr.set_permeability(self.permx_cpp, self.permy_cpp, self.permz_cpp)
 
         n_all = self.nx * self.ny * self.nz
         print("Number of all cells    = ", n_all)
         print("Number of active cells = ", self.discr_mesh.n_cells)
 
-        # porosity
+        #poro could be modified here
+        #self.poro[poro < 1e-2] = 1e-2
         self.discr.set_porosity(self.discr_mesh.poro)
         self.mesh.poro = darts.engines.value_vector(self.discr.poro)
         self.poro = np.array(self.discr_mesh.poro, copy=False)
@@ -154,8 +234,6 @@ class CPG_Reservoir:
         # calculate transmissibilities
         self.discr.calc_tpfa_transmissibilities(displaced_tags)
 
-        # DEBUG
-        #self.discr.write_tran_list('py_trans.dat')
 
     def calc_well_index(self, i, j, k, well_radius=0.1524, segment_direction='z_axis', skin=0):
         """
@@ -198,51 +276,94 @@ class CPG_Reservoir:
                 peaceman_rad = 0.28 * np.sqrt(np.sqrt(ky / kx) * dx ** 2 + np.sqrt(kx / ky) * dy ** 2) / \
                                ((ky / kx) ** (1 / 4) + (kx / ky) ** (1 / 4))
                 well_index = 2 * np.pi * dz * np.sqrt(kx * ky) / (np.log(peaceman_rad / well_radius) + skin)
+                conduction_rad = 0.28 * np.sqrt(dx ** 2 + dy ** 2) / 2.
+                well_indexD = 2 * np.pi * dz / (np.log(conduction_rad / well_radius) + skin)
                 if kx == 0 or ky == 0: well_index = 0.0
             elif segment_direction == 'x_axis':
                 peaceman_rad = 0.28 * np.sqrt(np.sqrt(ky / kz) * dz ** 2 + np.sqrt(kz / ky) * dy ** 2) / \
                                ((ky / kz) ** (1 / 4) + (kz / ky) ** (1 / 4))
                 well_index = 2 * np.pi * dz * np.sqrt(kz * ky) / (np.log(peaceman_rad / well_radius) + skin)
+                conduction_rad = 0.28 * np.sqrt(dz ** 2 + dy ** 2) / 2.
+                well_indexD = 2 * np.pi * dx / (np.log(conduction_rad / well_radius) + skin)
                 if kz == 0 or ky == 0: well_index = 0.0
             elif segment_direction == 'y_axis':
                 peaceman_rad = 0.28 * np.sqrt(np.sqrt(kz / kx) * dx ** 2 + np.sqrt(kx / kz) * dz ** 2) / \
                                ((kz / kx) ** (1 / 4) + (kx / kz) ** (1 / 4))
                 well_index = 2 * np.pi * dz * np.sqrt(kx * kz) / (np.log(peaceman_rad / well_radius) + skin)
+                conduction_rad = 0.28 * np.sqrt(dz ** 2 + dx ** 2) / 2.
+                well_indexD = 2 * np.pi * dy / (np.log(conduction_rad / well_radius) + skin)
                 if kx == 0 or kz == 0: well_index = 0.0
 
             well_index = well_index * StructDiscretizer.darcy_constant
         else:
             well_index = 0
 
-        well_indexD = 0 #TODO
-
         return local_block, well_index, well_indexD
 
     def set_boundary_volume(self, xy_minus=-1, xy_plus=-1, yz_minus=-1, yz_plus=-1, xz_minus=-1, xz_plus=-1):
+        mesh_volume = np.array(self.volume_all_cells, copy=False)
+
         # get 3d shape
-        #TODO check
-        volume = self.volume_all_cells[:self.discr_mesh.n_cells].reshape(self.nx, self.ny, self.nz)
+        volume = make_full_cube(mesh_volume[:self.discr_mesh.n_cells], self.actnum)
+        volume = volume.reshape(self.nx, self.ny, self.nz, order='F')
+
+        actnum3d = self.actnum.reshape(self.nx, self.ny, self.nz, order='F')
 
         # apply changes
         if xy_minus > -1:
-            volume[:, :, 0] = xy_minus
+            for i in range(self.nx):
+                for j in range(self.ny):
+                    k = 0
+                    while k < self.nz and actnum3d[i, j, k] == 0:  # search first active cell
+                        k += 1
+                    if k < self.nz:
+                        volume[i, j, k] = xy_minus
         if xy_plus > -1:
-            volume[:, :, -1] = xy_plus
+            for i in range(self.nx):
+                for j in range(self.ny):
+                    k = self.nz - 1
+                    while k >= 0 and actnum3d[i, j, k] == 0:
+                        k -= 1
+                    if k >= 0:
+                        volume[i, j, k] = xy_plus
         if yz_minus > -1:
-            volume[0, :, :] = yz_minus
+            for k in range(self.nz):
+                for j in range(self.ny):
+                    i = 0
+                    while i < self.nx and actnum3d[i, j, k] == 0:
+                        i += 1
+                    if i < self.nx:
+                        volume[i, j, k] = yz_minus
         if yz_plus > -1:
-            volume[-1, :, :] = yz_plus
+            for k in range(self.nz):
+                for j in range(self.ny):
+                    i = self.nx - 1
+                    while i >= 0 and actnum3d[i, j, k] == 0:
+                        i -= 1
+                    if i >= 0:
+                        volume[i, j, k] = yz_plus
         if xz_minus > -1:
-            volume[:, 0, :] = xz_minus
+            for k in range(self.nz):
+                for i in range(self.nx):
+                    j = 0
+                    while j < self.ny and actnum3d[i, j, k] == 0:
+                        j += 1
+                    if j < self.ny:
+                        volume[i, j, k] = xz_minus
         if xz_plus > -1:
-            volume[:, -1, :] = xz_plus
-        # reshape to 1d
-        volume_1d = np.reshape(volume, self.discretizer.nodes_tot, order='F')
+            for k in range(self.nz):
+                for i in range(self.nx):
+                    j = self.ny - 1
+                    while j >= 0 and actnum3d[i, j, k] == 0:
+                        j -= 1
+                    if j >= 0:
+                        volume[i, j, k] = xz_plus
+        volume_1d = np.reshape(volume, self.discr_mesh.nx*self.discr_mesh.ny*self.discr_mesh.nz, order='F') # back to 1D
         # apply actnum and assign to mesh.volume
-        self.mesh.volume[:] = volume_1d[self.discretizer.local_to_global]
-        #TODO self.mesh.volume is darts.engines.value_vector(self.discr_mesh.volumes)
+        mesh_volume[:self.discr_mesh.n_cells] = volume_1d[self.discr_mesh.local_to_global]
 
     def set_boundary_conditions(self, physical_tags):
+        return
         bc = BoundaryCondition()
 
         boundary_range = self.discr_mesh.region_ranges[elem_loc.BOUNDARY]
@@ -311,10 +432,10 @@ class CPG_Reservoir:
                 if p[0] == well_block and p[1] == res_block_local:
                     print('Neglected duplicate perforation for well %s to block [%d, %d, %d]' % (well.name, i, j, k))
                     return
-            well.perforations = well.perforations + [(well_block, res_block_local, well_index, well_indexD)]
+            well.perforations = well.perforations + [(well_block, res_block_local, well_index,well_indexD)]
             if verbose:
-                print('Added perforation for well %s to block %d [%d, %d, %d] with WI=%f' % (
-                    well.name, res_block_local, i, j, k, well_index))
+                print('Added perforation for well %s to block %d [%d, %d, %d] with WI=%f WID=%f' % (
+                    well.name, res_block_local, i, j, k, well_index, well_indexD))
         else:
             if verbose:
                 print('Neglected perforation for well %s to block [%d, %d, %d] (inactive block)' % (well.name, i, j, k))
@@ -334,6 +455,7 @@ class CPG_Reservoir:
     def write_mpfa_conn_to_file(self, path = 'mpfa_conn.dat'):
         stencil = np.array(self.discr.flux_stencil, copy=False)
         trans = np.array(self.discr.flux_vals, copy=False)
+
 
         f = open(path, 'w')
         f.write(str(len(self.discr.cell_m)) + '\n')
@@ -399,7 +521,7 @@ class CPG_Reservoir:
 
         self.vtk_filenames_and_times[vtk_file_name] = t
 
-        self.group = hl.VtkGroup(file_name)
+        self.group = vtk.VtkGroup(file_name)
         for fname, t in self.vtk_filenames_and_times.items():
             self.group.addFile(fname, t)
         self.group.save()
@@ -583,5 +705,94 @@ class CPG_Reservoir:
         # self.vtkobj.decomposeModel()
 
 
+    def apply_fault_mult(self, faultfile, cell_m, cell_p, mpfa_tran, ids):
+        #Faults
+
+        keep_reading = True
+        prev_fault_name = ''
+
+        with open(faultfile) as f:
+            while True:
+                buff = f.readline()
+                strline = buff.split()
+                if len(strline) == 0 or '/' == strline[0]:
+                    break
+                fault_name = strline[0]
+                # multiply tran
+                i1 = int(strline[1])
+                j1 = int(strline[2])
+                k1 = int(strline[3])
+                i2 = int(strline[4])
+                j2 = int(strline[5])
+                k2 = int(strline[6])
+                fault_tran_mult = float(strline[7])
+                if i1 > self.discr_mesh.nx or j1 > self.discr_mesh.ny or k1 > self.discr_mesh.nz:
+                    print ('Error:', i1,j1,k1, 'out of grid', buff)
+                    continue # skip
+                if i2 > self.discr_mesh.nx or j2 > self.discr_mesh.ny or k2 > self.discr_mesh.nz:
+                    print ('Error:', i2,j2,k2, 'out of grid', buff)
+                    continue # skip
+
+                m_idx = self.discr_mesh.global_to_local[self.discr_mesh.get_global_index(i1-1, j1-1, k1-1)]
+                p_idx = self.discr_mesh.global_to_local[self.discr_mesh.get_global_index(i2-1, j2-1, k2-1)]
+
+                p = set(np.where(cell_p == p_idx)[0]) # find cell idx in cell_p
+                m = set(np.where(cell_m == m_idx)[0])
+                res = m & p # find connection (cell should be in both
+                if len(res) > 0:
+                    idx = res.pop()
+                    mpfa_tran[2*ids[idx]] *= fault_tran_mult
+
+                #print('fault tran mult', fault_tran_mult)
+
+    def apply_volume_depth(self):
+        self.depth = np.array(self.mesh.depth, copy=False)
+        self.volume = np.array(self.mesh.volume, copy=False)
+
+        #self.depth_all_cells[self.depth_all_cells < 1e-6] = 1e-6
+        #self.volume_all_cells[self.volume_all_cells < 1e-6] = 1e-6
+
+        self.depth[:] = self.depth_all_cells
+        self.volume[:] = self.volume_all_cells
 
 
+#####################################################################
+
+def save_array(arr: np.array, fname: str, keyword: str, actnum: np.array, mode='w'):
+    '''
+    writes numpy array of n_active_cell size to text file in GRDECL format with n_cells_total
+    :param arr: numpy array to write
+    :param fname: filename
+    :param keyword: keyword for array
+    :param actnum: actnum array
+    :param mode: 'w' to rewrite the file or 'a' to append
+    :return: None
+    '''
+    arr_full = make_full_cube(arr, actnum)
+    with open(fname, mode) as f:
+        f.write(keyword + '\n')
+        s = ''
+        for i in range(arr_full.size):
+            s += str(arr_full[i]) + ' '
+            if (i+1) % 6 == 0:  # write only 6 values per row
+                f.write(s + '\n')
+                s = ''
+        f.write(s + '\n')
+        f.write('/\n')
+        print('Array saved to file', fname, ' (keyword ' + keyword + ')')
+
+
+def make_full_cube(cube: np.array, actnum: np.array):
+    '''
+    returns 1d-array of size nx*ny*nz, filled with zeros where actnum is zero
+    :param cube: 1d-array of size n_active_cells
+    :param actnum: 1d-array of size nx*ny*nz
+    :return:
+    '''
+    if actnum.size == cube.size:
+        return cube
+    cube_full = np.zeros(actnum.size)
+    cube_full[actnum > 0] = cube
+    return cube_full
+    
+   

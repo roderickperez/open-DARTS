@@ -194,7 +194,47 @@ namespace mesh
 
 		void print_arrays() const;
 
-    protected:
+		std::vector<int> cpg_elems_nodes(
+			const int _number_of_nodes,
+			const int number_of_cells,// number of active cells 
+			const int number_of_faces,
+			const std::vector<double>& node_coords,
+			const std::vector<int>& face_nodes,
+			const std::vector<int>& face_nodepos,
+			const std::vector<int>& face_cells,
+			const std::vector<int>& cell_faces,
+			const std::vector<int>& cell_facepos,
+			const std::vector<double>& cell_volumes,
+			std::vector<int>& face_order);
+
+		void cpg_cell_props(
+			const int _number_of_nodes,
+			const int num_of_cells,// number of active cells 
+			const int number_of_faces,
+			const std::vector<double>& cell_volumes,
+			const std::vector<double>& cell_centroids,
+			const std::vector<int>& global_cell,
+			const std::vector<double>& face_areas,
+			const std::vector<double>& face_centroids,
+			//output
+			const int bnd_faces_num,
+			const std::vector<int>& face_order);
+
+		void cpg_connections(
+			const int num_of_cells,// number of active cells 
+			const int number_of_faces,
+			const std::vector<double>& node_coords,
+			const std::vector<int>& face_nodes,
+			const std::vector<int>& face_nodepos,
+			const std::vector<int>& face_cells,
+			const std::vector<int>& cell_faces,
+			const std::vector<int>& cell_facepos,
+			const std::vector<double>& face_centroids,
+			const std::vector<double>& face_areas,
+			const std::vector<double>& face_normals,
+			const std::vector<int>& cell_facetag,
+			const PhysicalTags& tags);
+
 		void gmsh_mesh_reading(std::string filename, const PhysicalTags& tags);
 		void gmsh_mesh_construct_connections(const PhysicalTags& tags);
 		void generate_adjacency_matrix();

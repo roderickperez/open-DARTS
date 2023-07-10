@@ -14,6 +14,9 @@
 using namespace opendarts::auxiliary;
 #endif // OPENDARTS_LINEAR_SOLVERS
 
+#include <cstdint>
+using namespace std;
+
 typedef int index_t;
 typedef double value_t;
 typedef int interp_index_t;

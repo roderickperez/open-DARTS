@@ -1,7 +1,7 @@
 import numpy as np
 import time
 
-from reservoir import CPG_Reservoir
+from darts.models.reservoirs.cpg_reservoir import CPG_Reservoir, save_array
 from darts.discretizer import load_single_float_keyword, load_single_int_keyword
 from darts.discretizer import value_vector as value_vector_discr
 from darts.discretizer import index_vector as index_vector_discr
@@ -9,13 +9,13 @@ from darts.engines import value_vector
 
 from darts.models.reservoirs.struct_reservoir import StructReservoir
 from darts.tools.keyword_file_tools import save_few_keywords
-from cpg_tools import save_array
+
 
 # inherit from darts-models/2ph_do model to use its physics; self.reservoir will be replaced in this file
 # add path to import
 import os, sys, inspect
 current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-darts_dir = os.path.dirname(os.path.dirname(current_dir))  # 2 levels up
+darts_dir = os.path.dirname(current_dir)  # 1 level up
 model_dir = os.path.join(darts_dir, '2ph_do')
 #model_dir = os.path.join(darts_dir, 'Uniform_Brugge')
 sys.path.insert(0, model_dir)
@@ -74,7 +74,7 @@ class Model(DO_Model):
 
         self.actnum_cpp = index_vector_discr()
         self.actnum = np.array([])
-        for fname in [gridfile, propfile]:
+        for fname in [self.gridfile, self.propfile]:
             if self.actnum.size == 0:
                 load_single_int_keyword(self.actnum_cpp, fname, 'ACTNUM', -1)
                 self.actnum = np.array(self.actnum_cpp, copy=False)
@@ -90,8 +90,8 @@ class Model(DO_Model):
         # self.actnum[self.poro == 0.0] = 0
 
         # makes sense for thermal
-        self.poro = np.array(self.reservoir.mesh.poro, copy=False)
-        self.poro[self.poro == 0.0] = 1.E-4
+        #self.poro = np.array(self.reservoir.mesh.poro, copy=False)
+        #self.poro[self.poro == 0.0] = 1.E-4
 
         self.reservoir = StructReservoir(self.timer, nx=self.dims[0], ny=self.dims[1], nz=self.dims[2],
                                          dx=self.dx, dy=self.dy, dz=self.dz,
