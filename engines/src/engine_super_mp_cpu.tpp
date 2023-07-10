@@ -725,45 +725,11 @@ int engine_super_mp_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, st
 			}
 
 			// [6] add heat conduction
-			if (THERMAL)
+			/*if (THERMAL)
 			{
 				t_diff = op_vals_arr[j * N_OPS + RE_TEMP_OP] - op_vals_arr[i * N_OPS + RE_TEMP_OP];
 				gamma_t_diff = tranD[conn_id] * dt * t_diff;
-
-				if (t_diff < 0)
-				{
-					// rock heat transfers flows from cell i to j
-					RHS[i * N_VARS + T_VAR] -= gamma_t_diff * op_vals_arr[i * N_OPS + ROCK_COND] * (1 - mesh->poro[i]) * mesh->rock_cond[i];
-					for (v = 0; v < NC; v++)
-					{
-						Jac[diag_idx + T_VAR * N_VARS + v] -= gamma_t_diff * op_ders_arr[(i * N_OPS + ROCK_COND) * N_STATE + v] * (1 - mesh->poro[i]) * mesh->rock_cond[i];
-					}
-					Jac[diag_idx + T_VAR * N_VARS + T_VAR] -= gamma_t_diff * op_ders_arr[(i * N_OPS + ROCK_COND) * N_STATE + T_VAR] * (1 - mesh->poro[i]) * mesh->rock_cond[i];
-					if (nebr_jac_idx < csr_idx_end)
-						Jac[nebr_jac_idx * N_VARS_SQ + T_VAR * N_VARS + T_VAR] -= tranD[conn_id] * dt * op_vals_arr[i * N_OPS + ROCK_COND] * (1 - mesh->poro[i]) * mesh->rock_cond[i];
-					Jac[diag_idx + T_VAR * N_VARS + T_VAR] += tranD[conn_id] * dt * op_vals_arr[i * N_OPS + ROCK_COND] * (1 - mesh->poro[i]) * mesh->rock_cond[i];
-				}
-				else
-				{
-					// rock heat transfers flows from cell j to i
-					if (j < mesh->n_blocks)
-					{
-						RHS[i * N_VARS + T_VAR] -= gamma_t_diff * op_vals_arr[j * N_OPS + ROCK_COND] * (1 - mesh->poro[j]) * mesh->rock_cond[j]; // energy cond operator
-						for (v = 0; v < NC; v++)
-						{
-							Jac[nebr_jac_idx * N_VARS_SQ + T_VAR * N_VARS + v] -= gamma_t_diff * op_ders_arr[(j * N_OPS + ROCK_COND) * N_STATE + v] * (1 - mesh->poro[j]) * mesh->rock_cond[j];
-						}
-						Jac[nebr_jac_idx * N_VARS_SQ + T_VAR * N_VARS + T_VAR] -= gamma_t_diff * op_ders_arr[(j * N_OPS + ROCK_COND) * N_STATE + T_VAR] * (1 - mesh->poro[j]) * mesh->rock_cond[j];
-						Jac[diag_idx + NC * N_VARS + T_VAR] += tranD[conn_id] * dt * op_vals_arr[j * N_OPS + ROCK_COND] * (1 - mesh->poro[j]) * mesh->rock_cond[j];
-						Jac[nebr_jac_idx * N_VARS_SQ + NC * N_VARS + T_VAR] -= tranD[conn_id] * dt * op_vals_arr[j * N_OPS + ROCK_COND] * (1 - mesh->poro[j]) * mesh->rock_cond[j];
-					}
-					else
-					{
-						RHS[i * N_VARS + T_VAR] -= gamma_t_diff * op_vals_arr[j * N_OPS + ROCK_COND] * (1 - mesh->poro[i]) * mesh->rock_cond[j];
-						Jac[diag_idx + NC * N_VARS + T_VAR] += tranD[conn_id] * dt * op_vals_arr[j * N_OPS + ROCK_COND] * (1 - mesh->poro[i]) * mesh->rock_cond[j];
-					}
-				}
-			}
+			}*/
 			// [7] residual
 			for (c = 0; c < NE; c++)
 			{
