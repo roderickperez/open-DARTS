@@ -227,7 +227,7 @@ conn_mesh::init_mpfa_e(std::vector<index_t>& block_m,
 	std::vector<value_t>& _rhs,
 	std::vector<value_t>& _dtran,
 	std::vector<value_t>& _htran,
-	index_t _n_matrix, index_t _n_bounds, index_t _n_fracs)
+	index_t _n_matrix, index_t _n_bounds, index_t _n_fracs, index_t _n_vars)
 {
 	n_vars = 1;
 	n_conns = block_m.size();
@@ -260,8 +260,8 @@ conn_mesh::init_mpfa_e(std::vector<index_t>& block_m,
 	depth.assign(n_blocks + n_bounds, 0);
 	heat_capacity.assign(n_blocks, 0);
 	rock_cond.assign(n_blocks, 0);
-	bc.resize(3 * n_bounds);
-	f.resize(2 * n_blocks);
+	bc.resize(_n_vars * n_bounds);
+	f.resize(_n_vars * n_blocks);
 
 	// kinetic property
 	kin_factor.assign(n_blocks, 1);  // if I want backwards compatibility with older version of python files I assume it needs to be filled with a 1 here (in case people don't actually use this factor!)

@@ -95,7 +95,7 @@ public:
 	  std::vector<value_t>& _rhs,
 	  std::vector<value_t>& _dtran,
 	  std::vector<value_t>& _htran,
-	  index_t _n_matrix, index_t _n_bounds, index_t _n_fracs);
+	  index_t _n_matrix, index_t _n_bounds, index_t _n_fracs, index_t _n_vars);
 
   /// @brief init mesh by reading MPFA connections with provided flux
   int init_mpfa(std::vector<index_t>& block_m,

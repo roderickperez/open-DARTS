@@ -26,7 +26,7 @@ void pybind_mesh_conn(py::module &m)
 	  .def("init_mpfa", (int (conn_mesh::*)(std::vector<index_t>&, std::vector<index_t>&, std::vector<index_t>&,
 		  std::vector<index_t>&, std::vector<value_t>&, std::vector<value_t>&, index_t, index_t)) & conn_mesh::init_mpfa)
 	  .def("init_mpfa_e", (int (conn_mesh::*)(std::vector<index_t>&, std::vector<index_t>&, std::vector<index_t>&,
-		  std::vector<index_t>&, std::vector<value_t>&, std::vector<value_t>&, std::vector<value_t>&, std::vector<value_t>&, index_t, index_t, index_t)) & conn_mesh::init_mpfa_e)
+		  std::vector<index_t>&, std::vector<value_t>&, std::vector<value_t>&, std::vector<value_t>&, std::vector<value_t>&, index_t, index_t, index_t, index_t)) & conn_mesh::init_mpfa_e)
 	  .def("init_mpfa", (int (conn_mesh::*)(std::vector<index_t>&, std::vector<index_t>&, std::vector<index_t>&,
 		  std::vector<index_t>&, std::vector<value_t>&, std::vector<value_t>&, std::vector<value_t>&, index_t, index_t, index_t)) & conn_mesh::init_mpfa)
 	  .def("init_mpsa", (int (conn_mesh::*)(std::vector<index_t>&, std::vector<index_t>&, std::vector<index_t>&,
