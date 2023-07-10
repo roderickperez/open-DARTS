@@ -117,7 +117,7 @@ class UnstructReservoir:
         self.wells.append(well)
         return 0
 
-    def add_perforation(self, well, res_block, well_index):
+    def add_perforation(self, well, res_block, well_index, well_indexD=0.):
         """
         Class method which ads perforation to each (existing!) well
         :param well: data object which contains data of the particular well
@@ -126,7 +126,7 @@ class UnstructReservoir:
         :return:
         """
         well_block = 0
-        well.perforations = well.perforations + [(well_block, res_block, well_index)]
+        well.perforations = well.perforations + [(well_block, res_block, well_index, well_indexD)]
         return 0
 
     def init_wells(self):
@@ -139,8 +139,9 @@ class UnstructReservoir:
         # Perforate all boundary cells:
         for nth_perf in range(len(self.left_boundary_cells)):
             well_index = self.mesh.volume[self.left_boundary_cells[nth_perf]] / self.max_well_vol * self.well_index
+            well_indexD = 0.
             self.add_perforation(well=self.wells[-1], res_block=self.left_boundary_cells[nth_perf],
-                                 well_index=well_index)
+                                 well_index=well_index, well_indexD=well_indexD)
 
         # Add wells to the DARTS mesh object and sort connection (DARTS related):
         self.mesh.add_wells(ms_well_vector(self.wells))
