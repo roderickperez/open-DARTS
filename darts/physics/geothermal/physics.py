@@ -1,9 +1,7 @@
 from darts.engines import *
 
 from darts.physics.physics_base import PhysicsBase
-from .operator_evaluator import *
-from .property_container import PropertyContainer
-from .iapws.iapws_property import *
+from darts.physics.geothermal.operator_evaluator import *
 
 from darts.tools.keyword_file_tools import *
 

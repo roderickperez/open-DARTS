@@ -1,6 +1,6 @@
 from darts.engines import value_vector
-from darts.models.physics.iapws.iapws_property import *
-from darts.models.physics.iapws.custom_rock_property import *
+from darts.physics.properties.iapws.iapws_property import *
+from darts.physics.properties.iapws.custom_rock_property import *
 
 
 class PropertyContainer:

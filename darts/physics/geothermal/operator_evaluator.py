@@ -1,5 +1,5 @@
 from darts.engines import operator_set_evaluator_iface, value_vector
-from .property_container import PropertyContainer
+from darts.physics.geothermal.property_container import PropertyContainer
 
 
 class acc_flux_custom_iapws_evaluator_python(operator_set_evaluator_iface):
