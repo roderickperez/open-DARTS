@@ -139,7 +139,7 @@ def run(discr_type, init_filename=None):
     if not init_filename:
         run_python(m, 1.e-6)
     if discr_type == 'mpfa':
-        m.reservoir.write_to_vtk_mpfa(output_directory, m.cell_property, 0, m.output_props, m.physics)
+        m.reservoir.write_to_vtk_mpfa(output_directory, m.physics.vars, 0, m.physics.property_operators, m.physics)
     else:
         tot_unknws = m.reservoir.unstr_discr.fracture_cell_count + m.reservoir.unstr_discr.matrix_cell_count + len(m.reservoir.wells) * 2
         tot_properties = 2
@@ -148,7 +148,7 @@ def run(discr_type, init_filename=None):
         property_array = np.empty((tot_unknws, tot_properties))
         property_array[:, 0] = pressure_field
         property_array[:, 1] = saturation_field
-        m.reservoir.write_to_vtk_tpfa(output_directory, property_array, m.cell_property, 0)
+        m.reservoir.write_to_vtk_tpfa(output_directory, property_array, m.physics.vars, 0)
 
     # run injector
     pressure = np.array(m.physics.engine.X, copy=False)[::2]
@@ -177,14 +177,14 @@ def run(discr_type, init_filename=None):
         run_python(m, size_report_step)
 
         if discr_type == 'mpfa':
-            m.reservoir.write_to_vtk_mpfa(output_directory, m.cell_property, ith_step + 1, m.output_props, m.physics)
+            m.reservoir.write_to_vtk_mpfa(output_directory, m.physics.vars, ith_step + 1, m.physics.property_operators, m.physics)
         else:
             pressure_field = m.physics.engine.X[:-1:2]
             saturation_field = m.physics.engine.X[1::2]
             property_array = np.empty((tot_unknws, tot_properties))
             property_array[:, 0] = pressure_field
             property_array[:, 1] = saturation_field
-            m.reservoir.write_to_vtk_tpfa(output_directory, property_array, m.cell_property, ith_step+1)
+            m.reservoir.write_to_vtk_tpfa(output_directory, property_array, m.physics.vars, ith_step+1)
 
         ith_step += 1
 
