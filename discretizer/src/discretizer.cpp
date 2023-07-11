@@ -1499,6 +1499,7 @@ void Discretizer::calc_mpfa_transmissibilities(BoundaryCondition& _bc, const boo
 				calc_matrix_matrix(conn, flux, j, adj_nebr_id, with_thermal);
 				
 				flux.a.values *= sign * conn.area;
+				flux.a_thermal.values *= sign * conn.area;
 				flux.rhs.values *= sign * conn.area;
 
 				cell_m.push_back(cell_id1);
@@ -1531,6 +1532,7 @@ void Discretizer::calc_mpfa_transmissibilities(BoundaryCondition& _bc, const boo
 				calc_matrix_boundary(conn, flux, j, with_thermal);
 
 				flux.a.values *= conn.area;
+				flux.a_thermal.values *= conn.area;
 				flux.rhs.values *= conn.area;
 
 				cell_m.push_back(cell_id1);
