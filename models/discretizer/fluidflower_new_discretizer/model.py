@@ -10,7 +10,7 @@ from darts.physics.super.physics import Compositional
 from darts.physics.super.property_container import PropertyContainer
 from darts.physics.super.operator_evaluator import DefaultPropertyEvaluator
 
-from darts.physics.properties.basic import PhaseRelPerm, CapillaryPressure, RockEnergyEvaluator, ConstFunc
+from darts.physics.properties.basic import ConstFunc
 from darts.physics.properties.density import Garcia2001
 from darts.physics.properties.viscosity import Fenghour1998, Islam2012
 
@@ -101,7 +101,7 @@ class Model(DartsModel):
         self.params.max_i_linear = 100
         self.params.newton_type = sim_params.newton_local_chop
         # self.params.newton_params[0] = 0.2
-        # self.params.linear_type = sim_params.cpu_gmres_cpr_amg#cpu_gmres_cpr_amg#cpu_superlu
+        self.params.linear_type = sim_params.cpu_gmres_cpr_amg#cpu_gmres_cpr_amg#cpu_superlu
 
         self.timer.node["initialization"].stop()
 
@@ -512,7 +512,6 @@ class CustomPhysics(Compositional):
         composition = np.array(mesh.composition, copy=False)
         for c in range(self.nc - 1):
             composition[c::(self.nc - 1)] = uniform_composition[c]
-
 
 
 class ModBrooksCorey:
