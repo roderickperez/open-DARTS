@@ -140,7 +140,7 @@ def run(discr_type, mesh_file):
     output_directory = 'sol_cpp_' + discr_type + '_{:s}'.format(m.physics_type)
     # Write to vtk using class methods of unstructured discretizer (uses within meshio write to vtk function):
     if discr_type == 'mpfa':
-        m.reservoir.write_to_vtk(output_directory, m.cell_property, 0, m.physics)
+        m.reservoir.write_to_vtk(output_directory, m.physics.vars, 0, m.physics)
     else:
         tot_unknws = m.reservoir.unstr_discr.fracture_cell_count + m.reservoir.unstr_discr.matrix_cell_count + len(m.reservoir.wells) * 2
         tot_properties = 2
@@ -149,7 +149,7 @@ def run(discr_type, mesh_file):
         property_array = np.empty((tot_unknws, tot_properties))
         property_array[:, 0] = pressure_field
         property_array[:, 1] = saturation_field
-        m.reservoir.unstr_discr.write_to_vtk(output_directory, property_array, m.cell_property, 0)
+        m.reservoir.unstr_discr.write_to_vtk(output_directory, property_array, m.physics.vars, 0)
 
     # Run over all reporting time-steps:
     ith_step = 0
@@ -159,14 +159,14 @@ def run(discr_type, mesh_file):
         run_python(m, size_report_step)
 
         if discr_type == 'mpfa':
-            m.reservoir.write_to_vtk(output_directory, m.cell_property, ith_step + 1, m.physics)
+            m.reservoir.write_to_vtk(output_directory, m.physics.vars, ith_step + 1, m.physics)
         else:
             pressure_field = m.physics.engine.X[:-1:2]
             saturation_field = m.physics.engine.X[1::2]
             property_array = np.empty((tot_unknws, tot_properties))
             property_array[:, 0] = pressure_field
             property_array[:, 1] = saturation_field
-            m.reservoir.unstr_discr.write_to_vtk(output_directory, property_array, m.cell_property, ith_step+1)
+            m.reservoir.unstr_discr.write_to_vtk(output_directory, property_array, m.physics.vars, ith_step+1)
 
         ith_step += 1
 

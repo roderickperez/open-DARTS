@@ -1,23 +1,26 @@
 from reservoir import UnstructReservoir
 from darts.models.reservoirs.struct_reservoir import StructReservoir
-from physics.physics_comp_sup import Compositional
 from darts.models.darts_model import DartsModel
-from darts.engines import value_vector, index_vector, sim_params
+from darts.engines import value_vector, index_vector, sim_params, conn_mesh
 import numpy as np
 from dataclasses import dataclass, field
-import os
-from physics.property_container import *
-from physics.properties_basic import *
-from physics.operator_evaluator_sup import DefaultPropertyEvaluator
 
-from darts_flash.thermodynamics import *
-from darts_flash.multiflash import *
-from darts_flash.components import ComponentProperties
-from darts_flash.properties import *
+from darts.physics.super.physics import Compositional
+from darts.physics.super.property_container import PropertyContainer
+from darts.physics.super.operator_evaluator import DefaultPropertyEvaluator
+
+from darts.physics.properties.basic import ConstFunc
+from darts.physics.properties.density import Garcia2001
+from darts.physics.properties.viscosity import Fenghour1998, Islam2012
+
+from dartsflash.libflash import NegativeFlash
+from dartsflash.libflash import PR, Ziabakhsh2012, FlashParams
+from dartsflash.components import CompData, EnthalpyIdeal
+from dartsflash.eos_properties import EoSDensity, EoSEnthalpy
+
 
 @dataclass
 class Corey:
-    type: str
     nw: float
     ng: float
     swc: float
@@ -119,107 +122,96 @@ class Model(DartsModel):
 
         """Physical properties"""
         # Fluid components, ions and solid
-        fl_comp = ["CO2", "H2O"]
-        fl_phases = ["V", "Aq"]
-        eos = {"V": "PR", "Aq": "AQ3"}
-        comp_data = ComponentProperties.comp_data(ComponentProperties(), fl_comp)
-        comp_data["Mw"] = np.array([44.01, 18.015])
-        Mw = np.array([44.01, 18.015])
+        components = ["CO2", "H2O"]
+        phases = ["V", "Aq"]
+        nc = len(components)
+        comp_data = CompData(components)
+        comp_data.set_properties()
+
+        pr = PR(components, comp_data)
+        # aq = Jager2003(components)
+        aq = Ziabakhsh2012(components)
+
+        flash_params = FlashParams(nc)
+
+        # EoS-related parameters
+        flash_params.add_eos("PR", pr)
+        flash_params.add_eos("AQ", aq)
+        flash_params.eos_used = ["PR", "AQ"]
+
+        from dartsflash.libflash import Henry
+        henry = Henry(components, comp_data, vapour_idx=0)
+        flash_params.add_initial_guess(henry)
+
+        # Flash-related parameters
+        # flash_params.split_switch_tol = 1e-3
 
         self.ini_stream = [self.zero]  # z1
         self.inj_stream = [1 - self.zero]
         self.inj_rate = 10 * 24 * 60 / 1E6  # ml/min to m3/day
         self.p_atm = 1.01325
-        self.cell_property = ['pressure'] + fl_comp[:-1]
 
-        from darts_flash.initial import Activity
-        init_guess = Activity(fl_comp, comp_data, vap_idx=0)
-
-        flash_ev = Flash2(components=fl_comp, ions=[], phases=fl_phases, eos_used=eos, comp_data=comp_data,
-                          init_guess_ev=init_guess)
-        # flash_ev = Flash(components=fl_comp, ki=self.constantK)
-
-        thermo = Thermodynamics(fl_comp=fl_comp, fl_phases=fl_phases, flash_ev=flash_ev)
-        self.temperature = temp_in
-
-        if self.temperature is None:
-            self.thermal = True
-            self.T_init = temp_ini
+        if temperature is None:  # if None, then thermal=True
+            thermal = True
+            self.T_init = temp_in
         else:
-            self.thermal = False
-            self.init_temp = temperature
+            thermal = False
+            self.T_init = None
 
-        self.nc = self.ne = len(thermo.comp_in_z)
-        self.vars = ['P'] + thermo.comp_in_z[:-1]
-        if self.thermal:
-            self.ne += 1
-            self.vars += ['T']
+        self.physics = CustomPhysics(components, phases, timer=self.timer,
+                                     n_points=n_points, min_p=5., max_p=300., min_z=self.zero/10, max_z=1-self.zero/10,
+                                     thermal=thermal, min_t=0.8 * temperature, max_t=1.2 * temperature,
+                                     discr_type=self.reservoir.discr_type, cache=False)
 
-        corey = [
-            Corey("very-coarse", nw=2.0, ng=1.5, swc=0.11, sgc=0.06, krwe=0.80, krge=0.85, labda=2., p_entry=0.),
-            #Corey("coarse", nw=2.0, ng=1.5, swc=0.12, sgc=0.08, krwe=0.93, krge=0.95, labda=2., p_entry=1e-3),
-            #Corey("fine", nw=2.5, ng=2.0, swc=0.14, sgc=0.10, krwe=0.93, krge=0.95, labda=2., p_entry=3e-3),
-            Corey("very-fine", nw=2.5, ng=2.0, swc=0.32, sgc=0.14, krwe=0.71, krge=0.75, labda=2., p_entry=0.1)#15e-3)
-        ]
-        self.n_property_regions = len(corey)
-        self.capillary = True
-        self.property_container = []
-        EOS = True
+        corey = {
+            0: Corey(nw=2.0, ng=1.5, swc=0.11, sgc=0.06, krwe=0.80, krge=0.85, labda=2., p_entry=0.),
+            # 1: Corey(nw=2.0, ng=1.5, swc=0.12, sgc=0.08, krwe=0.93, krge=0.95, labda=2., p_entry=1e-3),
+            # 2: Corey(nw=2.5, ng=2.0, swc=0.14, sgc=0.10, krwe=0.93, krge=0.95, labda=2., p_entry=3e-3),
+            3: Corey(nw=2.5, ng=2.0, swc=0.32, sgc=0.14, krwe=0.71, krge=0.75, labda=2., p_entry=0.1)
+        }
+        self.property_regions = [key for key in corey.keys()]
+        for region in self.property_regions:
+            property_container = PropertyContainer(components_name=components, phases_name=phases, Mw=comp_data.Mw,
+                                                   min_z=self.zero / 10, diff_coef=8.64e-6, temperature=temperature)
 
-        for i in range(self.n_property_regions):
-            self.property_container.append(PropertyContainer(thermodynamics=thermo, Mw=Mw, min_z=self.zero / 10,
-                                                             temperature=self.temperature, diff_coef=self.reservoir.diff_coef))#8.64e-6))
-            """ properties correlations """
-            if EOS:
-                self.property_container[i].density_ev = dict([('V', VLDensity(components=fl_comp, eos=eos['V'], comp_data=comp_data)),
-                                                                ('Aq', AqDensity(components=fl_comp)), ])
-                self.property_container[i].viscosity_ev = dict([('V', ViscosityCO2(components=fl_comp)),
-                                                                ('Aq', ViscosityAq(components=fl_comp)), ])
-                self.property_container[i].enthalpy_ev = dict([('V', VLEnthalpy(components=fl_comp, eos=eos['V'], comp_data=comp_data)),
-                                                                ('Aq', AqEnthalpy(components=fl_comp)), ])
-                self.property_container[i].conductivity_ev = dict([('V', VConductivity(components=fl_comp, eos=eos['V'], comp_data=comp_data)),
-                                                                ('Aq', AqConductivity(components=fl_comp)), ])
-            else:
-                self.property_container[i].density_ev = dict([('V', Density(fl_comp, compr=1e-4, dens0=2)),
-                                                              ('Aq', Density(fl_comp, compr=1e-6, dens0=1002, x_mult=320)), ])
-                self.property_container[i].viscosity_ev = dict([('V', const_fun(1.5E-2)),
-                                                                ('Aq', const_fun(1.0)), ])
-                self.property_container[i].enthalpy_ev = dict([('V', VLEnthalpy(components=fl_comp, eos=eos['V'], comp_data=comp_data)),
-                                                               ('Aq', AqEnthalpy(components=fl_comp)), ])
-                self.property_container[i].conductivity_ev = dict([('V', VConductivity(components=fl_comp, eos=eos['V'], comp_data=comp_data)),
-                                                                   ('Aq', AqConductivity(components=fl_comp)), ])
+            property_container.flash_ev = NegativeFlash(flash_params)
+            property_container.density_ev = dict([('V', EoSDensity(eos=pr, Mw=comp_data.Mw)),
+                                                  ('Aq', Garcia2001(components)), ])
+            property_container.viscosity_ev = dict([('V', Fenghour1998()),
+                                                    ('Aq', Islam2012(components)), ])
 
-            """Rock"""
-            self.property_container[i].rel_perm_ev = dict([('V', ModBrooksCorey(corey[i], 'V')),
-                                                           ('Aq', ModBrooksCorey(corey[i], 'Aq'))])
-            # self.property_container[i].capillary_pressure_ev = CapillaryPressure()
-            self.property_container[i].capillary_pressure_ev = ModCapillaryPressure(corey[i])
+            if thermal:
+                # property_container.enthalpy_ev = dict([('V', Enthalpy(hcap=0.035)),
+                #                                        ('L', Enthalpy(hcap=0.035)),
+                #                                        ('Aq', Enthalpy(hcap=0.00418*18.015)),]
+                h_ideal = EnthalpyIdeal(components)
+                property_container.enthalpy_ev = dict([('V', EoSEnthalpy(eos=pr, h_ideal=h_ideal)),
+                                                       ('Aq', EoSEnthalpy(eos=aq, h_ideal=h_ideal)), ])
 
-            hcap = np.array(self.reservoir.mesh.heat_capacity, copy=False)
-            rcond = np.array(self.reservoir.mesh.rock_cond, copy=False)
+                property_container.conductivity_ev = dict([('V', ConstFunc(0.)),
+                                                           ('Aq', ConstFunc(0.)), ])
 
-            hcap.fill(2200)
-            rcond.fill(181.44)
+            property_container.rel_perm_ev = dict([('V', ModBrooksCorey(corey[region], 'V')),
+                                                   ('Aq', ModBrooksCorey(corey[region], 'Aq'))])
+            property_container.capillary_pressure_ev = ModCapillaryPressure(corey[region])
 
-            # self.property_container[i].rock_compress_ev = RockCompactionEvaluator()
-            self.property_container[i].rock_energy_ev = RockEnergyEvaluator()
+            self.physics.add_property_region(property_container, region)
 
-        self.output_props = PropertyEvaluator(self.vars, self.property_container[0])
+        output_props = PropertyEvaluator(self.physics.vars, property_container)
+        self.physics.init_physics(regions=self.property_regions, output_props=output_props, platform=platform)
 
-        """ Activate physics """
-        self.physics = Compositional(self.property_container, self.timer, n_points=n_points,
-                                     min_p=5., max_p=300.0,
-                                     min_z=self.zero / 10, max_z=1 - self.zero / 10,
-                                     thermal=self.thermal,
-                                     min_t=0.8 * temperature, max_t=1.2 * temperature,
-                                     cache=0, platform=platform, out_props=self.output_props,
-                                     discr_type=self.reservoir.discr_type)
+        hcap = np.array(self.reservoir.mesh.heat_capacity, copy=False)
+        rcond = np.array(self.reservoir.mesh.rock_cond, copy=False)
+
+        hcap.fill(2200)
+        rcond.fill(181.44)
+
         return
 
     # Initialize reservoir and set boundary conditions:
     def set_initial_conditions(self):
-        if self.thermal:
-            self.physics.set_uniform_T_initial_conditions(self.reservoir.mesh, uniform_pressure=self.pres_in,
+        if self.physics.thermal:
+            self.physics.set_uniform_initial_conditions(self.reservoir.mesh, uniform_pressure=self.pres_in,
                                                           uniform_composition=self.ini_stream[:-1], uniform_temp=self.ini_stream[-1])
         else:
             self.physics.set_uniform_initial_conditions(self.reservoir.mesh, uniform_pressure=self.pres_in,
@@ -250,7 +242,7 @@ class Model(DartsModel):
         self.op_num = np.array(self.reservoir.mesh.op_num, copy=False)
         n_res = self.reservoir.mesh.n_res_blocks
 
-        if self.capillary:
+        if 1:
             if self.discr_type == 'mpfa':
                 Lz = max([pt.values[2] for pt in self.reservoir.discr_mesh.nodes])
                 centroids = np.array(self.reservoir.discr_mesh.centroids, copy=False)[:self.op_num.size]
@@ -259,42 +251,35 @@ class Model(DartsModel):
                 Lz = np.max(self.reservoir.unstr_discr.mesh_data.points[:, 2])
                 cell_ids = [cell_id for cell_id, cell in self.reservoir.unstr_discr.mat_cell_info_dict.items() if cell.centroid[2] > Lz / 2]
             self.op_num[cell_ids] = 1
-            self.op_num[n_res:] = self.n_property_regions
-            self.op_list = [self.physics.acc_flux_itor_verycoarse, self.physics.acc_flux_itor_coarse,
-                            self.physics.acc_flux_w_itor]
-            # C, D, E, ESF, F, Fault-1, Fault-2, G, W
-            # self.op_list = [self.physics.acc_flux_itor_verycoarse, self.physics.acc_flux_itor_coarse,
-            #                 self.physics.acc_flux_itor_fine, self.physics.acc_flux_itor_veryfine,
-            #                 self.physics.acc_flux_w_itor]
+            self.op_num[n_res:] = len(self.property_regions)
+            self.op_list = [*self.physics.acc_flux_itor.values(), self.physics.acc_flux_w_itor]
 
         else:
             self.op_num[n_res:] = 1
-            self.op_list = [self.physics.acc_flux_itor_verycoarse, self.physics.acc_flux_w_itor]
+            self.op_list = [self.physics.acc_flux_itor[0], self.physics.acc_flux_w_itor]
 
-    def output_properties(self, tot_cells, n_primary, n_secondary):
-        tot_props = n_primary + n_secondary
+    def output_properties(self):
+        n_vars = self.physics.property_operators.n_vars
+        n_props = self.physics.property_operators.n_props
+        tot_props = n_vars + n_props
 
-        property_array = np.zeros((tot_cells, tot_props))
-        for j in range(n_primary):
-            property_array[:, j] = self.physics.engine.X[j:tot_cells * n_primary:n_primary]
+        property_array = np.zeros((self.reservoir.nb, tot_props))
+        for j in range(n_vars):
+            property_array[:, j] = self.physics.engine.X[j:self.reservoir.nb * n_vars:n_vars]
 
-        values = value_vector(np.zeros(n_secondary))
+        values = value_vector(np.zeros(self.physics.n_ops))
 
-        for i in range(tot_cells):
+        for i in range(self.reservoir.nb):
             state = []
-            for j in range(n_primary):
+            for j in range(n_vars):
                 state.append(property_array[i, j])
             state = value_vector(np.asarray(state))
-            self.physics.property_itor_verycoarse.evaluate(state, values)
+            self.physics.property_itor.evaluate(state, values)
 
-            for j in range(n_secondary):
-                property_array[i, j + n_primary] = values[j]
+            for j in range(n_props):
+                property_array[i, j + n_vars] = values[j]
 
         return property_array
-
-    def properties(self, state):
-        (sat, x, rho, rho_m, mu, kr, pc, ph) = self.property_container[0].evaluate(state)
-        return sat[0]
 
     # def run_python_my(self, days=0, restart_dt=0, verbose=0, max_res=1e20):
     #     runtime = days
@@ -367,6 +352,7 @@ class Model(DartsModel):
     #                                                      self.e.stat.n_linear_total, self.e.stat.n_linear_wasted))
     #     self.max_dt = max_dt
 
+
 class PropertyEvaluator(DefaultPropertyEvaluator):
     def __init__(self, variables, property_container):
         super().__init__(variables, property_container)  # Initialize base-class
@@ -381,14 +367,74 @@ class PropertyEvaluator(DefaultPropertyEvaluator):
         :param values: values of the operators (used for storing the operator values)
         :return: updated value for operators, stored in values
         """
-        (self.sat, self.x, rho, self.rho_m, self.mu, rates, self.kr, self.pc, self.ph) = self.property.evaluate(state)
+        ph, sat, x, rho, rho_m, mu, kr, pc, mass_source = self.property.evaluate(state)
 
-        values[0] = self.sat[0]
-        values[1] = self.x[1, 0]
+        values[0] = sat[0]
+        values[1] = x[1, 0]
         values[2] = rho[0]
-        values[3] = self.rho_m[1]
+        values[3] = rho_m[1]
 
         return 0
+
+
+class CustomPhysics(Compositional):
+    def __init__(self, components, phases, timer,
+                 n_points, min_p, max_p, min_z, max_z, min_t=None, max_t=None, thermal=False, discr_type='tpfa', cache=False):
+        super().__init__(components, phases, timer,
+                         n_points, min_p, max_p, min_z, max_z, min_t, max_t, thermal, discr_type, cache)
+
+    def set_uniform_initial_conditions(self, mesh, uniform_pressure, uniform_composition: list, uniform_temp: float = None):
+        assert isinstance(mesh, conn_mesh)
+
+        nb = mesh.n_blocks
+        nb_res = mesh.n_res_blocks
+        """ Uniform Initial conditions """
+        # set initial pressure
+        pz_bounds = np.array(mesh.pz_bounds, copy=False)
+
+        pressure_grad = -0.09995
+        pressure = np.array(mesh.pressure, copy=False)
+        if isinstance( uniform_pressure, (np.ndarray, np.generic) ):
+            pressure[:nb_res] = uniform_pressure
+            pz_bounds[::self.nc] = np.mean(uniform_pressure)
+        else:
+            depth = np.array(mesh.depth, copy=True)
+            nonuniform_pressure = depth[:nb] * pressure_grad + uniform_pressure
+            pressure[:] = nonuniform_pressure
+            # pressure = np.array(mesh.pressure, copy=False)
+            # pressure.fill(uniform_pressure)
+            pz_bounds[::self.nc] = np.mean(nonuniform_pressure)
+
+        # if thermal, set initial temperature
+        if uniform_temp is not None:
+            temperature = np.array(mesh.temperature, copy=False)
+            temperature.fill(uniform_temp)
+
+        # set initial composition
+        mesh.composition.resize(nb * (self.nc - 1))
+        composition = np.array(mesh.composition, copy=False)
+        # composition[:] = np.array(uniform_composition)
+        if self.nc == 2:
+            for c in range(self.nc - 1):
+                composition[c:(self.nc - 1) * nb_res:(self.nc - 1)] = uniform_composition[:]
+                pz_bounds[1+c::self.nc] = np.mean(uniform_composition[:])
+        else:
+            for c in range(self.nc - 1):  # Denis
+                composition[c::(self.nc - 1)] = uniform_composition[c]
+                pz_bounds[1+c::self.nc] = np.mean(uniform_composition[c])
+
+    def set_boundary_conditions(self, mesh, uniform_pressure, uniform_composition):
+        assert isinstance(mesh, conn_mesh)
+
+        # Class methods which can create constant pressure and composition boundary condition:
+        pressure = np.array(mesh.pressure, copy=False)
+        pressure.fill(uniform_pressure)
+
+        mesh.composition.resize(mesh.n_blocks * (self.nc - 1))
+        composition = np.array(mesh.composition, copy=False)
+        for c in range(self.nc - 1):
+            composition[c::(self.nc - 1)] = uniform_composition[c]
+
 
 class ModBrooksCorey:
     def __init__(self, corey, phase):
@@ -430,7 +476,8 @@ class ModCapillaryPressure:
         # self.labda = 3
         self.eps = 1e-3
 
-    def evaluate(self, sat_w):
+    def evaluate(self, sat):
+        sat_w = sat[1]
         Se = (sat_w - self.swc)/(1 - self.swc)
         if Se < self.eps:
             Se = self.eps
