@@ -566,7 +566,7 @@ int engine_super_mp_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, st
 				p_diff += tran[conn_st_id] * buf[P_VAR];
 				// heat conduction
 				if (THERMAL)
-					t_diff -= tran_heat_cond[conn_st_id] * buf[T_VAR];
+					t_diff += tran_heat_cond[conn_st_id] * buf[T_VAR];
 				
 				for (p = 0; p < NP; p++)
 				{
@@ -671,7 +671,7 @@ int engine_super_mp_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, st
 					  // rock energy
 					  l_ind1 = st_id * N_VARS_SQ + T_VAR * N_VARS;
 					  // heat conduction
-					  Jac[l_ind1 + T_VAR] -= dt * tran_heat_cond[conn_st_id];
+					  Jac[l_ind1 + T_VAR] += dt * tran_heat_cond[conn_st_id];
 					}
 
 					conn_st_id++;
