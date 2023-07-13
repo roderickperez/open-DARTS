@@ -468,7 +468,7 @@ int engine_super_mp_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, st
 	index_t r_ind, r_ind1, r_ind2, r_ind3, l_ind, l_ind1, upwd_idx[NP], d_upwd_idx[NP * NE];
 	index_t j, diag_idx, jac_idx, nebr_jac_idx, csr_idx_start, csr_idx_end, upwd_jac_idx[NP], d_upwd_jac_idx[NP * NE], conn_id = 0, st_id = 0, conn_st_id = 0;
     value_t p_diff, gamma_p_diff, t_diff, gamma_t_diff, phi_i, phi_j, phi_avg, phi_0_avg, pc_diff[NP], diff_diff[NP * NE], phase_p_diff[NP], ZEROS[NP * NE];
-	value_t avg_density, *buf, *buf_c, *buf_diff;
+	value_t avg_density, *buf, *buf_c, *buf_diff, avg_heat_cond_multiplier;
 	uint8_t d, v, c, p;
 	value_t CFL_in[NC], CFL_out[NC];
     value_t CFL_max_local = 0;
@@ -629,14 +629,23 @@ int engine_super_mp_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, st
 					}
 				}
 			}
+
+			if (j < mesh->n_res_blocks)
+			{
+			  phi_avg = (mesh->poro[i] + mesh->poro[j]) * 0.5; // diffusion term depends on total porosity!
+			  avg_heat_cond_multiplier = (op_vals_arr[i * N_OPS + ROCK_COND] * (1 - mesh->poro[i]) +
+				op_vals_arr[j * N_OPS + ROCK_COND] * (1 - mesh->poro[j])) * 0.5;
+			}
+			else
+			{
+			  phi_avg = mesh->poro[i];
+			  avg_heat_cond_multiplier = op_vals_arr[i * N_OPS + ROCK_COND] * (1 - mesh->poro[i]);
+			}
 			// rock heat conduction
-			fluxes[N_VARS * conn_id + T_VAR] += t_diff;
+			fluxes[N_VARS * conn_id + T_VAR] += avg_heat_cond_multiplier * t_diff;
 
 			// [3] loop over stencil, contribution from UNKNOWNS to flux
-			if (j < mesh->n_res_blocks)
-				phi_avg = (mesh->poro[i] + mesh->poro[j]) * 0.5; // diffusion term depends on total porosity!
-			else
-				phi_avg = mesh->poro[i];
+
 			conn_st_id = offset[conn_id];
 			for (st_id = csr_idx_start; st_id < csr_idx_end && conn_st_id < offset[conn_id + 1]; st_id++)
 			{
@@ -671,7 +680,7 @@ int engine_super_mp_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, st
 					  // rock energy
 					  l_ind1 = st_id * N_VARS_SQ + T_VAR * N_VARS;
 					  // heat conduction
-					  Jac[l_ind1 + T_VAR] += dt * tran_heat_cond[conn_st_id];
+					  Jac[l_ind1 + T_VAR] += dt * avg_heat_cond_multiplier * tran_heat_cond[conn_st_id];
 					}
 
 					conn_st_id++;
@@ -724,12 +733,28 @@ int engine_super_mp_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, st
 				}
 			}
 
-			// [6] add heat conduction
-			/*if (THERMAL)
+			// [6] add derivatives to phase multipliers in front of heat conduction
+			if (THERMAL)
 			{
-				t_diff = op_vals_arr[j * N_OPS + RE_TEMP_OP] - op_vals_arr[i * N_OPS + RE_TEMP_OP];
-				gamma_t_diff = tranD[conn_id] * dt * t_diff;
-			}*/
+			  for (c = 0; c < NE; c++)
+			  {
+				// rock energy
+				l_ind = diag_idx + T_VAR * N_VARS + c;
+				l_ind1 = nebr_jac_idx * N_VARS_SQ + T_VAR * N_VARS + c;
+				r_ind = (i * N_OPS + ROCK_COND) * N_STATE + c;
+				r_ind1 = (j * N_OPS + ROCK_COND) * N_STATE + c;
+				// heat conduction
+				Jac[l_ind] += dt * t_diff * op_ders_arr[r_ind] * (1 - mesh->poro[i]) / 2;
+				if (nebr_jac_idx < csr_idx_end)
+				{
+				  Jac[l_ind1] += dt * t_diff * op_ders_arr[r_ind1] * (1 - mesh->poro[j]) / 2;
+				}
+				else
+				{
+				  Jac[l_ind] += dt * t_diff * op_ders_arr[r_ind] * (1 - mesh->poro[i]) / 2;
+				}
+			  }
+			}
 			// [7] residual
 			for (c = 0; c < NE; c++)
 			{
