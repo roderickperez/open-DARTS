@@ -172,7 +172,7 @@ conn_mesh::init(std::vector<index_t>& block_m, std::vector<index_t>& block_p, st
   return 0;
 }
 
-int
+/*int
 conn_mesh::init_mpfa(std::vector<index_t>& block_m,
                     std::vector<index_t>& block_p,
                     std::vector<index_t>& _fstencil,
@@ -216,10 +216,10 @@ conn_mesh::init_mpfa(std::vector<index_t>& block_m,
     kin_factor.assign(n_blocks, 1);  // if I want backwards compatibility with older version of python files I assume it needs to be filled with a 1 here (in case people don't actually use this factor!)
 
     return 0;
-}
+}*/
 
 int
-conn_mesh::init_mpfa_e(std::vector<index_t>& block_m,
+conn_mesh::init_mpfa(std::vector<index_t>& block_m,
 	std::vector<index_t>& block_p,
 	std::vector<index_t>& _fstencil,
 	std::vector<index_t>& _fst_offset,
@@ -269,7 +269,7 @@ conn_mesh::init_mpfa_e(std::vector<index_t>& block_m,
 	return 0;
 }
 
-int
+/*int
 conn_mesh::init_mpfa(std::vector<index_t>& block_m,
 	std::vector<index_t>& block_p,
 	std::vector<index_t>& _fstencil,
@@ -317,7 +317,7 @@ conn_mesh::init_mpfa(std::vector<index_t>& block_m,
 	kin_factor.assign(n_blocks, 1);  // if I want backwards compatibility with older version of python files I assume it needs to be filled with a 1 here (in case people don't actually use this factor!)
 
 	return 0;
-}
+}*/
 
 int
 conn_mesh::init_mpsa(std::vector<index_t>& block_m,

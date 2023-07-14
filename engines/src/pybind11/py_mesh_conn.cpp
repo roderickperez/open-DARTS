@@ -23,12 +23,12 @@ void pybind_mesh_conn(py::module &m)
 		  std::vector<value_t> &, std::vector<value_t> &)) &conn_mesh::init,
 		  "Initialize by connection list defined by block_m, block_p, tran and tranD arrays ",
 		  py::arg("block_m"), py::arg("block_p"), py::arg("tran"), py::arg("tranD") = std::vector<value_t>(0))
+	  //.def("init_mpfa", (int (conn_mesh::*)(std::vector<index_t>&, std::vector<index_t>&, std::vector<index_t>&,
+		//  std::vector<index_t>&, std::vector<value_t>&, std::vector<value_t>&, index_t, index_t)) & conn_mesh::init_mpfa)
 	  .def("init_mpfa", (int (conn_mesh::*)(std::vector<index_t>&, std::vector<index_t>&, std::vector<index_t>&,
-		  std::vector<index_t>&, std::vector<value_t>&, std::vector<value_t>&, index_t, index_t)) & conn_mesh::init_mpfa)
-	  .def("init_mpfa_e", (int (conn_mesh::*)(std::vector<index_t>&, std::vector<index_t>&, std::vector<index_t>&,
-		  std::vector<index_t>&, std::vector<value_t>&, std::vector<value_t>&, std::vector<value_t>&, std::vector<value_t>&, index_t, index_t, index_t, index_t)) & conn_mesh::init_mpfa_e)
-	  .def("init_mpfa", (int (conn_mesh::*)(std::vector<index_t>&, std::vector<index_t>&, std::vector<index_t>&,
-		  std::vector<index_t>&, std::vector<value_t>&, std::vector<value_t>&, std::vector<value_t>&, index_t, index_t, index_t)) & conn_mesh::init_mpfa)
+		  std::vector<index_t>&, std::vector<value_t>&, std::vector<value_t>&, std::vector<value_t>&, std::vector<value_t>&, index_t, index_t, index_t, index_t)) & conn_mesh::init_mpfa)
+	  //.def("init_mpfa", (int (conn_mesh::*)(std::vector<index_t>&, std::vector<index_t>&, std::vector<index_t>&,
+		//  std::vector<index_t>&, std::vector<value_t>&, std::vector<value_t>&, std::vector<value_t>&, index_t, index_t, index_t)) & conn_mesh::init_mpfa)
 	  .def("init_mpsa", (int (conn_mesh::*)(std::vector<index_t>&, std::vector<index_t>&, std::vector<index_t>&,
 		  std::vector<index_t>&, std::vector<value_t>&, uint8_t, index_t, index_t, index_t)) & conn_mesh::init_mpsa)
 	  .def("init_mpsa", (int (conn_mesh::*)(std::vector<index_t>&, std::vector<index_t>&, std::vector<index_t>&,
