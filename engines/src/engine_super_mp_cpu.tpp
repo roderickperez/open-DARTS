@@ -642,7 +642,8 @@ int engine_super_mp_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, st
 			  avg_heat_cond_multiplier = op_vals_arr[i * N_OPS + ROCK_COND] * (1 - mesh->poro[i]);
 			}
 			// rock heat conduction
-			fluxes[N_VARS * conn_id + T_VAR] += avg_heat_cond_multiplier * t_diff;
+			if (THERMAL)
+			  fluxes[N_VARS * conn_id + T_VAR] += avg_heat_cond_multiplier * t_diff;
 
 			// [3] loop over stencil, contribution from UNKNOWNS to flux
 
