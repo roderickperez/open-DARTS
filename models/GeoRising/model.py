@@ -1,11 +1,12 @@
 from darts.models.reservoirs.struct_reservoir import StructReservoir
 from darts.models.darts_model import DartsModel, sim_params
-from darts.models.physics.iapws.iapws_property_vec import _Backward1_T_Ph_vec
+from darts.physics.properties.iapws.iapws_property_vec import _Backward1_T_Ph_vec
 from darts.tools.keyword_file_tools import load_single_keyword
 import numpy as np
 from darts.engines import value_vector
 
 from darts.physics.geothermal.physics import Geothermal
+from darts.physics.geothermal.property_container import PropertyContainer
 
 
 class Model(DartsModel):
@@ -56,7 +57,9 @@ class Model(DartsModel):
         rcond.fill(500)
 
         # create pre-defined physics for geothermal
-        self.physics = Geothermal(self.timer, n_points, min_p=1, max_p=351, min_e=1000, max_e=10000, cache=False)
+        self.physics = Geothermal(self.timer, property_container=PropertyContainer(),
+                                  n_points=n_points, min_p=1, max_p=351, min_e=1000, max_e=10000, cache=False)
+        self.physics.init_physics()
 
         self.params.first_ts = 1e-3
         self.params.mult_ts = 8
@@ -89,13 +92,12 @@ class Model(DartsModel):
                 # w.control = self.physics.new_bhp_prod(180)
 
     def compute_temperature(self, X):
-        from darts.models.physics.iapws.iapws_property_vec import _Backward1_T_Ph_vec
         nb = self.reservoir.mesh.n_res_blocks
         temp = _Backward1_T_Ph_vec(X[0:2 * nb:2] / 10, X[1:2 * nb:2] / 18.015)
         return temp
 
     def set_op_list(self):
-        self.op_list = [self.physics.acc_flux_itor, self.physics.acc_flux_itor_well]
+        self.op_list = [self.physics.acc_flux_itor[0], self.physics.acc_flux_w_itor]
         op_num = np.array(self.reservoir.mesh.op_num, copy=False)
         op_num[self.reservoir.mesh.n_res_blocks:] = 1
 
