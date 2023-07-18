@@ -53,10 +53,12 @@ namespace dis
 		Approximation(uint8_t M, uint8_t N)
 		{
 			a = Matrix(M, N);
+			a_homo = Matrix(M, N);
+			a_thermal = Matrix(M, N);
 			rhs = Matrix(M, 1);
 			stencil.resize(N);
 		};
-		Matrix a, rhs, a_thermal;
+		Matrix a, a_thermal, a_homo, rhs;
 		std::vector<index_t> stencil;
 	};
 
@@ -77,16 +79,18 @@ namespace dis
 
 		inline void write_trans(const Approximation& flux)
 		{
-			value_t buf;
+			value_t buf, buf_homo;
 			// free term (gravity)
 			flux_rhs.push_back(flux.rhs.values[0]);
 			// stencil & transmissibilities
 			for (uint8_t st_id = 0; st_id < flux.stencil.size(); st_id++)
 			{
 				buf = flux.a.values[st_id];
+				buf_homo = flux.a_homo.values[st_id];
 				if (fabs(buf) > EQUALITY_TOLERANCE)
 				{
 					flux_vals.push_back(buf);
+					flux_vals_homo.push_back(buf_homo);
 					flux_stencil.push_back(flux.stencil[st_id]);
 				}
 			}
@@ -95,17 +99,19 @@ namespace dis
 		};
 		inline void write_trans_thermal(const Approximation& flux)
 		{
-		  value_t buf, buf_t;
+		  value_t buf, buf_homo, buf_t;
 		  // free term (gravity)
 		  flux_rhs.push_back(flux.rhs.values[0]);
 		  // stencil & transmissibilities
 		  for (uint8_t st_id = 0; st_id < flux.stencil.size(); st_id++)
 		  {
 			buf = flux.a.values[st_id];
+			buf_homo = flux.a_homo.values[st_id];
 			buf_t = flux.a_thermal.values[st_id];
 			if (fabs(buf) + fabs(buf_t) > EQUALITY_TOLERANCE)
 			{
 			  flux_vals.push_back(buf);
+			  flux_vals_homo.push_back(buf_homo);
 			  flux_vals_thermal.push_back(buf_t);
 			  flux_stencil.push_back(flux.stencil[st_id]);
 			}
@@ -151,6 +157,8 @@ namespace dis
 		/* Fluxes */
 		// array of fluxes through elements
 		std::vector<value_t> flux_vals;
+		// homogeneous transmissibilities (aka geometric part, for diffusion, heat conduction in fluids)
+		std::vector<value_t> flux_vals_homo;
 		// thermal transmissibilities
 		std::vector<value_t> flux_vals_thermal;
 		// array of fluxes through matrix elements ! USED ONLY FOR DEBUGGING PURPOSES

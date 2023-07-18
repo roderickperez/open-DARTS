@@ -58,6 +58,8 @@ void Discretizer::init()
 		// Darcy's, elastic fluxes and Biot's fluxes 
 		auto& flux = fluxes[k];
 		flux.a = Matrix(BLOCK_SIZE, MAX_STENCIL * BLOCK_SIZE);
+		flux.a_homo = Matrix(BLOCK_SIZE, MAX_STENCIL * BLOCK_SIZE);
+		flux.a_thermal = Matrix(BLOCK_SIZE, MAX_STENCIL * BLOCK_SIZE);
 		flux.rhs = Matrix(BLOCK_SIZE, 1);
 		flux.stencil.reserve(MAX_STENCIL);
 		// Premerged fluxes
@@ -1473,6 +1475,7 @@ void Discretizer::calc_mpfa_transmissibilities(BoundaryCondition& _bc, const boo
 	cell_m.reserve(mesh->adj_matrix.size());
 	cell_p.reserve(mesh->adj_matrix.size());
 	flux_vals.reserve(mesh->adj_matrix.size() * dis::MAX_STENCIL);
+	flux_vals_homo.reserve(mesh->adj_matrix.size() * dis::MAX_STENCIL);
 	flux_rhs.reserve(mesh->adj_matrix.size() * dis::MAX_STENCIL);
 	flux_stencil.reserve(mesh->adj_matrix.size() * dis::MAX_STENCIL);
 	flux_offset.reserve(mesh->adj_matrix.size() + 1);
@@ -1499,6 +1502,7 @@ void Discretizer::calc_mpfa_transmissibilities(BoundaryCondition& _bc, const boo
 				calc_matrix_matrix(conn, flux, j, adj_nebr_id, with_thermal);
 				
 				flux.a.values *= sign * conn.area;
+				flux.a_homo.values *= sign * conn.area;
 				flux.a_thermal.values *= sign * conn.area;
 				flux.rhs.values *= sign * conn.area;
 
@@ -1533,6 +1537,7 @@ void Discretizer::calc_mpfa_transmissibilities(BoundaryCondition& _bc, const boo
 
 				flux.a.values *= conn.area;
 				flux.a_thermal.values *= conn.area;
+				flux.a_homo.values *= conn.area;
 				flux.rhs.values *= conn.area;
 
 				cell_m.push_back(cell_id1);
@@ -1623,11 +1628,12 @@ void Discretizer::calc_mpfa_transmissibilities(BoundaryCondition& _bc, const boo
 void Discretizer::calc_matrix_matrix(const mesh::Connection& conn, Approximation& flux, const index_t adj_mat_id1, const index_t adj_mat_id2, const bool with_thermal)
 {
 	uint8_t id1, id2;
-	value_t lam1, lam2, d1, d2, Fh;
+	value_t lam1, lam2, d1, d2, Fh, T1, T2, T;
 	Matrix gam1(ND, 1), gam2(ND, 1), y1(ND, 1), y2(ND, 1), grad_coef, n(ND, 1), K1n(ND, 1), K2n(ND, 1);
 	const auto& x1 = mesh->centroids[conn.elem_id1];
 	const auto& x2 = mesh->centroids[conn.elem_id2];
 	index_t grad_id1, grad_id2;
+	Vector3 vec1, vec2;
 	std::vector<index_t> th_stencil;
 	
 	// normal vector
@@ -1688,6 +1694,14 @@ void Discretizer::calc_matrix_matrix(const mesh::Connection& conn, Approximation
 	id2 = static_cast<uint8_t>(std::distance(flux.stencil.begin(), it2));
 	flux.a(0, id1) -= Fh;
 	flux.a(0, id2) += Fh;
+
+	vec1 = conn.c - x1; T1 = dot(vec1, n) / dot(vec1, vec1);
+	vec2 = conn.c - x2;	T2 = -dot(vec2, n) / dot(vec2, vec2);
+	assert(T1 >= 0.0 && T2 >= 0.0);
+	T = (T1 + T2) > EQUALITY_TOLERANCE ? T1 * T2 / (T1 + T2) : 0.0;
+	flux.a_homo.values = 0.0;
+	flux.a_homo(0, id1) = T;
+	flux.a_homo(0, id2) = -T;
 
 	if (with_thermal)
 	{
@@ -1754,11 +1768,12 @@ void Discretizer::calc_fault_fault(const mesh::Connection& conn, Approximation& 
 void Discretizer::calc_matrix_boundary(const mesh::Connection& conn, Approximation& flux, const index_t adj_mat_id1, const bool with_thermal)
 {
 	uint8_t id1, id2;
-	value_t lam1, d1;
+	value_t lam1, d1, T1, T;
 	Matrix gam1(ND, 1), y1(ND, 1), grad_coef, n(ND, 1), c2(ND, 1);
 	const auto& x1 = mesh->centroids[conn.elem_id1];
 	const auto& x2 = mesh->centroids[conn.elem_id2];
 	const value_t mu = 1.0;
+	Vector3 vec1;
 	index_t grad_id1;
 
 	// normal vector
@@ -1811,6 +1826,14 @@ void Discretizer::calc_matrix_boundary(const mesh::Connection& conn, Approximati
 	id2 = static_cast<uint8_t>(std::distance(flux.stencil.begin(), it2));
 	flux.a(0, id1) += lam1 / d1 / mu * mult * a;
 	flux.a(0, id2) += -lam1 / d1 / mu * mult;
+
+	vec1 = conn.c - x1; 
+	T1 = dot(vec1, n) / dot(vec1, vec1);
+	T = T1 / (a + b * T1);
+	assert(T >= 0.0);
+	flux.a_homo.values = 0.0;
+	flux.a_homo(0, id1) = T;
+	flux.a_homo(0, id2) = -T;
 
 	if (with_thermal)
 	{
