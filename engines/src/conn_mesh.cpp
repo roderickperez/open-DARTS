@@ -172,7 +172,7 @@ conn_mesh::init(std::vector<index_t>& block_m, std::vector<index_t>& block_p, st
   return 0;
 }
 
-int
+/*int
 conn_mesh::init_mpfa(std::vector<index_t>& block_m,
                     std::vector<index_t>& block_p,
                     std::vector<index_t>& _fstencil,
@@ -216,17 +216,18 @@ conn_mesh::init_mpfa(std::vector<index_t>& block_m,
     kin_factor.assign(n_blocks, 1);  // if I want backwards compatibility with older version of python files I assume it needs to be filled with a 1 here (in case people don't actually use this factor!)
 
     return 0;
-}
+}*/
 
 int
-conn_mesh::init_mpfa_e(std::vector<index_t>& block_m,
+conn_mesh::init_mpfa(std::vector<index_t>& block_m,
 	std::vector<index_t>& block_p,
 	std::vector<index_t>& _fstencil,
 	std::vector<index_t>& _fst_offset,
 	std::vector<value_t>& _ftran,
-	std::vector<value_t>& _htran,
 	std::vector<value_t>& _rhs,
-	index_t _n_matrix, index_t _n_bounds, index_t _n_fracs)
+	std::vector<value_t>& _dtran,
+	std::vector<value_t>& _htran,
+	index_t _n_matrix, index_t _n_bounds, index_t _n_fracs, index_t _n_vars)
 {
 	n_vars = 1;
 	n_conns = block_m.size();
@@ -236,7 +237,8 @@ conn_mesh::init_mpfa_e(std::vector<index_t>& block_m,
 	one_way_stencil = _fstencil;
 	one_way_offset = _fst_offset;
 	one_way_tran = _ftran;
-	one_way_tranD = _htran;
+	one_way_tranD = _dtran;
+	one_way_tran_heat_cond = _htran;
 	one_way_rhs = _rhs;
 
 	n_matrix = _n_matrix;
@@ -258,8 +260,8 @@ conn_mesh::init_mpfa_e(std::vector<index_t>& block_m,
 	depth.assign(n_blocks + n_bounds, 0);
 	heat_capacity.assign(n_blocks, 0);
 	rock_cond.assign(n_blocks, 0);
-	bc.resize(3 * n_bounds);
-	f.resize(2 * n_blocks);
+	bc.resize(_n_vars * n_bounds);
+	f.resize(_n_vars * n_blocks);
 
 	// kinetic property
 	kin_factor.assign(n_blocks, 1);  // if I want backwards compatibility with older version of python files I assume it needs to be filled with a 1 here (in case people don't actually use this factor!)
@@ -267,7 +269,7 @@ conn_mesh::init_mpfa_e(std::vector<index_t>& block_m,
 	return 0;
 }
 
-int
+/*int
 conn_mesh::init_mpfa(std::vector<index_t>& block_m,
 	std::vector<index_t>& block_p,
 	std::vector<index_t>& _fstencil,
@@ -315,7 +317,7 @@ conn_mesh::init_mpfa(std::vector<index_t>& block_m,
 	kin_factor.assign(n_blocks, 1);  // if I want backwards compatibility with older version of python files I assume it needs to be filled with a 1 here (in case people don't actually use this factor!)
 
 	return 0;
-}
+}*/
 
 int
 conn_mesh::init_mpsa(std::vector<index_t>& block_m,
@@ -652,6 +654,11 @@ conn_mesh::add_conn_block(index_t block_m, index_t block_p, value_t trans, value
 		one_way_tranD.push_back(transD);
 		one_way_tranD.push_back(-transD);
 	}
+	if (one_way_tran_heat_cond.size())
+	{
+	  one_way_tran_heat_cond.push_back(transD);
+	  one_way_tran_heat_cond.push_back(-transD);
+	}
 	if (one_way_tran_biot.size())
 	{
 		one_way_tran_biot.insert(one_way_tran_biot.end(), tblock_zero.begin(), tblock_zero.end());
@@ -679,8 +686,13 @@ conn_mesh::add_conn_block(index_t block_m, index_t block_p, value_t trans, value
 	one_way_offset.push_back(one_way_stencil.size());
 	if (one_way_tranD.size())
 	{
-		one_way_tranD.push_back(10 * trans);
-		one_way_tranD.push_back(-10 * trans);
+		one_way_tranD.push_back(transD);
+		one_way_tranD.push_back(-transD);
+	}
+	if (one_way_tran_heat_cond.size())
+	{
+	  one_way_tran_heat_cond.push_back(transD);
+	  one_way_tran_heat_cond.push_back(-transD);
 	}
 	if (one_way_tran_biot.size())
 	{
@@ -1076,8 +1088,9 @@ conn_mesh::reverse_and_sort_mpfa()
 	block_m.resize(n_two_way_conns);
 	block_p.resize(n_two_way_conns);
 	tran.resize(n_two_way_stencil);
-	const bool thermal_trans_initialized = (one_way_tranD.size()) ? true : false;
-	if (thermal_trans_initialized) tranD.resize(n_two_way_stencil);
+	tranD.resize(n_two_way_stencil);
+	const bool thermal_trans_initialized = (one_way_tran_heat_cond.size()) ? true : false;
+	if (thermal_trans_initialized) tran_heat_cond.resize(n_two_way_stencil);
 	stencil.resize(n_two_way_stencil);
 	offset.resize(n_two_way_conns + 1);
 	rhs.resize(n_two_way_conns);
@@ -1108,10 +1121,9 @@ conn_mesh::reverse_and_sort_mpfa()
 			{
 			    stencil[j + f_acc] = one_way_stencil[ind[j]];
 			    tran[j + f_acc] = one_way_tran[ind[j]];
-				if (thermal_trans_initialized) tranD[j + f_acc] = one_way_tranD[ind[j]];
+			    tranD[j + f_acc] = one_way_tranD[ind[j]];
+				if (thermal_trans_initialized) tran_heat_cond[j + f_acc] = one_way_tran_heat_cond[ind[j]];
 			}
-			//tranD[conn_counter] = one_way_tranD[conn_id];
-
 
 			f_acc += size;
 		}
