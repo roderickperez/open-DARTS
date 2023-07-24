@@ -13,8 +13,8 @@ echo %fname%
 
 "C:\Program files\7-Zip\7z.exe" a -r %fname% *.pkl
 net use \\%srv%\opendarts-private-artifacts %pwd% /user:WORKGROUP\%lgn%
-rem if (-not (Test-Path $target_dir)) {mkdir $target_dir}
-copy %fname% \\darts-ci.citg.tudelft.nl\opendarts-private-artifacts\pkl_win\
+
+copy %fname% \\darts-ci.citg.tudelft.nl\darts-private-artifacts\pkl_win\
 
 del %fname%
 
