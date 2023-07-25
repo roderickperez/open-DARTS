@@ -26,7 +26,6 @@ which python3-config
 export PYTHON_IFLAGS=`python3-config --includes`
 
 # build solvers
-rm -rf ./engines/lib/darts_linear_solvers
 if [ $ODLS == "0" ]
 then # deprecated linear solvers
 	cd engines
