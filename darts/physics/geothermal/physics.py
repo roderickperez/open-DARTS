@@ -2,7 +2,6 @@ from darts.engines import *
 
 from darts.physics.physics_base import PhysicsBase
 from darts.physics.geothermal.operator_evaluator import *
-from darts.physics.properties.iapws.iapws_property import iapws_total_enthalpy_evalutor
 
 from darts.tools.keyword_file_tools import *
 
@@ -33,6 +32,8 @@ class Geothermal(PhysicsBase):
                 - itor_precision: 'd' (default) - double precision or 's' - single precision for interpolation
         """
         super().__init__(timer, cache)
+        
+        self.physics = property_container
 
         self.n_points = n_points
         self.min_p = min_p
@@ -158,7 +159,7 @@ class Geothermal(PhysicsBase):
         pressure.fill(uniform_pressure)
 
         state = value_vector([uniform_pressure, 0])
-        E = iapws_total_enthalpy_evalutor(uniform_temperature)
+        E = self.physics.total_enthalpy(uniform_temperature)
         enth = E.evaluate(state)
 
         enthalpy = np.array(mesh.enthalpy, copy=False)

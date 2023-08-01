@@ -40,6 +40,7 @@ class PropertyContainer:
             self.temperature = iapws_temperature_evaluator()                    # Create temperature object
             self.water_enthalpy = iapws_water_enthalpy_evaluator()              # Create water_enthalpy object
             self.steam_enthalpy = iapws_steam_enthalpy_evaluator()              # Create steam_enthalpy object
+            self.total_enthalpy = iapws_total_enthalpy_evalutor
             self.water_saturation = iapws_water_saturation_evaluator()          # Create water_saturation object
             self.steam_saturation = iapws_steam_saturation_evaluator()          # Create steam_saturation object
             self.water_relperm = iapws_water_relperm_evaluator()                # Create water_relperm object
