@@ -57,8 +57,9 @@ class Model(DartsModel):
         rcond.fill(500)
 
         # create pre-defined physics for geothermal
-        self.physics = Geothermal(self.timer, property_container=PropertyContainer(),
-                                  n_points=n_points, min_p=1, max_p=351, min_e=1000, max_e=10000, cache=False)
+        property_container = PropertyContainer()
+        self.physics = Geothermal(self.timer, n_points=n_points, min_p=1, max_p=351, min_e=1000, max_e=10000, cache=False)
+        self.physics.add_property_region(property_container)
         self.physics.init_physics()
 
         self.params.first_ts = 1e-3
