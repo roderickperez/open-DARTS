@@ -12,7 +12,7 @@ from darts.physics.properties.density import Garcia2001
 from darts.physics.properties.viscosity import Fenghour1998, Islam2012
 
 from dartsflash.libflash import NegativeFlash2
-from dartsflash.libflash import PR, Ziabakhsh2012, FlashParams
+from dartsflash.libflash import CubicEoS, Ziabakhsh2012, FlashParams
 from dartsflash.components import CompData, EnthalpyIdeal
 from dartsflash.eos_properties import EoSDensity, EoSEnthalpy
 
@@ -96,12 +96,11 @@ class Model(DartsModel):
         components = ["CO2", "H2O"]
         phases = ["Aq", "V"]
         nc = len(components)
-        comp_data = CompData(components)
-        comp_data.set_properties()
+        comp_data = CompData(components, setprops=True)
 
-        pr = PR(components, comp_data)
-        # aq = Jager2003(components, [])
-        aq = Ziabakhsh2012(components, [])
+        pr = CubicEoS(comp_data, CubicEoS.PR)
+        # aq = Jager2003(comp_data)
+        aq = Ziabakhsh2012(comp_data)
 
         flash_params = FlashParams(nc)
 
@@ -111,7 +110,7 @@ class Model(DartsModel):
         flash_params.eos_used = ["AQ", "PR"]
 
         from dartsflash.libflash import Henry
-        henry = Henry(components, comp_data, 1)
+        henry = Henry(comp_data, 1)
         flash_params.add_initial_guess(henry)
 
         # Flash-related parameters
