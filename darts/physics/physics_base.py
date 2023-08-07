@@ -82,8 +82,8 @@ class PhysicsBase:
             self.created_itors = []
             atexit.register(self.write_cache)
 
-    def init_physics(self, regions: list = None, output_props=None,
-                     platform='cpu', itor_type='multilinear', itor_mode='adaptive', itor_precision='d'):
+    def init_physics(self, regions: list = None, output_props=None, discr_type: str = 'tpfa', platform: str = 'cpu',
+                     itor_type: str = 'multilinear', itor_mode: str = 'adaptive', itor_precision: str = 'd'):
         """
         Function to initialize all contained objects within the Physics object.
 
@@ -91,11 +91,16 @@ class PhysicsBase:
         :type regions: list
         :param output_props: Output property operators object, default is None
         :type output_props:
+        :param discr_type: Discretization type, 'tpfa' (default) or 'mpfa'
+        :type discr_type: str
         :param platform: Switch for CPU/GPU engine, 'cpu' (default) or 'gpu'
         :type platform: str
         :param itor_type: Type of interpolation method, 'multilinear' (default) or 'linear'
+        :type itor_type: str
         :param itor_mode: Mode of interpolation, 'adaptive' (default) or 'static'
+        :type itor_mode: str
         :param itor_precision: Precision of interpolation, 'd' (default) - double precision or 's' - single precision
+        :type itor_precision: str
         """
         # If no list of regions has been provided, generate it from the keys of self.property_containers dict
         if regions is None:
@@ -103,6 +108,7 @@ class PhysicsBase:
 
         # Define operators,
         self.set_operators(regions, output_props)
+        self.set_engine(discr_type, platform)
         self.set_interpolators(platform, itor_type, itor_mode, itor_precision)
         self.set_well_controls()
         return
