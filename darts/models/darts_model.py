@@ -15,10 +15,10 @@ class DartsModel:
     A model is composed of a :class:`darts.models.Reservoir` object and a `darts.physics.Physics` object.
     Initialization and communication between these two objects takes place through the Model object
 
-    :ivar reservoir: Predefined set of colours
-    :type reservoir: list[str]
-    :ivar physics: :class:`matplotlib.colors.Colormap` with `colours`
-    :type physics: list[str]
+    :ivar reservoir: Reservoir object
+    :type reservoir: :class:`ReservoirBase`
+    :ivar physics: Physics object
+    :type physics: :class:`PhysicsBase`
     """
 
     def __init__(self):
@@ -74,18 +74,23 @@ class DartsModel:
     def set_initial_conditions(self):
         """
         Function to set initial conditions. Passes initial conditions to :class:`Physics` object.
+
+        This function is virtual in DartsModel, needs to be defined in child Model.
         """
         pass
 
     def set_boundary_conditions(self):
         """
         Function to set boundary conditions. Passes boundary conditions to :class:`Physics` object and wells.
+
+        This function is virtual in DartsModel, needs to be defined in child Model.
         """
         pass
 
     def set_op_list(self):
         """
         Function to define list of operator interpolators for accumulation-flux regions and wells.
+
         Operator list is in order [acc_flux_itor[0], ..., acc_flux_itor[n-1], acc_flux_w_itor]
         """
         if type(self.physics.acc_flux_itor) == dict:
