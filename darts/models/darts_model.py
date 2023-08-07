@@ -11,13 +11,24 @@ from darts.print_build_info import print_build_info as package_pbi
 
 class DartsModel:
     """
-    Base class with multiple functions
+    This is a base class for creating a model in DARTS.
+    A model is composed of a :class:`darts.models.Reservoir` object and a `darts.physics.Physics` object.
+    Initialization and communication between these two objects takes place through the Model object
 
+    :ivar reservoir: Predefined set of colours
+    :type reservoir: list[str]
+    :ivar physics: :class:`matplotlib.colors.Colormap` with `colours`
+    :type physics: list[str]
     """
 
     def __init__(self):
         """"
-           Initialize DartsModel class.
+        Initialize DartsModel class.
+
+        :ivar timer: Timer object
+        :type timer: :class:`darts.engines.timer_node`
+        :ivar params: Object to set simulation parameters
+        :type params: :class:`darts.engines.sim_params`
         """
         # print out build information
         engines_pbi()
@@ -35,16 +46,15 @@ class DartsModel:
 
         self.timer.node["initialization"].stop()  # Stop recording "initialization" time
 
-
     def init(self):
         """
-            Function to initialize the model, which includes:
-                - initialize well (perforation) position
-                - initialize well rate parameters
-                - initialize reservoir condition
-                - initialize well control settings
-                - build accumulation_flux_operator_interpolator list
-                - initialize engine
+        Function to initialize the model, which includes:
+        - initialize well (perforation) position
+        - initialize well rate parameters
+        - initialize reservoir initial conditions
+        - initialize well control settings
+        - define list of operator interpolators for accumulation-flux regions and wells
+        - initialize engine
         """
         self.reservoir.init_wells()
         self.physics.init_wells(self.reservoir.wells)
@@ -55,19 +65,29 @@ class DartsModel:
 
     def reset(self):
         """
-        Function to initialize the engine by calling 'init' method.
+        Function to initialize the engine by calling 'physics.engine.init()' method.
         """
         self.physics.engine.init(self.reservoir.mesh, ms_well_vector(self.reservoir.wells),
                                  op_vector(self.op_list),
                                  self.params, self.timer.node["simulation"])
 
     def set_initial_conditions(self):
+        """
+        Function to set initial conditions. Passes initial conditions to :class:`Physics` object.
+        """
         pass
 
     def set_boundary_conditions(self):
+        """
+        Function to set boundary conditions. Passes boundary conditions to :class:`Physics` object and wells.
+        """
         pass
 
     def set_op_list(self):
+        """
+        Function to define list of operator interpolators for accumulation-flux regions and wells.
+        Operator list is in order [acc_flux_itor[0], ..., acc_flux_itor[n-1], acc_flux_w_itor]
+        """
         if type(self.physics.acc_flux_itor) == dict:
             self.op_list = [self.physics.acc_flux_itor[0], self.physics.acc_flux_w_itor]
             self.op_num = np.array(self.reservoir.mesh.op_num, copy=False)
@@ -76,14 +96,14 @@ class DartsModel:
         else: # for backward compatibility
             self.op_list = [self.physics.acc_flux_itor]
             
-    def run(self, days=0):
+    def run(self, days: float = 0):
         if days:
             runtime = days
         else:
             runtime = self.runtime
         self.physics.engine.run(runtime)
 
-    def run_python(self, days=0, restart_dt=0, timestep_python=False):
+    def run_python(self, days: float = 0, restart_dt: float = 0, timestep_python: bool = False):
         if days:
             runtime = days
         else:
@@ -139,10 +159,11 @@ class DartsModel:
                                                          self.e.stat.n_newton_total, self.e.stat.n_newton_wasted,
                                                          self.e.stat.n_linear_total, self.e.stat.n_linear_wasted))
 
-    def load_restart_data(self, filename='restart.pkl'):
+    def load_restart_data(self, filename: str = 'restart.pkl'):
         """
         Function to load data from previous simulation and uses them for following simulation.
         :param filename: restart_data filename
+        :type filename: str
         """
         if os.path.exists(filename):
             with open(filename, "rb") as fp:
@@ -153,10 +174,11 @@ class DartsModel:
                 self.physics.engine.Xn = value_vector(X)
                 self.physics.engine.op_vals_arr_n = value_vector(arr_n)
 
-    def save_restart_data(self, filename='restart.pkl'):
+    def save_restart_data(self, filename: str = 'restart.pkl'):
         """
         Function to save the simulation data for restart usage.
         :param filename: Name of the file where restart_data stores.
+        :type filename: str
         """
         t = np.copy(self.physics.engine.t)
         X = np.copy(self.physics.engine.X)
@@ -225,6 +247,9 @@ class DartsModel:
     def get_performance_data(self):
         """
         Function to get the needed performance data
+
+        :return: Performance data
+        :rtype: dict
         """
         perf_data = dict()
         perf_data['solution'] = np.copy(self.physics.engine.X)
@@ -250,7 +275,7 @@ class DartsModel:
 
         return perf_data
 
-    def save_performance_data(self, file_name='', pkl_suffix=''):
+    def save_performance_data(self, file_name: str = '', pkl_suffix: str = ''):
         import platform
         """
         Function to save performance data for future comparison.
@@ -264,7 +289,7 @@ class DartsModel:
             pickle.dump(data, fp, 4)
 
     @staticmethod
-    def load_performance_data(file_name='', pkl_suffix = ''):
+    def load_performance_data(file_name: str = '', pkl_suffix: str = ''):
         import platform
         """
         Function to load the performance pkl file at previous simulation.
@@ -280,7 +305,7 @@ class DartsModel:
     def print_timers(self):
         """
         Function to print the time information, including total time elapsed,
-                                        time consumption at different stages of the simulation, etc..
+        time consumption at different stages of the simulation, etc..
         """
         print(self.timer.print("", ""))
 
@@ -290,9 +315,22 @@ class DartsModel:
         """
         self.physics.engine.print_stat()
 
-    def export_vtk(self, file_name='data', local_cell_data={}, global_cell_data={}, vars_data_dtype=np.float32,
-                   export_grid_data=True):
+    def export_vtk(self, file_name: str = 'data', local_cell_data: dict = {}, global_cell_data: dict = {},
+                   vars_data_dtype: type = np.float32, export_grid_data: bool = True):
+        """
+        Function to export results at timestamp t into `.vtk` format.
 
+        :param file_name: Name to save .vtk file
+        :type file_name: str
+        :param local_cell_data: Local cell data (active cells)
+        :type local_cell_data: dict
+        :param global_cell_data: Global cell data (all cells including actnum)
+        :type global_cell_data: dict
+        :param vars_data_dtype:
+        :type vars_data_dtype: type
+        :param export_grid_data:
+        :type export_grid_data: bool
+        """
         # get current engine time
         t = self.physics.engine.t
         nb = self.reservoir.mesh.n_res_blocks
@@ -308,7 +346,6 @@ class DartsModel:
     def __del__(self):
         for name in list(vars(self).keys()):
             delattr(self, name)
-
 
     def run_timestep_python(self, dt, t):
         max_newt = self.params.max_i_newton
@@ -345,4 +382,3 @@ class DartsModel:
         converged = self.e.post_newtonloop(dt, t)
         self.timer.node['simulation'].stop()
         return converged
-
