@@ -34,7 +34,7 @@ class PhysicsBase:
     reservoir_operators = {}
     wellbore_operators = {}
     rate_operators = {}
-    property_operators = {}
+    property_operators = None
 
     def __init__(self, variables: list, nc: int, phases: list, n_ops: int,
                  axes_min: value_vector, axes_max: value_vector, n_points: int,
@@ -69,6 +69,7 @@ class PhysicsBase:
         self.n_ops = n_ops
 
         # Define OBL grid
+        self.n_points = n_points
         self.axes_min = axes_min
         self.axes_max = axes_max
         self.n_axes_points = index_vector([n_points] * self.n_vars)
@@ -177,21 +178,22 @@ class PhysicsBase:
                                                         self.n_axes_points, self.axes_min, self.axes_max,
                                                         platform=platform, algorithm=itor_type, mode=itor_mode,
                                                         precision=itor_precision)
-
-        self.property_itor = self.create_interpolator(self.property_operators, self.n_vars, self.n_ops,
-                                                      self.n_axes_points, self.axes_min, self.axes_max,
-                                                      platform=platform, algorithm=itor_type, mode=itor_mode,
-                                                      precision=itor_precision)
+        self.create_itor_timers(self.acc_flux_w_itor, 'wellbore interpolation')
 
         self.rate_itor = self.create_interpolator(self.rate_operators, self.n_vars, self.nph,
                                                   self.n_axes_points, self.axes_min, self.axes_max,
                                                   platform=platform, algorithm=itor_type, mode=itor_mode,
                                                   precision=itor_precision)
-
-        self.create_itor_timers(self.acc_flux_w_itor, 'wellbore interpolation')
         self.create_itor_timers(self.rate_itor, 'well controls interpolation')
-        self.create_itor_timers(self.property_itor, 'property interpolation')
-        pass
+
+        if self.property_operators is not None:
+            self.property_itor = self.create_interpolator(self.property_operators, self.n_vars, self.n_ops,
+                                                          self.n_axes_points, self.axes_min, self.axes_max,
+                                                          platform=platform, algorithm=itor_type, mode=itor_mode,
+                                                          precision=itor_precision)
+            self.create_itor_timers(self.property_itor, 'property interpolation')
+
+        return
 
     def set_well_controls(self):
         pass

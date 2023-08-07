@@ -79,6 +79,10 @@ class Geothermal(PhysicsBase):
             self.rate_operators = geothermal_mass_rate_custom_evaluator_python(self.property_containers[regions[0]])
         else:
             self.rate_operators = geothermal_rate_custom_evaluator_python(self.property_containers[regions[0]])
+
+        # Create property evaluator
+        if output_properties is not None:
+            self.property_operators = output_properties
         return
 
     def set_engine(self, discr_type: str = 'tpfa', platform: str = 'cpu'):
