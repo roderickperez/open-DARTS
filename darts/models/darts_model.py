@@ -3,7 +3,7 @@ import pickle
 import os
 import numpy as np
 
-from darts.engines import *
+from darts.engines import timer_node, sim_params, value_vector, index_vector, op_vector, ms_well_vector
 from darts.engines import print_build_info as engines_pbi
 from darts.discretizer import print_build_info as discretizer_pbi
 from darts.print_build_info import print_build_info as package_pbi
@@ -71,6 +71,22 @@ class DartsModel:
                                  op_vector(self.op_list),
                                  self.params, self.timer.node["simulation"])
 
+    def set_physics(self):
+        """
+        Function to define properties and regions and initialize :class:`Physics` object.
+
+        This function is virtual in DartsModel, needs to be defined in child Model.
+        """
+        pass
+
+    def set_wells(self):
+        """
+        Function to define wells and initialize :class:`Reservoir` object.
+
+        This function is virtual in DartsModel, needs to be defined in child Model.
+        """
+        pass
+
     def set_initial_conditions(self):
         """
         Function to set initial conditions. Passes initial conditions to :class:`Physics` object.
@@ -94,26 +110,56 @@ class DartsModel:
         Operator list is in order [acc_flux_itor[0], ..., acc_flux_itor[n-1], acc_flux_w_itor]
         """
         if type(self.physics.acc_flux_itor) == dict:
-            self.op_list = [self.physics.acc_flux_itor[0], self.physics.acc_flux_w_itor]
+            self.op_list = [acc_flux_itor for acc_flux_itor in self.physics.acc_flux_itor.items()] + [self.physics.acc_flux_w_itor]
             self.op_num = np.array(self.reservoir.mesh.op_num, copy=False)
-            n_res = self.reservoir.mesh.n_res_blocks
-            self.op_num[n_res:] = len(self.physics.acc_flux_itor.keys())
+            self.op_num[self.reservoir.nb:] = len(self.op_list) - 1
         else: # for backward compatibility
             self.op_list = [self.physics.acc_flux_itor]
-            
-    def run(self, days: float = 0):
-        if days:
-            runtime = days
-        else:
-            runtime = self.runtime
+
+    def set_sim_params(self, first_ts: float = None, mult_ts: float = None, max_ts: float = None,
+                       tol_newton: float = None, tol_linear: float = None, it_newton: int = None, it_linear: int = None,
+                       newton_type=None, newton_params=None):
+        """
+        Function to set simulation parameters.
+
+        :param first_ts: First timestep
+        :type first_ts: float
+        :param mult_ts: Timestep multiplier
+        :type mult_ts: float
+        :param max_ts: Maximum timestep
+        :type max_ts: float
+        :param runtime: Total runtime
+        :type runtime: float
+        :param tol_newton: Tolerance for Newton iterations
+        :type tol_newton: float
+        :param tol_linear: Tolerance for linear iterations
+        :type tol_linear: float
+        :param it_newton: Maximum number of Newton iterations
+        :type it_newton: int
+        :param it_linear: Maximum number of linear iterations
+        :type it_linear: int
+        :param newton_type:
+        :param newton_params:
+        """
+        self.params.first_ts = first_ts if first_ts is not None else self.params.first_ts
+        self.params.mult_ts = mult_ts if mult_ts is not None else self.params.mult_ts
+        self.params.max_ts = max_ts if max_ts is not None else self.params.max_ts
+
+        # Newton tolerance is relatively high because of L2-norm for residual and well segments
+        self.params.tolerance_newton = tol_newton if tol_newton is not None else self.params.tolerance_newton
+        self.params.tolerance_linear = tol_linear if tol_linear is not None else self.params.tolerance_linear
+        self.params.max_i_newton = it_newton if it_newton is not None else self.params.max_i_newton
+        self.params.max_i_linear = it_linear if it_linear is not None else self.params.max_i_linear
+
+        self.params.newton_type = newton_type if newton_type is not None else self.params.newton_type
+        self.params.newton_params = newton_params if newton_params is not None else self.params.newton_params
+
+    def run(self, days: float):
+        runtime = days
+
         self.physics.engine.run(runtime)
 
-    def run_python(self, days: float = 0, restart_dt: float = 0, timestep_python: bool = False):
-        if days:
-            runtime = days
-        else:
-            runtime = self.runtime
-
+    def run_python(self, days: float, restart_dt: float = 0, timestep_python: bool = False):
         mult_dt = self.params.mult_ts
         max_dt = self.params.max_ts
         self.e = self.physics.engine
@@ -130,7 +176,7 @@ class DartsModel:
             dt = self.params.max_ts
 
         # evaluate end time
-        runtime += t
+        runtime = t + days
         ts = 0
 
         while t < runtime:
@@ -163,194 +209,6 @@ class DartsModel:
         print("TS = %d(%d), NI = %d(%d), LI = %d(%d)" % (self.e.stat.n_timesteps_total, self.e.stat.n_timesteps_wasted,
                                                          self.e.stat.n_newton_total, self.e.stat.n_newton_wasted,
                                                          self.e.stat.n_linear_total, self.e.stat.n_linear_wasted))
-
-    def load_restart_data(self, filename: str = 'restart.pkl'):
-        """
-        Function to load data from previous simulation and uses them for following simulation.
-        :param filename: restart_data filename
-        :type filename: str
-        """
-        if os.path.exists(filename):
-            with open(filename, "rb") as fp:
-                data = pickle.load(fp)
-                days, X, arr_n = data
-                self.physics.engine.t = days
-                self.physics.engine.X = value_vector(X)
-                self.physics.engine.Xn = value_vector(X)
-                self.physics.engine.op_vals_arr_n = value_vector(arr_n)
-
-    def save_restart_data(self, filename: str = 'restart.pkl'):
-        """
-        Function to save the simulation data for restart usage.
-        :param filename: Name of the file where restart_data stores.
-        :type filename: str
-        """
-        t = np.copy(self.physics.engine.t)
-        X = np.copy(self.physics.engine.X)
-        arr_n = np.copy(self.physics.engine.op_vals_arr_n)
-        data = [t, X, arr_n]
-        with open(filename, "wb") as fp:
-            pickle.dump(data, fp, 4)
-
-    # overwrite key to save results over existed
-    # diff_norm_normalized_tol defines tolerance for L2 norm of final solution difference , normalized by amount of blocks and variable range
-    # diff_abs_max_normalized_tol defines tolerance for maximum of final solution difference, normalized by variable range
-    # rel_diff_tol defines tolerance (in %) to a change in integer simulation parameters as linear and newton iterations
-    def check_performance(self, overwrite=0, diff_norm_normalized_tol=1e-9, diff_abs_max_normalized_tol=1e-7,
-                          rel_diff_tol=1, perf_file='', pkl_suffix=''):
-        """
-        Function to check the performance data to make sure whether the performance has been changed
-        """
-        fail = 0
-        data_et = self.load_performance_data(perf_file, pkl_suffix=pkl_suffix)
-        if data_et and not overwrite:
-            data = self.get_performance_data()
-            nb = self.reservoir.mesh.n_res_blocks
-            nv = self.physics.n_vars
-
-            # Check final solution - data[0]
-            # Check every variable separately
-            for v in range(nv):
-                sol_et = data_et['solution'][v:nb * nv:nv]
-                diff = data['solution'][v:nb * nv:nv] - sol_et
-                sol_range = np.max(sol_et) - np.min(sol_et)
-                diff_abs = np.abs(diff)
-                diff_norm = np.linalg.norm(diff)
-                diff_norm_normalized = diff_norm / len(sol_et) / sol_range
-                diff_abs_max_normalized = np.max(diff_abs) / sol_range
-                if diff_norm_normalized > diff_norm_normalized_tol or diff_abs_max_normalized > diff_abs_max_normalized_tol:
-                    fail += 1
-                    print(
-                        '#%d solution check failed for variable %s (range %f): L2(diff)/len(diff)/range = %.2E (tol %.2E), max(abs(diff))/range %.2E (tol %.2E), max(abs(diff)) = %.2E' \
-                        % (fail, self.physics.vars[v], sol_range, diff_norm_normalized, diff_norm_normalized_tol,
-                           diff_abs_max_normalized, diff_abs_max_normalized_tol, np.max(diff_abs)))
-            for key, value in sorted(data.items()):
-                if key == 'solution' or type(value) != int:
-                    continue
-                reference = data_et[key]
-
-                if reference == 0:
-                    if value != 0:
-                        print('#%d parameter %s is %d (was 0)' % (fail, key, value))
-                        fail += 1
-                else:
-                    rel_diff = (value - data_et[key]) / reference * 100
-                    if abs(rel_diff) > rel_diff_tol:
-                        print('#%d parameter %s is %d (was %d, %+.2f%%)' % (fail, key, value, reference, rel_diff))
-                        fail += 1
-            if not fail:
-                print('OK, \t%.2f s' % self.timer.node['simulation'].get_timer())
-                return 0
-            else:
-                print('FAIL, \t%.2f s' % self.timer.node['simulation'].get_timer())
-                return 1
-        else:
-            self.save_performance_data(perf_file, pkl_suffix=pkl_suffix)
-            print('SAVED')
-            return 0
-
-    def get_performance_data(self):
-        """
-        Function to get the needed performance data
-
-        :return: Performance data
-        :rtype: dict
-        """
-        perf_data = dict()
-        perf_data['solution'] = np.copy(self.physics.engine.X)
-        perf_data['reservoir blocks'] = self.reservoir.mesh.n_res_blocks
-        perf_data['variables'] = self.physics.n_vars
-        perf_data['OBL resolution'] = self.physics.n_points
-        perf_data['operators'] = self.physics.n_ops
-        perf_data['timesteps'] = self.physics.engine.stat.n_timesteps_total
-        perf_data['wasted timesteps'] = self.physics.engine.stat.n_timesteps_wasted
-        perf_data['newton iterations'] = self.physics.engine.stat.n_newton_total
-        perf_data['wasted newton iterations'] = self.physics.engine.stat.n_newton_wasted
-        perf_data['linear iterations'] = self.physics.engine.stat.n_linear_total
-        perf_data['wasted linear iterations'] = self.physics.engine.stat.n_linear_wasted
-
-        sim = self.timer.node['simulation']
-        jac = sim.node['jacobian assembly']
-        perf_data['simulation time'] = sim.get_timer()
-        perf_data['linearization time'] = jac.get_timer()
-        perf_data['linear solver time'] = sim.node['linear solver solve'].get_timer() + sim.node[
-            'linear solver setup'].get_timer()
-        interp = jac.node['interpolation']
-        perf_data['interpolation incl. generation time'] = interp.get_timer()
-
-        return perf_data
-
-    def save_performance_data(self, file_name: str = '', pkl_suffix: str = ''):
-        import platform
-        """
-        Function to save performance data for future comparison.
-        :param file_name:
-        :return:
-        """
-        if file_name == '':
-            file_name = 'perf_' + platform.system().lower()[:3] + pkl_suffix +'.pkl'
-        data = self.get_performance_data()
-        with open(file_name, "wb") as fp:
-            pickle.dump(data, fp, 4)
-
-    @staticmethod
-    def load_performance_data(file_name: str = '', pkl_suffix: str = ''):
-        import platform
-        """
-        Function to load the performance pkl file at previous simulation.
-        :param file_name: performance filename
-        """
-        if file_name == '':
-            file_name = 'perf_' + platform.system().lower()[:3] + pkl_suffix + '.pkl'
-        if os.path.exists(file_name):
-            with open(file_name, "rb") as fp:
-                return pickle.load(fp)
-        return 0
-
-    def print_timers(self):
-        """
-        Function to print the time information, including total time elapsed,
-        time consumption at different stages of the simulation, etc..
-        """
-        print(self.timer.print("", ""))
-
-    def print_stat(self):
-        """
-        Function to print the statistics information, including total timesteps, Newton iteration, linear iteration, etc..
-        """
-        self.physics.engine.print_stat()
-
-    def export_vtk(self, file_name: str = 'data', local_cell_data: dict = {}, global_cell_data: dict = {},
-                   vars_data_dtype: type = np.float32, export_grid_data: bool = True):
-        """
-        Function to export results at timestamp t into `.vtk` format.
-
-        :param file_name: Name to save .vtk file
-        :type file_name: str
-        :param local_cell_data: Local cell data (active cells)
-        :type local_cell_data: dict
-        :param global_cell_data: Global cell data (all cells including actnum)
-        :type global_cell_data: dict
-        :param vars_data_dtype:
-        :type vars_data_dtype: type
-        :param export_grid_data:
-        :type export_grid_data: bool
-        """
-        # get current engine time
-        t = self.physics.engine.t
-        nb = self.reservoir.mesh.n_res_blocks
-        nv = self.physics.n_vars
-        X = np.array(self.physics.engine.X, copy=False)
-
-        for v in range(nv):
-            local_cell_data[self.physics.vars[v]] = X[v:nb * nv:nv].astype(vars_data_dtype)
-
-        self.reservoir.export_vtk(file_name, t, local_cell_data, global_cell_data, export_grid_data)
-
-    # destructor to force to destroy all created C objects and free memory
-    def __del__(self):
-        for name in list(vars(self).keys()):
-            delattr(self, name)
 
     def run_timestep_python(self, dt, t):
         max_newt = self.params.max_i_newton
@@ -387,3 +245,110 @@ class DartsModel:
         converged = self.e.post_newtonloop(dt, t)
         self.timer.node['simulation'].stop()
         return converged
+
+    def output_properties(self):
+        """
+        Function to return array of properties.
+        Primary variables (vars) are obtained from engine, secondary variables (props) are interpolated by property_itor.
+
+        :returns: property_array
+        :rtype: np.ndarray
+        """
+        # Initialize property_array
+        n_vars = self.physics.n_vars
+        n_props = self.physics.n_props
+        tot_props = n_vars + n_props
+        property_array = np.zeros((self.reservoir.nb, tot_props))
+
+        # Obtain primary variables from engine
+        for j in range(n_vars):
+            property_array[:, j] = self.physics.engine.X[j:self.reservoir.nb * n_vars:n_vars]
+
+        # If it has been defined, interpolate secondary variables in property_itor,
+        if self.physics.property_operators is not None:
+            values = value_vector(np.zeros(self.physics.n_ops))
+
+            for i in range(self.reservoir.nb):
+                state = []
+                for j in range(n_vars):
+                    state.append(property_array[i, j])
+                state = value_vector(np.asarray(state))
+                self.physics.property_itor.evaluate(state, values)
+
+                for j in range(n_props):
+                    property_array[i, j + n_vars] = values[j]
+
+        return property_array
+
+    def export_vtk(self, file_name: str = 'data', local_cell_data: dict = {}, global_cell_data: dict = {},
+                   vars_data_dtype: type = np.float32, export_grid_data: bool = True):
+        """
+        Function to export results at timestamp t into `.vtk` format.
+
+        :param file_name: Name to save .vtk file
+        :type file_name: str
+        :param local_cell_data: Local cell data (active cells)
+        :type local_cell_data: dict
+        :param global_cell_data: Global cell data (all cells including actnum)
+        :type global_cell_data: dict
+        :param vars_data_dtype:
+        :type vars_data_dtype: type
+        :param export_grid_data:
+        :type export_grid_data: bool
+        """
+        # get current engine time
+        t = self.physics.engine.t
+        nb = self.reservoir.mesh.n_res_blocks
+        nv = self.physics.n_vars
+        X = np.array(self.physics.engine.X, copy=False)
+
+        for v in range(nv):
+            local_cell_data[self.physics.vars[v]] = X[v:nb * nv:nv].astype(vars_data_dtype)
+
+        self.reservoir.export_vtk(file_name, t, local_cell_data, global_cell_data, export_grid_data)
+
+    def load_restart_data(self, filename: str = 'restart.pkl'):
+        """
+        Function to load data from previous simulation and uses them for following simulation.
+        :param filename: restart_data filename
+        :type filename: str
+        """
+        if os.path.exists(filename):
+            with open(filename, "rb") as fp:
+                data = pickle.load(fp)
+                days, X, arr_n = data
+                self.physics.engine.t = days
+                self.physics.engine.X = value_vector(X)
+                self.physics.engine.Xn = value_vector(X)
+                self.physics.engine.op_vals_arr_n = value_vector(arr_n)
+
+    def save_restart_data(self, filename: str = 'restart.pkl'):
+        """
+        Function to save the simulation data for restart usage.
+        :param filename: Name of the file where restart_data stores.
+        :type filename: str
+        """
+        t = np.copy(self.physics.engine.t)
+        X = np.copy(self.physics.engine.X)
+        arr_n = np.copy(self.physics.engine.op_vals_arr_n)
+        data = [t, X, arr_n]
+        with open(filename, "wb") as fp:
+            pickle.dump(data, fp, 4)
+
+    def print_timers(self):
+        """
+        Function to print the time information, including total time elapsed,
+        time consumption at different stages of the simulation, etc..
+        """
+        print(self.timer.print("", ""))
+
+    def print_stat(self):
+        """
+        Function to print the statistics information, including total timesteps, Newton iteration, linear iteration, etc..
+        """
+        self.physics.engine.print_stat()
+
+    # destructor to force to destroy all created C objects and free memory
+    def __del__(self):
+        for name in list(vars(self).keys()):
+            delattr(self, name)
