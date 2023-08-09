@@ -110,13 +110,13 @@ class DartsModel:
         Operator list is in order [acc_flux_itor[0], ..., acc_flux_itor[n-1], acc_flux_w_itor]
         """
         if type(self.physics.acc_flux_itor) == dict:
-            self.op_list = [acc_flux_itor for acc_flux_itor in self.physics.acc_flux_itor.items()] + [self.physics.acc_flux_w_itor]
+            self.op_list = [acc_flux_itor for acc_flux_itor in self.physics.acc_flux_itor.values()] + [self.physics.acc_flux_w_itor]
             self.op_num = np.array(self.reservoir.mesh.op_num, copy=False)
             self.op_num[self.reservoir.nb:] = len(self.op_list) - 1
         else: # for backward compatibility
             self.op_list = [self.physics.acc_flux_itor]
 
-    def set_sim_params(self, first_ts: float = None, mult_ts: float = None, max_ts: float = None,
+    def set_sim_params(self, first_ts: float = None, mult_ts: float = None, max_ts: float = None, runtime: float = 1000,
                        tol_newton: float = None, tol_linear: float = None, it_newton: int = None, it_linear: int = None,
                        newton_type=None, newton_params=None):
         """
@@ -128,7 +128,7 @@ class DartsModel:
         :type mult_ts: float
         :param max_ts: Maximum timestep
         :type max_ts: float
-        :param runtime: Total runtime
+        :param runtime: Total runtime in days, default is 1000
         :type runtime: float
         :param tol_newton: Tolerance for Newton iterations
         :type tol_newton: float
@@ -144,6 +144,7 @@ class DartsModel:
         self.params.first_ts = first_ts if first_ts is not None else self.params.first_ts
         self.params.mult_ts = mult_ts if mult_ts is not None else self.params.mult_ts
         self.params.max_ts = max_ts if max_ts is not None else self.params.max_ts
+        self.runtime = runtime
 
         # Newton tolerance is relatively high because of L2-norm for residual and well segments
         self.params.tolerance_newton = tol_newton if tol_newton is not None else self.params.tolerance_newton
@@ -154,8 +155,8 @@ class DartsModel:
         self.params.newton_type = newton_type if newton_type is not None else self.params.newton_type
         self.params.newton_params = newton_params if newton_params is not None else self.params.newton_params
 
-    def run(self, days: float):
-        runtime = days
+    def run(self, days: float = None):
+        runtime = days if days is not None else self.runtime
 
         self.physics.engine.run(runtime)
 
