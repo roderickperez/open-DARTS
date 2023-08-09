@@ -85,10 +85,11 @@ class Compositional(PhysicsBase):
 
         self.rate_operators = RateOperators(self.property_containers[regions[0]])
 
+        # Create property evaluator
         if output_properties is not None:
             self.property_operators = output_properties
-        else:
-            self.property_operators = DefaultPropertyEvaluator(self.vars, self.property_containers[regions[0]])
+        if output_properties is not None:
+            self.property_operators = output_properties
 
         return
 

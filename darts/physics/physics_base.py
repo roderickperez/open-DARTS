@@ -62,6 +62,7 @@ class PhysicsBase:
         # Define variables and number of operators
         self.vars = variables
         self.n_vars = len(variables)
+        self.n_props = 0
 
         self.nc = nc
         self.phases = phases
@@ -107,7 +108,8 @@ class PhysicsBase:
         if regions is None:
             regions = [key for key in self.property_containers.keys()]
 
-        # Define operators,
+        # Define operators, set engine, set interpolators and define well controls
+        self.n_props = output_props.n_props if output_props is not None else 0
         self.set_operators(regions, output_props)
         self.set_engine(discr_type, platform)
         self.set_interpolators(platform, itor_type, itor_mode, itor_precision)
@@ -326,14 +328,6 @@ class PhysicsBase:
         # assign created timer to interpolator
         itor.init_timer_node(self.timer.node["jacobian assembly"].node["interpolation"].node[timer_name])
 
-    def __del__(self):
-        # first write cache
-        if self.cache:
-            self.write_cache()
-        # Now destroy all objects in physics
-        for name in list(vars(self).keys()):
-            delattr(self, name)
-
     def write_cache(self):
         # this function can be called two ways
         #   1. Destructor (__del__) method
@@ -345,3 +339,11 @@ class PhysicsBase:
             with open(filename, "wb") as fp:
                 print("Writing point data for ", type(itor).__name__)
                 pickle.dump(itor.point_data, fp, protocol=4)
+
+    def __del__(self):
+        # first write cache
+        if self.cache:
+            self.write_cache()
+        # Now destroy all objects in physics
+        for name in list(vars(self).keys()):
+            delattr(self, name)

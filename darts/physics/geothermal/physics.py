@@ -104,13 +104,11 @@ class Geothermal(PhysicsBase):
 
         self.water_inj_stream = value_vector([1.0])
         # water injection at constant temperature with bhp control
-        self.new_bhp_water_inj = lambda bhp, temp: gt_bhp_temp_inj_well_control(self.phases, self.n_vars,
-                                                                                bhp, temp,
+        self.new_bhp_water_inj = lambda bhp, temp: gt_bhp_temp_inj_well_control(self.phases, self.n_vars, bhp, temp,
                                                                                 self.water_inj_stream, self.rate_itor)
         # water injection at constant temperature with volumetric rate control
-        self.new_rate_water_inj = lambda rate, temp: gt_rate_temp_inj_well_control(self.phases, 0, self.n_vars,
-                                                                                   rate, temp,
-                                                                                   self.water_inj_stream,
+        self.new_rate_water_inj = lambda rate, temp: gt_rate_temp_inj_well_control(self.phases, 0, self.n_vars, rate,
+                                                                                   temp, self.water_inj_stream,
                                                                                    self.rate_itor)
         # water production with bhp control
         self.new_bhp_prod = lambda bhp: gt_bhp_prod_well_control(bhp)
