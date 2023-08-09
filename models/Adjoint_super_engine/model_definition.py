@@ -1,6 +1,6 @@
 from darts.engines import *
 from darts.models.reservoirs.struct_reservoir import StructReservoir
-from darts.models.darts_model import DartsModel
+from darts.models.cicd_model import CICDModel
 from darts.engines import sim_params
 import numpy as np
 
@@ -15,7 +15,7 @@ from darts.models.opt.opt_module_settings import OptModuleSettings
 from darts.tools.keyword_file_tools import get_table_keyword
 
 
-class Model(DartsModel, OptModuleSettings):
+class Model(CICDModel, OptModuleSettings):
     def __init__(self, T, report_step=120, perm=300, poro=0.2, customize_new_operator=False, Peaceman_WI=False):
         # call base class constructor
         super().__init__()
