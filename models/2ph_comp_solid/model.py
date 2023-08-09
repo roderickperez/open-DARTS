@@ -25,7 +25,7 @@ class Model(CICDModel):
         self.set_physics()
         self.set_wells()
 
-        self.set_sim_params(first_ts=0.001, mult_ts=2, max_ts=1, tol_newton=1e-5, tol_linear=1e-6,
+        self.set_sim_params(first_ts=0.001, mult_ts=2, max_ts=1, runtime=1000, tol_newton=1e-5, tol_linear=1e-6,
                             it_newton=10, it_linear=50, newton_type=sim_params.newton_local_chop)
 
         self.timer.node["initialization"].stop()
@@ -45,7 +45,7 @@ class Model(CICDModel):
         self.reservoir.add_perforation(well=self.reservoir.wells[-1], i=1, j=1, k=1, multi_segment=False)
 
         self.reservoir.add_well("P1")
-        self.reservoir.add_perforation(well=self.reservoir.wells[-1], i=nx, j=1, k=1, multi_segment=False)
+        self.reservoir.add_perforation(well=self.reservoir.wells[-1], i=self.reservoir.nx, j=1, k=1, multi_segment=False)
 
         # self.reservoir.add_well("P1")
         # for i in range(int(self.reservoir.nz / 2)):

@@ -22,7 +22,7 @@ class Model(CICDModel):
         self.set_physics()
         self.set_wells()
 
-        self.set_sim_params(first_ts=1e-6, mult_ts=2, max_ts=10, tol_newton=1e-3, tol_linear=1e-7,
+        self.set_sim_params(first_ts=1e-6, mult_ts=2, max_ts=10, runtime=100, tol_newton=1e-3, tol_linear=1e-7,
                             it_newton=10, it_linear=50)
 
         self.timer.node["initialization"].stop()

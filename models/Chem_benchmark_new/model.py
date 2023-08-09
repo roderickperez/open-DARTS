@@ -53,7 +53,7 @@ class Model(CICDModel):
         self.set_physics(grid_1D, res, custom_physics)
         self.set_wells(grid_1D)
 
-        self.set_sim_params(first_ts=0.001, mult_ts=2, max_ts=0.1, tol_newton=1e-3, tol_linear=1e-5,
+        self.set_sim_params(first_ts=0.001, mult_ts=2, max_ts=0.1, runtime=50, tol_newton=1e-3, tol_linear=1e-5,
                             it_newton=10, it_linear=50, newton_type=sim_params.newton_local_chop)
 
         self.timer.node["initialization"].stop()

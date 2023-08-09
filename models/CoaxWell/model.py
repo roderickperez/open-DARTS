@@ -20,7 +20,7 @@ class Model(CICDModel):
         self.set_wells(resolution)
         self.set_physics(n_points)
 
-        self.set_sim_params(first_ts=1e-5, mult_ts=8, max_ts=31, tol_newton=1e-4, tol_linear=1e-6,
+        self.set_sim_params(first_ts=1e-5, mult_ts=8, max_ts=31, runtime=365, tol_newton=1e-4, tol_linear=1e-6,
                             it_newton=20, it_linear=40, newton_type=sim_params.newton_global_chop,
                             newton_params=value_vector([1]))
 
@@ -111,7 +111,6 @@ class Model(CICDModel):
         self.op_list = [self.physics.acc_flux_itor[0], self.physics.acc_flux_w_itor]
         op_num = np.array(self.reservoir.mesh.op_num, copy=False)
         op_num[self.reservoir.mesh.n_res_blocks:] = 1
-
 
     def export_pro_vtk(self, file_name='Results'):
         X = np.array(self.physics.engine.X, copy=False)
