@@ -44,11 +44,11 @@ class Model(CICDModel):
         self.reservoir.set_boundary_volume(xz_minus=1e8, xz_plus=1e8, yz_minus=1e8, yz_plus=1e8, xy_minus=1e8,
                                            xy_plus=1e8)
 
-        # rock heat capacity and rock thermal conduction
-        hcap = np.array(self.reservoir.mesh.heat_capacity, copy=False)
-        rcond = np.array(self.reservoir.mesh.rock_cond, copy=False)
-        hcap.fill(2200)
-        rcond.fill(500)
+        # # rock heat capacity and rock thermal conduction
+        # hcap = np.array(self.reservoir.mesh.heat_capacity, copy=False)
+        # rcond = np.array(self.reservoir.mesh.rock_cond, copy=False)
+        # hcap.fill(2200)
+        # rcond.fill(500)
 
         return
 
@@ -81,6 +81,12 @@ class Model(CICDModel):
         perf_2 = len(well_2.perforations)
         # dictionary: key is a pair of 2 well names; value is a list of well perforation indices to connect
         self.reservoir.connected_well_segments = {(well_1.name, well_2.name): [(perf_1, perf_2)]}
+
+        # rock heat capacity and rock thermal conduction
+        hcap = np.array(self.reservoir.mesh.heat_capacity, copy=False)
+        rcond = np.array(self.reservoir.mesh.rock_cond, copy=False)
+        hcap.fill(2200)
+        rcond.fill(500)
         return
 
     def set_physics(self, n_points):

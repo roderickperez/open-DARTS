@@ -44,11 +44,11 @@ class Model(CICDModel):
 
         self.reservoir.set_boundary_volume(xz_minus=1e8, xz_plus=1e8, yz_minus=1e8, yz_plus=1e8)
 
-        # rock heat capacity and rock thermal conduction
-        hcap = np.array(self.reservoir.mesh.heat_capacity, copy=False)
-        rcond = np.array(self.reservoir.mesh.rock_cond, copy=False)
-        hcap.fill(2200)
-        rcond.fill(500)
+        # # rock heat capacity and rock thermal conduction
+        # hcap = np.array(self.reservoir.mesh.heat_capacity, copy=False)
+        # rcond = np.array(self.reservoir.mesh.rock_cond, copy=False)
+        # hcap.fill(2200)
+        # rcond.fill(500)
 
         return
 
@@ -70,6 +70,12 @@ class Model(CICDModel):
         # add perforations to te payzone
         for n in range(1, n_perf):
             self.reservoir.add_perforation(self.reservoir.wells[-1], self.iw[1], self.jw[1], n + 1, 0.16)
+
+        # rock heat capacity and rock thermal conduction
+        hcap = np.array(self.reservoir.mesh.heat_capacity, copy=False)
+        rcond = np.array(self.reservoir.mesh.rock_cond, copy=False)
+        hcap.fill(2200)
+        rcond.fill(500)
 
         return
 
