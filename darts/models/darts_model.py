@@ -3,6 +3,10 @@ import pickle
 import os
 import numpy as np
 
+from darts.engines import conn_mesh, engine_base
+from darts.reservoirs.reservoir_base import ReservoirBase
+from darts.physics.physics_base import PhysicsBase
+
 from darts.engines import timer_node, sim_params, value_vector, index_vector, op_vector, ms_well_vector
 from darts.engines import print_build_info as engines_pbi
 from darts.discretizer import print_build_info as discretizer_pbi
@@ -17,9 +21,17 @@ class DartsModel:
 
     :ivar reservoir: Reservoir object
     :type reservoir: :class:`ReservoirBase`
+    :ivar mesh: Mesh object
+    :type mesh: :class:`darts.engines.conn_mesh`
     :ivar physics: Physics object
     :type physics: :class:`PhysicsBase`
+    :ivar engine: Engine object
+    :type engine: :class:`darts.engines.engine`
     """
+    reservoir: ReservoirBase
+    mesh: conn_mesh
+    physics: PhysicsBase
+    engine: engine_base
 
     def __init__(self):
         """"
@@ -87,13 +99,34 @@ class DartsModel:
         """
         pass
 
-    def set_initial_conditions(self):
+    def set_initial_conditions(self, initial_values: dict, gradient: dict = None):
         """
-        Function to set initial conditions. Passes initial conditions to :class:`Physics` object.
+        Function to set initial conditions. Passes initial conditions to :class:`Mesh` object.
 
-        This function is virtual in DartsModel, needs to be defined in child Model.
+        :param initial_values: Map of scalars/arrays of initial values for each primary variable, keys are the variables
+        :type initial_values: dict
+        :param gradient: Map of scalars of gradients for initial values
+        :type gradient: dict
         """
-        pass
+        for i, variable in enumerate(self.physics.vars):
+            # Check if variable exists in initial values dictionary
+            if not variable in initial_values.keys():
+                raise RuntimeError("Primary variable {} was not assigned initial values.".format(variable))
+
+            values = np.array(self.mesh.values[i], copy=False)
+            initial_value = initial_values[variable]
+
+            if isinstance(initial_values[variable], (list, np.ndarray)):
+                # If initial value is an array, assign array
+                values[:] = initial_value
+            elif gradient is not None and variable in gradient.keys():
+                # If gradient has been defined, calculate distribution over depth and assign to array
+                for ith_cell in self.mesh.n_res_blocks:
+                    values[ith_cell] = initial_value + self.mesh.depth[ith_cell] * gradient
+            else:
+                # Else, assign constant value to each cell in array
+                values.fill(initial_value)
+        return
 
     def set_boundary_conditions(self):
         """
