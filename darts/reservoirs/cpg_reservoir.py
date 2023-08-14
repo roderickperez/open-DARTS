@@ -1,5 +1,5 @@
 from darts.engines import conn_mesh, ms_well, ms_well_vector
-from darts.discretizer import load_single_float_keyword, load_single_int_keyword
+from darts.discretizer import load_single_int_keyword
 from darts.discretizer import value_vector as value_vector_discr
 from darts.discretizer import index_vector as index_vector_discr
 import numpy as np
@@ -15,7 +15,7 @@ from darts.discretizer import load_single_float_keyword
 import datetime
 import darts
 from pyevtk import hl, vtk
-from darts.mesh.struct_discretizer import StructDiscretizer
+from darts.reservoirs.mesh.struct_discretizer import StructDiscretizer
 
 import os
 import sys

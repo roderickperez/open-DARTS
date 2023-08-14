@@ -1,13 +1,12 @@
 import numpy as np
-from darts.models.reservoirs.struct_reservoir import StructReservoir
+from darts.reservoirs.struct_reservoir import StructReservoir
 from darts.models.darts_model import DartsModel
-from darts.engines import value_vector, sim_params
 
 from darts.physics.super.physics import Compositional
 from darts.physics.super.property_container import PropertyContainer
 from darts.physics.super.operator_evaluator import PropertyOperators
 
-from darts.physics.properties.basic import PhaseRelPerm, CapillaryPressure, RockEnergyEvaluator, ConstFunc
+from darts.physics.properties.basic import PhaseRelPerm, ConstFunc
 from darts.physics.properties.density import Garcia2001
 from darts.physics.properties.viscosity import Fenghour1998, Islam2012
 

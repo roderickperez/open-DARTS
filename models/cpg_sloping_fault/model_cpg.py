@@ -1,13 +1,13 @@
 import numpy as np
 import time
 
-from darts.models.reservoirs.cpg_reservoir import CPG_Reservoir, save_array
+from darts.reservoirs.cpg_reservoir import CPG_Reservoir, save_array
 from darts.discretizer import load_single_float_keyword, load_single_int_keyword
 from darts.discretizer import value_vector as value_vector_discr
 from darts.discretizer import index_vector as index_vector_discr
 from darts.engines import value_vector
 
-from darts.models.reservoirs.struct_reservoir import StructReservoir
+from darts.reservoirs.struct_reservoir import StructReservoir
 from darts.tools.keyword_file_tools import save_few_keywords
 
 

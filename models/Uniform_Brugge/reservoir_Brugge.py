@@ -1,9 +1,7 @@
 from darts.engines import conn_mesh, ms_well, ms_well_vector, index_vector, value_vector
 import numpy as np
-from math import inf, pi
-from darts.mesh.unstruct_discretizer import UnstructDiscretizer
-from itertools import compress
-import meshio
+from math import pi
+from darts.reservoirs.mesh.unstruct_discretizer import UnstructDiscretizer
 import sys
 from calculate_WI import calc_equivalent_WI
 

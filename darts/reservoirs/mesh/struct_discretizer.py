@@ -1,7 +1,5 @@
 # Section of the Python code where we import all dependencies on third party Python modules/libaries or our own
 # libraries (exposed C++ code to Python, i.e. darts.engines && darts.physics)
-import time
-from darts.mesh.transcalc import *
 
 
 class StructDiscretizer:

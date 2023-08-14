@@ -14,7 +14,7 @@ import time
 
 import os
 
-from darts.models.reservoirs.cpg_reservoir import save_array, make_full_cube
+from darts.reservoirs.cpg_reservoir import save_array, make_full_cube
 def run(discr_type : str, gridfile : str, propfile : str, sch_fname : str,
         dt : float, n_time_steps : int,
         export_vtk=False):
