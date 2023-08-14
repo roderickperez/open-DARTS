@@ -12,7 +12,7 @@ from darts.physics.properties.density import Garcia2001
 from darts.physics.properties.viscosity import Fenghour1998, Islam2012
 
 from dartsflash.libflash import NegativeFlash2
-from dartsflash.libflash import CubicEoS, Ziabakhsh2012, FlashParams, InitialGuess
+from dartsflash.libflash import CubicEoS, Ziabakhsh2012, FlashParams, SplitIG
 from dartsflash.components import CompData, EnthalpyIdeal
 from dartsflash.eos_properties import EoSDensity, EoSEnthalpy
 
@@ -99,7 +99,7 @@ class Model(DartsModel):
         flash_params.add_eos("AQ", aq)
         flash_params.eos_used = ["AQ", "PR"]
 
-        flash_params.add_initial_guess(InitialGuess(comp_data, InitialGuess.HENRY, 1))
+        flash_params.split_initial_guess = SplitIG(comp_data, SplitIG.HENRY, 1)
 
         # Flash-related parameters
         # flash_params.split_switch_tol = 1e-3
@@ -154,25 +154,3 @@ class Model(DartsModel):
                 w.control = self.physics.new_bhp_inj(self.p_inj, self.inj_stream)
             else:
                 w.control = self.physics.new_bhp_prod(self.p_prod)
-
-
-class PropertyEvaluator(DefaultPropertyEvaluator):
-    def __init__(self, variables, property_container):
-        super().__init__(variables, property_container)  # Initialize base-class
-
-        self.props = ['sat0', 'xCO2']
-        self.n_props = len(self.props)
-
-    def evaluate(self, state, values):
-        """
-        Class methods which evaluates the state operators for the element based physics
-        :param state: state variables [pres, comp_0, ..., comp_N-1]
-        :param values: values of the operators (used for storing the operator values)
-        :return: updated value for operators, stored in values
-        """
-        ph, sat, x, dens, dens_m, mu, kr, pc, mass_source = self.property.evaluate(state)
-
-        values[0] = sat[0]
-        values[1] = x[0, 0]
-
-        return 0
