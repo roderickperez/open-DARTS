@@ -2,17 +2,16 @@ import os
 from math import pi
 
 import numpy as np
+from darts.reservoirs.reservoir_base import ReservoirBase
 from darts.engines import conn_mesh, ms_well, ms_well_vector, timer_node, value_vector, index_vector
 from darts.mesh.struct_discretizer import StructDiscretizer
 from pyevtk import hl, vtk
 from scipy.interpolate import griddata
 
 
-class StructReservoir:
-    def __init__(self, timer, nx: int, ny: int, nz: int,
-                 dx, dy, dz,
-                 permx, permy, permz,
-                 poro, depth, actnum=1, global_to_local=0, op_num=0, coord=0, zcorn=0, is_cpg=False):
+class StructReservoir(ReservoirBase):
+    def __init__(self, timer: timer_node, nx: int, ny: int, nz: int, dx, dy, dz, permx, permy, permz, poro,
+                 depth, actnum=1, global_to_local=0, op_num=0, coord=0, zcorn=0, is_cpg=False, cache=False):
         """
         Class constructor method
 
@@ -36,81 +35,25 @@ class StructReservoir:
         :param zcron: ZCORN keyword values for more accurate geometry during VTK export (no values by default)
 
         """
+        super().__init__(timer, cache)
 
-        self.timer = timer
         self.nx = nx
         self.ny = ny
         self.nz = nz
-        self.coord = coord
-        self.zcorn = zcorn
+        self.n = nx * ny * nz
+
         self.permx = permx
         self.permy = permy
         self.permz = permz
-        self.n = nx * ny * nz
-        self.global_data = {'dx': dx,
-                            'dy': dy,
-                            'dz': dz,
-                            'permx': permx,
-                            'permy': permy,
-                            'permz': permz,
-                            'poro': poro,
-                            'depth': depth,
-                            'actnum': actnum,
-                            'op_num': op_num,
+        self.global_data = {'dx': dx, 'dy': dy, 'dz': dz,
+                            'poro': poro, 'permx': permx, 'permy': permy, 'permz': permz,
+                            'depth': depth, 'actnum': actnum, 'op_num': op_num,
                             }
-        self.discretizer = StructDiscretizer(nx=nx, ny=ny, nz=nz, dx=dx, dy=dy, dz=dz, permx=permx, permy=permy,
-                                             permz=permz, global_to_local=global_to_local, coord=coord, zcorn=zcorn,
-                                             is_cpg=is_cpg)
 
-        self.timer.node['initialization'].node['connection list generation'] = timer_node()
-        self.timer.node['initialization'].node['connection list generation'].start()
-        if self.discretizer.is_cpg:
-            cell_m, cell_p, tran, tran_thermal = self.discretizer.calc_cpg_discr()
-        else:
-            cell_m, cell_p, tran, tran_thermal = self.discretizer.calc_structured_discr()
-        self.timer.node['initialization'].node['connection list generation'].stop()
-
-        volume = self.discretizer.calc_volumes()
-        self.global_data['volume'] = volume
-
-        # apply actnum filter if needed - all arrays providing a value for a single grid block should be passed
-        arrs = [poro, depth, volume, op_num]
-        cell_m, cell_p, tran, tran_thermal, arrs_local = self.discretizer.apply_actnum_filter(actnum, cell_m,
-                                                                                              cell_p, tran,
-                                                                                              tran_thermal, arrs)
-        poro, depth, volume, op_num = arrs_local
-        self.global_data['global_to_local'] = self.discretizer.global_to_local
-        # create mesh object
-        self.mesh = conn_mesh()
-
-        # for plotting the equivalent permeability after history matching
-        #TODO add a flag in case we don't need these arrays (Xiaoming)
-        self.cell_m = cell_m
-        self.cell_p = cell_p
-        self.tran = tran
-        self.tran_thermal = tran_thermal
-
-        # Initialize mesh using built connection list
-        self.mesh.init(index_vector(cell_m), index_vector(cell_p), value_vector(tran),
-                       value_vector(tran_thermal))
-
-        # taking into account actnum
-        self.nb = volume.size
-
-        # Create numpy arrays wrapped around mesh data (no copying)
-        self.poro = np.array(self.mesh.poro, copy=False)
-        self.depth = np.array(self.mesh.depth, copy=False)
-        self.volume = np.array(self.mesh.volume, copy=False)
-        self.op_num = np.array(self.mesh.op_num, copy=False)
-        self.hcap = np.array(self.mesh.heat_capacity, copy=False)
-        self.rcond = np.array(self.mesh.rock_cond, copy=False)
-
-        self.poro[:] = poro
-        self.depth[:] = depth
-        self.volume[:] = volume
-        self.op_num[:] = op_num
-
-        self.wells = []
+        self.actnum = actnum
+        self.coord = coord
+        self.zcorn = zcorn
+        self.global_to_local = global_to_local
 
         self.vtk_z = 0
         self.vtk_y = 0
@@ -126,6 +69,41 @@ class StructReservoir:
             self.vtk_grid_type = 1
             
         self.connected_well_segments = {}
+
+    def discretize(self):
+        discretizer = StructDiscretizer(nx=self.nx, ny=self.ny, nz=self.nz, global_data=self.global_data,
+                                        global_to_local=self.global_to_local, coord=self.coord, zcorn=self.zcorn)
+
+        self.timer.node['connection list generation'] = timer_node()
+        self.timer.node['connection list generation'].start()
+        if discretizer.is_cpg:
+            cell_m, cell_p, tran, tran_thermal = discretizer.calc_cpg_discr()
+        else:
+            cell_m, cell_p, tran, tran_thermal = discretizer.calc_structured_discr()
+        self.timer.node['connection list generation'].stop()
+
+        volume = discretizer.calc_volumes()
+        self.global_data['volume'] = volume
+
+        # apply actnum filter if needed - all arrays providing a value for a single grid block should be passed
+        arrs = [self.global_data['poro'], self.global_data['depth'], volume, self.global_data['op_num']]
+        cell_m, cell_p, tran, tran_thermal, arrs_local = discretizer.apply_actnum_filter(self.actnum, cell_m, cell_p,
+                                                                                         tran, tran_thermal, arrs)
+        poro, depth, volume, op_num = arrs_local
+        self.global_data['global_to_local'] = discretizer.global_to_local
+
+        # Initialize mesh using built connection list
+        mesh = conn_mesh()
+        mesh.init(index_vector(cell_m), index_vector(cell_p), value_vector(tran),
+                  value_vector(tran_thermal))
+
+        # Create numpy arrays wrapped around mesh data (no copying)
+        np.array(mesh.poro, copy=False)[:] = poro
+        np.array(mesh.depth, copy=False)[:] = depth
+        np.array(mesh.volume, copy=False)[:] = volume
+        np.array(mesh.op_num, copy=False)[:] = op_num
+
+        return mesh
 
     def set_boundary_volume(self, xy_minus=-1, xy_plus=-1, yz_minus=-1, yz_plus=-1, xz_minus=-1, xz_plus=-1):
         # get 3d shape
