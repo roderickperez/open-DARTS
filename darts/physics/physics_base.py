@@ -32,9 +32,9 @@ class PhysicsBase:
     property_containers = {}
 
     reservoir_operators = {}
-    wellbore_operators = {}
-    rate_operators = {}
-    property_operators = None
+    wellbore_operators: operator_set_evaluator_iface
+    rate_operators: operator_set_evaluator_iface
+    property_operators: operator_set_evaluator_iface = None
 
     def __init__(self, variables: list, nc: int, phases: list, n_ops: int,
                  axes_min: value_vector, axes_max: value_vector, n_points: int,
@@ -113,7 +113,7 @@ class PhysicsBase:
         self.set_operators(regions, output_props)
         self.set_engine(discr_type, platform)
         self.set_interpolators(platform, itor_type, itor_mode, itor_precision)
-        self.set_well_controls()
+        self.define_well_controls()
         return
 
     def add_property_region(self, property_container, region=0):
@@ -197,7 +197,7 @@ class PhysicsBase:
 
         return
 
-    def set_well_controls(self):
+    def define_well_controls(self):
         pass
 
     def create_interpolator(self, evaluator: operator_set_evaluator_iface, n_dims: int, n_ops: int,

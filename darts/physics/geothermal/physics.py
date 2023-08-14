@@ -97,7 +97,7 @@ class Geothermal(PhysicsBase):
         self.engine = eval("engine_nce_g_%s%d_%d" % (platform, self.nc, self.nph - 2))()
         return
 
-    def set_well_controls(self):
+    def define_well_controls(self):
         # create well controls
         # water stream
         # pure water injection at constant temperature

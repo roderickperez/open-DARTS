@@ -113,7 +113,7 @@ class Compositional(PhysicsBase):
             else:
                 self.engine = eval("engine_super_%s%d_%d" % (platform, self.nc, self.nph))()
 
-    def set_well_controls(self):
+    def define_well_controls(self):
         # define well control factories
         # Injection wells (upwind method requires both bhp and inj_stream for bhp controlled injection wells):
         self.new_bhp_inj = lambda bhp, inj_stream: bhp_inj_well_control(bhp, value_vector(inj_stream))
