@@ -1,89 +1,30 @@
-from darts.engines import *
-from darts.models.physics.iapws.iapws_property import *
-from darts.models.physics.iapws.custom_rock_property import *
+from darts.engines import operator_set_evaluator_iface, value_vector
+from darts.physics.geothermal.property_container import PropertyContainer
 
-
-class property_iapws_data():
-    '''
-    Class resposible for collecting all needed properties in geothermal simulation
-    '''
-    def __init__(self, property_evaluator='IAPWS'):
-        """
-        Constructor
-        :param property_evaluator: determines what property evaluator is used, input is either 'IAPWS' or 'ADGPRS'
-        """
-        self.rock = [value_vector([1, 0, 273.15])]
-        # properties implemented in C++
-        if property_evaluator == 'ADGPRS':
-            self.sat_steam_enthalpy = saturated_steam_enthalpy_evaluator()
-            self.sat_water_enthalpy = saturated_water_enthalpy_evaluator()
-            self.water_enthalpy = water_enthalpy_evaluator(self.sat_water_enthalpy, self.sat_steam_enthalpy)
-            self.steam_enthalpy = steam_enthalpy_evaluator(self.sat_steam_enthalpy, self.sat_water_enthalpy)
-            self.sat_water_density = saturated_water_density_evaluator(self.sat_water_enthalpy)
-            self.sat_steam_density = saturated_steam_density_evaluator(self.sat_steam_enthalpy)
-            self.water_density = water_density_evaluator(self.sat_water_enthalpy, self.sat_steam_enthalpy)
-            self.steam_density = steam_density_evaluator(self.sat_water_enthalpy, self.sat_steam_enthalpy)
-            self.temperature = temperature_evaluator(self.sat_water_enthalpy, self.sat_steam_enthalpy)
-            self.water_saturation = water_saturation_evaluator(self.sat_water_density, self.sat_steam_density,
-                                                               self.sat_water_enthalpy, self.sat_steam_enthalpy)
-            self.steam_saturation = steam_saturation_evaluator(self.sat_water_density, self.sat_steam_density,
-                                                               self.sat_water_enthalpy, self.sat_steam_enthalpy)
-            self.water_viscosity = water_viscosity_evaluator(self.temperature)
-            self.steam_viscosity = steam_viscosity_evaluator(self.temperature)
-            self.water_relperm = water_relperm_evaluator(self.water_saturation)
-            self.steam_relperm = steam_relperm_evaluator(self.steam_saturation)
-            self.rock_compaction = custom_rock_compaction_evaluator(self.rock)
-            self.rock_energy = custom_rock_energy_evaluator(self.rock)
-
-        elif property_evaluator == 'IAPWS':
-            # properties implemented in python (the IAPWS package)
-            self.temperature = iapws_temperature_evaluator()                    # Create temperature object
-            self.water_enthalpy = iapws_water_enthalpy_evaluator()              # Create water_enthalpy object
-            self.steam_enthalpy = iapws_steam_enthalpy_evaluator()              # Create steam_enthalpy object
-            self.water_saturation = iapws_water_saturation_evaluator()          # Create water_saturation object
-            self.steam_saturation = iapws_steam_saturation_evaluator()          # Create steam_saturation object
-            self.water_relperm = iapws_water_relperm_evaluator()                # Create water_relperm object
-            self.steam_relperm = iapws_steam_relperm_evaluator()                # Create steam_relperm object
-            self.water_density = iapws_water_density_evaluator()                # Create water_density object
-            self.steam_density = iapws_steam_density_evaluator()                # Create steam_density object
-            self.water_viscosity = iapws_water_viscosity_evaluator()            # Create water_viscosity object
-            self.steam_viscosity = iapws_steam_viscosity_evaluator()            # Create steam_viscosity object
-            self.rock_compaction = custom_rock_compaction_evaluator(self.rock)  # Create rock_compaction object
-            self.rock_energy = custom_rock_energy_evaluator(self.rock)          # Create rock_energy object
 
 class acc_flux_custom_iapws_evaluator_python(operator_set_evaluator_iface):
-    def __init__(self, property_data):
+    def __init__(self, property_container: PropertyContainer):
         super().__init__()
 
-        self.temperature        = property_data.temperature
-        self.water_enthalpy     = property_data.water_enthalpy
-        self.steam_enthalpy     = property_data.steam_enthalpy
-        self.water_saturation   = property_data.water_saturation
-        self.steam_saturation   = property_data.steam_saturation
-        self.water_relperm      = property_data.water_relperm
-        self.steam_relperm      = property_data.steam_relperm
-        self.water_density      = property_data.water_density
-        self.steam_density      = property_data.steam_density
-        self.water_viscosity    = property_data.water_viscosity
-        self.steam_viscosity    = property_data.steam_viscosity
-        self.rock_compaction    = property_data.rock_compaction
-        self.rock_energy        = property_data.rock_energy
+        self.property = property_container
 
     def evaluate(self, state, values):
 
-        water_enth = self.water_enthalpy.evaluate(state)
-        steam_enth = self.steam_enthalpy.evaluate(state)
-        water_den  = self.water_density.evaluate(state)
-        steam_den  = self.steam_density.evaluate(state)
-        water_sat  = self.water_saturation.evaluate(state)
-        steam_sat  = self.steam_saturation.evaluate(state)
-        temp       = self.temperature.evaluate(state)
-        water_rp   = self.water_relperm.evaluate(state)
-        steam_rp   = self.steam_relperm.evaluate(state)
-        water_vis  = self.water_viscosity.evaluate(state)
-        steam_vis  = self.steam_viscosity.evaluate(state)
-        pore_volume_factor = self.rock_compaction.evaluate(state)
-        rock_int_energy    = self.rock_energy.evaluate(state)
+        water_enth = self.property.water_enthalpy.evaluate(state)
+        steam_enth = self.property.steam_enthalpy.evaluate(state)
+        water_den  = self.property.water_density.evaluate(state)
+        steam_den  = self.property.steam_density.evaluate(state)
+        water_sat  = self.property.water_saturation.evaluate(state)
+        steam_sat  = self.property.steam_saturation.evaluate(state)
+        temp       = self.property.temperature.evaluate(state)
+        water_rp   = self.property.water_relperm.evaluate(state)
+        steam_rp   = self.property.steam_relperm.evaluate(state)
+        water_vis  = self.property.water_viscosity.evaluate(state)
+        steam_vis  = self.property.steam_viscosity.evaluate(state)
+        pore_volume_factor = self.property.rock_compaction.evaluate(state)
+        rock_int_energy    = self.property.rock_energy.evaluate(state)
+        water_cond = self.property.water_conduction.evaluate(state)
+        steam_cond = self.property.steam_conduction.evaluate(state)
         pressure = state[0]
 
         # mass accumulation
@@ -99,7 +40,7 @@ class acc_flux_custom_iapws_evaluator_python(operator_set_evaluator_iface):
         # energy flux
         values[4] = (water_enth * water_den * water_rp / water_vis + steam_enth * steam_den * steam_rp / steam_vis)
         # fluid conduction
-        values[5] = 181.44
+        values[5] = water_cond * water_sat + steam_cond * steam_sat
         # rock conduction
         values[6] = 1 / pore_volume_factor
         # temperature
@@ -107,39 +48,28 @@ class acc_flux_custom_iapws_evaluator_python(operator_set_evaluator_iface):
 
         return 0
 
+
 class acc_flux_custom_iapws_evaluator_python_well(operator_set_evaluator_iface):
-    def __init__(self, property_data):
+    def __init__(self, property_container: PropertyContainer):
         super().__init__()
 
-        self.temperature        = property_data.temperature
-        self.water_enthalpy     = property_data.water_enthalpy
-        self.steam_enthalpy     = property_data.steam_enthalpy
-        self.water_saturation   = property_data.water_saturation
-        self.steam_saturation   = property_data.steam_saturation
-        self.water_relperm      = property_data.water_relperm
-        self.steam_relperm      = property_data.steam_relperm
-        self.water_density      = property_data.water_density
-        self.steam_density      = property_data.steam_density
-        self.water_viscosity    = property_data.water_viscosity
-        self.steam_viscosity    = property_data.steam_viscosity
-        self.rock_compaction    = property_data.rock_compaction
-        self.rock_energy        = property_data.rock_energy
+        self.property = property_container
 
     def evaluate(self, state, values):
 
-        water_enth = self.water_enthalpy.evaluate(state)
-        steam_enth = self.steam_enthalpy.evaluate(state)
-        water_den  = self.water_density.evaluate(state)
-        steam_den  = self.steam_density.evaluate(state)
-        water_sat  = self.water_saturation.evaluate(state)
-        steam_sat  = self.steam_saturation.evaluate(state)
-        temp       = self.temperature.evaluate(state)
-        water_rp   = self.water_relperm.evaluate(state)
-        steam_rp   = self.steam_relperm.evaluate(state)
-        water_vis  = self.water_viscosity.evaluate(state)
-        steam_vis  = self.steam_viscosity.evaluate(state)
-        pore_volume_factor = self.rock_compaction.evaluate(state)
-        rock_int_energy    = self.rock_energy.evaluate(state)
+        water_enth = self.property.water_enthalpy.evaluate(state)
+        steam_enth = self.property.steam_enthalpy.evaluate(state)
+        water_den  = self.property.water_density.evaluate(state)
+        steam_den  = self.property.steam_density.evaluate(state)
+        water_sat  = self.property.water_saturation.evaluate(state)
+        steam_sat  = self.property.steam_saturation.evaluate(state)
+        temp       = self.property.temperature.evaluate(state)
+        water_rp   = self.property.water_relperm.evaluate(state)
+        steam_rp   = self.property.steam_relperm.evaluate(state)
+        water_vis  = self.property.water_viscosity.evaluate(state)
+        steam_vis  = self.property.steam_viscosity.evaluate(state)
+        pore_volume_factor = self.property.rock_compaction.evaluate(state)
+        rock_int_energy    = self.property.rock_energy.evaluate(state)
         pressure = state[0]
 
         # mass accumulation
@@ -164,82 +94,28 @@ class acc_flux_custom_iapws_evaluator_python_well(operator_set_evaluator_iface):
         return 0
 
 
-class property_data():
-    '''
-    Class resposible for collecting all needed properties in geothermal simulation
-    '''
-
-    def __init__(self):
-        self.rock = [value_vector([1, 0, 273.15])]
-        # properties implemented in C++
-        # self.sat_steam_enthalpy = saturated_steam_enthalpy_evaluator()
-        # self.sat_water_enthalpy = saturated_water_enthalpy_evaluator()
-        # self.water_enthalpy = water_enthalpy_evaluator(self.sat_water_enthalpy, self.sat_steam_enthalpy)
-        # self.steam_enthalpy = steam_enthalpy_evaluator(self.sat_steam_enthalpy, self.sat_water_enthalpy)
-        # self.sat_water_density = saturated_water_density_evaluator(self.sat_water_enthalpy)
-        # self.sat_steam_density = saturated_steam_density_evaluator(self.sat_steam_enthalpy)
-        # self.water_density = water_density_evaluator(self.sat_water_enthalpy, self.sat_steam_enthalpy)
-        # self.steam_density = steam_density_evaluator(self.sat_water_enthalpy, self.sat_steam_enthalpy)
-        # self.temperature = temperature_evaluator(self.sat_water_enthalpy, self.sat_steam_enthalpy)
-        # self.water_saturation = water_saturation_evaluator(self.sat_water_density, self.sat_steam_density,
-        #                                                    self.sat_water_enthalpy, self.sat_steam_enthalpy)
-        # self.steam_saturation = steam_saturation_evaluator(self.sat_water_density, self.sat_steam_density,
-        #                                                    self.sat_water_enthalpy, self.sat_steam_enthalpy)
-        # self.water_viscosity = water_viscosity_evaluator(self.temperature)
-        # self.steam_viscosity = steam_viscosity_evaluator(self.temperature)
-        # self.water_relperm = water_relperm_evaluator(self.water_saturation)
-        # self.steam_relperm = steam_relperm_evaluator(self.steam_saturation)
-        # self.rock_compaction = custom_rock_compaction_evaluator(self.rock)
-        # self.rock_energy = custom_rock_energy_evaluator(self.rock)
-
-        # properties implemented in python (the IAPWS package)
-        self.temperature = iapws_temperature_evaluator()  # Create temperature object
-        self.water_enthalpy = iapws_water_enthalpy_evaluator()  # Create water_enthalpy object
-        self.steam_enthalpy = iapws_steam_enthalpy_evaluator()  # Create steam_enthalpy object
-        self.water_saturation = iapws_water_saturation_evaluator()  # Create water_saturation object
-        self.steam_saturation = iapws_steam_saturation_evaluator()  # Create steam_saturation object
-        self.water_relperm = iapws_water_relperm_evaluator()  # Create water_relperm object
-        self.steam_relperm = iapws_steam_relperm_evaluator()  # Create steam_relperm object
-        self.water_density = iapws_water_density_evaluator()  # Create water_density object
-        self.steam_density = iapws_steam_density_evaluator()  # Create steam_density object
-        self.water_viscosity = iapws_water_viscosity_evaluator()  # Create water_viscosity object
-        self.steam_viscosity = iapws_steam_viscosity_evaluator()  # Create steam_viscosity object
-        self.rock_compaction = custom_rock_compaction_evaluator(self.rock)  # Create rock_compaction object
-        self.rock_energy = custom_rock_energy_evaluator(self.rock)  # Create rock_energy object
-
-
 class acc_flux_gravity_evaluator_python(operator_set_evaluator_iface):
-    def __init__(self, property_data):
+    def __init__(self, property_container: PropertyContainer):
         super().__init__()
 
-        self.temperature = property_data.temperature
-        self.water_enthalpy = property_data.water_enthalpy
-        self.steam_enthalpy = property_data.steam_enthalpy
-        self.water_saturation = property_data.water_saturation
-        self.steam_saturation = property_data.steam_saturation
-        self.water_relperm = property_data.water_relperm
-        self.steam_relperm = property_data.steam_relperm
-        self.water_density = property_data.water_density
-        self.steam_density = property_data.steam_density
-        self.water_viscosity = property_data.water_viscosity
-        self.steam_viscosity = property_data.steam_viscosity
-        self.rock_compaction = property_data.rock_compaction
-        self.rock_energy = property_data.rock_energy
+        self.property = property_container
 
     def evaluate(self, state, values):
-        water_enth = self.water_enthalpy.evaluate(state)
-        steam_enth = self.steam_enthalpy.evaluate(state)
-        water_den = self.water_density.evaluate(state)
-        steam_den = self.steam_density.evaluate(state)
-        water_sat = self.water_saturation.evaluate(state)
-        steam_sat = self.steam_saturation.evaluate(state)
-        temp = self.temperature.evaluate(state)
-        water_rp = self.water_relperm.evaluate(state)
-        steam_rp = self.steam_relperm.evaluate(state)
-        water_vis = self.water_viscosity.evaluate(state)
-        steam_vis = self.steam_viscosity.evaluate(state)
-        pore_volume_factor = self.rock_compaction.evaluate(state)
-        rock_int_energy = self.rock_energy.evaluate(state)
+        water_enth = self.property.water_enthalpy.evaluate(state)
+        steam_enth = self.property.steam_enthalpy.evaluate(state)
+        water_den = self.property.water_density.evaluate(state)
+        steam_den = self.property.steam_density.evaluate(state)
+        water_sat = self.property.water_saturation.evaluate(state)
+        steam_sat = self.property.steam_saturation.evaluate(state)
+        temp = self.property.temperature.evaluate(state)
+        water_rp = self.property.water_relperm.evaluate(state)
+        steam_rp = self.property.steam_relperm.evaluate(state)
+        water_vis = self.property.water_viscosity.evaluate(state)
+        steam_vis = self.property.steam_viscosity.evaluate(state)
+        pore_volume_factor = self.property.rock_compaction.evaluate(state)
+        rock_int_energy = self.property.rock_energy.evaluate(state)
+        water_cond = self.property.water_conduction.evaluate(state)
+        steam_cond = self.property.steam_conduction.evaluate(state)
         pressure = state[0]
 
         # mass accumulation
@@ -257,7 +133,7 @@ class acc_flux_gravity_evaluator_python(operator_set_evaluator_iface):
         values[5] = water_enth * water_den * water_rp / water_vis
         values[6] = steam_enth * steam_den * steam_rp / steam_vis
         # fluid conduction
-        values[7] = 2.0 * 86.4
+        values[7] = water_cond * water_sat + steam_cond * steam_sat
         # rock conduction
         values[8] = 1 / pore_volume_factor
         # temperature
@@ -271,37 +147,25 @@ class acc_flux_gravity_evaluator_python(operator_set_evaluator_iface):
 
 
 class acc_flux_gravity_evaluator_python_well(operator_set_evaluator_iface):
-    def __init__(self, property_data):
+    def __init__(self, property_container: PropertyContainer):
         super().__init__()
 
-        self.temperature = property_data.temperature
-        self.water_enthalpy = property_data.water_enthalpy
-        self.steam_enthalpy = property_data.steam_enthalpy
-        self.water_saturation = property_data.water_saturation
-        self.steam_saturation = property_data.steam_saturation
-        self.water_relperm = property_data.water_relperm
-        self.steam_relperm = property_data.steam_relperm
-        self.water_density = property_data.water_density
-        self.steam_density = property_data.steam_density
-        self.water_viscosity = property_data.water_viscosity
-        self.steam_viscosity = property_data.steam_viscosity
-        self.rock_compaction = property_data.rock_compaction
-        self.rock_energy = property_data.rock_energy
+        self.property = property_container
 
     def evaluate(self, state, values):
-        water_enth = self.water_enthalpy.evaluate(state)
-        steam_enth = self.steam_enthalpy.evaluate(state)
-        water_den = self.water_density.evaluate(state)
-        steam_den = self.steam_density.evaluate(state)
-        water_sat = self.water_saturation.evaluate(state)
-        steam_sat = self.steam_saturation.evaluate(state)
-        temp = self.temperature.evaluate(state)
-        water_rp = self.water_relperm.evaluate(state)
-        steam_rp = self.steam_relperm.evaluate(state)
-        water_vis = self.water_viscosity.evaluate(state)
-        steam_vis = self.steam_viscosity.evaluate(state)
-        pore_volume_factor = self.rock_compaction.evaluate(state)
-        rock_int_energy = self.rock_energy.evaluate(state)
+        water_enth = self.property.water_enthalpy.evaluate(state)
+        steam_enth = self.property.steam_enthalpy.evaluate(state)
+        water_den = self.property.water_density.evaluate(state)
+        steam_den = self.property.steam_density.evaluate(state)
+        water_sat = self.property.water_saturation.evaluate(state)
+        steam_sat = self.property.steam_saturation.evaluate(state)
+        temp = self.property.temperature.evaluate(state)
+        water_rp = self.property.water_relperm.evaluate(state)
+        steam_rp = self.property.steam_relperm.evaluate(state)
+        water_vis = self.property.water_viscosity.evaluate(state)
+        steam_vis = self.property.steam_viscosity.evaluate(state)
+        pore_volume_factor = self.property.rock_compaction.evaluate(state)
+        rock_int_energy = self.property.rock_energy.evaluate(state)
         pressure = state[0]
 
         # mass accumulation
@@ -319,7 +183,7 @@ class acc_flux_gravity_evaluator_python_well(operator_set_evaluator_iface):
         values[5] = water_enth * water_den * water_rp / water_vis
         values[6] = steam_enth * steam_den * steam_rp / steam_vis
         # fluid conduction
-        values[7] = 0.0 * 86.4
+        values[7] = 0.0
         # rock conduction
         values[8] = 1 / pore_volume_factor
         # temperature
@@ -331,34 +195,25 @@ class acc_flux_gravity_evaluator_python_well(operator_set_evaluator_iface):
 
         return 0
 
+
 class geothermal_rate_custom_evaluator_python(operator_set_evaluator_iface):
-    def __init__(self, property_data):
+    def __init__(self, property_container: PropertyContainer):
         super().__init__()
 
-        self.temperature        = property_data.temperature
-        self.water_enthalpy     = property_data.water_enthalpy
-        self.steam_enthalpy     = property_data.steam_enthalpy
-        self.water_saturation   = property_data.water_saturation
-        self.steam_saturation   = property_data.steam_saturation
-        self.water_relperm      = property_data.water_relperm
-        self.steam_relperm      = property_data.steam_relperm
-        self.water_density      = property_data.water_density
-        self.steam_density      = property_data.steam_density
-        self.water_viscosity    = property_data.water_viscosity
-        self.steam_viscosity    = property_data.steam_viscosity
+        self.property = property_container
 
     def evaluate(self, state, values):
-        water_den = self.water_density.evaluate(state)
-        steam_den = self.steam_density.evaluate(state)
-        water_sat = self.water_saturation.evaluate(state)
-        steam_sat = self.steam_saturation.evaluate(state)
-        water_rp  = self.water_relperm.evaluate(state)
-        steam_rp  = self.steam_relperm.evaluate(state)
-        water_vis = self.water_viscosity.evaluate(state)
-        steam_vis = self.steam_viscosity.evaluate(state)
-        water_enth = self.water_enthalpy.evaluate(state)
-        steam_enth = self.steam_enthalpy.evaluate(state)
-        temp = self.temperature.evaluate(state)
+        water_den = self.property.water_density.evaluate(state)
+        steam_den = self.property.steam_density.evaluate(state)
+        water_sat = self.property.water_saturation.evaluate(state)
+        steam_sat = self.property.steam_saturation.evaluate(state)
+        water_rp  = self.property.water_relperm.evaluate(state)
+        steam_rp  = self.property.steam_relperm.evaluate(state)
+        water_vis = self.property.water_viscosity.evaluate(state)
+        steam_vis = self.property.steam_viscosity.evaluate(state)
+        water_enth = self.property.water_enthalpy.evaluate(state)
+        steam_enth = self.property.steam_enthalpy.evaluate(state)
+        temp = self.property.temperature.evaluate(state)
 
         total_density = water_sat * water_den + steam_sat * steam_den
 
@@ -372,36 +227,26 @@ class geothermal_rate_custom_evaluator_python(operator_set_evaluator_iface):
         values[3] = water_enth * water_den * water_rp / water_vis + steam_enth * steam_den * steam_rp / steam_vis
 
         return 0
-        
+
+
 class geothermal_mass_rate_custom_evaluator_python(operator_set_evaluator_iface):
-    def __init__(self, property_data):
+    def __init__(self, property_container: PropertyContainer):
         super().__init__()
 
-        self.water_density      = property_data.water_density
-        self.steam_density      = property_data.steam_density
-        self.water_saturation   = property_data.water_saturation
-        self.steam_saturation   = property_data.steam_saturation
-        self.water_relperm      = property_data.water_relperm
-        self.steam_relperm      = property_data.steam_relperm		
-        self.water_viscosity    = property_data.water_viscosity
-        self.steam_viscosity    = property_data.steam_viscosity
-        self.temperature        = property_data.temperature
-        self.water_enth         = property_data.water_enthalpy
-        self.steam_enth         = property_data.steam_enthalpy
+        self.property = property_container
 
-		
     def evaluate(self, state, values):
-        water_den = self.water_density.evaluate(state)
-        steam_den = self.steam_density.evaluate(state)
-        water_sat = self.water_saturation.evaluate(state)
-        steam_sat = self.steam_saturation.evaluate(state)
-        water_rp  = self.water_relperm.evaluate(state)
-        steam_rp  = self.steam_relperm.evaluate(state)
-        water_vis = self.water_viscosity.evaluate(state)
-        steam_vis = self.steam_viscosity.evaluate(state)
-        temp      = self.temperature.evaluate(state)
-        water_enth= self.water_enth.evaluate(state)
-        steam_enth= self.steam_enth.evaluate(state)
+        water_den = self.property.water_density.evaluate(state)
+        steam_den = self.property.steam_density.evaluate(state)
+        water_sat = self.property.water_saturation.evaluate(state)
+        steam_sat = self.property.steam_saturation.evaluate(state)
+        water_rp  = self.property.water_relperm.evaluate(state)
+        steam_rp  = self.property.steam_relperm.evaluate(state)
+        water_vis = self.property.water_viscosity.evaluate(state)
+        steam_vis = self.property.steam_viscosity.evaluate(state)
+        temp      = self.property.temperature.evaluate(state)
+        water_enth= self.property.water_enthalpy.evaluate(state)
+        steam_enth= self.property.steam_enthalpy.evaluate(state)
 
         total_density = water_sat * water_den + steam_sat * steam_den
 
