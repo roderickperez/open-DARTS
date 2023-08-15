@@ -4,7 +4,7 @@ import os
 import pickle
 import atexit
 
-from darts.engines import *
+from darts.engines import engine_base, operator_set_evaluator_iface, value_vector, index_vector, timer_node
 
 
 class PhysicsBase:
@@ -111,10 +111,10 @@ class PhysicsBase:
         # Define operators, set engine, set interpolators and define well controls
         self.n_props = output_props.n_props if output_props is not None else 0
         self.set_operators(regions, output_props)
-        self.set_engine(discr_type, platform)
+        engine = self.set_engine(discr_type, platform)
         self.set_interpolators(platform, itor_type, itor_mode, itor_precision)
         self.define_well_controls()
-        return
+        return engine
 
     def add_property_region(self, property_container, region=0):
         """
@@ -141,7 +141,8 @@ class PhysicsBase:
         """
         pass
 
-    def set_engine(self, discr_type: str = 'tpfa', platform: str = 'cpu'):
+    @abc.abstractmethod
+    def set_engine(self, discr_type: str = 'tpfa', platform: str = 'cpu') -> engine_base:
         """
         Function to set :class:`engine` object.
 
@@ -151,6 +152,7 @@ class PhysicsBase:
         :type discr_type: str
         :param platform: Switch for CPU/GPU engine, 'cpu' (default) or 'gpu'
         :type platform: str
+        :returns: :class:`Engine` object
         """
         pass
 
@@ -197,6 +199,7 @@ class PhysicsBase:
 
         return
 
+    @abc.abstractmethod
     def define_well_controls(self):
         pass
 

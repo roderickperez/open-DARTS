@@ -94,8 +94,7 @@ class Geothermal(PhysicsBase):
         :param platform: Switch for CPU/GPU engine, 'cpu' (default) or 'gpu'
         :type platform: str
         """
-        self.engine = eval("engine_nce_g_%s%d_%d" % (platform, self.nc, self.nph - 2))()
-        return
+        return eval("engine_nce_g_%s%d_%d" % (platform, self.nc, self.nph - 2))()
 
     def define_well_controls(self):
         # create well controls
@@ -139,10 +138,10 @@ class Geothermal(PhysicsBase):
     def set_uniform_initial_conditions(self, mesh, uniform_pressure, uniform_temperature):
         """""
         Function to set uniform initial reservoir condition
-        Arguments:
-            -mesh: mesh object
-            -uniform_pressure: uniform pressure setting
-            -uniform_temperature: uniform temperature setting
+
+        :param mesh: :class:`Mesh` object
+        :param uniform_pressure: Uniform pressure setting
+        :param uniform_temperature: Uniform temperature setting
         """
         assert isinstance(mesh, conn_mesh)
         # nb = mesh.n_blocks
@@ -159,12 +158,12 @@ class Geothermal(PhysicsBase):
         enthalpy.fill(enth)
 
     def set_nonuniform_initial_conditions(self, mesh, pressure_grad, temperature_grad):
-        """""
-        Function to set uniform initial reservoir condition
-        Arguments:
-            -mesh: mesh object
-            -pressure_grad, default unit [1/km]
-            -temperature_grad, default unit [1/km]
+        """
+        Function to set nonuniform initial reservoir condition
+
+        :param mesh: :class:`Mesh` object
+        :param pressure_grad: Pressure gradient, calculates pressure based on depth [1/km]
+        :param temperature_grad: Temperature gradient, calculates temperature based on depth [1/km]
         """
         assert isinstance(mesh, conn_mesh)
 

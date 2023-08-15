@@ -88,8 +88,6 @@ class Compositional(PhysicsBase):
         # Create property evaluator
         if output_properties is not None:
             self.property_operators = output_properties
-        if output_properties is not None:
-            self.property_operators = output_properties
 
         return
 
@@ -104,14 +102,14 @@ class Compositional(PhysicsBase):
         """
         if discr_type == 'mpfa':
             if self.thermal:
-                self.engine = eval("engine_super_mp_%s%d_%d_t" % (platform, self.nc, self.nph))()
+                return eval("engine_super_mp_%s%d_%d_t" % (platform, self.nc, self.nph))()
             else:
-                self.engine = eval("engine_super_mp_%s%d_%d" % (platform, self.nc, self.nph))()
+                return eval("engine_super_mp_%s%d_%d" % (platform, self.nc, self.nph))()
         else:
             if self.thermal:
-                self.engine = eval("engine_super_%s%d_%d_t" % (platform, self.nc, self.nph))()
+                return eval("engine_super_%s%d_%d_t" % (platform, self.nc, self.nph))()
             else:
-                self.engine = eval("engine_super_%s%d_%d" % (platform, self.nc, self.nph))()
+                return eval("engine_super_%s%d_%d" % (platform, self.nc, self.nph))()
 
     def define_well_controls(self):
         # define well control factories
