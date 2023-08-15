@@ -122,16 +122,6 @@ class Geothermal(PhysicsBase):
                                                                                     rate, self.rate_itor)
         return
 
-    def init_wells(self, wells):
-        """""
-        Function to initialize the well rates for each well
-        Arguments:
-            -wells: well_object array
-        """
-        for w in wells:
-            assert isinstance(w, ms_well)
-            w.init_rate_parameters(self.nc + 1, self.phases, self.rate_itor)
-
     def set_uniform_initial_conditions(self, mesh, uniform_pressure, uniform_temperature):
         """""
         Function to set uniform initial reservoir condition

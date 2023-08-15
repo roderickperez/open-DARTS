@@ -112,20 +112,13 @@ class Compositional(PhysicsBase):
         # Injection wells (upwind method requires both bhp and inj_stream for bhp controlled injection wells):
         self.new_bhp_inj = lambda bhp, inj_stream: bhp_inj_well_control(bhp, value_vector(inj_stream))
         self.new_rate_inj = lambda rate, inj_stream, iph: rate_inj_well_control(self.phases, iph, self.n_vars,
-                                                                               self.n_vars, rate,
-                                                                               value_vector(inj_stream), self.rate_itor)
+                                                                                self.n_vars, rate, value_vector(inj_stream),
+                                                                                self.rate_itor)
         # Production wells:
         self.new_bhp_prod = lambda bhp: bhp_prod_well_control(bhp)
         self.new_rate_prod = lambda rate, iph: rate_prod_well_control(self.phases, iph, self.n_vars,
-                                                                      self.n_vars,
-                                                                     rate, self.rate_itor)
+                                                                      self.n_vars, rate, self.rate_itor)
         return
-
-    # Define some class methods:
-    def init_wells(self, wells):
-        for w in wells:
-            assert isinstance(w, ms_well)
-            w.init_rate_parameters(self.n_vars, self.phases, self.rate_itor)
 
     def set_uniform_initial_conditions(self, mesh: conn_mesh,
                                        uniform_pressure: float, uniform_composition: list, uniform_temp: float = None):

@@ -4,7 +4,7 @@ import os
 import pickle
 import atexit
 
-from darts.engines import engine_base, operator_set_evaluator_iface, value_vector, index_vector, timer_node
+from darts.engines import engine_base, operator_set_evaluator_iface, value_vector, index_vector, timer_node, ms_well
 
 
 class PhysicsBase:
@@ -205,6 +205,16 @@ class PhysicsBase:
     @abc.abstractmethod
     def define_well_controls(self):
         pass
+
+    def init_wells(self, wells):
+        """
+        Function to initialize the well rates for each well.
+
+        :param wells: List of :class:`ms_well` objects
+        """
+        for w in wells:
+            assert isinstance(w, ms_well)
+            w.init_rate_parameters(self.n_vars, self.phases, self.rate_itor)
 
     def create_interpolator(self, evaluator: operator_set_evaluator_iface, n_dims: int, n_ops: int,
                             axes_n_points: index_vector, axes_min: value_vector, axes_max: value_vector,
