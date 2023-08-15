@@ -84,7 +84,7 @@ class PhysicsBase:
             self.created_itors = []
             atexit.register(self.write_cache)
 
-    def init_physics(self, regions: list = None, output_props=None, discr_type: str = 'tpfa', platform: str = 'cpu',
+    def init_physics(self, regions: list = None, discr_type: str = 'tpfa', platform: str = 'cpu',
                      itor_type: str = 'multilinear', itor_mode: str = 'adaptive', itor_precision: str = 'd'):
         """
         Function to initialize all contained objects within the Physics object.
@@ -109,8 +109,7 @@ class PhysicsBase:
             regions = [key for key in self.property_containers.keys()]
 
         # Define operators, set engine, set interpolators and define well controls
-        self.n_props = output_props.n_props if output_props is not None else 0
-        self.set_operators(regions, output_props)
+        self.set_operators(regions)
         engine = self.set_engine(discr_type, platform)
         self.set_interpolators(platform, itor_type, itor_mode, itor_precision)
         self.define_well_controls()
@@ -127,7 +126,12 @@ class PhysicsBase:
         self.property_containers[region] = property_container
         return
 
-    def set_operators(self, regions: list, output_properties=None):
+    def add_property_operators(self, property_operators: operator_set_evaluator_iface):
+        self.property_operators = property_operators
+        self.n_props = property_operators.n_props
+        return
+
+    def set_operators(self, regions: list):
         """
         Function to set operator objects: :class:`ReservoirOperators` for each of the reservoir regions,
         :class:`WellOperators` for the well cells, :class:`RateOperators` for evaluation of rates
@@ -137,7 +141,6 @@ class PhysicsBase:
 
         :param regions: List of regions. It contains the keys of the `property_containers` and `reservoir_operators` dict
         :type regions: list
-        :param output_properties: Output property operators object, default is None
         """
         pass
 

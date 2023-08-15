@@ -64,7 +64,7 @@ class Compositional(PhysicsBase):
         super().__init__(variables=variables, nc=nc, phases=phases, n_ops=n_ops,
                          axes_min=axes_min, axes_max=axes_max, n_points=n_points, timer=timer, cache=cache)
 
-    def set_operators(self, regions, output_properties=None):
+    def set_operators(self, regions):
         """
         Function to set operator objects: :class:`ReservoirOperators` for each of the reservoir regions,
         :class:`WellOperators` for the well cells, :class:`RateOperators` for evaluation of rates
@@ -84,10 +84,6 @@ class Compositional(PhysicsBase):
             self.wellbore_operators = WellOperators(self.property_containers[regions[0]])
 
         self.rate_operators = RateOperators(self.property_containers[regions[0]])
-
-        # Create property evaluator
-        if output_properties is not None:
-            self.property_operators = output_properties
 
         return
 

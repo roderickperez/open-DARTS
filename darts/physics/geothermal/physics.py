@@ -60,7 +60,7 @@ class Geothermal(PhysicsBase):
         super().__init__(variables=variables, nc=nc, phases=phases, n_ops=n_ops,
                          axes_min=axes_min, axes_max=axes_max, n_points=n_points, timer=timer, cache=cache)
 
-    def set_operators(self, regions, output_properties=None):
+    def set_operators(self, regions):
         """
         Function to set operator objects: :class:`acc_flux_gravity_evaluator` for each of the reservoir regions,
         :class:`acc_flux_gravity_evaluator_python_well` for the well cells
@@ -80,9 +80,6 @@ class Geothermal(PhysicsBase):
         else:
             self.rate_operators = geothermal_rate_custom_evaluator_python(self.property_containers[regions[0]])
 
-        # Create property evaluator
-        if output_properties is not None:
-            self.property_operators = output_properties
         return
 
     def set_engine(self, discr_type: str = 'tpfa', platform: str = 'cpu'):
