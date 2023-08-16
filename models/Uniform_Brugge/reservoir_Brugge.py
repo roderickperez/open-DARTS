@@ -4,7 +4,7 @@ from math import inf, pi
 from darts.mesh.unstruct_discretizer import UnstructDiscretizer
 from darts.models.reservoirs.unstruct_reservoir import UnstructReservoir
 import sys
-from calculate_WI import calc_equivalent_WI
+
 # Definitions for the unstructured reservoir class:
 class UnstructReservoirBrugge(UnstructReservoir):
     def __init__(self, permx, permy, permz, frac_aper, mesh_file, poro, thickness, calc_equiv_WI=True):
