@@ -1,14 +1,29 @@
 import abc
-
 import numpy as np
-from darts.engines import conn_mesh
+import pickle
+import atexit
+
+from darts.engines import conn_mesh, timer_node, ms_well_vector
 
 
 class ReservoirBase:
-    nb: int
+    wells: ms_well_vector = []
+    perforations: list = []
 
-    def init_reservoir(self) -> conn_mesh:
-        return mesh
+    def __init__(self, timer: timer_node, cache: bool = False):
+        # Initialize timer for initialization and caching
+        self.timer = timer.node["initialization"]
+        self.cache = cache
+
+        # is used on destruction to save cache data
+        if self.cache:
+            self.created_itors = []
+            atexit.register(self.write_cache)
+
+    def init_reservoir(self) -> (conn_mesh, ms_well_vector):
+        mesh = self.discretize()
+        wells = self.init_wells(mesh)
+        return mesh, wells
 
     @abc.abstractmethod
     def discretize(self):
@@ -17,8 +32,34 @@ class ReservoirBase:
     def define_boundary(self):
         pass
 
-    def add_well(self):
+    def set_boundary_volume(self):
         pass
+
+    def add_well(self, name):
+        pass
+
+    def add_perforations(self, mesh):
+        pass
+
+    def get_well(self, well_name: str):
+        """
+        Find well by name
+
+        :param well_name: Well name
+        :returns: :class:`ms_well` object
+        """
+        for w in self.wells:
+            if w.name == well_name:
+                return w
+
+    def init_wells(self, mesh: conn_mesh):
+        for w in self.wells:
+            assert (len(w.perforations) > 0), "Well %s does not perforate any active reservoir blocks" % w.name
+        mesh.add_wells(self.wells)
+
+        mesh.reverse_and_sort()
+        mesh.init_grav_coef()
+        return
 
     def output_vtk(self):
         pass
