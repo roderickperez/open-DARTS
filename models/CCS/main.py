@@ -19,14 +19,14 @@ m.print_timers()
 m.print_stat()
 
 ne = m.physics.n_vars
-nb = m.reservoir.nb
+nb = m.mesh.n_blocks
 
 properties = m.output_properties()
 P = properties[:, 0]
 Z1 = properties[:, 1]
 T = properties[:, 2]
-satV = properties[:, m.physics.property_operators.n_vars + 0]
-xCO2 = properties[:, m.physics.property_operators.n_vars + 1]
+satV = properties[:, m.physics.n_vars + 0]
+xCO2 = properties[:, m.physics.n_vars + 1]
 
 x = np.cumsum(m.x_axes)
 y = np.linspace(m.reservoir.nz*2, 0, m.reservoir.nz)

@@ -20,7 +20,6 @@ class Model(CICDModel):
         self.timer.node["initialization"].start()
 
         self.set_reservoir()
-        self.set_wells()
         self.set_physics()
 
         self.set_sim_params(first_ts=1e-4, mult_ts=1.5, max_ts=1, runtime=10, tol_newton=1e-3, tol_linear=1e-4,
@@ -29,18 +28,20 @@ class Model(CICDModel):
 
         self.timer.node["initialization"].stop()
 
+        initial_values = {self.physics.vars[0]: 90.,
+                          self.physics.vars[1]: self.ini_stream[0],
+                          }
+        self.set_initial_conditions(initial_values)
+
     def set_reservoir(self):
         """Reservoir"""
-        self.const_perm = 100
-        self.poro = 0.15
+        const_perm = 100
+        poro = 0.15
         mesh_file = 'wedgesmall.msh'
-        self.reservoir = UnstructReservoir(permx=self.const_perm, permy=self.const_perm, permz=self.const_perm, frac_aper=0,
-                                           mesh_file=mesh_file, poro=self.poro)
+        reservoir = UnstructReservoir(permx=const_perm, permy=const_perm, permz=const_perm,
+                                      frac_aper=0, mesh_file=mesh_file, poro=poro)
 
-        return
-
-    def set_wells(self):
-        return
+        return super().set_reservoir(reservoir)
 
     def set_physics(self):
         zero = 1e-8
@@ -50,6 +51,10 @@ class Model(CICDModel):
         components = ['CO2', 'H2O']
         Mw = np.array([44.01, 18.015])
         phases = ['gas', 'wat']
+
+        self.ini_stream = [1e-6]
+        self.inj_stream = [0.3]
+
         property_container = PropertyContainer(phase_name=phases, component_name=components, min_z=zero, Mw=Mw)
 
         """ properties correlations """
@@ -71,26 +76,15 @@ class Model(CICDModel):
         property_container.foam_STARS_FM_ev = FMEvaluator(foam_paras)
 
         """ Activate physics """
-        self.physics = CustomPhysics(components, phases, self.timer,
-                                     n_points=200, min_p=1., max_p=1000., min_z=zero/10, max_z=1.-zero/10, cache=False)
-        self.physics.add_property_region(property_container)
-        self.physics.init_physics()
-        return
+        physics = CustomPhysics(components, phases, self.timer,
+                                n_points=200, min_p=1., max_p=1000., min_z=zero/10, max_z=1.-zero/10, cache=False)
+        physics.add_property_region(property_container)
+        return super().set_physics(physics)
 
-    # Initialize reservoir and set boundary conditions:
-    def set_initial_conditions(self):
-        """ initialize conditions for all scenarios"""
-        # equilibrium pressure
-        pressure = 90
-        composition = [1e-6]
-
-        self.physics.set_uniform_initial_conditions(self.reservoir.mesh, pressure, composition)
-
-    def set_boundary_conditions(self):
-        self.inj_CO2 = [0.3]
+    def set_well_controls(self):
         for i, w in enumerate(self.reservoir.wells):
             if i == 0:
-                w.control = self.physics.new_rate_gas_inj(1, self.inj_CO2)
+                w.control = self.physics.new_rate_gas_inj(1, self.inj_stream)
             else:
                 w.control = self.physics.new_bhp_prod(85)
 
