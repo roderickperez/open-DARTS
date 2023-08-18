@@ -29,15 +29,15 @@ class ReservoirBase:
     def discretize(self):
         pass
 
-    def define_boundary(self):
+    @abc.abstractmethod
+    def set_boundary_volume(self, mesh: conn_mesh):
         pass
 
-    def set_boundary_volume(self):
-        pass
-
+    @abc.abstractmethod
     def add_well(self, name):
         pass
 
+    @abc.abstractmethod
     def add_perforations(self, mesh):
         pass
 
@@ -61,7 +61,8 @@ class ReservoirBase:
         mesh.init_grav_coef()
         return
 
-    def output_vtk(self):
+    @abc.abstractmethod
+    def output_to_vtk(self, output_directory, output_filename, property_data, ith_step):
         pass
 
     def write_cache(self):

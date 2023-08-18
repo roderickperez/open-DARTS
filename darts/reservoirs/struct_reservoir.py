@@ -15,9 +15,7 @@ class StructReservoir(ReservoirBase):
     @dataclass
     class Perforation:
         well_name: str
-        i: int
-        j: int
-        k: int
+        cell_index: tuple
         well_radius: float
         well_index: float
         well_indexD: float
@@ -87,6 +85,7 @@ class StructReservoir(ReservoirBase):
             self.vtk_grid_type = 1
             
         self.connected_well_segments = {}
+        self.wells = []
 
     def discretize(self):
         self.discretizer = StructDiscretizer(nx=self.nx, ny=self.ny, nz=self.nz, global_data=self.global_data,
@@ -127,24 +126,25 @@ class StructReservoir(ReservoirBase):
 
         return mesh
 
-    def set_boundary_volume(self, xy_minus=-1, xy_plus=-1, yz_minus=-1, yz_plus=-1, xz_minus=-1, xz_plus=-1):
+    def set_boundary_volume(self, mesh, xy_minus=-1, xy_plus=-1, yz_minus=-1, yz_plus=-1, xz_minus=-1, xz_plus=-1):
         # apply changes
+        volume = self.discretizer.volume
         if xy_minus > -1:
-            self.discretizer.volume[:, :, 0] = xy_minus
+            volume[:, :, 0] = xy_minus
         if xy_plus > -1:
-            self.discretizer.volume[:, :, -1] = xy_plus
+            volume[:, :, -1] = xy_plus
         if yz_minus > -1:
-            self.discretizer.volume[0, :, :] = yz_minus
+            volume[0, :, :] = yz_minus
         if yz_plus > -1:
-            self.discretizer.volume[-1, :, :] = yz_plus
+            volume[-1, :, :] = yz_plus
         if xz_minus > -1:
-            self.discretizer.volume[:, 0, :] = xz_minus
+            volume[:, 0, :] = xz_minus
         if xz_plus > -1:
-            self.discretizer.volume[:, -1, :] = xz_plus
+            volume[:, -1, :] = xz_plus
         # reshape to 1d
-        self.discretizer.volume = np.reshape(self.discretizer.volume, self.discretizer.nodes_tot, order='F')
+        volume = np.reshape(self.discretizer.volume, self.discretizer.nodes_tot, order='F')
         # apply actnum and assign to mesh.volume
-        self.global_data['volume'][:] = self.discretizer.volume[self.discretizer.local_to_global]
+        self.global_data['volume'][:] = volume[self.discretizer.local_to_global]
 
     def add_well(self, name: str, perf_list, well_radius=0.1524, wellbore_diameter=0.15,
                  well_index=None, well_indexD=None, segment_direction='z_axis', skin=0, multi_segment=False):
@@ -152,15 +152,19 @@ class StructReservoir(ReservoirBase):
         Function to add :class:`ms_well` object to list of wells
 
         :param name: Well name
-        :param i: X-direction index of cell
-        :param j: Y-direction index of cell
-        :param k: Z-direction index of cell
+        :param perf_list: Set of cells to perforate, (i, j, k)
+        :param well_radius:
+        :param wellbore_diameter:
+        :param well_index:
+        :param well_indexD:
+        :param segment_direction:
+        :param skin:
+        :param multi_segment:
         """
         well = ms_well()
         well.name = name
-        # so far put only area here,
-        # to be multiplied by segment length later
 
+        # first put only area here, to be multiplied by segment length later
         well.segment_volume = pi * wellbore_diameter ** 2 / 4
 
         # also to be filled up when the first perforation is made
@@ -169,12 +173,11 @@ class StructReservoir(ReservoirBase):
         well.segment_depth_increment = 0
         self.wells.append(well)
 
-        if isinstance(perf_list, tuple):
+        if isinstance(perf_list, (tuple, int)):
             perf_list = [perf_list]
 
-        for p, perf in enumerate(perf_list):
-            i, j, k = perf
-            self.perforations.append(StructReservoir.Perforation(well_name=name, i=i, j=j, k=k, well_radius=well_radius,
+        for p, perf_idx in enumerate(perf_list):
+            self.perforations.append(StructReservoir.Perforation(well_name=name, cell_index=perf_idx, well_radius=well_radius,
                                                                  well_index=well_index, well_indexD=well_indexD,
                                                                  segment_direction=segment_direction, skin=skin,
                                                                  multi_segment=multi_segment))
@@ -191,8 +194,8 @@ class StructReservoir(ReservoirBase):
             well = self.get_well(perf.well_name)
 
             # calculate well index and get local index of reservoir block
-            res_block_local, wi, wid = self.discretizer.calc_well_index(i=perf.i, j=perf.j, k=perf.k,
-                                                                        well_radius=perf.well_radius,
+            i, j, k = perf.cell_index
+            res_block_local, wi, wid = self.discretizer.calc_well_index(i, j, k, well_radius=perf.well_radius,
                                                                         segment_direction=perf.segment_direction,
                                                                         skin=perf.skin)
 
@@ -215,7 +218,7 @@ class StructReservoir(ReservoirBase):
                     well.well_body_depth = well.well_head_depth
                     perf.well_indexD *= np.array(mesh.rock_cond, copy=False)[res_block_local]  # assume perforation condution = rock conduction
                     if self.is_cpg:
-                        dx, dy, dz = self.discretizer.calc_cell_dimensions(perf.i-1, perf.j-1, perf.k-1)
+                        dx, dy, dz = self.discretizer.calc_cell_dimensions(i-1, j-1, k-1)
                         # TODO: need segment_depth_increment and segment_length logic
                         if perf.segment_direction == 'z_axis':
                             well.segment_depth_increment = dz
@@ -224,22 +227,22 @@ class StructReservoir(ReservoirBase):
                         else:
                             well.segment_depth_increment = dy
                     else:
-                        well.segment_depth_increment = self.discretizer.len_cell_zdir[perf.i-1, perf.j-1, perf.k-1]
+                        well.segment_depth_increment = self.discretizer.len_cell_zdir[i-1, j-1, k-1]
 
                     well.segment_volume *= well.segment_depth_increment
                 for p in well.perforations:
                     if p[0] == well_block and p[1] == res_block_local:
                         print('Neglected duplicate perforation for well %s to block [%d, %d, %d]' %
-                              (well.name, perf.i, perf.j, perf.k))
+                              (well.name, i, j, k))
                         return
                 well.perforations = well.perforations + [(well_block, res_block_local, perf.well_index, perf.well_indexD)]
                 if verbose:
                     print('Added perforation for well %s to block %d [%d, %d, %d] with WI=%f' %
-                          (well.name, res_block_local, perf.i, perf.j, perf.k, perf.well_index))
+                          (well.name, res_block_local, i, j, k, perf.well_index))
             else:
                 if verbose:
                     print('Neglected perforation for well %s to block [%d, %d, %d] (inactive block)' %
-                          (well.name, perf.i, perf.j, perf.k))
+                          (well.name, i, j, k))
 
     def init_wells(self, mesh, verbose: bool = False):
         self.add_perforations(mesh, verbose)
@@ -285,7 +288,7 @@ class StructReservoir(ReservoirBase):
         dz *= self.global_data['actnum']
         return dx, dy, dz
 
-    def export_vtk(self, file_name, t, local_cell_data, global_cell_data, export_constant_data=True):
+    def output_to_vtk(self, file_name, t, local_cell_data, global_cell_data, export_constant_data=True):
 
         nb = self.discretizer.nodes_tot
         cell_data = global_cell_data.copy()
