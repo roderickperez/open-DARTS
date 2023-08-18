@@ -1,5 +1,4 @@
-# Section of the Python code where we import all dependencies on third party Python modules/libaries or our own
-# libraries (exposed C++ code to Python, i.e. darts.engines && darts.physics)
+import numpy as np
 
 
 class StructDiscretizer:
