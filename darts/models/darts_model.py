@@ -34,8 +34,6 @@ class DartsModel:
     engine: engine_base
     wells: ms_well_vector
 
-    initial_conditions_check: bool = False
-
     def __init__(self):
         """"
         Initialize DartsModel class.
@@ -71,9 +69,10 @@ class DartsModel:
         - define list of operator interpolators for accumulation-flux regions and wells
         - initialize engine
         """
-        assert self.initial_conditions_check, "Initial conditions have not been specified."
+        # assert self.initial_conditions_check, "Initial conditions have not been specified."
 
         self.physics.init_wells(self.reservoir.wells)
+        self.set_initial_conditions()
         self.set_boundary_conditions()
         self.set_well_controls()
         self.set_op_list()
@@ -86,7 +85,7 @@ class DartsModel:
         self.engine.init(self.mesh, ms_well_vector(self.reservoir.wells), op_vector(self.op_list),
                          self.params, self.timer.node["simulation"])
 
-    def set_reservoir(self, reservoir: ReservoirBase):
+    def set_reservoir(self, reservoir: ReservoirBase) -> None:
         """
         Function to define reservoir and initialize :class:`Reservoir` object.
 
@@ -97,7 +96,7 @@ class DartsModel:
         self.mesh, self.wells = self.reservoir.init_reservoir()
         return
 
-    def set_physics(self, physics: PhysicsBase):
+    def set_physics(self, physics: PhysicsBase) -> None:
         """
         Function to define properties and regions and initialize :class:`Physics` object.
 
@@ -108,7 +107,7 @@ class DartsModel:
         self.engine = self.physics.init_physics()
         return
 
-    def set_initial_conditions(self, initial_values: dict, gradient: dict = None):
+    def set_initial_conditions(self, initial_values: dict = None, gradient: dict = None):
         """
         Function to set initial conditions. Passes initial conditions to :class:`Mesh` object.
 
@@ -117,6 +116,9 @@ class DartsModel:
         :param gradient: Map of scalars of gradients for initial values
         :type gradient: dict
         """
+        initial_values = initial_values if initial_values is not None else self.initial_values
+        gradient = gradient if gradient is not None else (self.gradient if hasattr(self, 'gradient') else None)
+
         for i, variable in enumerate(self.physics.vars):
             # Check if variable exists in initial values dictionary
             if variable not in initial_values.keys():

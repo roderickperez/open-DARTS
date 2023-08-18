@@ -33,11 +33,10 @@ class Model(DartsModel):
 
         self.timer.node["initialization"].stop()
 
-        initial_values = {self.physics.vars[0]: 60.,
-                          self.physics.vars[1]: self.ini_stream[0],
-                          "temperature": temp_init
-                          }
-        self.set_initial_conditions(initial_values)
+        self.initial_values = {self.physics.vars[0]: 60.,
+                               self.physics.vars[1]: self.ini_stream[0],
+                               "temperature": temp_init
+                               }
 
     def set_reservoir(self):
         nx = 100
