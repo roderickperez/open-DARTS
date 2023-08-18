@@ -69,8 +69,6 @@ class DartsModel:
         - define list of operator interpolators for accumulation-flux regions and wells
         - initialize engine
         """
-        # assert self.initial_conditions_check, "Initial conditions have not been specified."
-
         self.physics.init_wells(self.reservoir.wells)
         self.set_initial_conditions()
         self.set_boundary_conditions()
@@ -151,7 +149,6 @@ class DartsModel:
                 # Else, assign constant value to each cell in array
                 values.fill(initial_value)
 
-        self.initial_conditions_check = True
         return
 
     def set_boundary_conditions(self):
