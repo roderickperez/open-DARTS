@@ -112,7 +112,8 @@ class DartsModel:
         if type(self.physics.acc_flux_itor) == dict:
             self.op_list = [acc_flux_itor for acc_flux_itor in self.physics.acc_flux_itor.values()] + [self.physics.acc_flux_w_itor]
             self.op_num = np.array(self.reservoir.mesh.op_num, copy=False)
-            self.op_num[self.reservoir.nb:] = len(self.op_list) - 1
+            # self.op_num[self.reservoir.nb:] = len(self.op_list) - 1
+            self.op_num[self.reservoir.mesh.n_res_blocks:] = len(self.op_list) - 1
         else: # for backward compatibility
             self.op_list = [self.physics.acc_flux_itor]
 
