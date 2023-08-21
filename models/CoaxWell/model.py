@@ -60,6 +60,8 @@ class Model(CICDModel):
 
         # add well
         perf_list = [(iw[0], j, n+1) for j in range(jw[0], j_mid + 1)]
+        well_1 = "INJ"
+        perf_1 = len(perf_list)  # last segment is n_perf+1
         reservoir.add_well("INJ", perf_list=perf_list,
                            well_radius=well_radius, segment_direction='y_axis', well_index=0)
         # add perforations with well_index=0 (closed pipe, only thermal losses)
@@ -67,12 +69,18 @@ class Model(CICDModel):
         #     reservoir.add_perforation(well=reservoir.wells[-1], i=iw[0], j=j, k=n + 1,
         #                               well_radius=well_radius, segment_direction='y_axis', well_index=0)
         perf_list = [(iw[1], j, n+1) for j in range(jw[1], j_mid, -1)]
+        well_2 = "PRD"
+        perf_2 = len(perf_list)
         reservoir.add_well("PRD", perf_list=perf_list,
                            well_radius=well_radius, segment_direction='y_axis', well_index=0)
         # # add perforations with well_index=0 (closed pipe, only thermal losses)
         # for j in range(jw[1], j_mid, -1):
         #     reservoir.add_perforation(well=reservoir.wells[-1], i=iw[1], j=j, k=n + 1,
         #                               well_radius=well_radius, segment_direction='y_axis', well_index=0)
+
+        # connect the last two perforations of two wells
+        # dictionary: key is a pair of 2 well names; value is a list of well perforation indices to connect
+        reservoir.connected_well_segments = {(well_1, well_2): [(perf_1, perf_2)]}
 
         return super().set_reservoir(reservoir)
 
@@ -89,14 +97,6 @@ class Model(CICDModel):
     #                                                 uniform_temperature=450)
 
     def set_boundary_conditions(self):
-        # connect the last two perforations of two wells
-        well_1 = self.reservoir.wells[0]
-        well_2 = self.reservoir.wells[1]
-        perf_1 = len(well_1.perforations)  # last segment is n_perf+1
-        perf_2 = len(well_2.perforations)
-        # dictionary: key is a pair of 2 well names; value is a list of well perforation indices to connect
-        self.reservoir.connected_well_segments = {(well_1.name, well_2.name): [(perf_1, perf_2)]}
-
         # Set boundary volumes
         self.reservoir.set_boundary_volume(self.mesh, xz_minus=1e8, xz_plus=1e8, yz_minus=1e8, yz_plus=1e8,
                                            xy_minus=1e8, xy_plus=1e8)
