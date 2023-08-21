@@ -12,7 +12,6 @@ from mesh_creator import mesh_creator
 import os
 
 
-# Model class creation here!
 class Model(CICDModel):
     def __init__(self):
         # Call base class constructor
@@ -22,13 +21,17 @@ class Model(CICDModel):
         self.timer.node["initialization"].start()
 
         self.set_reservoir()
-        self.set_wells()
         self.set_physics()
 
-        self.set_sim_params(first_ts=0.0001, mult_ts=2, max_ts=2, runtime=2000, tol_newton=1e-3, tol_linear=1e-3,
-                            it_newton=10, it_linear=50)
+        self.set_sim_params(first_ts=0.0001, mult_ts=2, max_ts=2, runtime=2000,
+                            tol_newton=1e-3, tol_linear=1e-3, it_newton=10, it_linear=50)
 
         self.timer.node["initialization"].stop()
+
+        self.initial_values = {self.physics.vars[0]: 170.,
+                               self.physics.vars[1]: self.ini_stream[0],
+                               self.physics.vars[2]: self.ini_stream[1]
+                               }
 
     def set_reservoir(self):
         """Reservoir"""
@@ -61,12 +64,10 @@ class Model(CICDModel):
         # the class and constructs the object. In the process, the mesh is loaded, mesh information is calculated and
         # the discretization is executed. Besides that, also the boundary conditions of the simulations are
         # defined in this class --> in this case constant pressure/rate at the left (x==x_min) and right (x==x_max) side
-        self.reservoir = UnstructReservoir(permx=permx, permy=permy, permz=permz, frac_aper=frac_aper,
-                                           mesh_file=mesh_file, poro=poro, thickness=thickness, calc_equiv_WI=True)
-        return
+        reservoir = UnstructReservoir(timer=self.timer, permx=permx, permy=permy, permz=permz, frac_aper=frac_aper,
+                                      mesh_file=mesh_file, poro=poro, thickness=thickness, calc_equiv_WI=True)
 
-    def set_wells(self):
-        return
+        return super().set_reservoir(reservoir)
 
     def set_physics(self):
         """Physical properties"""
@@ -99,19 +100,13 @@ class Model(CICDModel):
         property_container.rock_compress_ev = RockCompactionEvaluator(pvt)
 
         """ Activate physics """
-        self.physics = Compositional(components, phases, self.timer,
-                                     n_points=500, min_p=1, max_p=200, min_z=zero / 10, max_z=1 - zero / 10)
-        self.physics.add_property_region(property_container)
-        self.physics.init_physics()
+        physics = Compositional(components, phases, self.timer,
+                                n_points=500, min_p=1, max_p=200, min_z=zero / 10, max_z=1 - zero / 10)
+        physics.add_property_region(property_container)
 
-        return
+        return super().set_physics(physics)
 
-    # Initialize reservoir and set boundary conditions:
-    def set_initial_conditions(self):
-        """ initialize conditions for all scenarios"""
-        self.physics.set_uniform_initial_conditions(self.reservoir.mesh, 170, self.ini_stream)
-
-    def set_boundary_conditions(self):
+    def set_well_controls(self):
         for i, w in enumerate(self.reservoir.wells):
             if 'I' in w.name:
                 w.control = self.physics.new_bhp_inj(180, self.inj_stream)
@@ -140,16 +135,16 @@ class Model(CICDModel):
                     w.control = self.physics.new_bhp_prod(125)
                     # w.control = self.physics.new_rate_water_prod(self.inj_prod_rate)
 
-            self.physics.engine.run(ts)
-            self.physics.engine.report()
+            self.engine.run(ts)
+            self.engine.report()
 
             if export_to_vtk:
-                X = np.array(self.physics.engine.X, copy=False)
+                X = np.array(self.engine.X, copy=False)
                 for ith_prop in range(len(self.physics.vars)):
-                    self.property_array[:, ith_prop] = X[ith_prop::self.n_vars]
+                    self.property_array[:, ith_prop] = X[ith_prop::self.physics.n_vars]
 
-                self.property_array[:, -1] = _Backward1_T_Ph_vec(X[0::self.n_vars] / 10,
-                                                                 X[1::self.n_vars] / 18.015)  # calc temperature
+                self.property_array[:, -1] = _Backward1_T_Ph_vec(X[0::self.physics.n_vars] / 10,
+                                                                 X[1::self.physics.n_vars] / 18.015)  # calc temperature
                 self.reservoir.unstr_discr.write_to_vtk('vtk_data', self.property_array,
                                                         ['pressure', 'enthalpy', 'temperature'], ith_step + 1)
 
