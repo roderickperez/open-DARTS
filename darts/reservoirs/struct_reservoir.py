@@ -23,7 +23,7 @@ class StructReservoir(ReservoirBase):
         skin: float = 0.
         multi_segment: bool = False
 
-    perforations: list[Perforation] = []
+    perforations: list = []
 
     def __init__(self, timer: timer_node, nx: int, ny: int, nz: int, dx, dy, dz, permx, permy, permz, poro, depth,
                  rcond=0, hcap=0, actnum=1, global_to_local=0, op_num=0, coord=0, zcorn=0, is_cpg=False, cache=False):

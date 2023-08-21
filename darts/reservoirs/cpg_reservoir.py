@@ -41,7 +41,7 @@ class CPG_Reservoir(ReservoirBase):
         skin: float = 0.
         multi_segment: bool = False
 
-    perforations: list[Perforation] = []
+    perforations: list = []
 
     def __init__(self, timer, gridfile, propfile, faultfile=None, cache=False):
         """
