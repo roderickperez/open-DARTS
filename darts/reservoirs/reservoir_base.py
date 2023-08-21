@@ -26,7 +26,7 @@ class ReservoirBase:
         return mesh, wells
 
     @abc.abstractmethod
-    def discretize(self):
+    def discretize(self) -> conn_mesh:
         pass
 
     @abc.abstractmethod
@@ -59,7 +59,7 @@ class ReservoirBase:
 
         mesh.reverse_and_sort()
         mesh.init_grav_coef()
-        return
+        return self.wells
 
     @abc.abstractmethod
     def output_to_vtk(self, output_directory, output_filename, property_data, ith_step):

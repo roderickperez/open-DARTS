@@ -19,7 +19,7 @@ class StructReservoir(ReservoirBase):
         well_radius: float
         well_index: float
         well_indexD: float
-        segment_direction: str = 'z'
+        segment_direction: str = 'z_axis'
         skin: float = 0.
         multi_segment: bool = False
 
@@ -87,7 +87,7 @@ class StructReservoir(ReservoirBase):
         self.connected_well_segments = {}
         self.wells = []
 
-    def discretize(self):
+    def discretize(self) -> conn_mesh:
         self.discretizer = StructDiscretizer(nx=self.nx, ny=self.ny, nz=self.nz, global_data=self.global_data,
                                              global_to_local=self.global_to_local, coord=self.coord, zcorn=self.zcorn,
                                              is_cpg=self.is_cpg)
@@ -263,8 +263,11 @@ class StructReservoir(ReservoirBase):
         mesh.reverse_and_sort()
         mesh.init_grav_coef()
 
+        return self.wells
+
     def get_cell_cpg_widths(self):
-        assert (self.discretizer.is_cpg == True)
+        assert self.discretizer.is_cpg
+
         dx = np.zeros(self.nx * self.ny * self.nz)
         dy = np.zeros(self.nx * self.ny * self.nz)
         dz = np.zeros(self.nx * self.ny * self.nz)

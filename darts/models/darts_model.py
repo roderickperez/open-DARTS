@@ -69,9 +69,9 @@ class DartsModel:
         - define list of operator interpolators for accumulation-flux regions and wells
         - initialize engine
         """
+        self.set_boundary_conditions()
         self.physics.init_wells(self.reservoir.wells)
         self.set_initial_conditions()
-        self.set_boundary_conditions()
         self.set_well_controls()
         self.set_op_list()
         self.reset()
@@ -370,7 +370,7 @@ class DartsModel:
         for v in range(nv):
             local_cell_data[self.physics.vars[v]] = X[v:nb * nv:nv].astype(vars_data_dtype)
 
-        self.reservoir.export_vtk(file_name, t, local_cell_data, global_cell_data, export_grid_data)
+        self.reservoir.output_to_vtk(file_name, t, local_cell_data, global_cell_data, export_grid_data)
 
     def load_restart_data(self, filename: str = 'restart.pkl'):
         """
