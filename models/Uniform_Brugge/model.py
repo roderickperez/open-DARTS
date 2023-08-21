@@ -7,7 +7,7 @@ from darts.physics.super.property_container import PropertyContainer
 
 from darts.physics.properties.black_oil import *
 
-from reservoir_Brugge import UnstructReservoir
+from reservoir_Brugge import UnstructReservoirBrugge
 from mesh_creator import mesh_creator
 import os
 
@@ -61,7 +61,7 @@ class Model(CICDModel):
         # the class and constructs the object. In the process, the mesh is loaded, mesh information is calculated and
         # the discretization is executed. Besides that, also the boundary conditions of the simulations are
         # defined in this class --> in this case constant pressure/rate at the left (x==x_min) and right (x==x_max) side
-        self.reservoir = UnstructReservoir(permx=permx, permy=permy, permz=permz, frac_aper=frac_aper,
+        self.reservoir = UnstructReservoirBrugge(permx=permx, permy=permy, permz=permz, frac_aper=frac_aper,
                                            mesh_file=mesh_file, poro=poro, thickness=thickness, calc_equiv_WI=True)
         return
 
