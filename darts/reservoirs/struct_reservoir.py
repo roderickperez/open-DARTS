@@ -121,7 +121,8 @@ class StructReservoir(ReservoirBase):
         np.array(mesh.rock_cond, copy=False)[:] = rcond
         np.array(mesh.heat_capacity, copy=False)[:] = hcap
         np.array(mesh.depth, copy=False)[:] = depth
-        np.array(mesh.volume, copy=False)[:] = volume
+        self.volume = np.array(mesh.volume, copy=False)
+        self.volume[:] = volume
         np.array(mesh.op_num, copy=False)[:] = op_num
 
         return mesh
@@ -142,9 +143,9 @@ class StructReservoir(ReservoirBase):
         if xz_plus > -1:
             volume[:, -1, :] = xz_plus
         # reshape to 1d
-        volume = np.reshape(self.discretizer.volume, self.discretizer.nodes_tot, order='F')
+        volume = np.reshape(volume, self.discretizer.nodes_tot, order='F')
         # apply actnum and assign to mesh.volume
-        self.global_data['volume'][:] = volume[self.discretizer.local_to_global]
+        self.volume[:] = volume[self.discretizer.local_to_global]
 
     def add_well(self, name: str, perf_list, well_radius=0.1524, wellbore_diameter=0.15,
                  well_index=None, well_indexD=None, segment_direction='z_axis', skin=0, multi_segment=False):
@@ -244,7 +245,7 @@ class StructReservoir(ReservoirBase):
                     print('Neglected perforation for well %s to block [%d, %d, %d] (inactive block)' %
                           (well.name, i, j, k))
 
-    def init_wells(self, mesh, verbose: bool = False):
+    def init_wells(self, mesh, verbose: bool = False) -> ms_well_vector:
         self.add_perforations(mesh, verbose)
 
         for w in self.wells:

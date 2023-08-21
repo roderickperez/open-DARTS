@@ -52,10 +52,10 @@ class ReservoirBase:
             if w.name == well_name:
                 return w
 
-    def init_wells(self, mesh: conn_mesh):
+    def init_wells(self, mesh: conn_mesh) -> ms_well_vector:
         for w in self.wells:
             assert (len(w.perforations) > 0), "Well %s does not perforate any active reservoir blocks" % w.name
-        mesh.add_wells(self.wells)
+        mesh.add_wells(ms_well_vector(self.wells))
 
         mesh.reverse_and_sort()
         mesh.init_grav_coef()
