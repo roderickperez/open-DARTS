@@ -56,7 +56,7 @@ class Model(CICDModel):
 
         # add well
         perf_list = [(iw[0], jw[0], k+1) for k in range(1, nz)]
-        reservoir.add_well("INJ", perf_list=perf_list, well_radius=0.16)
+        reservoir.add_well("INJ", perf_list=perf_list, well_radius=0.16, multi_segment=True)
         # # add perforations to te payzone
         # for n in range(1, n_perf):
         #     self.reservoir.add_perforation(well=self.reservoir.wells[-1], i=iw[0], j=jw[0], k=n + 1,
@@ -64,7 +64,7 @@ class Model(CICDModel):
 
         # add well
         perf_list = [(iw[1], jw[1], k+1) for k in range(1, nz)]
-        reservoir.add_well("PRD", perf_list=perf_list, well_radius=0.16)
+        reservoir.add_well("PRD", perf_list=perf_list, well_radius=0.16, multi_segment=True)
         # # add perforations to te payzone
         # for n in range(1, n_perf):
         #     self.reservoir.add_perforation(self.reservoir.wells[-1], iw[1], jw[1], n + 1, 0.16)
