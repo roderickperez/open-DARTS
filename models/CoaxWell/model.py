@@ -61,13 +61,13 @@ class Model(CICDModel):
         # add well
         perf_list = [(iw[0], j, n+1) for j in range(jw[0], j_mid + 1)]
         reservoir.add_well("INJ", perf_list=perf_list,
-                           well_radius=well_radius, segment_direction='y_axis', well_index=0)
+                           well_radius=well_radius, segment_direction='y_axis', well_index=0, multi_segment=True)
         perf_1 = len(perf_list)  # last segment is n_perf+1
 
         perf_list = [(iw[1], j, n+1) for j in range(jw[1], j_mid, -1)]
         perf_2 = len(perf_list)
         reservoir.add_well("PRD", perf_list=perf_list,
-                           well_radius=well_radius, segment_direction='y_axis', well_index=0)
+                           well_radius=well_radius, segment_direction='y_axis', well_index=0, multi_segment=True)
 
         # connect the last two perforations of two wells
         # dictionary: key is a pair of 2 well names; value is a list of well perforation indices to connect
