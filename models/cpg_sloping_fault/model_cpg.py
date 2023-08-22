@@ -47,14 +47,15 @@ class Model(CICDModel):
 
         if discr_type == 'cpp':
             reservoir = CPG_Reservoir(self.timer, self.gridfile, self.propfile)
-            # add wells
-            if True:
-                self.add_wells(reservoir, mode='read', sch_fname=sch_fname, verbose=True)  # , well_index=1000) # add only perforations
-            else:
-                self.add_wells(reservoir, mode='generate', sch_fname=sch_fname)
-            super().set_reservoir(reservoir)
         elif discr_type == 'python':
-            self.set_reservoir()
+            reservoir = self.set_reservoir()
+
+        # add wells
+        if True:
+            self.add_wells(reservoir, mode='read', sch_fname=sch_fname, verbose=True)  # , well_index=1000) # add only perforations
+        else:
+            self.add_wells(reservoir, mode='generate', sch_fname=sch_fname)
+        super().set_reservoir(reservoir)
 
         self.set_physics()
 
@@ -121,7 +122,7 @@ class Model(CICDModel):
         reservoir = StructReservoir(self.timer, nx=dims[0], ny=dims[1], nz=dims[2], dx=dx, dy=dy, dz=dz,
                                     permx=permx, permy=permy, permz=permz, poro=poro,
                                     depth=depth, actnum=actnum, coord=coord, zcorn=zcorn, is_cpg=True)
-        return super().set_reservoir(reservoir)
+        return reservoir
 
     def set_physics(self):
         """Physical properties"""
@@ -148,28 +149,22 @@ class Model(CICDModel):
 
         return super().set_physics(physics)
 
-    # def set_initial_conditions(self):
-    #     self.physics.set_uniform_initial_conditions(self.reservoir.mesh, uniform_pressure=200,
-    #                                                 uniform_composition=[0.001])
-    #                                                 #uniform_composition=[0.001225901537, 0.7711341309])
-    #     #self.set_initial_pressure_from_file(self.gridfile)
-
     def set_initial_pressure_from_file(self, fname):
         # set initial pressure
         p_cpp = value_vector()
         load_single_float_keyword(p_cpp, fname, 'PRESSURE', -1)
         p_file = np.array(p_cpp, copy=False)
 
-        p_mesh = np.array(self.reservoir.mesh.pressure, copy=False)
+        p_mesh = np.array(self.mesh.pressure, copy=False)
         try:
             actnum = np.array(self.reservoir.actnum, copy=False) # CPG Reservoir
             #nb = self.reservoir.mesh.n_cells
         except:
             actnum = self.reservoir.global_data['actnum']  #Struct reservoir
-        nb = self.reservoir.mesh.n_blocks
-        p_mesh[:self.reservoir.mesh.n_res_blocks * 2] = p_file[actnum > 0]
+        nb = self.mesh.n_blocks
+        p_mesh[:self.mesh.n_res_blocks * 2] = p_file[actnum > 0]
 
-    def add_wells(self, reservoir, mode='generate', sch_fname=None, well_index=-1, verbose=False):
+    def add_wells(self, reservoir, mode='generate', sch_fname: str = None, well_index: float = None, verbose: bool = False):
         self.read_and_add_perforations(reservoir, sch_fname, well_index=well_index, verbose=verbose)
 
     def set_well_controls(self):
@@ -202,7 +197,7 @@ class Model(CICDModel):
         for i in range(len(arr_list)):
             save_array(arr_list[i], fname_suf, arr_names[i], actnum, 'a')
 
-    def read_and_add_perforations(self, reservoir, sch_fname, well_index=-1, verbose=False):
+    def read_and_add_perforations(self, reservoir, sch_fname, well_index: float = None, verbose: bool = False):
         '''
         read COMPDAT from SCH file in Eclipse format, add wells and perforations
         note: uses only I,J,K1,K2 parameters from COMPDAT
@@ -236,13 +231,12 @@ class Model(CICDModel):
                                 k1 = int(CompDat[3])
                                 k2 = int(CompDat[4])
                                 perf_list = [(i1, j1, k) for k in range(k1, k2+1)]
-                                print(perf_list)
                                 # for i in range(k1, k2 + 1):
                                 #     reservoir.add_perforation(reservoir.wells[-1],
                                 #                                    i1, j1, i,
                                 #                                    well_radius=well_rad, well_index=well_index,
                                 #                                    multi_segment=False, verbose=verbose)
-                                reservoir.add_well(wname, perf_list, well_radius=well_rad, well_index=well_index, verbose=verbose)
+                                reservoir.add_well(wname, perf_list, well_radius=well_rad, well_index=well_index)
 
                             if len(CompDat) != 0 and '/' == CompDat[0]:
                                 keep_reading = False

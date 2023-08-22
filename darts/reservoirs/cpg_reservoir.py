@@ -439,10 +439,10 @@ class CPG_Reservoir(ReservoirBase):
             res_block_local, wi, wiD = self.calc_well_index(i, j, k, well_radius=perf.well_radius,
                                                             segment_direction=perf.segment_direction, skin=perf.skin)
 
-            if perf.well_index == -1:
+            if perf.well_index is None:
                 perf.well_index = wi
 
-            if perf.well_indexD == -1:
+            if perf.well_indexD is None:
                 perf.well_indexD = wiD
 
             # set well segment index (well block) equal to index of perforation layer
