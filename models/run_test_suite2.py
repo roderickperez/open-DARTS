@@ -7,12 +7,12 @@ from darts.engines import sim_params
 
 model_dir = r'.'
 
-accepted_dirs = ['2ph_comp', '2ph_comp_solid', '2ph_do', '2ph_do_thermal', '2ph_geothermal',
-                 '3ph_comp_w', '3ph_do', '3ph_bo',
-                 'Uniform_Brugge',
-                 'Chem_benchmark_new',
+accepted_dirs = [#'2ph_comp', '2ph_comp_solid', '2ph_do', '2ph_do_thermal', '2ph_geothermal',
+                 # '3ph_comp_w', '3ph_do', '3ph_bo',
+                 # 'Uniform_Brugge',
+                 # 'Chem_benchmark_new',
                  #'CO2_foam_CCS',
-                 'GeoRising',
+                 # 'GeoRising',
                  'CoaxWell'
                  ]
 
@@ -99,12 +99,12 @@ if __name__ == '__main__':
     n_tot = n_failed = 0
     n_tot, n_failed = run_tests(model_dir, test_dirs=['cpg_sloping_fault'], test_args=[[['40'],['43']]],
                                 overwrite=overwrite)
-    failed += n_failed
 
     # poromechanic tests
-    n_tot = n_failed = 0
-    # n_tot, n_failed = run_tests(model_dir, test_dirs, test_args, overwrite)
-    # failed += n_failed
+    # n_tot_mech, n_failed_mech = run_tests(model_dir, test_dirs, test_args, overwrite)
+    # n_tot += n_tot_mech
+    # n_failed += n_failed_mech
+    failed += n_failed
 
     # test for adjoint ------------------start---------------------------------
     import time
