@@ -60,27 +60,18 @@ class Model(CICDModel):
 
         # add well
         perf_list = [(iw[0], j, n+1) for j in range(jw[0], j_mid + 1)]
-        well_1 = "INJ"
-        perf_1 = len(perf_list)  # last segment is n_perf+1
         reservoir.add_well("INJ", perf_list=perf_list,
                            well_radius=well_radius, segment_direction='y_axis', well_index=0)
-        # add perforations with well_index=0 (closed pipe, only thermal losses)
-        # for j in range(jw[0], j_mid + 1):
-        #     reservoir.add_perforation(well=reservoir.wells[-1], i=iw[0], j=j, k=n + 1,
-        #                               well_radius=well_radius, segment_direction='y_axis', well_index=0)
+        perf_1 = len(perf_list)  # last segment is n_perf+1
+
         perf_list = [(iw[1], j, n+1) for j in range(jw[1], j_mid, -1)]
-        well_2 = "PRD"
         perf_2 = len(perf_list)
         reservoir.add_well("PRD", perf_list=perf_list,
                            well_radius=well_radius, segment_direction='y_axis', well_index=0)
-        # # add perforations with well_index=0 (closed pipe, only thermal losses)
-        # for j in range(jw[1], j_mid, -1):
-        #     reservoir.add_perforation(well=reservoir.wells[-1], i=iw[1], j=j, k=n + 1,
-        #                               well_radius=well_radius, segment_direction='y_axis', well_index=0)
 
         # connect the last two perforations of two wells
         # dictionary: key is a pair of 2 well names; value is a list of well perforation indices to connect
-        reservoir.connected_well_segments = {(well_1, well_2): [(perf_1, perf_2)]}
+        reservoir.connected_well_segments = {(reservoir.wells[0].name, reservoir.wells[1].name): [(perf_1, perf_2)]}
 
         return super().set_reservoir(reservoir)
 
@@ -91,10 +82,6 @@ class Model(CICDModel):
         physics.add_property_region(property_container)
 
         return super().set_physics(physics)
-
-    # def set_initial_conditions(self):
-    #     self.physics.set_uniform_initial_conditions(self.reservoir.mesh, uniform_pressure=200,
-    #                                                 uniform_temperature=450)
 
     def set_boundary_conditions(self):
         # Set boundary volumes
@@ -121,17 +108,10 @@ class Model(CICDModel):
         temp = _Backward1_T_Ph_vec(X[0:2 * nb:2] / 10, X[1:2 * nb:2] / 18.015)
         return temp
 
-    def set_op_list(self):
-        self.op_list = [self.physics.acc_flux_itor[0], self.physics.acc_flux_w_itor]
-        op_num = np.array(self.mesh.op_num, copy=False)
-        op_num[self.mesh.n_res_blocks:] = 1
-
     def export_pro_vtk(self, file_name='Results'):
         X = np.array(self.engine.X, copy=False)
         nb = self.mesh.n_res_blocks
-        print(self.compute_temperature(X))
         temp = _Backward1_T_Ph_vec(X[0:2 * nb:2] / 10, X[1:2 * nb:2] / 18.015)
-        print(temp)
         local_cell_data = {'Temperature': temp,
                            'Perm': self.reservoir.global_data['permx'][self.reservoir.discretizer.local_to_global]}
 
