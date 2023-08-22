@@ -238,8 +238,8 @@ class StructReservoir(ReservoirBase):
                         return
                 well.perforations = well.perforations + [(well_block, res_block_local, perf.well_index, perf.well_indexD)]
                 if verbose:
-                    print('Added perforation for well %s to block %d [%d, %d, %d] with WI=%f' %
-                          (well.name, res_block_local, i, j, k, perf.well_index))
+                    print('Added perforation for well %s to block %d [%d, %d, %d] with WI=%f and WID=%f' %
+                          (well.name, res_block_local, i, j, k, perf.well_index, perf.well_indexD))
             else:
                 if verbose:
                     print('Neglected perforation for well %s to block [%d, %d, %d] (inactive block)' %
