@@ -7,12 +7,12 @@ from darts.engines import sim_params
 
 model_dir = r'.'
 
-accepted_dirs = [#'2ph_comp', '2ph_comp_solid', '2ph_do', '2ph_do_thermal', '2ph_geothermal',
-                 # '3ph_comp_w', '3ph_do', '3ph_bo',
-                 # 'Uniform_Brugge',
-                 # 'Chem_benchmark_new',
+accepted_dirs = ['2ph_comp', '2ph_comp_solid', '2ph_do', '2ph_do_thermal', '2ph_geothermal',
+                 '3ph_comp_w', '3ph_do', '3ph_bo',
+                 'Uniform_Brugge',
+                 'Chem_benchmark_new',
                  #'CO2_foam_CCS',
-                 # 'GeoRising',
+                 'GeoRising',
                  'CoaxWell'
                  ]
 
