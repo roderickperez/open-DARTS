@@ -85,14 +85,13 @@ class PhysicsBase:
             atexit.register(self.write_cache)
 
     def init_physics(self, regions: list = None, discr_type: str = 'tpfa', platform: str = 'cpu',
-                     itor_type: str = 'multilinear', itor_mode: str = 'adaptive', itor_precision: str = 'd'):
+                     itor_type: str = 'multilinear', itor_mode: str = 'adaptive', itor_precision: str = 'd',
+                     verbose: bool = False):
         """
         Function to initialize all contained objects within the Physics object.
 
         :param regions: List of regions. It contains the keys of the `property_containers` and `reservoir_operators` dict
         :type regions: list
-        :param output_props: Output property operators object, default is None
-        :type output_props:
         :param discr_type: Discretization type, 'tpfa' (default) or 'mpfa'
         :type discr_type: str
         :param platform: Switch for CPU/GPU engine, 'cpu' (default) or 'gpu'
@@ -103,6 +102,8 @@ class PhysicsBase:
         :type itor_mode: str
         :param itor_precision: Precision of interpolation, 'd' (default) - double precision or 's' - single precision
         :type itor_precision: str
+        :param verbose: Set verbose level
+        :type verbose: bool
         """
         # If no list of regions has been provided, generate it from the keys of self.property_containers dict
         if regions is None:

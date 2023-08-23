@@ -83,26 +83,30 @@ class DartsModel:
         self.engine.init(self.mesh, ms_well_vector(self.reservoir.wells), op_vector(self.op_list),
                          self.params, self.timer.node["simulation"])
 
-    def set_reservoir(self, reservoir: ReservoirBase) -> None:
+    def set_reservoir(self, reservoir: ReservoirBase, verbose: bool = False) -> None:
         """
         Function to define reservoir and initialize :class:`Reservoir` object.
 
         :param reservoir: :class:`Reservoir` object
         :type reservoir: ReservoirBase
+        :param verbose: Set verbose level
+        :type verbose: bool
         """
         self.reservoir = reservoir
-        self.mesh, self.wells = self.reservoir.init_reservoir()
+        self.mesh, self.wells = self.reservoir.init_reservoir(verbose=verbose)
         return
 
-    def set_physics(self, physics: PhysicsBase) -> None:
+    def set_physics(self, physics: PhysicsBase, verbose: bool = False) -> None:
         """
         Function to define properties and regions and initialize :class:`Physics` object.
 
         :param physics: :class:`Physics` object
         :type physics: PhysicsBase
+        :param verbose: Set verbose level
+        :type verbose: bool
         """
         self.physics = physics
-        self.engine = self.physics.init_physics()
+        self.engine = self.physics.init_physics(verbose=verbose)
         return
 
     def set_initial_conditions(self, initial_values: dict = None, gradient: dict = None):

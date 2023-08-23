@@ -20,9 +20,9 @@ class ReservoirBase:
             self.created_itors = []
             atexit.register(self.write_cache)
 
-    def init_reservoir(self) -> (conn_mesh, ms_well_vector):
+    def init_reservoir(self, verbose: bool = False) -> (conn_mesh, ms_well_vector):
         mesh = self.discretize()
-        wells = self.init_wells(mesh)
+        wells = self.init_wells(mesh, verbose)
         return mesh, wells
 
     @abc.abstractmethod
