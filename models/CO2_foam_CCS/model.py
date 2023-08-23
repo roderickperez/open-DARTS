@@ -37,8 +37,17 @@ class Model(CICDModel):
         const_perm = 100
         poro = 0.15
         mesh_file = 'wedgesmall.msh'
-        reservoir = UnstructReservoir(permx=const_perm, permy=const_perm, permz=const_perm,
-                                      frac_aper=0, mesh_file=mesh_file, poro=poro)
+        reservoir = UnstructReservoir(self.timer, permx=const_perm, permy=const_perm, permz=const_perm,
+                                      frac_aper=0, mesh_file=mesh_file, poro=poro, cache=False)
+
+        # Add injection well for CO2:
+        reservoir.add_well("I1", depth=5, wellbore_diameter=0.1)
+        # Perforate all boundary cells:
+        for nth_perf in range(len(self.left_boundary_cells)):
+            well_index = mesh.volume[self.left_boundary_cells[nth_perf]] / self.max_well_vol * self.well_index
+            well_indexD = 0.
+            self.add_perforation(well=self.wells[-1], res_block=self.left_boundary_cells[nth_perf],
+                                 well_index=well_index, well_indexD=well_indexD)
 
         return super().set_reservoir(reservoir)
 

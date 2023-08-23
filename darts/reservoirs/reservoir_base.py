@@ -1,12 +1,27 @@
 import abc
+from math import pi
 import numpy as np
 import pickle
 import atexit
+from typing import Union
 
-from darts.engines import conn_mesh, timer_node, ms_well_vector
+from darts.engines import conn_mesh, timer_node, ms_well_vector, ms_well
+
+from dataclasses import dataclass
 
 
 class ReservoirBase:
+    @dataclass
+    class Perforation:
+        well_name: str
+        cell_index: Union[tuple, int]
+        well_radius: float
+        well_index: float
+        well_indexD: float
+        segment_direction: str = 'z_axis'
+        skin: float = 0.
+        multi_segment: bool = False
+
     wells: ms_well_vector = []
     perforations: list = []
 
@@ -22,7 +37,7 @@ class ReservoirBase:
 
     def init_reservoir(self, verbose: bool = False) -> (conn_mesh, ms_well_vector):
         mesh = self.discretize()
-        wells = self.init_wells(mesh, verbose)
+        wells = self.init_wells(mesh, verbose=verbose)
         return mesh, wells
 
     @abc.abstractmethod
@@ -33,12 +48,46 @@ class ReservoirBase:
     def set_boundary_volume(self, mesh: conn_mesh):
         pass
 
-    @abc.abstractmethod
-    def add_well(self, name):
-        pass
+    def add_well(self, name: str, perf_list: list, well_radius: float = 0.1524, wellbore_diameter: float = 0.15,
+                 well_index: float = None, well_indexD: float = None, segment_direction: str = 'z_axis',
+                 skin: float = 0, multi_segment: bool = False) -> None:
+        """
+        Function to add :class:`ms_well` object to list of wells
+
+        :param name: Well name
+        :param perf_cell_idxs: Set of cells to perforate, (i, j, k)
+        :param well_radius:
+        :param wellbore_diameter:
+        :param well_index:
+        :param well_indexD:
+        :param segment_direction:
+        :param skin:
+        :param multi_segment:
+        """
+        well = ms_well()
+        well.name = name
+
+        # first put only area here, to be multiplied by segment length later
+        well.segment_volume = pi * wellbore_diameter ** 2 / 4
+
+        # also to be filled up when the first perforation is made
+        well.well_head_depth = 0
+        well.well_body_depth = 0
+        well.segment_depth_increment = 0
+        self.wells.append(well)
+
+        if isinstance(perf_list, (tuple, int)):
+            perf_list = [perf_list]
+
+        for p, perf_idx in enumerate(perf_list):
+            self.perforations.append(self.Perforation(well_name=name, cell_index=perf_idx, well_radius=well_radius,
+                                                      well_index=well_index, well_indexD=well_indexD,
+                                                      segment_direction=segment_direction, skin=skin,
+                                                      multi_segment=multi_segment))
+        return
 
     @abc.abstractmethod
-    def add_perforations(self, mesh):
+    def add_perforations(self, mesh, verbose: bool = False) -> None:
         pass
 
     def get_well(self, well_name: str):
@@ -52,7 +101,7 @@ class ReservoirBase:
             if w.name == well_name:
                 return w
 
-    def init_wells(self, mesh: conn_mesh) -> ms_well_vector:
+    def init_wells(self, mesh: conn_mesh, verbose: bool = False) -> ms_well_vector:
         for w in self.wells:
             assert (len(w.perforations) > 0), "Well %s does not perforate any active reservoir blocks" % w.name
         mesh.add_wells(ms_well_vector(self.wells))

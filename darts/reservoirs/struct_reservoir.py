@@ -12,19 +12,6 @@ from dataclasses import dataclass
 
 
 class StructReservoir(ReservoirBase):
-    @dataclass
-    class Perforation:
-        well_name: str
-        cell_index: tuple
-        well_radius: float
-        well_index: float
-        well_indexD: float
-        segment_direction: str = 'z_axis'
-        skin: float = 0.
-        multi_segment: bool = False
-
-    perforations: list = []
-
     def __init__(self, timer: timer_node, nx: int, ny: int, nz: int, dx, dy, dz, permx, permy, permz, poro, depth,
                  rcond=0, hcap=0, actnum=1, global_to_local=0, op_num=0, coord=0, zcorn=0, is_cpg=False, cache=False):
         """
@@ -127,62 +114,27 @@ class StructReservoir(ReservoirBase):
 
         return mesh
 
-    def set_boundary_volume(self, mesh, xy_minus=-1, xy_plus=-1, yz_minus=-1, yz_plus=-1, xz_minus=-1, xz_plus=-1):
+    def set_boundary_volume(self, mesh: conn_mesh, xy_minus: float = None, xy_plus: float = None,
+                            yz_minus: float = None, yz_plus: float = None, xz_minus: float = None,
+                            xz_plus: float = None):
         # apply changes
         volume = self.discretizer.volume
-        if xy_minus > -1:
+        if xy_minus is not None:
             volume[:, :, 0] = xy_minus
-        if xy_plus > -1:
+        if xy_plus is not None:
             volume[:, :, -1] = xy_plus
-        if yz_minus > -1:
+        if yz_minus is not None:
             volume[0, :, :] = yz_minus
-        if yz_plus > -1:
+        if yz_plus is not None:
             volume[-1, :, :] = yz_plus
-        if xz_minus > -1:
+        if xz_minus is not None:
             volume[:, 0, :] = xz_minus
-        if xz_plus > -1:
+        if xz_plus is not None:
             volume[:, -1, :] = xz_plus
         # reshape to 1d
         volume = np.reshape(volume, self.discretizer.nodes_tot, order='F')
         # apply actnum and assign to mesh.volume
         self.volume[:] = volume[self.discretizer.local_to_global]
-
-    def add_well(self, name: str, perf_list, well_radius=0.1524, wellbore_diameter=0.15,
-                 well_index=None, well_indexD=None, segment_direction='z_axis', skin=0, multi_segment=False):
-        """
-        Function to add :class:`ms_well` object to list of wells
-
-        :param name: Well name
-        :param perf_list: Set of cells to perforate, (i, j, k)
-        :param well_radius:
-        :param wellbore_diameter:
-        :param well_index:
-        :param well_indexD:
-        :param segment_direction:
-        :param skin:
-        :param multi_segment:
-        """
-        well = ms_well()
-        well.name = name
-
-        # first put only area here, to be multiplied by segment length later
-        well.segment_volume = pi * wellbore_diameter ** 2 / 4
-
-        # also to be filled up when the first perforation is made
-        well.well_head_depth = 0
-        well.well_body_depth = 0
-        well.segment_depth_increment = 0
-        self.wells.append(well)
-
-        if isinstance(perf_list, (tuple, int)):
-            perf_list = [perf_list]
-
-        for p, perf_idx in enumerate(perf_list):
-            self.perforations.append(StructReservoir.Perforation(well_name=name, cell_index=perf_idx, well_radius=well_radius,
-                                                                 well_index=well_index, well_indexD=well_indexD,
-                                                                 segment_direction=segment_direction, skin=skin,
-                                                                 multi_segment=multi_segment))
-        return well
 
     def add_perforations(self, mesh, verbose: bool = False):
         """
@@ -244,6 +196,7 @@ class StructReservoir(ReservoirBase):
                 if verbose:
                     print('Neglected perforation for well %s to block [%d, %d, %d] (inactive block)' %
                           (well.name, i, j, k))
+        return
 
     def init_wells(self, mesh, verbose: bool = False) -> ms_well_vector:
         self.add_perforations(mesh, verbose)

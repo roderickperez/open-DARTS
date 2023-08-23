@@ -65,7 +65,53 @@ class Model(CICDModel):
         # the discretization is executed. Besides that, also the boundary conditions of the simulations are
         # defined in this class --> in this case constant pressure/rate at the left (x==x_min) and right (x==x_max) side
         reservoir = UnstructReservoir(timer=self.timer, permx=permx, permy=permy, permz=permz, frac_aper=frac_aper,
-                                      mesh_file=mesh_file, poro=poro, thickness=thickness, calc_equiv_WI=True)
+                                      mesh_file=mesh_file, poro=poro, thickness=thickness)
+
+        well_coord = np.genfromtxt('Brugge_struct/well_coord_Brugge.txt')
+        self.index_cell = []
+
+        for i, wc in enumerate(well_coord):
+            distance = []
+            for j, centroid in enumerate(self.cac):
+                distance.append(np.linalg.norm(wc - centroid))
+            min_dis = np.min(distance)
+            self.index_cell.append(distance.index(min_dis) + 1)
+
+        try:
+            assert (len(set(self.index_cell)) == len(well_coord))
+        except AssertionError:
+            print('There are at least 2 wells locating in the same grid block!!! The mesh file should be modified!')
+            sys.exit()
+
+        self.well_index_list = []
+        if self.calc_equiv_WI:
+            well_coord_list = well_coord
+            for wc in well_coord_list:
+                WI = calc_equivalent_WI(mesh_file=self.mesh_file, well_coord=wc, centroid_info=self.cac,
+                                        kx_list=self.permx, ky_list=self.permy, dz=self.thickness, skin=0)
+                self.well_index_list.append(WI)
+        else:
+            self.well_index_list = [296.65303668, 69.71905642, 27.14929434, 27.58575654, 53.01869826,
+                                    135.80457602, 345.34715322, 80.69146768, 74.07293499, 243.34286931,
+                                    482.48726884, 592.37938461, 307.72095815, 542.44279506, 63.58456305,
+                                    499.53586907, 213.09805386, 303.97957677, 78.80966839, 791.4220401,
+                                    829.44984229, 794.13401768, 761.08006179, 62.37906275, 616.74501491,
+                                    475.63754963, 397.50862698, 478.21742722, 504.06328513, 655.32259614]
+
+
+        n_injector = 10  # the first 10 wells are injectors
+        n_wells = 30  # the number of wells
+
+        for i in range(np.size(self.well_index_list)):
+            if i < n_injector:
+                self.add_well("I" + str(i + 1))
+                self.add_perforation(well=self.wells[-1], res_block=int(self.index_cell[i]),
+                                     well_index=self.well_index_list[i])
+            else:
+                self.add_well("P" + str(i + 1 - n_injector))
+                self.add_perforation(well=self.wells[-1], res_block=int(self.index_cell[i]),
+                                     well_index=self.well_index_list[i])
+
 
         return super().set_reservoir(reservoir)
 
