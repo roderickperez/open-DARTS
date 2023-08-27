@@ -212,6 +212,17 @@ class DartsModel:
                                                          self.e.stat.n_newton_total, self.e.stat.n_newton_wasted,
                                                          self.e.stat.n_linear_total, self.e.stat.n_linear_wasted))
 
+    def apply_rhs_flux(self, dt: float):
+        '''
+        if self.rhs_flux is defined and it is not None, add its values to rhs
+        :param dt: timestep [days]
+        '''
+        if not hasattr(self, 'rhs_flux') or self.rhs_flux is None:
+            return
+        rhs = np.array(self.physics.engine.RHS, copy=False)
+        rhs += self.rhs_flux * dt
+
+
     def run_timestep_python(self, dt, t):
         max_newt = self.params.max_i_newton
         max_residual = np.zeros(max_newt + 1)
@@ -220,6 +231,7 @@ class DartsModel:
         self.timer.node['simulation'].start()
         for i in range(max_newt+1):
             self.e.run_single_newton_iteration(dt)
+            self.apply_rhs_flux(dt)
             self.e.newton_residual_last_dt = self.e.calc_newton_residual()
 
             max_residual[i] = self.e.newton_residual_last_dt
