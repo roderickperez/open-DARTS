@@ -220,7 +220,8 @@ class DartsModel:
         if not hasattr(self, 'rhs_flux') or self.rhs_flux is None:
             return
         rhs = np.array(self.physics.engine.RHS, copy=False)
-        rhs += self.rhs_flux * dt
+        n_res = self.reservoir.mesh.n_res_blocks * self.physics.n_vars
+        rhs[:n_res] += self.rhs_flux * dt
 
 
     def run_timestep_python(self, dt, t):
