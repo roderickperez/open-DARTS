@@ -8,8 +8,6 @@ from darts.reservoirs.mesh.struct_discretizer import StructDiscretizer
 from pyevtk import hl, vtk
 from scipy.interpolate import griddata
 
-from dataclasses import dataclass
-
 
 class StructReservoir(ReservoirBase):
     def __init__(self, timer: timer_node, nx: int, ny: int, nz: int, dx, dy, dz, permx, permy, permz, poro, depth,
@@ -164,39 +162,35 @@ class StructReservoir(ReservoirBase):
             else:
                 well_block = 0
 
-            # add completion only if target block is active
-            if res_block_local > -1:
-                if len(well.perforations) == 0:
-                    well.well_head_depth = np.array(mesh.depth, copy=False)[res_block_local]
-                    well.well_body_depth = well.well_head_depth
-                    perf.well_indexD *= np.array(mesh.rock_cond, copy=False)[res_block_local]  # assume perforation condution = rock conduction
-                    if self.is_cpg:
-                        dx, dy, dz = self.discretizer.calc_cell_dimensions(i-1, j-1, k-1)
-                        # TODO: need segment_depth_increment and segment_length logic
-                        if perf.segment_direction == 'z_axis':
-                            well.segment_depth_increment = dz
-                        elif perf.segment_direction == 'x_axis':
-                            well.segment_depth_increment = dx
-                        else:
-                            well.segment_depth_increment = dy
+        # add completion only if target block is active
+        if res_block_local > -1:
+            if len(well.perforations) == 0:
+                well.well_head_depth = np.array(mesh.depth, copy=False)[res_block_local]
+                well.well_body_depth = well.well_head_depth
+                if self.discretizer.is_cpg:
+                    dx, dy, dz = self.discretizer.calc_cell_dimensions(i - 1, j - 1, k - 1)
+                    # TODO: need segment_depth_increment and segment_length logic
+                    if perf.segment_direction == 'z_axis':
+                        well.segment_depth_increment = dz
+                    elif perf.segment_direction == 'x_axis':
+                        well.segment_depth_increment = dx
                     else:
-                        well.segment_depth_increment = self.discretizer.len_cell_zdir[i-1, j-1, k-1]
+                        well.segment_depth_increment = dy
+                else:
+                    well.segment_depth_increment = self.discretizer.len_cell_zdir[i-1, j-1, k-1]
 
-                    well.segment_volume *= well.segment_depth_increment
-                for p in well.perforations:
-                    if p[0] == well_block and p[1] == res_block_local:
-                        print('Neglected duplicate perforation for well %s to block [%d, %d, %d]' %
-                              (well.name, i, j, k))
-                        return
-                well.perforations = well.perforations + [(well_block, res_block_local, perf.well_index, perf.well_indexD)]
-                if verbose:
-                    print('Added perforation for well %s to block %d [%d, %d, %d] with WI=%f and WID=%f' %
-                          (well.name, res_block_local, i, j, k, perf.well_index, perf.well_indexD))
-            else:
-                if verbose:
-                    print('Neglected perforation for well %s to block [%d, %d, %d] (inactive block)' %
-                          (well.name, i, j, k))
-        return
+                well.segment_volume *= well.segment_depth_increment
+            for p in well.perforations:
+                if p[0] == well_block and p[1] == res_block_local:
+                    print('Neglected duplicate perforation for well %s to block [%d, %d, %d]' % (well.name, i, j, k))
+                    return
+            well.perforations = well.perforations + [(well_block, res_block_local, perf.well_index, perf.well_indexD)]
+            if verbose:
+                print('Added perforation for well %s to block %d [%d, %d, %d] with WI=%f and WID=%f' % (
+                    well.name, res_block_local, i, j, k, perf.well_index, perf.well_indexD))
+        else:
+            if verbose:
+                print('Neglected perforation for well %s to block [%d, %d, %d] (inactive block)' % (well.name, i, j, k))
 
     def init_wells(self, mesh, verbose: bool = False) -> ms_well_vector:
         self.add_perforations(mesh, verbose)
