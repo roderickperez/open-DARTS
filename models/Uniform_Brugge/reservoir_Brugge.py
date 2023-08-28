@@ -92,3 +92,63 @@ class UnstructReservoir(ReservoirBase):
         # add completion
         well.perforations = well.perforations + [(well_block, res_block, well_index, well_indexD)]
         return 0
+
+    def init_wells(self):
+        """
+        Class method which initializes the wells (adding wells and their perforations to the reservoir)
+        :return:
+        """
+        well_coord = np.genfromtxt('Brugge_struct/well_coord_Brugge.txt')
+        self.index_cell = []
+
+        for i, wc in enumerate(well_coord):
+            distance = []
+            for j, centroid in enumerate(self.cac):
+                distance.append(np.linalg.norm(wc - centroid))
+            min_dis = np.min(distance)
+            self.index_cell.append(distance.index(min_dis))
+
+        try:
+            assert (len(set(self.index_cell)) == len(well_coord))
+        except AssertionError:
+            print('There are at least 2 wells locating in the same grid block!!! The mesh file should be modified!')
+            sys.exit()
+
+        self.well_index_list = []
+        if self.calc_equiv_WI:
+            self.well_index_list = [-1] * len(well_coord)
+        else:
+            self.well_index_list = [296.65303668, 69.71905642, 27.14929434, 27.58575654, 53.01869826,
+                                    135.80457602, 345.34715322, 80.69146768, 74.07293499, 243.34286931,
+                                    482.48726884, 592.37938461, 307.72095815, 542.44279506, 63.58456305,
+                                    499.53586907, 213.09805386, 303.97957677, 78.80966839, 791.4220401,
+                                    829.44984229, 794.13401768, 761.08006179, 62.37906275, 616.74501491,
+                                    475.63754963, 397.50862698, 478.21742722, 504.06328513, 655.32259614]
+
+
+        n_injector = 10  # the first 10 wells are injectors
+        n_wells = 30  # the number of wells
+        self.inj_wells = []
+        self.prod_wells = []
+
+        for i in range(np.size(self.well_index_list)):
+            if i < n_injector:
+                self.add_well("I" + str(i + 1))
+                self.add_perforation(well=self.wells[-1], res_block=int(self.index_cell[i]),
+                                     well_index=self.well_index_list[i], well_indexD=0,
+                                     multi_segment=True, verbose=True)
+                self.inj_wells.append(self.wells[i])
+            else:
+                self.add_well("P" + str(i + 1 - n_injector))
+                self.add_perforation(well=self.wells[-1], res_block=int(self.index_cell[i]),
+                                     well_index=self.well_index_list[i], well_indexD=0,
+                                     multi_segment=True, verbose=True)
+                self.prod_wells.append(self.wells[i])
+
+        # Add wells to the DARTS mesh object and sort connection (DARTS related):
+        self.mesh.add_wells(ms_well_vector(self.wells))
+        self.mesh.reverse_and_sort()
+        self.mesh.init_grav_coef()
+        return 0
+
+

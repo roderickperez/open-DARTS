@@ -12,9 +12,9 @@ set fname=%commit%_%odls%_%py%.zip
 echo %fname%
 
 "C:\Program files\7-Zip\7z.exe" a -r %fname% *.pkl
-net use \\%srv%\opendarts-private-artifacts %pwd% /user:WORKGROUP\%lgn%
+net use \\%srv%\darts-private-artifacts %pwd% /user:WORKGROUP\%lgn%
 
-copy %fname% \\darts-ci.citg.tudelft.nl\darts-private-artifacts\pkl_win\
+copy %fname% \\%srv%\darts-private-artifacts\pkl_win\
 
 del %fname%
 
