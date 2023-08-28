@@ -4,13 +4,33 @@ from darts.engines import timer_node, ms_well, conn_mesh, value_vector, index_ve
 import numpy as np
 import os
 import meshio
+from typing import Union
 
 from dataclasses import dataclass
 
 
 class UnstructReservoir(ReservoirBase):
-    def __init__(self, timer: timer_node, mesh_file: str,
-                 permx, permy, permz, poro, frac_aper=0, rcond=0, hcap=0, op_num=0, cache: bool = False):
+    """
+    Class for generating unstructered mesh
+
+    :param timer: Timer object
+    :type timer: timer_node
+    :param mesh_file: Mesh file
+    :type mesh_file: str
+    :param permx: Matrix permeability in the x-direction (scalar or vector)
+    :param permy: Matrix permeability in the y-direction (scalar or vector)
+    :param permz: Matrix permeability in the z-direction (scalar or vector)
+    :param poro: Matrix (and fracture?) porosity (scalar or vector)
+    :param rcond: Matrix rock conduction (scalar or vector)
+    :param hcap: Matrix heat capacity (scalar or vector)
+    :param frac_aper: Aperture of the fracture (scalar or vector)
+    :param op_num: Index of operator set
+    :param cache: Switch to load/save cache of discretization
+    :type cache: bool
+    """
+
+    def __init__(self, timer: timer_node, mesh_file: str, permx, permy, permz, poro, rcond=0, hcap=0,
+                 frac_aper=0, op_num=0, cache: bool = False):
         super().__init__(timer, cache)
 
         self.mesh_file = mesh_file
@@ -29,8 +49,8 @@ class UnstructReservoir(ReservoirBase):
 
     def discretize(self) -> conn_mesh:
         # Construct instance of Unstructured Discretization class:
-        self.discretizer = UnstructDiscretizer(mesh_file=self.mesh_file,
-                                               permx=self.permx, permy=self.permy, permz=self.permz)
+        self.discretizer = UnstructDiscretizer(mesh_file=self.mesh_file, permx=self.permx, permy=self.permy,
+                                               permz=self.permz, frac_aper=self.frac_aper)
 
         # Use class method load_mesh to load the GMSH file specified above:
         self.discretizer.load_mesh()
@@ -50,26 +70,13 @@ class UnstructReservoir(ReservoirBase):
         mesh = conn_mesh()
         mesh.init(index_vector(cell_m), index_vector(cell_p), value_vector(tran), value_vector(tran_thermal))
 
-        # Store number of control volumes (NOTE: in case of fractures, this includes both matrix and fractures):
-        self.nb = self.discretizer.volume_all_cells.size
-        self.num_frac = self.discretizer.fracture_cell_count
-        self.num_mat = self.discretizer.matrix_cell_count
-
         # Create numpy arrays wrapped around mesh data (no copying, this will severely slow down the process!)
         np.array(mesh.poro, copy=False)[:] = self.poro
         np.array(mesh.rock_cond, copy=False)[:] = self.rcond
         np.array(mesh.heat_capacity, copy=False)[:] = self.hcap
         np.array(mesh.op_num, copy=False)[:] = self.op_num
-
-        # Since we use copy==False above, we have to store the values by using the Python slicing option, if we don't
-        # do this we will overwrite the variable, e.g. self.poro = poro --> overwrite self.poro with the variable poro
-        # instead of storing the variable poro in self.mesh.poro (therefore "numpy array wrapped around mesh data!!!):
         np.array(mesh.depth, copy=False)[:] = self.discretizer.depth_all_cells
         np.array(mesh.volume, copy=False)[:] = self.discretizer.volume_all_cells
-
-        # Calculate well_index (very primitive way....):
-        self.well_index = np.mean(tran) * 1
-        # self.well_index = 10
 
         return mesh
 
@@ -182,14 +189,19 @@ class UnstructReservoir(ReservoirBase):
         :param mesh: :class:`Mesh` object
         :param verbose: Switch for verbose level
         """
+        cell_idxs = []
         for perf in self.perforations:
             well = self.get_well(perf.well_name)
 
+            res_block = self.find_cell_index(perf.cell_index)
+            if res_block not in cell_idxs:
+                cell_idxs.append(res_block)
+            else:
+                print('There are at least 2 wells locating in the same grid block!!! The mesh file should be modified!')
+                exit()
+
             # calculate well index and get local index of reservoir block
-            i, j, k = perf.cell_index
-            res_block_local, wi, wid = self.discretizer.calc_well_index(i, j, k, well_radius=perf.well_radius,
-                                                                        segment_direction=perf.segment_direction,
-                                                                        skin=perf.skin)
+            wi, wid = self.discretizer.calc_equivalent_well_index(res_block, perf.well_radius, perf.skin)
 
             if perf.well_index is None:
                 perf.well_index = wi
@@ -203,39 +215,32 @@ class UnstructReservoir(ReservoirBase):
             else:
                 well_block = 0
 
-            # add completion only if target block is active
-            if res_block_local > -1:
-                if len(well.perforations) == 0:
-                    well.well_head_depth = np.array(mesh.depth, copy=False)[res_block_local]
-                    well.well_body_depth = well.well_head_depth
-                    perf.well_indexD *= np.array(mesh.rock_cond, copy=False)[res_block_local]  # assume perforation condution = rock conduction
-                    if self.is_cpg:
-                        dx, dy, dz = self.discretizer.calc_cell_dimensions(i-1, j-1, k-1)
-                        # TODO: need segment_depth_increment and segment_length logic
-                        if perf.segment_direction == 'z_axis':
-                            well.segment_depth_increment = dz
-                        elif perf.segment_direction == 'x_axis':
-                            well.segment_depth_increment = dx
-                        else:
-                            well.segment_depth_increment = dy
-                    else:
-                        well.segment_depth_increment = self.discretizer.len_cell_zdir[i-1, j-1, k-1]
+            well.perforations = well.perforations + [(well_block, res_block, perf.well_index, perf.well_indexD)]
 
-                    well.segment_volume *= well.segment_depth_increment
-                for p in well.perforations:
-                    if p[0] == well_block and p[1] == res_block_local:
-                        print('Neglected duplicate perforation for well %s to block [%d, %d, %d]' %
-                              (well.name, i, j, k))
-                        return
-                well.perforations = well.perforations + [(well_block, res_block_local, perf.well_index, perf.well_indexD)]
-                if verbose:
-                    print('Added perforation for well %s to block %d [%d, %d, %d] with WI=%f and WID=%f' %
-                          (well.name, res_block_local, i, j, k, perf.well_index, perf.well_indexD))
-            else:
-                if verbose:
-                    print('Neglected perforation for well %s to block [%d, %d, %d] (inactive block)' %
-                          (well.name, i, j, k))
+            if verbose:
+                print('Added perforation for well %s to block %d with WI=%f, WID=%f' % (well.name, res_block,
+                                                                                        perf.well_index,
+                                                                                        perf.well_indexD))
+
         return
+
+    def find_cell_index(self, coord: Union[list, np.ndarray]):
+        """
+        Function to find nearest cell to specified coordinate
+
+        :param coord: XYZ-coordinates
+        :type coord: list or np.ndarray
+        :returns: Index of cell
+        :rtype: int
+        """
+        min_dis = None
+        idx = None
+        for j, centroid in enumerate(self.discretizer.centroid_all_cells):
+            dis = np.linalg.norm(np.array(coord) - centroid)
+            if (min_dis is not None and dis < min_dis) or min_dis is None:
+                min_dis = dis
+                idx = j
+        return idx
 
     def output_to_vtk(self, output_directory: str, output_filename: str, property_data: dict, ith_step: int):
         """

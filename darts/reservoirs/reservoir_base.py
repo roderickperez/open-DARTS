@@ -11,6 +11,9 @@ from dataclasses import dataclass
 
 
 class ReservoirBase:
+    """
+    Base class for generating a mesh
+    """
     @dataclass
     class Perforation:
         well_name: str
@@ -48,9 +51,9 @@ class ReservoirBase:
     def set_boundary_volume(self, mesh: conn_mesh):
         pass
 
-    def add_well(self, name: str, perf_list: list, well_radius: float = 0.1524, wellbore_diameter: float = 0.15,
-                 well_index: float = None, well_indexD: float = None, segment_direction: str = 'z_axis',
-                 skin: float = 0, multi_segment: bool = False) -> None:
+    def add_well(self, name: str, perf_list: list, well_radius: float = 0.1524,
+                 wellbore_diameter: float = 0.15, well_index: float = None, well_indexD: float = None,
+                 segment_direction: str = 'z_axis', skin: float = 0, multi_segment: bool = False) -> None:
         """
         Function to add :class:`ms_well` object to list of wells
 
@@ -76,7 +79,7 @@ class ReservoirBase:
         well.segment_depth_increment = 0
         self.wells.append(well)
 
-        if isinstance(perf_list, (tuple, int)):
+        if isinstance(perf_list, (tuple, int, np.ndarray)):
             perf_list = [perf_list]
 
         for p, perf_idx in enumerate(perf_list):
@@ -102,6 +105,17 @@ class ReservoirBase:
                 return w
 
     def init_wells(self, mesh: conn_mesh, verbose: bool = False) -> ms_well_vector:
+        """
+        Function to initialize wells.
+
+        Adds perforations to the wells, adds well objects to the mesh object
+        and prepares mesh object for running simulation
+
+        :param mesh: conn_mesh object
+        :param verbose: Switch to set verbose level
+        """
+        self.add_perforations(mesh, verbose)
+
         for w in self.wells:
             assert (len(w.perforations) > 0), "Well %s does not perforate any active reservoir blocks" % w.name
         mesh.add_wells(ms_well_vector(self.wells))
