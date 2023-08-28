@@ -112,7 +112,8 @@ class DartsModel:
         if type(self.physics.acc_flux_itor) == dict:
             self.op_list = [acc_flux_itor for acc_flux_itor in self.physics.acc_flux_itor.values()] + [self.physics.acc_flux_w_itor]
             self.op_num = np.array(self.reservoir.mesh.op_num, copy=False)
-            self.op_num[self.reservoir.nb:] = len(self.op_list) - 1
+            # self.op_num[self.reservoir.nb:] = len(self.op_list) - 1
+            self.op_num[self.reservoir.mesh.n_res_blocks:] = len(self.op_list) - 1
         else: # for backward compatibility
             self.op_list = [self.physics.acc_flux_itor]
 
@@ -211,6 +212,18 @@ class DartsModel:
                                                          self.e.stat.n_newton_total, self.e.stat.n_newton_wasted,
                                                          self.e.stat.n_linear_total, self.e.stat.n_linear_wasted))
 
+    def apply_rhs_flux(self, dt: float):
+        '''
+        if self.rhs_flux is defined and it is not None, add its values to rhs
+        :param dt: timestep [days]
+        '''
+        if not hasattr(self, 'rhs_flux') or self.rhs_flux is None:
+            return
+        rhs = np.array(self.physics.engine.RHS, copy=False)
+        n_res = self.reservoir.mesh.n_res_blocks * self.physics.n_vars
+        rhs[:n_res] += self.rhs_flux * dt
+
+
     def run_timestep_python(self, dt, t):
         max_newt = self.params.max_i_newton
         max_residual = np.zeros(max_newt + 1)
@@ -219,6 +232,7 @@ class DartsModel:
         self.timer.node['simulation'].start()
         for i in range(max_newt+1):
             self.e.run_single_newton_iteration(dt)
+            self.apply_rhs_flux(dt)
             self.e.newton_residual_last_dt = self.e.calc_newton_residual()
 
             max_residual[i] = self.e.newton_residual_last_dt
