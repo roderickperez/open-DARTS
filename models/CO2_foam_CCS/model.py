@@ -1,14 +1,16 @@
-from reservoir import UnstructReservoir
+from darts.engines import *
 from darts.models.cicd_model import CICDModel
+
+from darts.reservoirs.unstruct_reservoir import UnstructReservoir
 from darts.physics.super.physics import Compositional
+from property_container import PropertyContainer
+from operator_evaluator import AccFluxGravityEvaluator, AccFluxGravityWellEvaluator, RateEvaluator, PropertyEvaluator
+
 from darts.physics.properties.basic import ConstFunc
 from darts.physics.properties.density import DensityBasic, DensityBrineCO2
 from darts.physics.properties.flash import ConstantK
 
-from property_container import PropertyContainer
 import numpy as np
-from operator_evaluator import AccFluxGravityEvaluator, AccFluxGravityWellEvaluator, RateEvaluator, PropertyEvaluator
-from darts.engines import *
 
 
 class Model(CICDModel):
