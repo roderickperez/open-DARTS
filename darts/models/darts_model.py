@@ -152,8 +152,8 @@ class DartsModel:
                 values[:] = initial_value
             elif gradient is not None and variable in gradient.keys():
                 # If gradient has been defined, calculate distribution over depth and assign to array
-                for ith_cell in self.mesh.n_res_blocks:
-                    values[ith_cell] = initial_value + self.mesh.depth[ith_cell] * gradient
+                for ith_cell in range(self.mesh.n_res_blocks):
+                    values[ith_cell] = initial_value + self.mesh.depth[ith_cell] * gradient[variable]
             else:
                 # Else, assign constant value to each cell in array
                 values.fill(initial_value)
