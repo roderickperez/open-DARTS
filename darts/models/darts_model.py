@@ -96,17 +96,22 @@ class DartsModel:
         self.mesh, self.wells = self.reservoir.init_reservoir(verbose=verbose)
         return
 
-    def set_physics(self, physics: PhysicsBase, verbose: bool = False) -> None:
+    def set_physics(self, physics: PhysicsBase, discr_type: str = 'tpfa', platform: str = 'cpu',
+                    verbose: bool = False) -> None:
         """
         Function to define properties and regions and initialize :class:`Physics` object.
 
         :param physics: :class:`Physics` object
         :type physics: PhysicsBase
+        :param discr_type: Discretization type, 'tpfa' (default) or 'mpfa'
+        :type discr_type: str
+        :param platform: Switch for CPU/GPU engine, 'cpu' (default) or 'gpu'
+        :type platform: str
         :param verbose: Set verbose level
         :type verbose: bool
         """
         self.physics = physics
-        self.engine = self.physics.init_physics(verbose=verbose)
+        self.engine = self.physics.init_physics(discr_type=discr_type, platform=platform, verbose=verbose)
         return
 
     def set_initial_conditions(self, initial_values: dict = None, gradient: dict = None):
@@ -159,7 +164,7 @@ class DartsModel:
         """
         Function to set boundary conditions. Passes boundary conditions to :class:`Physics` object and wells.
 
-        This function is virtual in DartsModel, needs to be defined in child Model.
+        This function is empty in DartsModel, needs to be overloaded in child Model.
         """
         pass
 
@@ -167,7 +172,7 @@ class DartsModel:
         """
         Function to set well controls. Passes well controls to :class:`Physics` object and wells.
 
-        This function is virtual in DartsModel, needs to be defined in child Model.
+        This function is empty in DartsModel, needs to be overloaded in child Model.
         """
         pass
 

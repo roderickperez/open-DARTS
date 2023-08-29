@@ -39,23 +39,44 @@ class ReservoirBase:
             atexit.register(self.write_cache)
 
     def init_reservoir(self, verbose: bool = False) -> (conn_mesh, ms_well_vector):
+        """
+        Generic function to initialize reservoir.
+
+        It calls discretize() to generate mesh object and adds the wells with perforations to the mesh.
+        """
         mesh = self.discretize()
         wells = self.init_wells(mesh, verbose=verbose)
         return mesh, wells
 
     @abc.abstractmethod
     def discretize(self) -> conn_mesh:
+        """
+        Function to generate discretized mesh
+
+        This function is virtual, needs to be overloaded in derived Reservoir classes
+
+        :returns: Mesh object
+        :rtype: conn_mesh
+        """
         pass
 
     @abc.abstractmethod
-    def set_boundary_volume(self, mesh: conn_mesh):
+    def set_boundary_volume(self, mesh: conn_mesh, boundary_volumes: dict):
+        """
+        Function to set size of volume for boundary cells
+
+        :param mesh: Mesh object
+        :type mesh: conn_mesh
+        :param boundary_volumes: Dictionary that contains boundary cells with assigned volume
+        :type boundary_volumes: dict
+        """
         pass
 
     def add_well(self, name: str, perf_list: list, well_radius: float = 0.1524,
                  wellbore_diameter: float = 0.15, well_index: float = None, well_indexD: float = None,
                  segment_direction: str = 'z_axis', skin: float = 0, multi_segment: bool = False) -> None:
         """
-        Function to add :class:`ms_well` object to list of wells
+        Function to add :class:`ms_well` object to list of wells and generate list of perforations
 
         :param name: Well name
         :param perf_cell_idxs: Set of cells to perforate, (i, j, k)
@@ -90,7 +111,14 @@ class ReservoirBase:
         return
 
     @abc.abstractmethod
-    def add_perforations(self, mesh, verbose: bool = False) -> None:
+    def add_perforations(self, mesh: conn_mesh, verbose: bool = False) -> None:
+        """
+        Function to add perforations to well objects.
+
+        :param mesh: Mesh object
+        :type mesh: conn_mesh
+        :param verbose: Switch to set verbose level
+        """
         pass
 
     def get_well(self, well_name: str):
