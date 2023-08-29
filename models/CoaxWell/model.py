@@ -46,8 +46,14 @@ class Model(CICDModel):
         # discretize structured reservoir
         reservoir = StructReservoir(self.timer, nx=nx, ny=ny, nz=nz, dx=dx, dy=dy, dz=dz,
                                     permx=perm, permy=perm, permz=perm * 0.1, poro=poro, depth=2000,
-                                    # hcap=2200, rcond=500
+                                    hcap=2200, rcond=500
                                     )
+        reservoir.boundary_volumes['xy_minus'] = 1e8
+        reservoir.boundary_volumes['xy_plus'] = 1e8
+        reservoir.boundary_volumes['yz_minus'] = 1e8
+        reservoir.boundary_volumes['yz_plus'] = 1e8
+        reservoir.boundary_volumes['xz_minus'] = 1e8
+        reservoir.boundary_volumes['xz_plus'] = 1e8
 
         # add well's start locations
         iw = [resolution // 2, resolution // 2]
@@ -83,20 +89,7 @@ class Model(CICDModel):
 
         return super().set_physics(physics)
 
-    def set_boundary_conditions(self):
-        # Set boundary volumes
-        self.reservoir.set_boundary_volume(self.mesh, xz_minus=1e8, xz_plus=1e8, yz_minus=1e8, yz_plus=1e8,
-                                           xy_minus=1e8, xy_plus=1e8)
-
-        return
-
     def set_well_controls(self):
-        # rock heat capacity and rock thermal conduction
-        hcap = np.array(self.mesh.heat_capacity, copy=False)
-        rcond = np.array(self.mesh.rock_cond, copy=False)
-        hcap.fill(2200)
-        rcond.fill(500)
-
         for i, w in enumerate(self.reservoir.wells):
             if i == 0:
                 w.control = self.physics.new_bhp_water_inj(205, 300)

@@ -68,7 +68,10 @@ class StructReservoir(ReservoirBase):
         else:
             # CPG grid from COORD ZCORN
             self.vtk_grid_type = 1
-            
+
+        self.boundary_volumes = {'xy_minus': None, 'xy_plus': None,
+                                 'yz_minus': None, 'yz_plus': None,
+                                 'xz_minus': None, 'xz_plus': None}
         self.connected_well_segments = {}
         self.wells = []
 
@@ -110,25 +113,25 @@ class StructReservoir(ReservoirBase):
         self.volume[:] = volume
         np.array(mesh.op_num, copy=False)[:] = op_num
 
+        self.set_boundary_volume(mesh, self.boundary_volumes)
+
         return mesh
 
-    def set_boundary_volume(self, mesh: conn_mesh, xy_minus: float = None, xy_plus: float = None,
-                            yz_minus: float = None, yz_plus: float = None, xz_minus: float = None,
-                            xz_plus: float = None):
+    def set_boundary_volume(self, mesh: conn_mesh, boundary_volumes: dict):
         # apply changes
         volume = self.discretizer.volume
-        if xy_minus is not None:
-            volume[:, :, 0] = xy_minus
-        if xy_plus is not None:
-            volume[:, :, -1] = xy_plus
-        if yz_minus is not None:
-            volume[0, :, :] = yz_minus
-        if yz_plus is not None:
-            volume[-1, :, :] = yz_plus
-        if xz_minus is not None:
-            volume[:, 0, :] = xz_minus
-        if xz_plus is not None:
-            volume[:, -1, :] = xz_plus
+        if boundary_volumes['xy_minus'] is not None:
+            volume[:, :, 0] = boundary_volumes['xy_minus']
+        if boundary_volumes['xy_plus'] is not None:
+            volume[:, :, -1] = boundary_volumes['xy_plus']
+        if boundary_volumes['yz_minus'] is not None:
+            volume[0, :, :] = boundary_volumes['yz_minus']
+        if boundary_volumes['yz_plus'] is not None:
+            volume[-1, :, :] = boundary_volumes['yz_plus']
+        if boundary_volumes['xz_minus'] is not None:
+            volume[:, 0, :] = boundary_volumes['xz_minus']
+        if boundary_volumes['xz_plus'] is not None:
+            volume[:, -1, :] = boundary_volumes['xz_plus']
         # reshape to 1d
         volume = np.reshape(volume, self.discretizer.nodes_tot, order='F')
         # apply actnum and assign to mesh.volume
