@@ -86,7 +86,7 @@ class Model(CICDModel):
             else:
                 name = "P" + str(i + 1 - n_injector)
 
-            reservoir.add_well(name, wc, well_index=well_index_list[i], well_indexD=0, multi_segment=True)
+            reservoir.add_well(name, wc, well_index=well_index_list[i], well_indexD=0)
 
         return super().set_reservoir(reservoir)
 
