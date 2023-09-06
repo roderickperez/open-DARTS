@@ -233,7 +233,8 @@ class DartsModel:
 
         self.engine.run(runtime)
 
-    def run_python(self, days: float, restart_dt: float = 0, timestep_python: bool = False):
+    def run_python(self, days: float = None, restart_dt: float = 0, timestep_python: bool = False):
+        runtime = days if days is not None else self.runtime
         mult_dt = self.params.mult_ts
         max_dt = self.params.max_ts
 
