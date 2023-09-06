@@ -195,7 +195,8 @@ class Model(CICDModel):
 
             self.physics.add_property_region(property_container, i)
 
-        self.physics.init_physics()
+        property_operators = CustomPropertyOperators(self.physics.vars, property_container)
+        self.physics.init_physics(regions=[0, 1, 2], output_props=property_operators)
         return
 
     def set_wells(self, grid_1D):
@@ -293,14 +294,14 @@ class Model(CICDModel):
         for ii in range(self.reservoir.nb):
             x_list = Xn[ii*nc:(ii+1)*nc]
             state = value_vector(x_list)
-            ph, sat, x, rho, rho_m, mu, kr, pc, kin_rates = self.physics.property_operators.property.evaluate(state)
+            ph, sat, x, rho, rho_m, mu, kr, pc, kin_rates = self.physics.property_operators.property_container.evaluate(state)
 
             rel_perm[ii, :] = kr
             visc[ii, :] = mu
             density[ii, :2] = rho
             density_m[ii, :2] = rho_m
 
-            density[2] = self.physics.property_operators.property.solid_dens[-1]
+            density[2] = self.physics.property_operators.property_container.solid_dens[-1]
 
             X[ii, :, 0] = x[1][:-1]
             X[ii, :, 1] = x[0][:-1]
@@ -371,7 +372,7 @@ class Model(CICDModel):
         for ii in range(self.reservoir.nb):
             x_list = Xn[ii * nc:(ii + 1) * nc]
             state = value_vector(x_list)
-            ph, sat, x, rho, rho_m, mu, kr, pc, kin_rates = self.physics.property_operators.property.evaluate(state)
+            ph, sat, x, rho, rho_m, mu, kr, pc, kin_rates = self.physics.property_operators.property_container.evaluate(state)
 
             X[ii, :, 0] = x[1][:-1]
             X[ii, :, 1] = x[0][:-1]
@@ -486,7 +487,7 @@ class CustomPropertyOperators(PropertyOperators):
         :param values: values of the operators (used for storing the operator values)
         :return: updated value for operators, stored in values
         """
-        ph, sat, x, dens, dens_m, mu, kr, pc, mass_source = self.property.evaluate(state)
+        ph, sat, x, dens, dens_m, mu, kr, pc, mass_source = self.property_container.evaluate(state)
 
         nph = self.property.nph
         for i in range(nph):
