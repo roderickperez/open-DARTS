@@ -1,3 +1,26 @@
+**1.0.3 [08-07-2023]**
+- Folders reorganized
+Breaking changes: physics creation changed:
+    Before:
+        self.physics = Geothermal(...)
+    Now:
+        from darts.physics.geothermal.property_container import PropertyContainer
+        property_container = PropertyContainer()
+        self.physics = Geothermal(...)
+        self.physics.add_property_region(property_container)
+        self.physics.init_physics()
+
+**1.0.2 [30-06-2023]**
+- Wheels creation for Python 3.11 added
+
+**1.0.0 [16-06-2023]**
+- Folders reorganized
+Breaking changes: import paths changed:
+    Before:
+        from darts.models.physics.geothermal import Geothermal
+    Now:
+        from darts.physics.geothermal.physics import Geothermal
+- Stop wheels creation for Python 3.6
 
 **0.1.4 [13-04-2023]**
 - Added heat losses from wellbore. It works by default for all thermal models.
