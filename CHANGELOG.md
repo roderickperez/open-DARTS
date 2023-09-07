@@ -1,14 +1,14 @@
 **1.0.3 [08-07-2023]**
 - Folders reorganized
 Breaking changes: physics creation changed:
-    Before:
-        self.physics = Geothermal(...)
-    Now:
-        from darts.physics.geothermal.property_container import PropertyContainer
-        property_container = PropertyContainer()
-        self.physics = Geothermal(...)
-        self.physics.add_property_region(property_container)
-        self.physics.init_physics()
+        Before:
+            self.physics = Geothermal(...)
+        Now:
+            from darts.physics.geothermal.property_container import PropertyContainer
+            property_container = PropertyContainer()
+            self.physics = Geothermal(...)
+            self.physics.add_property_region(property_container)
+            self.physics.init_physics()
 
 **1.0.2 [30-06-2023]**
 - Wheels creation for Python 3.11 added
@@ -18,8 +18,10 @@ Breaking changes: physics creation changed:
 Breaking changes: import paths changed:
     Before:
         from darts.models.physics.geothermal import Geothermal
+        from darts.models.physics.iapws.iapws_property_vec import _Backward1_T_Ph_vec
     Now:
         from darts.physics.geothermal.physics import Geothermal
+        from darts.physics.properties.iapws.iapws_property_vec import _Backward1_T_Ph_vec
 - Stop wheels creation for Python 3.6
 
 **0.1.4 [13-04-2023]**
