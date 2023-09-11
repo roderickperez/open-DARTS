@@ -77,7 +77,7 @@ if [ $ODLS == "0" ]
 then
 	make "$config_engines" $NT USE_OPENDARTS_LINEAR_SOLVERS=false
 else
-	make "$config_engines" $NT USE_OPENDARTS_LINEAR_SOLVERS=true 
+	make $NT USE_OPENDARTS_LINEAR_SOLVERS=true 
 fi
 
 if [ $? == 0 ]
