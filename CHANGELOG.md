@@ -1,4 +1,4 @@
-**1.0.4 [??-09-2023]**
+**1.0.5 [??-09-2023]**
 - Folders reorganized
 Breaking changes: 
     Reservoir classes moved:
@@ -8,7 +8,8 @@ Breaking changes:
         Before: self.reservoir.mesh
         Now:    self.mesh
 
-
+**1.0.4 [11-09-2023]**
+Small fixes
 
 **1.0.3 [11-09-2023]**
 - Folders reorganized
