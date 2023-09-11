@@ -211,8 +211,8 @@ class Model(CICDModel):
 
             physics.add_property_region(property_container, i)
 
-        property_operators = CustomPropertyOperators(self.physics.vars, property_container)
-        self.physics.init_physics(regions=[0, 1, 2], output_props=property_operators)
+        property_operators = CustomPropertyOperators(physics.vars, property_container)
+        #physics.init_physics(regions=[0, 1, 2], output_props=property_operators)
         return super().set_physics(physics)
 
     # Initialize reservoir and set boundary conditions:
