@@ -5,7 +5,9 @@
 - Folders reorganized. 
 - Breaking changes: physics creation changed:\
     Before:
-`        self.physics = Geothermal(...)`
+```        
+        self.physics = Geothermal(...)
+```
     Now:
 ```
         from darts.physics.geothermal.property_container import PropertyContainer
