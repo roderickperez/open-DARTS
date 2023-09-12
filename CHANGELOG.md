@@ -1,14 +1,20 @@
-**1.0.3 [08-07-2023]**
+**1.0.4 [12-09-2023]**
+- Small fixes.
+
+**1.0.3 [11-09-2023]**
 - Folders reorganized. 
 - Breaking changes: physics creation changed:\
-    Before:\
-        self.physics = Geothermal(...)\
-    Now:\
-        from darts.physics.geothermal.property_container import PropertyContainer\
-        property_container = PropertyContainer()\
-        self.physics = Geothermal(...)\
-        self.physics.add_property_region(property_container)\
-        self.physics.init_physics()\
+    Before:
+`        self.physics = Geothermal(...)`
+    Now:
+```
+        from darts.physics.geothermal.property_container import PropertyContainer
+        property_container = PropertyContainer()
+        self.physics = Geothermal(...)
+        self.physics.add_property_region(property_container)
+        self.physics.init_physics()
+```
+
 
 **1.0.2 [30-06-2023]**
 - Wheels creation for Python 3.11 added.
