@@ -107,7 +107,7 @@ class PhysicsBase:
         """
         # If no list of regions has been provided, generate it from the keys of self.property_containers dict
         if regions is None:
-            regions = [key for key in self.property_containers.keys()]
+            regions = list(self.property_containers.keys())
 
         # Define operators, set engine, set interpolators and define well controls
         self.set_operators(regions)
