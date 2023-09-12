@@ -61,12 +61,10 @@ class ReservoirBase:
         pass
 
     @abc.abstractmethod
-    def set_boundary_volume(self, mesh: conn_mesh, boundary_volumes: dict):
+    def set_boundary_volume(self, boundary_volumes: dict):
         """
         Function to set size of volume for boundary cells
 
-        :param mesh: Mesh object
-        :type mesh: conn_mesh
         :param boundary_volumes: Dictionary that contains boundary cells with assigned volume
         :type boundary_volumes: dict
         """
@@ -118,6 +116,16 @@ class ReservoirBase:
         :param mesh: Mesh object
         :type mesh: conn_mesh
         :param verbose: Switch to set verbose level
+        """
+        pass
+
+    @abc.abstractmethod
+    def find_cell_index(self, coord: Union[list, np.ndarray]) -> int:
+        """
+        Function to find index of cell centre closest to given xyz-coordinates.
+
+        :returns: Global index
+        :rtype: int
         """
         pass
 

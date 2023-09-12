@@ -6,8 +6,6 @@ import os
 import meshio
 from typing import Union
 
-from dataclasses import dataclass
-
 
 class UnstructReservoir(ReservoirBase):
     """
@@ -80,7 +78,7 @@ class UnstructReservoir(ReservoirBase):
 
         return mesh
 
-    def set_boundary_volume(self, mesh: conn_mesh):
+    def set_boundary_volume(self):
         # Set-up dictionary with data for boundary cells:
         boundary_data = dict()  # Dictionary containing boundary condition data (coordinate and value of boundary):
         boundary_data['first_boundary_dir'] = 'X'  # Indicates the boundary is located at constant X (in this case!)
@@ -182,7 +180,7 @@ class UnstructReservoir(ReservoirBase):
                                     self.discretizer.fracture_cell_count
         return 0
 
-    def add_perforations(self, mesh, verbose: bool = False):
+    def add_perforations(self, mesh: conn_mesh, verbose: bool = False):
         """
         Function to add perforations to wells.
 
@@ -224,7 +222,7 @@ class UnstructReservoir(ReservoirBase):
 
         return
 
-    def find_cell_index(self, coord: Union[list, np.ndarray]):
+    def find_cell_index(self, coord: Union[list, np.ndarray]) -> int:
         """
         Function to find nearest cell to specified coordinate
 

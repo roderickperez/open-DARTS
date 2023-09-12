@@ -1,5 +1,6 @@
 import os
 from math import pi
+from typing import Union
 
 import numpy as np
 from darts.reservoirs.reservoir_base import ReservoirBase
@@ -148,6 +149,7 @@ class StructReservoir(ReservoirBase):
             well = self.get_well(perf.well_name)
 
             # calculate well index and get local index of reservoir block
+            # i, j, k = self.find_cell_index(perf.cell_index)
             i, j, k = perf.cell_index
             res_block_local, wi, wid = self.discretizer.calc_well_index(i, j, k, well_radius=perf.well_radius,
                                                                         segment_direction=perf.segment_direction,
@@ -195,6 +197,24 @@ class StructReservoir(ReservoirBase):
                 if verbose:
                     print('Neglected perforation for well %s to block [%d, %d, %d] (inactive block)' % (well.name, i, j, k))
         return
+
+    def find_cell_index(self, coord: Union[list, np.ndarray]) -> int:
+        """
+        Function to find nearest cell to specified coordinate
+
+        :param coord: XYZ-coordinates
+        :type coord: list or np.ndarray
+        :returns: Index of cell
+        :rtype: int
+        """
+        min_dis = None
+        idx = None
+        for j, centroid in enumerate(self.discretizer.centroids_all_cells):
+            dis = np.linalg.norm(np.array(coord) - centroid)
+            if (min_dis is not None and dis < min_dis) or min_dis is None:
+                min_dis = dis
+                idx = j
+        return idx
 
     def init_wells(self, mesh, verbose: bool = False) -> ms_well_vector:
         self.add_perforations(mesh, verbose)
