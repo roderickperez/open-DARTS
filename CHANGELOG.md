@@ -1,4 +1,17 @@
-**1.0.3 [08-07-2023]**
+**1.0.5 [??-09-2023]**
+- Folders reorganized
+Breaking changes: 
+    Reservoir classes moved:
+        Before: from darts.models.reservoirs.struct_reservoir import StructReservoir
+        Now:    from darts.reservoirs.struct_reservoir import StructReservoir
+    Changes in base darts model:  
+        Before: self.reservoir.mesh
+        Now:    self.mesh
+
+**1.0.4 [11-09-2023]**
+Small fixes
+
+**1.0.3 [11-09-2023]**
 - Folders reorganized
 Breaking changes: physics creation changed:
         Before:
