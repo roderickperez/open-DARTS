@@ -78,7 +78,7 @@ class UnstructReservoir(ReservoirBase):
 
         return mesh
 
-    def set_boundary_volume(self):
+    def set_boundary_volume(self, boundary_volumes: dict):
         # Set-up dictionary with data for boundary cells:
         boundary_data = dict()  # Dictionary containing boundary condition data (coordinate and value of boundary):
         boundary_data['first_boundary_dir'] = 'X'  # Indicates the boundary is located at constant X (in this case!)

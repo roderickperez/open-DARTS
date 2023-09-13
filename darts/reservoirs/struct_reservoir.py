@@ -114,11 +114,11 @@ class StructReservoir(ReservoirBase):
         self.volume[:] = volume
         np.array(mesh.op_num, copy=False)[:] = op_num
 
-        self.set_boundary_volume(mesh, self.boundary_volumes)
+        self.set_boundary_volume(self.boundary_volumes)
 
         return mesh
 
-    def set_boundary_volume(self, mesh: conn_mesh, boundary_volumes: dict):
+    def set_boundary_volume(self, boundary_volumes: dict):
         # apply changes
         volume = self.discretizer.volume
         if boundary_volumes['xy_minus'] is not None:
