@@ -47,8 +47,11 @@ class Model(CICDModel):
         # discretize structured reservoir
         reservoir = StructReservoir(self.timer, nx=nx, ny=ny, nz=nz, dx=dx, dy=dy, dz=dz,
                                     permx=perm, permy=perm, permz=perm * 0.1, poro=poro, depth=2000,
-                                    # hcap=2200, rcond=500
-                                    )
+                                    hcap=2200, rcond=500)
+        reservoir.boundary_volumes['yz_minus'] = 1e8
+        reservoir.boundary_volumes['yz_plus'] = 1e8
+        reservoir.boundary_volumes['xz_minus'] = 1e8
+        reservoir.boundary_volumes['xz_plus'] = 1e8
 
         # add well's locations
         iw = [30, 30]
@@ -57,17 +60,10 @@ class Model(CICDModel):
         # add well
         perf_list = [(iw[0], jw[0], k+1) for k in range(1, nz)]
         reservoir.add_well("INJ", perf_list=perf_list, well_radius=0.16, multi_segment=True)
-        # # add perforations to te payzone
-        # for n in range(1, n_perf):
-        #     self.reservoir.add_perforation(well=self.reservoir.wells[-1], i=iw[0], j=jw[0], k=n + 1,
-        #                                    well_radius=0.16)
 
         # add well
         perf_list = [(iw[1], jw[1], k+1) for k in range(1, nz)]
         reservoir.add_well("PRD", perf_list=perf_list, well_radius=0.16, multi_segment=True)
-        # # add perforations to te payzone
-        # for n in range(1, n_perf):
-        #     self.reservoir.add_perforation(self.reservoir.wells[-1], iw[1], jw[1], n + 1, 0.16)
 
         return super().set_reservoir(reservoir)
 
@@ -79,16 +75,7 @@ class Model(CICDModel):
 
         return super().set_physics(physics)
 
-    def set_boundary_conditions(self):
-        self.reservoir.set_boundary_volume(self.mesh, xz_minus=1e8, xz_plus=1e8, yz_minus=1e8, yz_plus=1e8)
-
     def set_well_controls(self):
-        # rock heat capacity and rock thermal conduction
-        hcap = np.array(self.mesh.heat_capacity, copy=False)
-        rcond = np.array(self.mesh.rock_cond, copy=False)
-        hcap.fill(2200)
-        rcond.fill(500)
-
         for i, w in enumerate(self.reservoir.wells):
             if i == 0:
                 w.control = self.physics.new_rate_water_inj(8000, 300)

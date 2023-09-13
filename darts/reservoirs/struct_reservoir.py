@@ -1,5 +1,6 @@
 import os
 from math import pi
+from typing import Union
 
 import numpy as np
 from darts.reservoirs.reservoir_base import ReservoirBase
@@ -8,23 +9,8 @@ from darts.reservoirs.mesh.struct_discretizer import StructDiscretizer
 from pyevtk import hl, vtk
 from scipy.interpolate import griddata
 
-from dataclasses import dataclass
-
 
 class StructReservoir(ReservoirBase):
-    @dataclass
-    class Perforation:
-        well_name: str
-        cell_index: tuple
-        well_radius: float
-        well_index: float
-        well_indexD: float
-        segment_direction: str = 'z_axis'
-        skin: float = 0.
-        multi_segment: bool = False
-
-    perforations: list = []
-
     def __init__(self, timer: timer_node, nx: int, ny: int, nz: int, dx, dy, dz, permx, permy, permz, poro, depth,
                  rcond=0, hcap=0, actnum=1, global_to_local=0, op_num=0, coord=0, zcorn=0, is_cpg=False, cache=False):
         """
@@ -83,7 +69,10 @@ class StructReservoir(ReservoirBase):
         else:
             # CPG grid from COORD ZCORN
             self.vtk_grid_type = 1
-            
+
+        self.boundary_volumes = {'xy_minus': None, 'xy_plus': None,
+                                 'yz_minus': None, 'yz_plus': None,
+                                 'xz_minus': None, 'xz_plus': None}
         self.connected_well_segments = {}
         self.wells = []
 
@@ -125,64 +114,29 @@ class StructReservoir(ReservoirBase):
         self.volume[:] = volume
         np.array(mesh.op_num, copy=False)[:] = op_num
 
+        self.set_boundary_volume(mesh, self.boundary_volumes)
+
         return mesh
 
-    def set_boundary_volume(self, mesh, xy_minus=-1, xy_plus=-1, yz_minus=-1, yz_plus=-1, xz_minus=-1, xz_plus=-1):
+    def set_boundary_volume(self, mesh: conn_mesh, boundary_volumes: dict):
         # apply changes
         volume = self.discretizer.volume
-        if xy_minus > -1:
-            volume[:, :, 0] = xy_minus
-        if xy_plus > -1:
-            volume[:, :, -1] = xy_plus
-        if yz_minus > -1:
-            volume[0, :, :] = yz_minus
-        if yz_plus > -1:
-            volume[-1, :, :] = yz_plus
-        if xz_minus > -1:
-            volume[:, 0, :] = xz_minus
-        if xz_plus > -1:
-            volume[:, -1, :] = xz_plus
+        if boundary_volumes['xy_minus'] is not None:
+            volume[:, :, 0] = boundary_volumes['xy_minus']
+        if boundary_volumes['xy_plus'] is not None:
+            volume[:, :, -1] = boundary_volumes['xy_plus']
+        if boundary_volumes['yz_minus'] is not None:
+            volume[0, :, :] = boundary_volumes['yz_minus']
+        if boundary_volumes['yz_plus'] is not None:
+            volume[-1, :, :] = boundary_volumes['yz_plus']
+        if boundary_volumes['xz_minus'] is not None:
+            volume[:, 0, :] = boundary_volumes['xz_minus']
+        if boundary_volumes['xz_plus'] is not None:
+            volume[:, -1, :] = boundary_volumes['xz_plus']
         # reshape to 1d
         volume = np.reshape(volume, self.discretizer.nodes_tot, order='F')
         # apply actnum and assign to mesh.volume
         self.volume[:] = volume[self.discretizer.local_to_global]
-
-    def add_well(self, name: str, perf_list, well_radius=0.1524, wellbore_diameter=0.15,
-                 well_index=None, well_indexD=None, segment_direction='z_axis', skin=0, multi_segment=False):
-        """
-        Function to add :class:`ms_well` object to list of wells
-
-        :param name: Well name
-        :param perf_list: Set of cells to perforate, (i, j, k)
-        :param well_radius:
-        :param wellbore_diameter:
-        :param well_index:
-        :param well_indexD:
-        :param segment_direction:
-        :param skin:
-        :param multi_segment:
-        """
-        well = ms_well()
-        well.name = name
-
-        # first put only area here, to be multiplied by segment length later
-        well.segment_volume = pi * wellbore_diameter ** 2 / 4
-
-        # also to be filled up when the first perforation is made
-        well.well_head_depth = 0
-        well.well_body_depth = 0
-        well.segment_depth_increment = 0
-        self.wells.append(well)
-
-        if isinstance(perf_list, (tuple, int)):
-            perf_list = [perf_list]
-
-        for p, perf_idx in enumerate(perf_list):
-            self.perforations.append(StructReservoir.Perforation(well_name=name, cell_index=perf_idx, well_radius=well_radius,
-                                                                 well_index=well_index, well_indexD=well_indexD,
-                                                                 segment_direction=segment_direction, skin=skin,
-                                                                 multi_segment=multi_segment))
-        return well
 
     def add_perforations(self, mesh, verbose: bool = False):
         """
@@ -195,6 +149,7 @@ class StructReservoir(ReservoirBase):
             well = self.get_well(perf.well_name)
 
             # calculate well index and get local index of reservoir block
+            # i, j, k = self.find_cell_index(perf.cell_index)
             i, j, k = perf.cell_index
             res_block_local, wi, wid = self.discretizer.calc_well_index(i, j, k, well_radius=perf.well_radius,
                                                                         segment_direction=perf.segment_direction,
@@ -217,9 +172,8 @@ class StructReservoir(ReservoirBase):
                 if len(well.perforations) == 0:
                     well.well_head_depth = np.array(mesh.depth, copy=False)[res_block_local]
                     well.well_body_depth = well.well_head_depth
-                    perf.well_indexD *= np.array(mesh.rock_cond, copy=False)[res_block_local]  # assume perforation condution = rock conduction
-                    if self.is_cpg:
-                        dx, dy, dz = self.discretizer.calc_cell_dimensions(i-1, j-1, k-1)
+                    if self.discretizer.is_cpg:
+                        dx, dy, dz = self.discretizer.calc_cell_dimensions(i - 1, j - 1, k - 1)
                         # TODO: need segment_depth_increment and segment_length logic
                         if perf.segment_direction == 'z_axis':
                             well.segment_depth_increment = dz
@@ -233,17 +187,34 @@ class StructReservoir(ReservoirBase):
                     well.segment_volume *= well.segment_depth_increment
                 for p in well.perforations:
                     if p[0] == well_block and p[1] == res_block_local:
-                        print('Neglected duplicate perforation for well %s to block [%d, %d, %d]' %
-                              (well.name, i, j, k))
+                        print('Neglected duplicate perforation for well %s to block [%d, %d, %d]' % (well.name, i, j, k))
                         return
                 well.perforations = well.perforations + [(well_block, res_block_local, perf.well_index, perf.well_indexD)]
                 if verbose:
-                    print('Added perforation for well %s to block %d [%d, %d, %d] with WI=%f' %
-                          (well.name, res_block_local, i, j, k, perf.well_index))
+                    print('Added perforation for well %s to block %d [%d, %d, %d] with WI=%f and WID=%f' % (
+                        well.name, res_block_local, i, j, k, perf.well_index, perf.well_indexD))
             else:
                 if verbose:
-                    print('Neglected perforation for well %s to block [%d, %d, %d] (inactive block)' %
-                          (well.name, i, j, k))
+                    print('Neglected perforation for well %s to block [%d, %d, %d] (inactive block)' % (well.name, i, j, k))
+        return
+
+    def find_cell_index(self, coord: Union[list, np.ndarray]) -> int:
+        """
+        Function to find nearest cell to specified coordinate
+
+        :param coord: XYZ-coordinates
+        :type coord: list or np.ndarray
+        :returns: Index of cell
+        :rtype: int
+        """
+        min_dis = None
+        idx = None
+        for j, centroid in enumerate(self.discretizer.centroids_all_cells):
+            dis = np.linalg.norm(np.array(coord) - centroid)
+            if (min_dis is not None and dis < min_dis) or min_dis is None:
+                min_dis = dis
+                idx = j
+        return idx
 
     def init_wells(self, mesh, verbose: bool = False) -> ms_well_vector:
         self.add_perforations(mesh, verbose)

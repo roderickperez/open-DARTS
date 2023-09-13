@@ -2,14 +2,13 @@ from darts.models.cicd_model import CICDModel
 from darts.engines import sim_params
 import numpy as np
 
+from darts.reservoirs.unstruct_reservoir import UnstructReservoir
+from mesh_creator import mesh_creator
+
 from darts.physics.super.physics import Compositional
 from darts.physics.super.property_container import PropertyContainer
 
 from darts.physics.properties.black_oil import *
-
-from reservoir_Brugge import UnstructReservoir
-from mesh_creator import mesh_creator
-import os
 
 
 class Model(CICDModel):
@@ -64,8 +63,30 @@ class Model(CICDModel):
         # the class and constructs the object. In the process, the mesh is loaded, mesh information is calculated and
         # the discretization is executed. Besides that, also the boundary conditions of the simulations are
         # defined in this class --> in this case constant pressure/rate at the left (x==x_min) and right (x==x_max) side
-        reservoir = UnstructReservoir(timer=self.timer, permx=permx, permy=permy, permz=permz, frac_aper=frac_aper,
-                                      mesh_file=mesh_file, poro=poro, thickness=thickness, calc_equiv_WI=True)
+        reservoir = UnstructReservoir(timer=self.timer, mesh_file=mesh_file, permx=permx, permy=permy, permz=permz,
+                                      poro=poro, frac_aper=frac_aper)
+
+        well_coord = np.genfromtxt('Brugge_struct/well_coord_Brugge.txt')
+        n_injector = 10  # the first 10 wells are injectors
+        n_wells = 30  # the number of wells
+        calc_equiv_WI = True
+        if calc_equiv_WI:
+            well_index_list = [None] * len(well_coord)
+        else:
+            well_index_list = [296.65303668, 69.71905642, 27.14929434, 27.58575654, 53.01869826,
+                               135.80457602, 345.34715322, 80.69146768, 74.07293499, 243.34286931,
+                               482.48726884, 592.37938461, 307.72095815, 542.44279506, 63.58456305,
+                               499.53586907, 213.09805386, 303.97957677, 78.80966839, 791.4220401,
+                               829.44984229, 794.13401768, 761.08006179, 62.37906275, 616.74501491,
+                               475.63754963, 397.50862698, 478.21742722, 504.06328513, 655.32259614]
+
+        for i, wc in enumerate(well_coord):
+            if i < n_injector:
+                name = "I" + str(i + 1)
+            else:
+                name = "P" + str(i + 1 - n_injector)
+
+            reservoir.add_well(name, wc, well_index=well_index_list[i], well_indexD=0)
 
         return super().set_reservoir(reservoir)
 

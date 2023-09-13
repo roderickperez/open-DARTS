@@ -83,26 +83,35 @@ class DartsModel:
         self.engine.init(self.mesh, ms_well_vector(self.reservoir.wells), op_vector(self.op_list),
                          self.params, self.timer.node["simulation"])
 
-    def set_reservoir(self, reservoir: ReservoirBase) -> None:
+    def set_reservoir(self, reservoir: ReservoirBase, verbose: bool = False) -> None:
         """
         Function to define reservoir and initialize :class:`Reservoir` object.
 
         :param reservoir: :class:`Reservoir` object
         :type reservoir: ReservoirBase
+        :param verbose: Set verbose level
+        :type verbose: bool
         """
         self.reservoir = reservoir
-        self.mesh, self.wells = self.reservoir.init_reservoir()
+        self.mesh, self.wells = self.reservoir.init_reservoir(verbose=verbose)
         return
 
-    def set_physics(self, physics: PhysicsBase) -> None:
+    def set_physics(self, physics: PhysicsBase, discr_type: str = 'tpfa', platform: str = 'cpu',
+                    verbose: bool = False) -> None:
         """
         Function to define properties and regions and initialize :class:`Physics` object.
 
         :param physics: :class:`Physics` object
         :type physics: PhysicsBase
+        :param discr_type: Discretization type, 'tpfa' (default) or 'mpfa'
+        :type discr_type: str
+        :param platform: Switch for CPU/GPU engine, 'cpu' (default) or 'gpu'
+        :type platform: str
+        :param verbose: Set verbose level
+        :type verbose: bool
         """
         self.physics = physics
-        self.engine = self.physics.init_physics()
+        self.engine = self.physics.init_physics(discr_type=discr_type, platform=platform, verbose=verbose)
         return
 
     def set_initial_conditions(self, initial_values: dict = None, gradient: dict = None):
@@ -143,8 +152,8 @@ class DartsModel:
                 values[:] = initial_value
             elif gradient is not None and variable in gradient.keys():
                 # If gradient has been defined, calculate distribution over depth and assign to array
-                for ith_cell in self.mesh.n_res_blocks:
-                    values[ith_cell] = initial_value + self.mesh.depth[ith_cell] * gradient
+                for ith_cell in range(self.mesh.n_res_blocks):
+                    values[ith_cell] = initial_value + self.mesh.depth[ith_cell] * gradient[variable]
             else:
                 # Else, assign constant value to each cell in array
                 values.fill(initial_value)
@@ -155,7 +164,7 @@ class DartsModel:
         """
         Function to set boundary conditions. Passes boundary conditions to :class:`Physics` object and wells.
 
-        This function is virtual in DartsModel, needs to be defined in child Model.
+        This function is empty in DartsModel, needs to be overloaded in child Model.
         """
         pass
 
@@ -163,7 +172,7 @@ class DartsModel:
         """
         Function to set well controls. Passes well controls to :class:`Physics` object and wells.
 
-        This function is virtual in DartsModel, needs to be defined in child Model.
+        This function is empty in DartsModel, needs to be overloaded in child Model.
         """
         pass
 
@@ -224,7 +233,8 @@ class DartsModel:
 
         self.engine.run(runtime)
 
-    def run_python(self, days: float, restart_dt: float = 0, timestep_python: bool = False):
+    def run_python(self, days: float = None, restart_dt: float = 0, timestep_python: bool = False):
+        runtime = days if days is not None else self.runtime
         mult_dt = self.params.mult_ts
         max_dt = self.params.max_ts
 
@@ -274,6 +284,18 @@ class DartsModel:
                                                          self.engine.stat.n_newton_total, self.engine.stat.n_newton_wasted,
                                                          self.engine.stat.n_linear_total, self.engine.stat.n_linear_wasted))
 
+    def apply_rhs_flux(self, dt: float):
+        '''
+        if self.rhs_flux is defined and it is not None, add its values to rhs
+        :param dt: timestep [days]
+        '''
+        if not hasattr(self, 'rhs_flux') or self.rhs_flux is None:
+            return
+        rhs = np.array(self.engine.RHS, copy=False)
+        n_res = self.mesh.n_res_blocks * self.physics.n_vars
+        rhs[:n_res] += self.rhs_flux * dt
+        return
+
     def run_timestep_python(self, dt, t):
         max_newt = self.params.max_i_newton
         max_residual = np.zeros(max_newt + 1)
@@ -282,6 +304,7 @@ class DartsModel:
         self.timer.node['simulation'].start()
         for i in range(max_newt+1):
             self.engine.run_single_newton_iteration(dt)
+            self.apply_rhs_flux(dt)
             self.engine.newton_residual_last_dt = self.engine.calc_newton_residual()
 
             max_residual[i] = self.engine.newton_residual_last_dt

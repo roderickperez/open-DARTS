@@ -157,15 +157,3 @@ class Compositional(PhysicsBase):
         else:
             for c in range(self.nc - 1):  # Denis
                 composition[c::(self.nc - 1)] = uniform_composition[c]
-
-    def set_boundary_conditions(self, mesh: conn_mesh, uniform_pressure: float, uniform_composition: list):
-        assert isinstance(mesh, conn_mesh)
-
-        # Class methods which can create constant pressure and composition boundary condition:
-        pressure = np.array(mesh.pressure, copy=False)
-        pressure.fill(uniform_pressure)
-
-        mesh.composition.resize(mesh.n_blocks * (self.nc - 1))
-        composition = np.array(mesh.composition, copy=False)
-        for c in range(self.nc - 1):
-            composition[c::(self.nc - 1)] = uniform_composition[c]
