@@ -39,7 +39,6 @@ class Geothermal(PhysicsBase):
         """
         # Set nc=1, thermal=True
         nc = 1
-        self.thermal = True
 
         # Define phases and variables
         self.mass_rate = mass_rate
