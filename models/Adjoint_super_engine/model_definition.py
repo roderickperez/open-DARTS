@@ -32,6 +32,7 @@ class Model(CICDModel, OptModuleSettings):
         self.global_data = {'well location': 0}  # will be updated later in "run"
 
         self.set_reservoir(perm, poro, Peaceman_WI)
+        self.set_wells()
         self.set_physics()
 
         self.set_sim_params(first_ts=0.001, mult_ts=2, max_ts=1, runtime=1000,

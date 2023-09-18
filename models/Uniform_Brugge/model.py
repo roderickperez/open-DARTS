@@ -20,6 +20,7 @@ class Model(CICDModel):
         self.timer.node["initialization"].start()
 
         self.set_reservoir()
+        self.set_wells()
         self.set_physics()
 
         self.set_sim_params(first_ts=0.0001, mult_ts=2, max_ts=2, runtime=2000,

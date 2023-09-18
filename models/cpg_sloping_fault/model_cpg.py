@@ -57,6 +57,8 @@ class Model(CICDModel):
             self.add_wells(reservoir, mode='generate', sch_fname=sch_fname)
         super().set_reservoir(reservoir)
 
+        self.set_wells()
+
         self.set_physics()
 
         self.set_sim_params(first_ts=0.01, mult_ts=2, max_ts=5, runtime=300, tol_newton=1e-3, tol_linear=1e-6)

@@ -21,6 +21,7 @@ class Model(CICDModel):
         self.mode = mode
         self.well_rate = well_rate
         self.set_reservoir(mode)
+        self.set_wells()
         self.set_physics()
 
         self.set_sim_params(first_ts=0.0001, mult_ts=2, max_ts=5, runtime=1, tol_newton=1e-3, tol_linear=1e-6)

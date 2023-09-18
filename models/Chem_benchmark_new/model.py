@@ -52,6 +52,7 @@ class Model(CICDModel):
 
         solid_init = 0.7
         self.set_reservoir(grid_1D, res, solid_init)
+        self.set_wells()
         self.set_physics(grid_1D, solid_init, custom_physics)
 
         self.set_sim_params(first_ts=0.001, mult_ts=2, max_ts=0.1, runtime=50, tol_newton=1e-3, tol_linear=1e-5,

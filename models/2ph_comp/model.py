@@ -20,6 +20,7 @@ class Model(CICDModel):
         self.timer.node["initialization"].start()
 
         self.set_reservoir()
+        self.set_wells()
         self.set_physics()
 
         self.set_sim_params(first_ts=0.001, mult_ts=2, max_ts=1, runtime=1000, tol_newton=1e-2, tol_linear=1e-3,
@@ -37,8 +38,11 @@ class Model(CICDModel):
         reservoir = StructReservoir(self.timer, nx=nx, ny=1, nz=1, dx=1, dy=10, dz=10, permx=100, permy=100, permz=10,
                                     poro=0.3, depth=1000)
         reservoir.add_well("I1", perf_list=(1, 1, 1))
-        reservoir.add_well("P1", perf_list=(nx, 1, 1))
+        reservoir.add_well("P1", perf_list=(reservoir.nx, 1, 1))
         return super().set_reservoir(reservoir)
+
+    # def set_wells(self):
+    #     return super().set_wells()
 
     def set_physics(self):
         """Physical properties"""
