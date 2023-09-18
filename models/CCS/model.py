@@ -11,33 +11,12 @@ from darts.physics.properties.density import Garcia2001
 from darts.physics.properties.viscosity import Fenghour1998, Islam2012
 
 from dartsflash.libflash import NegativeFlash2
-from dartsflash.libflash import CubicEoS, Ziabakhsh2012, FlashParams, SplitIG
+from dartsflash.libflash import CubicEoS, AQEoS, FlashParams, InitialGuess
 from dartsflash.components import CompData, EnthalpyIdeal
 from dartsflash.eos_properties import EoSDensity, EoSEnthalpy
 
 
 class Model(DartsModel):
-    def __init__(self, n_points=1000, temp_init=350, temp_inj=350):
-        # call base class constructor
-        super().__init__()
-
-        # measure time spend on reading/initialization
-        self.timer.node["initialization"].start()
-
-        self.set_reservoir()
-        self.set_physics(n_points, temp_inj=temp_inj)
-
-        self.set_sim_params(first_ts=1e-3, mult_ts=1.5, max_ts=5,
-                            tol_newton=1e-3, tol_linear=1e-5, it_newton=10, it_linear=50,
-                            )
-
-        self.timer.node["initialization"].stop()
-
-        self.initial_values = {self.physics.vars[0]: 60.,
-                               self.physics.vars[1]: self.ini_stream[0],
-                               "temperature": temp_init
-                               }
-
     def set_reservoir(self):
         nx = 100
         ny = 1
@@ -60,38 +39,32 @@ class Model(DartsModel):
 
         return super().set_reservoir(reservoir)
 
-    def set_physics(self, n_points, temperature=None, temp_inj=350.):
-        zero = 1e-7
-
+    def set_physics(self,  zero, n_points, temperature=None, temp_inj=350.):
         """Physical properties"""
         # Fluid components, ions and solid
-        components = ["CO2", "H2O"]
-        phases = ["Aq", "V"]
+        components = ["H2O", "CO2"]
+        phases = ["V", "Aq"]
         nc = len(components)
         comp_data = CompData(components, setprops=True)
 
         pr = CubicEoS(comp_data, CubicEoS.PR)
         # aq = Jager2003(comp_data)
-        aq = Ziabakhsh2012(comp_data)
+        aq = AQEoS(comp_data, AQEoS.Ziabakhsh2012)
 
-        flash_params = FlashParams(nc)
+        flash_params = FlashParams(comp_data)
 
         # EoS-related parameters
         flash_params.add_eos("PR", pr)
         flash_params.add_eos("AQ", aq)
-        flash_params.eos_used = ["AQ", "PR"]
+        flash_params.eos_used = ["PR", "AQ"]
 
-        flash_params.split_initial_guess = SplitIG(comp_data, SplitIG.HENRY, 1)
+        flash_params.split_initial_guesses = [InitialGuess.Henry_AV]
 
         # Flash-related parameters
         # flash_params.split_switch_tol = 1e-3
 
-        self.ini_stream = [0.00005]
-        self.inj_stream = [0.99995]
-
         if temperature is None:  # if None, then thermal=True
             thermal = True
-            self.inj_stream.append(temp_inj)
         else:
             thermal = False
 
@@ -116,17 +89,15 @@ class Model(DartsModel):
         physics = Compositional(components, phases, self.timer, n_points, min_p=1, max_p=400, min_z=zero/10,
                                 max_z=1-zero/10, min_t=273.15, max_t=373.15, thermal=thermal, cache=False)
         physics.add_property_region(property_container)
-        props = [('satA', 'sat', 0), ('satV', 'sat', 1), ('xCO2', 'x', (0, 0)), ('yH2O', 'x', (1, 1))]
+        props = [('satA', 'sat', 1), ('satV', 'sat', 0), ('xCO2', 'x', (1, 1)), ('yH2O', 'x', (0, 0))]
         physics.add_property_operators(PropertyOperators(props, property_container))
 
         return super().set_physics(physics)
 
     def set_well_controls(self):
         # define all wells as closed
-        p_inj = 60
-        p_prod = 30
         for i, w in enumerate(self.reservoir.wells):
             if 'I' in w.name:
-                w.control = self.physics.new_bhp_inj(p_inj, self.inj_stream)
+                w.control = self.physics.new_bhp_inj(self.p_inj, self.inj_stream)
             else:
-                w.control = self.physics.new_bhp_prod(p_prod)
+                w.control = self.physics.new_bhp_prod(self.p_prod)
