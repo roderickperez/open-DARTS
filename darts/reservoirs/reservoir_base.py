@@ -38,15 +38,14 @@ class ReservoirBase:
             self.created_itors = []
             atexit.register(self.write_cache)
 
-    def init_reservoir(self, verbose: bool = False) -> (conn_mesh, ms_well_vector):
+    def init_reservoir(self, verbose: bool = False) -> conn_mesh:
         """
         Generic function to initialize reservoir.
 
         It calls discretize() to generate mesh object and adds the wells with perforations to the mesh.
         """
         mesh = self.discretize()
-        wells = self.init_wells(mesh, verbose=verbose)
-        return mesh, wells
+        return mesh
 
     @abc.abstractmethod
     def discretize(self) -> conn_mesh:

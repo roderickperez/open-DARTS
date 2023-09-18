@@ -93,7 +93,17 @@ class DartsModel:
         :type verbose: bool
         """
         self.reservoir = reservoir
-        self.mesh, self.wells = self.reservoir.init_reservoir(verbose=verbose)
+        self.mesh = self.reservoir.init_reservoir(verbose=verbose)
+        return
+
+    def set_wells(self, verbose: bool = False) -> None:
+        """
+        Function to define wells and initialize :class:`ms_wells` object.
+
+        :param verbose: Set verbose level
+        :type verbose: bool
+        """
+        self.wells = self.reservoir.init_wells(self.mesh, verbose=verbose)
         return
 
     def set_physics(self, physics: PhysicsBase, discr_type: str = 'tpfa', platform: str = 'cpu',
