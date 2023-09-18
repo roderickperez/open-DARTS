@@ -7,7 +7,7 @@ from darts.engines import value_vector, redirect_darts_output
 if __name__ == '__main__':
     redirect_darts_output('run.log')
     n = Model()
-    n.params.linear_type = n.params.linear_solver_t.cpu_superlu
+    # n.params.linear_type = n.params.linear_solver_t.cpu_superlu
     n.init()
 
     if 1:
@@ -37,7 +37,7 @@ if __name__ == '__main__':
 
     Xn = np.array(n.engine.X, copy=False)
     nc = n.physics.nc
-    nb = n.reservoir.n_b
+    nb = n.reservoir.mesh.n_res_blocks
     # Allocate and store the properties in an array:
     property_array = np.empty((nb, 2))
     property_array[:, 0] = Xn[0:nb*nc:nc]

@@ -47,7 +47,7 @@ if __name__ == '__main__':
 
     redirect_darts_output('run.log')
     n = Model()
-    n.params.linear_type = n.params.linear_solver_t.cpu_superlu
+    # n.params.linear_type = n.params.linear_solver_t.cpu_superlu
     n.init()
 
     if 1:
@@ -61,7 +61,7 @@ if __name__ == '__main__':
         n.save_restart_data()
         writer = pd.ExcelWriter('time_data.xlsx')
         time_data.to_excel(writer, 'Sheet1')
-        writer.save()
+        writer.close()
     else:
         n.load_restart_data()
         time_data = pd.read_pickle("darts_time_data.pkl")
