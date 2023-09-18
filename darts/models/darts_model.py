@@ -260,7 +260,7 @@ class DartsModel:
             dt = self.params.max_ts
 
         # evaluate end time
-        runtime = t + days
+        runtime += t
         ts = 0
 
         while t < runtime:
