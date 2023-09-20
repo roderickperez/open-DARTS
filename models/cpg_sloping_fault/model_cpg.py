@@ -46,7 +46,7 @@ class Model(CICDModel):
         self.sch_fname = sch_fname
 
         if discr_type == 'cpp':
-            reservoir = CPG_Reservoir(self.timer, self.gridfile, self.propfile)
+            reservoir = super().set_reservoir(CPG_Reservoir(self.timer, self.gridfile, self.propfile))
         elif discr_type == 'python':
             reservoir = self.set_reservoir()
 
@@ -232,13 +232,11 @@ class Model(CICDModel):
                                 j1 = int(CompDat[2])
                                 k1 = int(CompDat[3])
                                 k2 = int(CompDat[4])
-                                perf_list = [(i1, j1, k) for k in range(k1, k2+1)]
-                                # for i in range(k1, k2 + 1):
-                                #     reservoir.add_perforation(reservoir.wells[-1],
-                                #                                    i1, j1, i,
-                                #                                    well_radius=well_rad, well_index=well_index,
-                                #                                    multi_segment=False, verbose=verbose)
-                                reservoir.add_well(wname, perf_list, well_radius=well_rad, well_index=well_index)
+
+                                reservoir.add_well(wname)
+                                for k in range(k1, k2 + 1):
+                                    reservoir.add_perforation(wname, (i1, j1, k), well_radius=well_rad,
+                                                              well_index=well_index, multi_segment=False, verbose=verbose)
 
                             if len(CompDat) != 0 and '/' == CompDat[0]:
                                 keep_reading = False
