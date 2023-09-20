@@ -54,19 +54,25 @@ class Model(CICDModel):
         reservoir.boundary_volumes['xz_minus'] = 1e8
         reservoir.boundary_volumes['xz_plus'] = 1e8
 
+        return super().set_reservoir(reservoir)
+
+    def set_wells(self):
         # add well's locations
         iw = [30, 30]
         jw = [14, 46]
 
         # add well
-        perf_list = [(iw[0], jw[0], k+1) for k in range(1, nz)]
-        reservoir.add_well("INJ", perf_list=perf_list, well_radius=0.16, multi_segment=True)
+        self.reservoir.add_well("INJ")
+        for k in range(1, self.reservoir.nz):
+            self.reservoir.add_perforation("INJ", cell_index=(iw[0], jw[0], k + 1),
+                                           well_radius=0.16, multi_segment=True)
 
         # add well
-        perf_list = [(iw[1], jw[1], k+1) for k in range(1, nz)]
-        reservoir.add_well("PRD", perf_list=perf_list, well_radius=0.16, multi_segment=True)
-
-        return super().set_reservoir(reservoir)
+        self.reservoir.add_well("PRD")
+        for k in range(1, self.reservoir.nz):
+            self.reservoir.add_perforation("PRD", cell_index=(iw[1], jw[1], k + 1),
+                                           well_radius=0.16, multi_segment=True)
+        return super().set_wells()
 
     def set_physics(self, n_points):
         # create pre-defined physics for geothermal
