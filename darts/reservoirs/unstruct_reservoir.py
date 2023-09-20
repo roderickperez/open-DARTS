@@ -194,7 +194,8 @@ class UnstructReservoir(ReservoirBase):
 
         # calculate well index and get local index of reservoir block
         wi, wid = self.discretizer.calc_equivalent_well_index(cell_index, well_radius, skin)
-        well.well_head_depth = np.array(self.mesh.depth, copy=False)[cell_index]
+        # well.well_head_depth = np.array(self.mesh.depth, copy=False)[cell_index]
+        # well.well_body_depth = well.well_head_depth
 
         if well_index is None:
             well_index = wi
