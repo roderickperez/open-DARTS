@@ -50,13 +50,6 @@ class Model(CICDModel):
         elif discr_type == 'python':
             reservoir = self.set_reservoir()
 
-        # add wells
-        if True:
-            self.add_wells(reservoir, mode='read', sch_fname=sch_fname, verbose=True)  # , well_index=1000) # add only perforations
-        else:
-            self.add_wells(reservoir, mode='generate', sch_fname=sch_fname)
-        super().set_reservoir(reservoir)
-
         self.set_wells()
 
         self.set_physics()
@@ -124,7 +117,16 @@ class Model(CICDModel):
         reservoir = StructReservoir(self.timer, nx=dims[0], ny=dims[1], nz=dims[2], dx=dx, dy=dy, dz=dz,
                                     permx=permx, permy=permy, permz=permz, poro=poro,
                                     depth=depth, actnum=actnum, coord=coord, zcorn=zcorn, is_cpg=True)
-        return reservoir
+        return super().set_reservoir(reservoir)
+
+    def set_wells(self):
+        # add wells
+        if True:
+            self.add_wells(self.reservoir, mode='read', sch_fname=self.sch_fname,
+                           verbose=True)  # , well_index=1000) # add only perforations
+        else:
+            self.add_wells(self.reservoir, mode='generate', sch_fname=self.sch_fname)
+        return super().set_wells()
 
     def set_physics(self):
         """Physical properties"""
