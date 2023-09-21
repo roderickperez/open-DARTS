@@ -195,7 +195,7 @@ class DartsModel:
         Operator list is in order [acc_flux_itor[0], ..., acc_flux_itor[n-1], acc_flux_w_itor]
         """
         if type(self.physics.acc_flux_itor) == dict:
-            self.op_list = [acc_flux_itor for acc_flux_itor in self.physics.acc_flux_itor.values()] + [self.physics.acc_flux_w_itor]
+            self.op_list = list(self.physics.acc_flux_itor.values()) + [self.physics.acc_flux_w_itor]
             self.op_num = np.array(self.reservoir.mesh.op_num, copy=False)
             self.op_num[self.reservoir.mesh.n_res_blocks:] = len(self.op_list) - 1
         else: # for backward compatibility
