@@ -36,14 +36,37 @@ class ReservoirBase:
         return mesh
 
     @abc.abstractmethod
-    def discretize(self) -> conn_mesh:
+    def discretize(self, cache: bool = False) -> conn_mesh:
         """
         Function to generate discretized mesh
 
         This function is virtual, needs to be overloaded in derived Reservoir classes
 
+        :param cache: Option to cache mesh discretization
+        :type cache: bool
         :returns: Mesh object
         :rtype: conn_mesh
+        """
+        pass
+
+    def set_layer_properties(self, layers: dict = {}, layer_properties: dict = {}) -> None:
+        """
+        Function to set properties for different layers, will be called in Reservoir.discretize()
+
+        This function is empty by default, can be overloaded by child classes
+
+        :param layers: Dictionary of [layer, cell_idxs]
+        :type layers: dict
+        :param layer_properties: Dictionary of [layer, properties]
+        :type layer_properties: dict
+        """
+        pass
+
+    def set_wells(self):
+        """
+        Function to predefine wells inside Reservoir class, will be called in DartsModel.set_wells()
+
+        This function is empty by default, can be overloaded by child classes
         """
         pass
 

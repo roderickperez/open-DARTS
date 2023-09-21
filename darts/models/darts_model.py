@@ -98,11 +98,13 @@ class DartsModel:
 
     def set_wells(self, verbose: bool = False) -> None:
         """
-        Function to define wells and initialize :class:`ms_wells` object.
+        Function to set (optionally) predefined wells in :class:`Reservoir` object
+        and initialize :class:`ms_wells` object.
 
         :param verbose: Set verbose level
         :type verbose: bool
         """
+        self.reservoir.set_wells()
         self.wells = self.reservoir.init_wells(self.mesh, verbose=verbose)
         return
 
