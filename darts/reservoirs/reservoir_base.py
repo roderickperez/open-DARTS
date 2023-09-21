@@ -12,6 +12,7 @@ class ReservoirBase:
     """
     Base class for generating a mesh
     """
+    mesh: conn_mesh
     wells: ms_well_vector = []
 
     def __init__(self, timer: timer_node, cache: bool = False):
@@ -34,7 +35,7 @@ class ReservoirBase:
         return
 
     @abc.abstractmethod
-    def discretize(self, cache: bool = False) -> conn_mesh:
+    def discretize(self, cache: bool = False):
         """
         Function to generate discretized mesh
 
@@ -42,8 +43,6 @@ class ReservoirBase:
 
         :param cache: Option to cache mesh discretization
         :type cache: bool
-        :returns: Mesh object
-        :rtype: conn_mesh
         """
         pass
 

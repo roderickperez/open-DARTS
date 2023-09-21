@@ -96,7 +96,7 @@ class CPG_Reservoir(ReservoirBase):
             self.actnum = np.ones(self.dims[0] * self.dims[1] * self.dims[2])
             print('No ACTNUM found in input files. ACTNUM=1 will be used')
 
-    def discretize(self) -> conn_mesh:
+    def discretize(self):
         '''
         reads grid and reservoir properties, initialize mesh, creates discretizer object and computes
         transmissibilities using two point flux approximation
@@ -106,7 +106,7 @@ class CPG_Reservoir(ReservoirBase):
         '''
 
         # Create mesh object (C++ object used by DARTS for all mesh related quantities):
-        mesh = conn_mesh()
+        self.mesh = conn_mesh()
 
         # empty dict just to pass to func
         displaced_tags = dict()
@@ -130,7 +130,7 @@ class CPG_Reservoir(ReservoirBase):
         self.nx = self.discr_mesh.nx = self.dims[0]
         self.ny = self.discr_mesh.ny = self.dims[1]
         self.nz = self.discr_mesh.nz = self.dims[2]
-        self.nb = mesh.n_res_blocks
+        self.nb = self.mesh.n_res_blocks
         self.discr_mesh.n_cells = ugrid.number_of_cells
         # cells + boundary_faces, approximate
         self.discr_mesh.num_of_elements = self.discr_mesh.n_cells + \
@@ -200,7 +200,7 @@ class CPG_Reservoir(ReservoirBase):
         #poro could be modified here
         #self.poro[poro < 1e-2] = 1e-2
         self.discr.set_porosity(self.discr_mesh.poro)
-        mesh.poro = darts.engines.value_vector(self.discr.poro)
+        self.mesh.poro = darts.engines.value_vector(self.discr.poro)
         self.poro = np.array(self.discr_mesh.poro, copy=False)
 
         # calculate transmissibilities
@@ -220,8 +220,8 @@ class CPG_Reservoir(ReservoirBase):
             # self.discr.write_tran_cube('tran_faultmult.grdecl', 'nnc_faultmult.txt')
 
         tran = np.fabs(tran)
-        mesh.init(darts.engines.index_vector(cell_m), darts.engines.index_vector(cell_p),
-                  darts.engines.value_vector(tran), darts.engines.value_vector(tranD))
+        self.mesh.init(darts.engines.index_vector(cell_m), darts.engines.index_vector(cell_p),
+                       darts.engines.value_vector(tran), darts.engines.value_vector(tranD))
 
         # debug
         # d = {'cell_m': cell_m, 'cell_p': cell_p, 'tran': tran, 'tranD': tranD}
@@ -233,15 +233,15 @@ class CPG_Reservoir(ReservoirBase):
         #    df_cpg.to_excel(writer, sheet_name='cpg')
 
         # Create numpy arrays wrapped around mesh data (no copying, this will severely slow down the process!)
-        mesh.depth = darts.engines.value_vector(self.discr_mesh.depths)
-        mesh.volume = darts.engines.value_vector(self.discr_mesh.volumes)
-        self.bc = np.array(mesh.bc, copy=False)
+        self.mesh.depth = darts.engines.value_vector(self.discr_mesh.depths)
+        self.mesh.volume = darts.engines.value_vector(self.discr_mesh.volumes)
+        self.bc = np.array(self.mesh.bc, copy=False)
 
         # rock thermal properties
-        self.hcap = np.array(mesh.heat_capacity, copy=False)
-        self.conduction = np.array(mesh.rock_cond, copy=False)
+        self.hcap = np.array(self.mesh.heat_capacity, copy=False)
+        self.conduction = np.array(self.mesh.rock_cond, copy=False)
 
-        return mesh
+        return
 
     def calc_well_index(self, i, j, k, well_radius=0.1524, segment_direction='z_axis', skin=0.):
         """

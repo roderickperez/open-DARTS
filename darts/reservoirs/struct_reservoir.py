@@ -76,7 +76,7 @@ class StructReservoir(ReservoirBase):
         self.connected_well_segments = {}
         self.wells = []
 
-    def discretize(self) -> conn_mesh:
+    def discretize(self):
         self.discretizer = StructDiscretizer(nx=self.nx, ny=self.ny, nz=self.nz, global_data=self.global_data,
                                              global_to_local=self.global_to_local, coord=self.coord, zcorn=self.zcorn,
                                              is_cpg=self.is_cpg)
@@ -115,7 +115,7 @@ class StructReservoir(ReservoirBase):
 
         self.set_boundary_volume(self.boundary_volumes)
 
-        return self.mesh
+        return
 
     def set_boundary_volume(self, boundary_volumes: dict):
         # apply changes

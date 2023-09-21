@@ -45,7 +45,7 @@ class UnstructReservoir(ReservoirBase):
         # Create empty list of wells:
         self.wells = []
 
-    def discretize(self) -> conn_mesh:
+    def discretize(self):
         # Construct instance of Unstructured Discretization class:
         self.discretizer = UnstructDiscretizer(mesh_file=self.mesh_file, permx=self.permx, permy=self.permy,
                                                permz=self.permz, frac_aper=self.frac_aper)
@@ -76,7 +76,7 @@ class UnstructReservoir(ReservoirBase):
         np.array(self.mesh.depth, copy=False)[:] = self.discretizer.depth_all_cells
         np.array(self.mesh.volume, copy=False)[:] = self.discretizer.volume_all_cells
 
-        return self.mesh
+        return
 
     def set_boundary_volume(self, boundary_volumes: dict):
         # Set-up dictionary with data for boundary cells:
