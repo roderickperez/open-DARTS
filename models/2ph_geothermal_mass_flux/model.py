@@ -104,7 +104,7 @@ class Model(CICDModel):
         if outflow < 0 then it is actually inflow
         '''
         nv = self.physics.n_vars
-        nb = self.mesh.n_res_blocks
+        nb = self.reservoir.mesh.n_res_blocks
         self.rhs_flux = np.zeros(nb * nv)
         # extract pointer to values corresponding to var_idx
         rhs_flux_var = self.rhs_flux[inflow_var_idx::nv]

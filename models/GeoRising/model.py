@@ -92,18 +92,18 @@ class Model(CICDModel):
                 # w.control = self.physics.new_bhp_prod(180)
 
     def compute_temperature(self, X):
-        nb = self.mesh.n_res_blocks
+        nb = self.reservoir.mesh.n_res_blocks
         temp = _Backward1_T_Ph_vec(X[0:2 * nb:2] / 10, X[1:2 * nb:2] / 18.015)
         return temp
 
     def set_op_list(self):
         self.op_list = [self.physics.acc_flux_itor[0], self.physics.acc_flux_w_itor]
-        op_num = np.array(self.mesh.op_num, copy=False)
-        op_num[self.mesh.n_res_blocks:] = 1
+        op_num = np.array(self.reservoir.mesh.op_num, copy=False)
+        op_num[self.reservoir.mesh.n_res_blocks:] = 1
 
     def export_pro_vtk(self, file_name='Results'):
         X = np.array(self.engine.X, copy=False)
-        nb = self.mesh.n_res_blocks
+        nb = self.reservoir.mesh.n_res_blocks
         temp = _Backward1_T_Ph_vec(X[0:2 * nb:2] / 10, X[1:2 * nb:2] / 18.015)
         local_cell_data = {'Temperature': temp,
                            'Perm': self.reservoir.global_data['permx'][self.reservoir.discretizer.local_to_global]

@@ -227,12 +227,12 @@ class Model(CICDModel):
     # Initialize reservoir and set boundary conditions:
     def set_initial_conditions(self):
         """ initialize conditions for all scenarios"""
-        self.physics.set_uniform_initial_conditions(self.mesh, self.init_pres, self.ini_comp)
+        self.physics.set_uniform_initial_conditions(self.reservoir.mesh, self.init_pres, self.ini_comp)
 
         if len(self.map) > 0:
             nc = self.physics.nc
-            nb = self.mesh.n_res_blocks
-            composition = np.array(self.mesh.composition, copy=False)
+            nb = self.reservoir.mesh.n_res_blocks
+            composition = np.array(self.reservoir.mesh.composition, copy=False)
             zc = np.zeros(nb)
             for i in range(nc-1):
                 zc[:] = self.ini_comp[i]
@@ -252,8 +252,8 @@ class Model(CICDModel):
                 w.control = self.physics.new_bhp_prod(95)
 
     def set_op_list(self):
-        self.op_num = np.array(self.mesh.op_num, copy=False)
-        n_res = self.mesh.n_res_blocks
+        self.op_num = np.array(self.reservoir.mesh.op_num, copy=False)
+        n_res = self.reservoir.mesh.n_res_blocks
         self.op_num[n_res:] = 1
 
         if self.grid_1D:
@@ -271,7 +271,7 @@ class Model(CICDModel):
 
     def print_and_plot_1D(self):
         nc = self.physics.nc
-        nb = self.mesh.n_res_blocks
+        nb = self.reservoir.mesh.n_res_blocks
         Sg = np.zeros(nb)
         Ss = np.zeros(nb)
         X = np.zeros((nb, nc - 1, 2))
@@ -355,7 +355,7 @@ class Model(CICDModel):
                            }
 
         nc = self.physics.nc
-        nb = self.mesh.n_res_blocks
+        nb = self.reservoir.mesh.n_res_blocks
         Sg = np.zeros(nb)
         Ss = np.zeros(nb)
         X = np.zeros((nb, nc - 1, 2))
@@ -473,12 +473,6 @@ class ModelProperties(PropertyContainer):
 
 
 class CustomPropertyOperators(PropertyOperators):
-    def __init__(self, variables, property_container):
-        super().__init__(variables, property_container)  # Initialize base-class
-
-        self.props = []
-        self.n_props = len(self.props)
-
     def evaluate(self, state, values):
         """
         Class methods which evaluates the state operators for the element based physics

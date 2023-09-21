@@ -140,15 +140,15 @@ class Model(CICDModel, OptModuleSettings):
 
             # specify the index of blocks of customized operator
             idx_in_op_list = 1
-            op_num_new = np.array(self.mesh.op_num, copy=True)
+            op_num_new = np.array(self.reservoir.mesh.op_num, copy=True)
             op_num_new[:] = idx_in_op_list  # set the second interpolator (i.e. "customized_component_itor") from "self.op_list" to all blocks
             self.engine.idx_customized_operator = idx_in_op_list
             self.engine.customize_op_num = index_vector(op_num_new)
         else:
             # self.op_list = [self.physics.acc_flux_itor]
 
-            self.op_num = np.array(self.mesh.op_num, copy=False)
-            n_res = self.mesh.n_res_blocks
+            self.op_num = np.array(self.reservoir.mesh.op_num, copy=False)
+            n_res = self.reservoir.mesh.n_res_blocks
             self.op_num[n_res:] = 1
             self.op_list = [self.physics.acc_flux_itor[0], self.physics.acc_flux_w_itor]
 

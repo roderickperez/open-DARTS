@@ -159,14 +159,14 @@ class Model(CICDModel):
         load_single_float_keyword(p_cpp, fname, 'PRESSURE', -1)
         p_file = np.array(p_cpp, copy=False)
 
-        p_mesh = np.array(self.mesh.pressure, copy=False)
+        p_mesh = np.array(self.reservoir.mesh.pressure, copy=False)
         try:
             actnum = np.array(self.reservoir.actnum, copy=False) # CPG Reservoir
             #nb = self.reservoir.mesh.n_cells
         except:
             actnum = self.reservoir.global_data['actnum']  #Struct reservoir
-        nb = self.mesh.n_blocks
-        p_mesh[:self.mesh.n_res_blocks * 2] = p_file[actnum > 0]
+        nb = self.reservoir.mesh.n_blocks
+        p_mesh[:self.reservoir.mesh.n_res_blocks * 2] = p_file[actnum > 0]
 
     def add_wells(self, reservoir, mode='generate', sch_fname: str = None, well_index: float = None, verbose: bool = False):
         self.read_and_add_perforations(reservoir, sch_fname, well_index=well_index, verbose=verbose)
@@ -185,7 +185,7 @@ class Model(CICDModel):
         arr_names - list of array names (keyword)
         '''
         Xn = np.array(self.engine.X, copy=False)
-        P = Xn[0:self.mesh.n_res_blocks * 2:2]
+        P = Xn[0:self.reservoir.mesh.n_res_blocks * 2:2]
         try:
             actnum = np.array(self.reservoir.actnum, copy=False)  # CPG Reservoir doesn't have 'global_data' object
             suffix = 'cpg'
