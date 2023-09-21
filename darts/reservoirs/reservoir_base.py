@@ -7,8 +7,6 @@ from typing import Union
 
 from darts.engines import conn_mesh, timer_node, ms_well_vector, ms_well
 
-from dataclasses import dataclass
-
 
 class ReservoirBase:
     """
@@ -26,14 +24,14 @@ class ReservoirBase:
             self.created_itors = []
             atexit.register(self.write_cache)
 
-    def init_reservoir(self, verbose: bool = False) -> conn_mesh:
+    def init_reservoir(self, verbose: bool = False):
         """
         Generic function to initialize reservoir.
 
         It calls discretize() to generate mesh object and adds the wells with perforations to the mesh.
         """
-        mesh = self.discretize()
-        return mesh
+        self.discretize()
+        return
 
     @abc.abstractmethod
     def discretize(self, cache: bool = False) -> conn_mesh:
