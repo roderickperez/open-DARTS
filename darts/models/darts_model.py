@@ -358,21 +358,18 @@ class DartsModel:
         n_props = self.physics.n_props
         tot_props = n_vars + n_props
         nb = self.reservoir.mesh.n_res_blocks
-        property_array = np.zeros((nb, tot_props))
+        property_array = np.zeros((tot_props, nb))
 
         # Obtain primary variables from engine
         for j in range(n_vars):
-            property_array[:, j] = self.engine.X[j:nb * n_vars:n_vars]
+            property_array[j, :] = self.engine.X[j:nb * n_vars:n_vars]
 
         # If it has been defined, interpolate secondary variables in property_itor,
         if self.physics.property_operators is not None:
             values = value_vector(np.zeros(self.physics.n_ops))
 
             for i in range(nb):
-                state = []
-                for j in range(n_vars):
-                    state.append(property_array[i, j])
-                state = value_vector(np.asarray(state))
+                state = value_vector(property_array[0:n_vars, i])
                 self.physics.property_itor.evaluate(state, values)
 
                 for j in range(n_props):
