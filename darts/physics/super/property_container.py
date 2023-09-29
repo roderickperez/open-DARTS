@@ -75,7 +75,7 @@ class PropertyContainer:
         pressure = vec_state_as_np[0]
 
         zc = np.append(vec_state_as_np[1:self.nc], 1 - np.sum(vec_state_as_np[1:self.nc]))
-        if zc[-1] < 0:
+        if zc[-1] <= 0:
             zc = self.comp_out_of_bounds(zc)
 
         if self.thermal:
