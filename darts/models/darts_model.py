@@ -373,7 +373,7 @@ class DartsModel:
                 self.physics.property_itor.evaluate(state, values)
 
                 for j in range(n_props):
-                    property_array[i, j + n_vars] = values[j]
+                    property_array[j + n_vars, i] = values[j]
 
         return property_array
 
