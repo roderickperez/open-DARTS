@@ -27,16 +27,19 @@ sys.path.insert(0, os.path.join(parentdir2, 'python'))
 
 # Definitions for the unstructured reservoir class:
 class CPG_Reservoir:
-    def __init__(self, gridfile, propfile, faultfile=None):
+    def __init__(self, arrays=None, faultfile=None):
         """
         Class constructor for UnstructReservoir class
-        :param gridfile: file that contains CPG grid
-        :param propfile: file that contains properties defined on grid
+        :param arrays: dictionary of numpy arrays with grid and props
         """
         # Create mesh object (C++ object used by DARTS for all mesh related quantities):
         self.mesh = conn_mesh()
+        # discretizer's mesh object - for computing transmissibility and create connectivity graph
+        self.discr_mesh = Mesh()
 
-        self.discretize_cpg(gridfile, propfile)
+        self.set_arrays(arrays)
+
+        self.discretize_cpg()
         #self.discr.write_mpfa_results('conn.dat')
 
         mpfa_tran = np.array(self.discr.flux_vals, copy=False)
@@ -86,49 +89,29 @@ class CPG_Reservoir:
         self.vtkobj = 0
         self.vtk_grid_type = 1
 
-    def read_arrays(self, gridfile: str, propfile: str):
-        self.dims_cpp = index_vector_discr()
-        load_single_int_keyword(self.dims_cpp, gridfile, "SPECGRID", 3)
-        self.dims = np.array(self.dims_cpp, copy=False)
+    def set_arrays(self, arrays):
+        '''
+        :param arrays: dictionary of input data for the grid and grid properties
+        '''
+        self.dims = arrays['SPECGRID']  # dimensions, array of 3 integer elements: nx, ny ,nz
+        self.coord = arrays['COORD']    # grid pillars, array of (nx+1)*(ny+1)*6 elements
+        self.zcorn = arrays['ZCORN']    # grid nodes depths, array of nx*ny*nz*8 elements
+        self.actnum = arrays['ACTNUM']  # integer array of nx*ny*nz elements, 0 - inactive cell, 1 - active cell
+        self.poro  = arrays['PORO']     # porosity array, nx*ny*nz elements
+        # permeability arrays, nx*ny*nz elements
+        self.permx = arrays['PERMX']
+        self.permy = arrays['PERMY']
+        self.permz = arrays['PERMZ']
 
-        self.permx_cpp, self.permy_cpp, self.permz_cpp = value_vector_discr(), value_vector_discr(), value_vector_discr()
-        load_single_float_keyword(self.permx_cpp, propfile, 'PERMX', -1)
-        load_single_float_keyword(self.permy_cpp, propfile, 'PERMY', -1)
-        self.permx = np.array(self.permx_cpp, copy=False)
-        self.permy = np.array(self.permy_cpp, copy=False)
-        for perm_str in ['PERMEABILITYXY', 'PERMEABILITY']:
-            if self.permx.size == 0 or self.permy.size == 0:
-                load_single_float_keyword(self.permx_cpp, propfile, perm_str, -1)
-                self.permy_cpp = self.permx_cpp
-                self.permx = np.array(self.permx_cpp, copy=False)
-                self.permy = np.array(self.permy_cpp, copy=False)
-        load_single_float_keyword(self.permz_cpp, propfile, 'PERMZ', -1)
-        self.permz = np.array(self.permz_cpp, copy=False)
+        self.discr_mesh.poro = value_vector_discr(self.poro)
+        self.discr_mesh.coord = value_vector_discr(self.coord)
+        self.discr_mesh.zcorn = value_vector_discr(self.zcorn)
+        self.discr_mesh.actnum = index_vector_discr(self.actnum)
+        self.permx_cpp = value_vector_discr(self.permx)
+        self.permy_cpp = value_vector_discr(self.permy)
+        self.permz_cpp = value_vector_discr(self.permz)
 
-        self.poro_cpp = self.discr_mesh.poro
-        load_single_float_keyword(self.poro_cpp, propfile, 'PORO', -1)
-        self.poro = np.array(self.poro_cpp, copy=False)
-
-        self.coord_cpp = self.discr_mesh.coord
-        load_single_float_keyword(self.coord_cpp, gridfile, 'COORD', -1)
-        self.coord = np.array(self.coord_cpp, copy=False)
-
-        self.zcorn_cpp = self.discr_mesh.zcorn
-        load_single_float_keyword(self.zcorn_cpp, gridfile, 'ZCORN', -1)
-        self.zcorn = np.array(self.zcorn_cpp, copy=False)
-
-        self.actnum_cpp = self.discr_mesh.actnum
-        self.actnum = np.array([])
-        for fname in [gridfile, propfile]:
-            if self.actnum.size == 0:
-                load_single_int_keyword(self.actnum_cpp, fname, 'ACTNUM', -1)
-                self.actnum = np.array(self.actnum_cpp, copy=False)
-        if self.actnum.size == 0:
-            self.actnum = np.ones(self.dims[0] * self.dims[1] * self.dims[2])
-            print('No ACTNUM found in input files. ACTNUM=1 will be used')
-
-
-    def discretize_cpg(self, gridfile: str, propfile: str):
+    def discretize_cpg(self):
         '''
         reads grid and reservoir properties, initialize mesh, creates discretizer object and computes
         transmissibilities using two point flux approximation
@@ -144,11 +127,8 @@ class CPG_Reservoir:
         displaced_tags[elem_loc.BOUNDARY] = set()
         displaced_tags[elem_loc.FRACTURE_BOUNDARY] = set()
 
-        self.discr_mesh = Mesh()
         result_fname = 'results.grdecl'
         minpv = 0
-
-        self.read_arrays(gridfile, propfile)
 
         dims_cpp = index_vector_cpggrid(self.dims)
         coord_cpp = value_vector_cpggrid(self.coord)
@@ -796,4 +776,54 @@ def make_full_cube(cube: np.array, actnum: np.array):
     cube_full[actnum > 0] = cube
     return cube_full
     
-   
+
+def read_arrays(gridfile: str, propfile: str):
+    '''
+    :param gridfile: file that contains CPG grid
+    :param propfile: file that contains properties defined on grid
+    :return: dictionary of arrays
+    '''
+    # fill the dictionary to return
+    arrays = {}
+
+    dims_cpp = index_vector_discr()
+    load_single_int_keyword(dims_cpp, gridfile, "SPECGRID", 3)
+    arrays['SPECGRID'] = np.array(dims_cpp, copy=False)
+
+    permx_cpp, permy_cpp, permz_cpp = value_vector_discr(), value_vector_discr(), value_vector_discr()
+    load_single_float_keyword(permx_cpp, propfile, 'PERMX', -1)
+    load_single_float_keyword(permy_cpp, propfile, 'PERMY', -1)
+    arrays['PERMX'] = np.array(permx_cpp, copy=False)
+    arrays['PERMY'] = np.array(permy_cpp, copy=False)
+    for perm_str in ['PERMEABILITYXY', 'PERMEABILITY']:
+        if arrays['PERMX'].size == 0 or arrays['PERMY'].size == 0:
+            load_single_float_keyword(permx_cpp, propfile, perm_str, -1)
+            permy_cpp = permx_cpp
+            arrays['PERMX'] = np.array(permx_cpp, copy=False)
+            arrays['PERMY'] = np.array(permy_cpp, copy=False)
+    load_single_float_keyword(permz_cpp, propfile, 'PERMZ', -1)
+    arrays['PERMZ'] = np.array(permz_cpp, copy=False)
+
+    poro_cpp = value_vector_discr() #self.discr_mesh.poro
+    load_single_float_keyword(poro_cpp, propfile, 'PORO', -1)
+    arrays['PORO'] = np.array(poro_cpp, copy=False)
+
+    coord_cpp = value_vector_discr() # self.discr_mesh.coord
+    load_single_float_keyword(coord_cpp, gridfile, 'COORD', -1)
+    arrays['COORD'] = np.array(coord_cpp, copy=False)
+
+    zcorn_cpp = value_vector_discr()  #self.discr_mesh.zcorn
+    load_single_float_keyword(zcorn_cpp, gridfile, 'ZCORN', -1)
+    arrays['ZCORN'] = np.array(zcorn_cpp, copy=False)
+
+    actnum_cpp = index_vector_discr() # self.discr_mesh.actnum
+    arrays['ACTNUM'] = np.array([])
+    for fname in [gridfile, propfile]:
+        if arrays['ACTNUM'].size == 0:
+            load_single_int_keyword(actnum_cpp, fname, 'ACTNUM', -1)
+            arrays['ACTNUM'] = np.array(actnum_cpp, copy=False)
+    if arrays['ACTNUM'].size == 0:
+        arrays['ACTNUM'] = np.ones(self.dims[0] * self.dims[1] * self.dims[2])
+        print('No ACTNUM found in input files. ACTNUM=1 will be used')
+
+    return arrays

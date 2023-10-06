@@ -1,7 +1,7 @@
 import numpy as np
 import time
 
-from darts.models.reservoirs.cpg_reservoir import CPG_Reservoir, save_array
+from darts.models.reservoirs.cpg_reservoir import CPG_Reservoir, save_array, read_arrays
 from darts.discretizer import load_single_float_keyword, load_single_int_keyword
 from darts.discretizer import value_vector as value_vector_discr
 from darts.discretizer import index_vector as index_vector_discr
@@ -36,8 +36,10 @@ class Model(DO_Model):
         self.propfile = propfile
         self.sch_fname = sch_fname
 
+        arrays = read_arrays(self.gridfile, self.propfile)
+
         if discr_type == 'cpp':
-            self.reservoir = CPG_Reservoir(self.gridfile, self.propfile)
+            self.reservoir = CPG_Reservoir(arrays)
         elif discr_type == 'python':
             self.init_struct_rsv()
         #self.timer.node["initialization"].stop()
