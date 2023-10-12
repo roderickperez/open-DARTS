@@ -75,8 +75,8 @@ namespace pm
 			const std::vector<value_t>& fluxes_n, const std::vector<value_t>& fluxes_biot_n, const std::vector<value_t>& Xn,
 			const std::vector<value_t>& fluxes_ref, const std::vector<value_t>& fluxes_biot_ref, const std::vector<value_t>& Xref,
 			const std::vector<value_t>& fluxes_ref_n, const std::vector<value_t>& fluxes_biot_ref_n, const std::vector<value_t>& Xn_ref);
-		int add_to_jacobian_slip(index_t cell_id, value_t dt, std::vector<value_t>& RHS);
-		int add_to_jacobian_stuck(index_t cell_id, value_t dt, std::vector<value_t>& RHS);
+		int add_to_jacobian_slip(index_t id, value_t dt, std::vector<value_t>& RHS);
+		int add_to_jacobian_stuck(index_t id, value_t dt, std::vector<value_t>& RHS);
 
 		// for local iterations
 		value_t calc_gap_L2_residual(const std::vector<value_t>& RHS) const;
@@ -96,7 +96,6 @@ namespace pm
 		std::vector<index_t> cell_ids;
 		std::vector<ContactState> states, states_n;
 		std::vector<Matrix> S, Sinv, S_fault;
-		index_t min_cell_id, max_cell_id;
 
 		//// friction properties
 		// friction model

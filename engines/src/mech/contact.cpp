@@ -55,10 +55,6 @@ int contact::init_friction(pm_discretizer* _discr, conn_mesh* _mesh)
 	assert(mu0.size() == cell_ids.size());
 	assert(mu.size() == cell_ids.size());
 
-	min_cell_id = *std::min_element(cell_ids.begin(), cell_ids.end());
-	max_cell_id = *std::max_element(cell_ids.begin(), cell_ids.end());
-	assert(max_cell_id - min_cell_id + 1 == cell_ids.size());
-
 	if (friction_model == RSF || friction_model == RSF_STAB)
 	{
 		index_t cell_id;
@@ -180,11 +176,11 @@ int contact::init_fault()
 		avg_mu = (discr->stfs[face1.cell_id2](SUM_N(ND) - 1, SUM_N(ND) - 1) + discr->stfs[face1.cell_id2](SUM_N(ND) - 1, SUM_N(ND) - 1) ) / 2.0;
 		avg_lam = (discr->stfs[face1.cell_id2](0, 1) + discr->stfs[face1.cell_id2](0, 1) ) / 2.0;
 		avg_young = avg_mu * (3 * avg_lam + 2 * avg_mu) / (avg_lam + avg_mu);
-		eps_t.push_back(f_scale * avg_mu);// *face1.area* face1.area / avg_vol );
-		eps_n.push_back(f_scale * avg_young);// *face1.area* face1.area / avg_vol );
+		eps_t.push_back(f_scale * avg_mu * face1.area* face1.area / avg_vol );
+		eps_n.push_back(f_scale * avg_young * face1.area* face1.area / avg_vol );
 		value_t density = 2500.0;
 		value_t s_velocity = sqrt(avg_mu * 1e+5 / density) * 86400.0;
-		eta.push_back(avg_mu / s_velocity / 2.0);
+		eta.push_back(eps_t.back());//avg_mu / s_velocity / 2.0);
 	}
 	phi.resize(cell_ids.size());
 	fault_stress.resize(ND * cell_ids.size());
@@ -454,7 +450,7 @@ int contact::add_to_jacobian_return_mapping(value_t dt, csr_matrix_base* jacobia
 		auto& state = states[i];
 		if (state == TRUE_STUCK)
 		{
-			add_to_jacobian_stuck(cell_id, dt, RHS);
+			add_to_jacobian_stuck(i, dt, RHS);
 		}
 		else if (state == PEN_STUCK || state == SLIP || state == FREE)
 		{
@@ -520,7 +516,8 @@ int contact::add_to_jacobian_return_mapping(value_t dt, csr_matrix_base* jacobia
 			phi[i] = Ft_trial_norm - mu[i] * flux(0, 0);
 
 			// radiation dumping
-			phi[i] -= eta[i] * slip_vel_norm;
+			if (eta[i] != 0.0)
+			  phi[i] -= dt * eta[i] * slip_vel_norm;
 
 			// normal 
 			auto& Fn = pre_Fn[st.size()];
@@ -529,7 +526,7 @@ int contact::add_to_jacobian_return_mapping(value_t dt, csr_matrix_base* jacobia
 			Fn_pres.values = Fpres(0, { (uint8_t)Fpres.N }, { 1 });
 			 
 			// update state
-			if (flux(0, 0) < -100 * EQUALITY_TOLERANCE)
+			if (flux(0, 0) < -100 * EQUALITY_TOLERANCE && false)
 				state = FREE;
 			else if (phi[i] >= 0.0 || (state == SLIP && dgt_iter_norm > 100 * EQUALITY_TOLERANCE))
 				state = SLIP;
@@ -543,7 +540,7 @@ int contact::add_to_jacobian_return_mapping(value_t dt, csr_matrix_base* jacobia
 			{
 				// static (or zero) friction by default
 				drad_dump.values = 0.0;
-				drad_dump.values = eta[i] * slip_vel.values / slip_vel_norm / dt;
+				drad_dump.values = dt * eta[i] * slip_vel.values / slip_vel_norm / dt;
 
 				////// friction
 				//// if use gap derivatives as direction
@@ -566,7 +563,9 @@ int contact::add_to_jacobian_return_mapping(value_t dt, csr_matrix_base* jacobia
 				buf.values = outer_product(F_trial / Ft_trial_norm, F_trial.transpose() / Ft_trial_norm).values;
 				buf(0, { ND }, { 1 }) = 0.0;
 				// radiation dumping
-				F(ND * id, { ND, ND }, { (uint8_t)F.N, 1 }) -= 1.0 / Ft_trial_norm * outer_product(F_trial, drad_dump.transpose()).values;
+				if (eta[i] != 0.0) {
+				  F(ND * id, { ND, ND }, { (uint8_t)F.N, 1 }) -= 1.0 / Ft_trial_norm * outer_product(F_trial, drad_dump.transpose()).values;
+				}
 				// dFt_trial_norm
 				F(ND * id, { ND, ND }, { (uint8_t)F.N, 1 }) -= -sign_trial * eps_t[i] * buf.values;
 				jacobian_explicit_scheme[i].values += sign_trial * eps_t[i] * buf.values;
@@ -592,11 +591,12 @@ int contact::add_to_jacobian_return_mapping(value_t dt, csr_matrix_base* jacobia
 				//flux -= mu_cur * flux(0, 0) * F_trial / Ft_trial_norm;
 				flux -= alpha * F_trial;
 
-				//if (friction_model == RSF || friction_model == RSF_STAB)
-				//{
-					// radiation damping
-					F(ND * id, { ND, ND }, { (uint8_t)F.N, 1 }) -= eta[i] * I3.values / dt;
-					flux -= eta[i] * slip_vel;
+				// radiation damping
+				if (eta[i] != 0.0)
+				{
+				  F(ND * id, { ND, ND }, { (uint8_t)F.N, 1 }) -= dt * eta[i] * I3.values / dt;
+				  flux -= dt * eta[i] * slip_vel;
+				}
 					//fprintf(pFile, "%d\t%d\t%.10e\t%.10e\t%.10e\t%.10e\t%.10e\t%.10e\t%.10e\n", i, 1, flux.values[1], F(1, ND * id + 1), mu_cur, dmu.values[1], slip_vel.values[1], g.values[1], dg.values[1]);
 				//}
 			}
@@ -656,7 +656,7 @@ int contact::add_to_jacobian_return_mapping(value_t dt, csr_matrix_base* jacobia
 			//iota(permut, permut + ND, 0);
 			stable_sort(permut, permut + ND, [&n](index_t i1, index_t i2) { return fabs(n.values[i1]) > fabs(n.values[i2]); });
 
-			add_to_jacobian_slip(cell_id, dt, RHS);
+			add_to_jacobian_slip(i, dt, RHS);
 		}
 	}
 	//fclose(pFile);
@@ -711,7 +711,7 @@ int contact::add_to_jacobian_linear(value_t dt, csr_matrix_base* jacobian, vecto
 		auto& state = states[i];
 		if (state == TRUE_STUCK)
 		{
-			add_to_jacobian_stuck(cell_id, dt, RHS);
+			add_to_jacobian_stuck(i, dt, RHS);
 		}
 		else if (state == PEN_STUCK || state == SLIP)
 		{
@@ -866,7 +866,7 @@ int contact::add_to_jacobian_linear(value_t dt, csr_matrix_base* jacobian, vecto
 			//iota(permut, permut + ND, 0);
 			stable_sort(permut, permut + ND, [&n](index_t i1, index_t i2) { return fabs(n.values[i1]) > fabs(n.values[i2]); });
 
-			add_to_jacobian_slip(cell_id, dt, RHS);
+			add_to_jacobian_slip(i, dt, RHS);
 		}
 	}
 	//fclose(pFile);
@@ -898,7 +898,7 @@ int contact::add_to_jacobian_local_iters(value_t dt, csr_matrix_base* jacobian, 
 		const index_t *rows_loc = local_jacobian->get_rows_ptr();
 		const index_t *cols_loc = local_jacobian->get_cols_ind();
 		value_t *Jac_loc = local_jacobian->get_values();
-		index_t cell_id, st_id_loc, r_code, id, iter = 0, conn_st_id, csr_idx_start, csr_idx_end;
+		index_t cell_id, st_id_loc, st_cell_id, id, r_code, iter = 0, conn_st_id, csr_idx_start, csr_idx_end;
 
 		printf("contact iter #%d:\t res = %.10e\n", iter, res);
 		while (res > 0.0000001 * init_res && iter < MAX_LOCAL_ITER_NUM)
@@ -913,7 +913,8 @@ int contact::add_to_jacobian_local_iters(value_t dt, csr_matrix_base* jacobian, 
 
 				for (index_t st_id = csr_idx_start; st_id < csr_idx_end; st_id++)
 				{
-					if (cols[st_id] == min_cell_id + cols_loc[st_id_loc])
+					st_cell_id = cell_ids[cols_loc[st_id_loc]];
+					if (cols[st_id] == st_cell_id)
 					{
 						for (uint8_t d = 0; d < ND; d++)
 							for (uint8_t v = 0; v < ND; v++)
@@ -958,15 +959,16 @@ int contact::add_to_jacobian_local_iters(value_t dt, csr_matrix_base* jacobian, 
 					X[N_VARS * cell_id + U_VAR + d] -= dg_local[ND * i + d];
 
 				// update fluxes
-				const auto& conn_ids = mesh->fault_conn_id[cell_id - min_cell_id];
+				const auto& conn_ids = mesh->fault_conn_id[i];
 				for (uint8_t k = 0; k < conn_ids.size(); k++)
 				{
 					const auto& conn_id = conn_ids[k];
 					for (conn_st_id = offset[conn_id]; conn_st_id < offset[conn_id + 1]; conn_st_id++)
 					{
-						id = stencil[conn_st_id] - min_cell_id;
-						if (id >= 0 && id < n_res_blocks - min_cell_id)
+						auto it = std::find(cell_ids.begin(), cell_ids.end(), stencil[conn_st_id]);
+						if (it != cell_ids.end())
 						{
+							id = std::distance(cell_ids.begin(), it);
 							for (d = 0; d < ND; d++)
 							{
 								for (v = 0; v < ND; v++)
@@ -1011,10 +1013,11 @@ int contact::solve_explicit_scheme(std::vector<value_t>& RHS, std::vector<value_
 		}
 	}
 }
-int contact::add_to_jacobian_slip(index_t cell_id, value_t dt, vector<value_t>& RHS)
+int contact::add_to_jacobian_slip(index_t id, value_t dt, vector<value_t>& RHS)
 {
 	const auto& F = pre_F[st.size()];
 	const auto& Fpres = pre_Fpres[st.size()];
+	const index_t cell_id = cell_ids[id];
 
 	// assemble jacobian
 	const index_t csr_idx_start = rows[cell_id];
@@ -1047,10 +1050,11 @@ int contact::add_to_jacobian_slip(index_t cell_id, value_t dt, vector<value_t>& 
 
 	return 0;
 }
-int contact::add_to_jacobian_stuck(index_t cell_id, value_t dt, vector<value_t>& RHS)
+int contact::add_to_jacobian_stuck(index_t id, value_t dt, vector<value_t>& RHS)
 {
-	index_t conn_st_id = 0, st_id, id = cell_id - min_cell_id;
+	index_t conn_st_id = 0, st_id;
 	uint8_t d;
+	const index_t cell_id = cell_ids[id];
 	const index_t csr_idx_start = rows[cell_id];
 	const index_t csr_idx_end = rows[cell_id + 1];
 	fill_n(RHS.begin() + N_VARS * cell_id + U_VAR, ND, 0.0);
@@ -1347,7 +1351,7 @@ int contact::init_local_jacobian_structure()
 	index_t *cols_ind = local_jacobian->get_cols_ind();
 	index_t *row_thread_starts = local_jacobian->get_row_thread_starts();
 
-	index_t cell_id;
+	index_t cell_id, id;
 	vector<index_t> &block_m = mesh->block_m;
 	vector<index_t> &block_p = mesh->block_p;
 
@@ -1360,8 +1364,12 @@ int contact::init_local_jacobian_structure()
 		rows_ptr[i + 1] = rows_ptr[i];
 		for (const auto& st : cur)
 		{
-			if (st >= min_cell_id && st <= max_cell_id)
-				cols_ind[rows_ptr[i + 1]++] = st - min_cell_id;
+			auto it = std::find(cell_ids.begin(), cell_ids.end(), st);
+			if (it != cell_ids.end())
+			{
+				id = std::distance(cell_ids.begin(), it);
+				cols_ind[rows_ptr[i + 1]++] = id;
+			}
 		}
 		diag_ind[i] = index_t(intptr_t(std::find(cols_ind + rows_ptr[i], cols_ind + rows_ptr[i + 1], cell_id) - cols_ind - rows_ptr[i]));
 	}
