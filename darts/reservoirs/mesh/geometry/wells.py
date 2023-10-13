@@ -1,6 +1,6 @@
 import numpy as np
 import math
-from .shapes import *
+from darts.reservoirs.mesh.geometry.shapes import *
 
 
 class Well(Shape):
@@ -14,13 +14,6 @@ class Well(Shape):
 
     def refine_location(self, points, curves):
         pass
-
-    def calc_radial_points(self, c, r, axs, angle):
-        point = c[:]
-        point[axs[0]] += np.round(r * np.sin(angle), 5)
-        point[axs[1]] += np.round(r * np.cos(angle), 5)
-
-        return point
 
 
 class WellCell(Well):
@@ -50,21 +43,19 @@ class WellCell(Well):
 
 
 class CircularWell(Well):
-    def __init__(self, center: list, re: float, lc_well: int, axs: list, in_surfaces: list):
+    def __init__(self, center: list, re: float, lc_well: int, orientation: str, in_surfaces: list):
         self.center = center
         self.re = re
         self.lc_well = lc_well
         self.in_surfaces = in_surfaces
-
-        # 2-D axes
-        self.axs = axs
+        self.orientation = orientation
 
         super().__init__()
 
     def define_shapes(self):
-        point2 = self.calc_radial_points(self.center, self.re, self.axs, math.radians(0))
-        point3 = self.calc_radial_points(self.center, self.re, self.axs, math.radians(120))
-        point4 = self.calc_radial_points(self.center, self.re, self.axs, math.radians(240))
+        point2 = self.calc_radial_points(self.center, self.re, self.orientation, math.radians(0))
+        point3 = self.calc_radial_points(self.center, self.re, self.orientation, math.radians(120))
+        point4 = self.calc_radial_points(self.center, self.re, self.orientation, math.radians(240))
 
         self.points = [Point(1, self.center),
                        Point(2, point2, lc=self.lc_well),
@@ -76,6 +67,12 @@ class CircularWell(Well):
                        Curve(2, curve_type='circle', points=[3, 1, 4], embed=self.in_surfaces),
                        Curve(3, curve_type='circle', points=[4, 1, 2], embed=self.in_surfaces),
                        ]
+        # self.curves = [Curve(1, curve_type='circle', points=[2, 1, 3]),
+        #                Curve(2, curve_type='circle', points=[3, 1, 4]),
+        #                Curve(3, curve_type='circle', points=[4, 1, 2])
+        #                ]
+
+        self.surfaces = [Surface(1, points=[2, 3, 4, 2], curves=[1, 2, 3])]
 
         return
 

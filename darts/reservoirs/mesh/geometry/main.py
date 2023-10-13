@@ -6,6 +6,7 @@ from shapes import *
 from wells import *
 
 
+
 if __name__ == "__main__":
     geo = 'fluidflower'
     if geo == 'cylinder':
@@ -75,7 +76,7 @@ if __name__ == "__main__":
         angle = 30
 
         c0 = [0., 0., 0.]
-        c = CircleWithHole(c0, radius=1000, rw=0.075, orientation=orientation, angle=angle)
+        c = Circle(c0, radius=1000, rw=0.075, orientation=orientation, angle=angle)
 
         g = Geometry(dim)
         g.add_shape(c)
@@ -93,10 +94,10 @@ if __name__ == "__main__":
 
         b = Box([0, 1], [0, 1], [0, 1])
 
-        g = Geometry(dim)
-        g.add_shape(b)
+        m = Unstructured(dim)
+        m.add_shape(b)
 
-        g.write_geo(filename + '.geo', lc=[0.1])
+        m.lc = [0.1]
     elif geo == 'layered':
         filename = geo
 
@@ -110,12 +111,12 @@ if __name__ == "__main__":
         c_1 = [2., 0., 0.]
         c2 = Cylinder(c_1, radius=1, length=2, orientation=0, angle=30)
 
-        g = Geometry(dim)
-        # g.add_shape(b1)
-        # g.add_shape(b2)
-        g.add_shape(c1)
-        g.add_shape(c2)
-        g.write_geo(filename + '.geo', lc=[0.1])
+        m = Unstructured(dim)
+        # m.add_shape(b1)
+        # m.add_shape(b2)
+        m.add_shape(c1)
+        m.add_shape(c2)
+        m.lc = [0.1]
     elif geo == 'fluidflower':
         from fluidflower import FluidFlower
         filename = geo
@@ -130,29 +131,50 @@ if __name__ == "__main__":
                         [1.72806, 0.0, 0.72757]]
 
         if structured:
-            s = Structured(dim=2, axs=[0, 2])
-            s.add_shape(FluidFlower())
+            m = Structured(dim=2, axs=[0, 2])
+            m.add_shape(FluidFlower())
 
-            s.generate_mesh2(nx=400, ny=1, nz=200)
+            m.generate_mesh2(nx=400, ny=1, nz=200)
 
         else:
-            u = Unstructured(dim=2, axs=[0, 2])
-            u.add_shape(FluidFlower())
+            m = Unstructured(dim=2, axs=[0, 2])
+            m.add_shape(FluidFlower())
 
             for i, center in enumerate(well_centers):
-                in_surfaces = u.find_surface(center)
-                u.refine_around_point(center, radius=0.015, lc=1)
+                in_surfaces = m.find_surface(center)
+                m.refine_around_point(center, radius=0.015, lc=1)
 
                 w = CircularWell(center, re=0.01, lc_well=1, axs=[0, 2], in_surfaces=in_surfaces)
-                u.add_shape(w)
+                m.add_shape(w)
 
-            u.extrude_mesh(length=0.025, layers=1, axis=1, recombine=True)
-            u.lc = [0.025, 0.005]
+            m.extrude_mesh(length=0.025, layers=1, axis=1, recombine=True)
+            m.lc = [0.025, 0.005]
 
-            u.write_geo(filename)
-            u.generate_msh(filename)
-
-    elif geo == 'geo_file':
-        filename = 'extruded_circle_with_well'
     else:
-        raise Exception("geo not implemented")
+        filename = 'mesh'
+
+        dim = 3
+
+        m = Unstructured(dim, axs=[0, 1])
+
+        center = [0., 0., 0.]
+        angle = 80.
+
+        if dim == 2:
+            # m.add_shape(Circle(center=center, radii=[1., 0.2], angle=angle, hole=True))
+            m.add_shape(Square(center=center, ax0_len=2, ax1_len=2, orientation='xy', radii=[0.5, 0.1], hole=True))
+            # m.add_shape(CircularWell([0.5, 0.5, 0.], re=0.01, lc_well=1, axs=[0, 1], in_surfaces=[1]))
+            m.extrude_mesh(length=0.1, layers=3, axis=2, recombine=True)
+        else:
+            m.add_shape(Box(xdim=[-1., 1.], ydim=[-1., 1.], zdim=[-1., 1.], radii=[]))
+            # m.add_shape(Cylinder(center=center, radii=[1., 0.5], length=1., angle=angle, hole=True))
+
+        # m.embed_point([0.5, 0.5, 0.], lc=1)
+        # m.embed_circle([0.5, 0.5, 0.], radius=0.25, orientation='xy', lc=0)
+        # m.embed_circle([0.5, 0.5, 0.], radius=0.05, orientation='xy', lc=1)
+        # m.embed_circle(center=center, radius=0.5, angle=angle, lc=1, orientation='xy')
+
+        m.lc = [0.25, 0.1, 0.05]
+
+    m.write_geo(filename)
+    m.generate_msh(filename)

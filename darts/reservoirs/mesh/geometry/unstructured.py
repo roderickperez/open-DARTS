@@ -1,27 +1,239 @@
 import numpy as np
 import math
 import warnings
-from .geometry import Geometry
+from darts.reservoirs.mesh.geometry.geometry import Geometry
+from darts.reservoirs.mesh.geometry.shapes import Point, Curve, Surface, Volume
 
 import gmsh
 
 
 class Unstructured(Geometry):
-    def __init__(self, dim, axs=[0, 1, 2]):
-        super().__init__(dim, axs)
+    lc = []
+    extrude: dict = None
+    tags = [901, 9001, 90001, 900001]  # tags for physical points, lines, surfaces, volumes
 
-        self.lc = []
-        self.extrude: dict = None
+    def calc_radial_points(self, center: list, radius: float, orientation: str, angle: float):
+        point = center[:]
+        if orientation == 'xy':
+            point[0] += np.round(radius * np.sin(angle), 5)
+            point[1] += np.round(radius * np.cos(angle), 5)
+        elif orientation == 'xz':
+            point[0] += np.round(radius * np.sin(angle), 5)
+            point[2] += np.round(radius * np.cos(angle), 5)
+        else:  # 'yz'
+            point[1] += np.round(radius * np.sin(angle), 5)
+            point[2] += np.round(radius * np.cos(angle), 5)
 
-        self.tags = [901, 9001, 90001, 900001]  # tags for physical points, lines, surfaces, volumes
-        # self.physical_tags = {
-        #     "matrix": [],
-        #     "boundary": [],
-        #     "fracture": [],
-        #     "fracture_shape": [],
-        #     "well": [],
-        #     "output": []
-        # }
+        return point
+
+    def refine_around_point(self, point, radius, lc):
+        # Check if radius of cylinder is overlapping or intersecting with any points or curves
+        # to make sure mesh around the well is refined enough if close to a layer boundary,
+
+        curves_map = {}
+        curves_temp = self.curves[:]  # need new list to avoid infinite loop with appending segments
+
+        # Find segments that are intersected by circle
+        for c, curve in enumerate(curves_temp):
+            if curve.active and not curve.curve_type == 'circle':  # and not segment.index in new_segments:
+                # check if circle intersects segment
+                # first construct equation for line segment
+                point0 = curve.points[0] - 1
+                point1 = curve.points[1] - 1
+                x1 = self.points[point0].xyz[self.axs[0]]  # x coordinate of first point in segment
+                x2 = self.points[point1].xyz[self.axs[0]]
+                y1 = self.points[point0].xyz[self.axs[1]]
+                y2 = self.points[point1].xyz[self.axs[1]]
+                pointa_index = self.points[point0].idx
+                pointb_index = self.points[point1].idx
+
+                intersecting = [False, False]
+
+                if x1 == x2:  # vertical segment
+                    # line segment: x = x1
+                    if np.abs(x1 - point[self.axs[0]]) == radius:  # touching circle
+                        X1 = point[self.axs[0]]
+                        Y1 = point[self.axs[1]]
+                        if np.sign(Y1 - y1) != np.sign(Y1 - y2):
+                            intersecting[0] = True
+                    elif np.abs(x1 - point[self.axs[0]]) < radius:  # intersecting circle
+                        X1 = x1
+                        X2 = X1
+                        Y1 = point[self.axs[1]] + np.sqrt(radius ** 2 - (x1 - point[self.axs[0]]) ** 2)
+                        Y2 = point[self.axs[1]] - np.sqrt(radius ** 2 - (x1 - point[self.axs[0]]) ** 2)
+                        if np.sign(Y1 - y1) != np.sign(Y1 - y2):  # upper intersection is between y1 and y2
+                            intersecting[0] = True
+                        if np.sign(Y2 - y1) != np.sign(Y2 - y2):  # lower intersection is between y1 and y2
+                            intersecting[1] = True
+
+                else:  # non-vertical segment
+                    # construct line segment y = ax + b
+                    a = (y2 - y1) / (x2 - x1)
+                    b = y1 - a * x1
+
+                    # intersection of circle (x-xc)**2 + (y-yc)**2 = r**2 and y = ax + b
+                    # (1 + a**2)*x**2 + (2*a*(b-yc) - 2*xc)*x + xc**2 + (b-yc)**2 - r**2 = 0
+                    # if D < 0: no intersection, if D = 0: touching, if D > 0: intersection
+                    A = 1 + a ** 2
+                    B = 2 * a * (b - point[self.axs[1]]) - 2 * point[self.axs[0]]
+                    C = point[self.axs[0]] ** 2 + (b - point[self.axs[1]]) ** 2 - radius ** 2
+                    D = B ** 2 - 4 * A * C
+                    if D == 0:  # touching circle
+                        X1 = -B / (2 * A)
+                        Y1 = a * X1 + b
+                        if np.sign(Y1 - y1) != np.sign(Y1 - y2):
+                            intersecting[0] = True
+                    elif D > 0:  # intersecting circle
+                        X1 = (-B + np.sqrt(D)) / (2 * A)
+                        Y1 = a * X1 + b
+                        X2 = (-B - np.sqrt(D)) / (2 * A)
+                        Y2 = a * X2 + b
+                        if np.sign(Y1 - y1) != np.sign(Y1 - y2):
+                            intersecting[0] = True
+                        if np.sign(Y2 - y1) != np.sign(Y2 - y2):
+                            intersecting[1] = True
+
+                if intersecting[0] and intersecting[1]:
+                    xyz = [0., 0., 0.]  # create point at intersection
+                    xyz[self.axs[0]] = X1
+                    xyz[self.axs[1]] = Y1
+                    point1_index = len(self.points) + 1
+                    self.points.append(Point(point1_index, xyz, lc=lc))
+                    self.points_list.append(xyz)
+
+                    xyz = [0., 0., 0.]  # create point at intersection
+                    xyz[self.axs[0]] = X2
+                    xyz[self.axs[1]] = Y2
+                    point2_index = len(self.points) + 1
+                    self.points.append(Point(point2_index, xyz, lc=lc))
+                    self.points_list.append(xyz)
+
+                    # determine order of points in segment
+                    if np.sqrt((X1 - x1) ** 2 + (Y1 - y1) ** 2) < np.sqrt(
+                            (X2 - x1) ** 2 + (Y2 - y1) ** 2):  # which is closer to x1, y1
+                        segment1 = [pointa_index, point1_index]
+                        segment2 = [point1_index, point2_index]
+                        segment3 = [point2_index, pointb_index]
+                    else:
+                        segment1 = [pointa_index, point2_index]
+                        segment2 = [point2_index, point1_index]
+                        segment3 = [point1_index, pointb_index]
+
+                    self.curves[c].active = False  # remove curve c from active curves
+                    index1 = len(self.curves) + 1
+                    self.curves.append(Curve(index1, curve_type='line', points=segment1))
+                    self.curves_list.append(segment1)
+                    index2 = len(self.curves) + 1
+                    self.curves.append(Curve(index2, curve_type='line', points=segment2))
+                    self.curves_list.append(segment2)
+                    index3 = len(self.curves) + 1
+                    self.curves.append(Curve(index3, curve_type='line', points=segment3))
+                    self.curves_list.append(segment3)
+
+                    # Add curve c to curves map to put correct curve in surfaces
+                    curves_map[c + 1] = [index1, index2, index3]
+
+                elif intersecting[0] or intersecting[1]:  # circle is intersecting segment only once
+                    xyz = [0., 0., 0.]
+                    if intersecting[0]:  # and not intersecting[1]:
+                        xyz[self.axs[0]] = X1
+                        xyz[self.axs[1]] = Y1
+                    else:  # if intersecting[1]:  # and not intersecting[0]:
+                        xyz[self.axs[0]] = X2
+                        xyz[self.axs[1]] = Y2
+                    point_index = len(self.points) + 1
+                    self.points.append(Point(point_index, xyz, lc=lc))
+                    self.points_list.append(xyz)
+
+                    self.curves[c].active = False  # remove curve c from active curves
+                    segment1 = [pointa_index, point_index]
+                    index1 = len(self.curves) + 1
+                    self.curves.append(Curve(index1, curve_type='line', points=segment1))
+                    self.curves_list.append(segment1)
+                    segment2 = [point_index, pointb_index]
+                    index2 = len(self.curves) + 1
+                    self.curves.append(Curve(index2, curve_type='line', points=segment2))
+                    self.curves_list.append(segment2)
+
+                    # Add curve c to curves map to put correct curve in surfaces
+                    curves_map[c + 1] = [index1, index2]
+
+        # Put subsegments in surfaces
+        for curve in curves_map:
+            new_segments = curves_map[curve]
+            for surface in self.surfaces:
+                if curve in surface.curves:
+                    new_curves = []
+                    # Replace intersected segments by subsegments
+                    for old_curve in surface.curves:
+                        if old_curve == curve:
+                            for seg in new_segments:
+                                new_curves.append(seg)
+                        else:
+                            new_curves.append(old_curve)
+                    surface.curves = new_curves
+                elif -curve in surface.curves:
+                    new_curves = []
+                    # Replace intersected segments by subsegments
+                    for old_curve in surface.curves:
+                        if old_curve == -curve:
+                            for seg in range(len(new_segments)):
+                                seg_index = len(new_segments) - 1 - seg
+                                new_curves.append(-1 * new_segments[seg_index])
+                        else:
+                            new_curves.append(old_curve)
+                    surface.curves = new_curves
+
+        return
+
+    def embed_point(self, point: list, lc: int):
+        point_index = len(self.points) + 1
+        self.points.append(Point(point_index, point, lc=lc, embed=self.find_surface(point)))
+        return
+
+    def embed_circle(self, center: list, radius: float, surface: int = 1,
+                     orientation: str = 'xy', lc: int = 0, angle: float = 360.):
+        p0_index = len(self.points) + 1
+
+        if angle == 360:
+            angles = [0., 120., 240.]
+        elif angle >= 180.:
+            angles = [0., angle*0.5, angle]
+        else:
+            angles = [0., angle]
+
+        self.points.append(Point(p0_index, center))
+        for i, a in enumerate(angles):
+            self.points.append(Point(p0_index + i + 1,
+                                     self.calc_radial_points(center, radius, orientation, math.radians(a)), lc=lc))
+
+        c0_index = len(self.curves) + 1
+        for i, a in enumerate(angles[:-1]):
+            self.curves.append(Curve(c0_index + i, curve_type='circle',
+                                     points=[p0_index + i + 1, p0_index, p0_index + i + 2], embed=[surface]))
+
+        if angle == 360.:
+            self.curves.append(Curve(c0_index + 3, curve_type='circle',
+                                     points=[p0_index + 3, p0_index, p0_index + 1], embed=[surface]))
+
+        return
+
+    def embed_curve(self, points: list, lc: int = 0):
+        in_surfaces = self.find_surface(points[0])
+        p0_index = len(self.points) + 1
+        c0_index = len(self.curves) + 1
+
+        for i, p in enumerate(points):
+            self.points.append(Point(p0_index + i, p, lc=lc))
+
+        for i, p in enumerate(points[:-1]):
+            self.curves.append(Curve(c0_index + i, curve_type='line',
+                                     points=[p0_index + i, p0_index + i + 1], embed=in_surfaces))
+
+        return
+
+    def embed_surface(self, points: list):
+        return
 
     def extrude_mesh(self, length: float, layers: int, axis: int, recombine: bool):
         self.extrude = {
@@ -73,18 +285,19 @@ class Unstructured(Geometry):
         "Write Surfaces"
         f.write('// SURFACES\n')
         for surface in self.surfaces:
-            if surface.idx not in self.holes:
-                if surface.plane:
-                    local_text = 'Plane Surface({:d}) = {{{:d}, '.format(surface.idx, surface.idx)
-                else:
-                    local_text = 'Surface({:d}) = {{{:d}, '.format(surface.idx, surface.idx)
+            if surface.active:
+                if self.dim == 3 or surface.idx not in self.holes:
+                    if surface.plane:
+                        local_text = 'Plane Surface({:d}) = {{{:d}, '.format(surface.idx, surface.idx)
+                    else:
+                        local_text = 'Surface({:d}) = {{{:d}, '.format(surface.idx, surface.idx)
 
-                # Add holes to existing surface
-                for hole_idx in surface.holes:
-                    local_text += '{:d}, '.format(hole_idx)
-                local_text = local_text[:-2]
-                local_text += '};\n'
-                f.write(local_text)
+                    # Add holes to existing surface
+                    for hole_idx in surface.holes:
+                        local_text += '{:d}, '.format(hole_idx)
+                    local_text = local_text[:-2]
+                    local_text += '};\n'
+                    f.write(local_text)
         f.write('\n')
 
         """Write Embedded"""
@@ -203,7 +416,8 @@ class Unstructured(Geometry):
                 local_text += '};\n'
                 f.write(local_text)
 
-                f.write('Volume({:d}) = {{{:d}}};\n'.format(volume.idx, volume.idx))
+                if volume.idx not in self.holes:
+                    f.write('Volume({:d}) = {{{:d}}};\n'.format(volume.idx, volume.idx))
             f.write('\n')
 
             # Add Physical Volumes
