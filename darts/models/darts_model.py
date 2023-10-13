@@ -287,7 +287,7 @@ class DartsModel:
             else:
                 dt /= mult_dt
                 print("Cut timestep to %2.3f" % dt)
-                if dt < 1e-8:
+                if dt < 1e-12:
                     break
         # update current engine time
         self.engine.t = runtime
