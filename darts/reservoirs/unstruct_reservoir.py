@@ -61,6 +61,9 @@ class UnstructReservoir(ReservoirBase):
         self.discretizer.store_depth_all_cells()
         self.discretizer.store_centroid_all_cells()
 
+        # Assign layer properties
+        self.set_layer_properties()
+
         # Perform discretization:
         cell_m, cell_p, tran, tran_thermal = self.discretizer.calc_connections_all_cells()
 

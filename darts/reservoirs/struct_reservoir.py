@@ -100,6 +100,9 @@ class StructReservoir(ReservoirBase):
         poro, rcond, hcap, depth, volume, op_num = arrs_local
         self.global_data['global_to_local'] = self.discretizer.global_to_local
 
+        # Assign layer properties
+        self.set_layer_properties()
+
         # Initialize mesh using built connection list
         self.mesh = conn_mesh()
         self.mesh.init(index_vector(cell_m), index_vector(cell_p), value_vector(tran), value_vector(tran_thermal))

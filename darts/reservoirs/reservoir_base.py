@@ -46,16 +46,11 @@ class ReservoirBase:
         """
         pass
 
-    def set_layer_properties(self, layers: dict = {}, layer_properties: dict = {}) -> None:
+    def set_layer_properties(self) -> None:
         """
         Function to set properties for different layers, will be called in Reservoir.discretize()
 
         This function is empty by default, can be overloaded by child classes
-
-        :param layers: Dictionary of [layer, cell_idxs]
-        :type layers: dict
-        :param layer_properties: Dictionary of [layer, properties]
-        :type layer_properties: dict
         """
         pass
 
