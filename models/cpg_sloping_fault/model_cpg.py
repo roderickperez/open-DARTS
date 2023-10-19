@@ -237,7 +237,7 @@ class Model(CICDModel):
                                 k2 = int(CompDat[4])
 
                                 for k in range(k1, k2 + 1):
-                                    reservoir.add_perforation(wname, i1, j1, k, well_radius=well_rad,
+                                    reservoir.add_perforation(wname, cell_index=(i1, j1, k), well_radius=well_rad,
                                                               well_index=well_index, multi_segment=False, verbose=verbose)
 
                             if len(CompDat) != 0 and '/' == CompDat[0]:
