@@ -54,7 +54,7 @@ class ReservoirBase:
         """
         pass
 
-    def set_wells(self):
+    def set_wells(self, verbose: bool = False):
         """
         Function to predefine wells inside Reservoir class, will be called in DartsModel.set_wells()
 
@@ -135,7 +135,7 @@ class ReservoirBase:
             if w.name == well_name:
                 return w
 
-    def init_wells(self, mesh: conn_mesh, verbose: bool = False) -> ms_well_vector:
+    def init_wells(self, verbose: bool = False) -> ms_well_vector:
         """
         Function to initialize wells.
 
@@ -147,10 +147,10 @@ class ReservoirBase:
         """
         for w in self.wells:
             assert (len(w.perforations) > 0), "Well %s does not perforate any active reservoir blocks" % w.name
-        mesh.add_wells(ms_well_vector(self.wells))
+        self.mesh.add_wells(ms_well_vector(self.wells))
 
-        mesh.reverse_and_sort()
-        mesh.init_grav_coef()
+        self.mesh.reverse_and_sort()
+        self.mesh.init_grav_coef()
         return self.wells
 
     @abc.abstractmethod

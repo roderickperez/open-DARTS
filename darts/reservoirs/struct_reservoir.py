@@ -214,10 +214,10 @@ class StructReservoir(ReservoirBase):
                 idx = j
         return idx
 
-    def init_wells(self, mesh, verbose: bool = False) -> ms_well_vector:
+    def init_wells(self, verbose: bool = False) -> ms_well_vector:
         for w in self.wells:
             assert (len(w.perforations) > 0), "Well %s does not perforate any active reservoir blocks" % w.name
-        mesh.add_wells(ms_well_vector(self.wells))
+        self.mesh.add_wells(ms_well_vector(self.wells))
 
         # connect perforations of wells (for example, for closed loop geothermal)
         # dictionary: key is a pair of 2 well names; value is a list of well perforation indices to connect
@@ -226,10 +226,10 @@ class StructReservoir(ReservoirBase):
             well_1 = self.get_well(well_pair[0])
             well_2 = self.get_well(well_pair[1])
             for perf_pair in self.connected_well_segments[well_pair]:
-                mesh.connect_segments(well_1, well_2, perf_pair[0], perf_pair[1], 1)
+                self.mesh.connect_segments(well_1, well_2, perf_pair[0], perf_pair[1], 1)
 
-        mesh.reverse_and_sort()
-        mesh.init_grav_coef()
+        self.mesh.reverse_and_sort()
+        self.mesh.init_grav_coef()
 
         return self.wells
 

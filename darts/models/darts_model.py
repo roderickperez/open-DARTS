@@ -104,8 +104,8 @@ class DartsModel:
         :param verbose: Set verbose level
         :type verbose: bool
         """
-        self.reservoir.set_wells()
-        self.wells = self.reservoir.init_wells(self.reservoir.mesh, verbose=verbose)
+        self.reservoir.set_wells(verbose=verbose)
+        self.wells = self.reservoir.init_wells(verbose=verbose)
         return
 
     def set_physics(self, physics: PhysicsBase, discr_type: str = 'tpfa', platform: str = 'cpu',

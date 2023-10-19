@@ -421,19 +421,6 @@ class CPG_Reservoir(ReservoirBase):
                 print('Neglected perforation for well %s to block [%d, %d, %d] (inactive block)' % (well.name, i, j, k))
         return
 
-    def init_wells(self):
-        """
-        Class method which initializes the wells (adding wells and their perforations to the reservoir)
-        :return:
-        """
-        # Add wells to the DARTS mesh object and sort connection (DARTS related):
-        for w in self.wells:
-            assert (len(w.perforations) > 0), "Well %s does not perforate any active reservoir blocks" % w.name
-        self.mesh.add_wells(ms_well_vector(self.wells))
-        self.mesh.reverse_and_sort()
-        self.mesh.init_grav_coef()
-        return self.wells
-
     def write_mpfa_conn_to_file(self, path = 'mpfa_conn.dat'):
         stencil = np.array(self.discr.flux_stencil, copy=False)
         trans = np.array(self.discr.flux_vals, copy=False)
