@@ -17,12 +17,13 @@ class Geometry:
         self.curves = []
         self.surfaces = []
         self.volumes = []
-        self.physical_points = []
-        self.physical_curves = []
-        self.physical_surfaces = []
-        self.physical_volumes = []
+        self.physical_points = {}
+        self.physical_curves = {}
+        self.physical_surfaces = {}
+        self.physical_volumes = {}
 
         self.holes = []
+        self.lc = []
 
         self.points_list = []
         self.curves_list = []
@@ -50,6 +51,7 @@ class Geometry:
                 self.volumes_list.append(volume.surfaces)
 
             self.holes = shape.holes
+            self.lc = shape.lc
             self.physical_points = shape.physical_points
             self.physical_curves = shape.physical_curves
             self.physical_surfaces = shape.physical_surfaces
@@ -60,13 +62,16 @@ class Geometry:
             surfaces_map = {}
             volumes_map = {}
 
+            lc0 = len(self.lc)
+            self.lc += shape.lc
+
             # Check if Points are already in self.points; if not, add point. Map index
             for i, point in enumerate(shape.points):
                 if point.xyz in self.points_list:
                     point_idx = self.points_list.index(point.xyz) + 1
                     points_map[point.idx] = point_idx
                 else:
-                    p = Point(len(self.points) + 1, point.xyz, point.lc, embed=point.embed)
+                    p = Point(len(self.points) + 1, point.xyz, lc0 + point.lc, embed=point.embed)
                     self.points.append(p)
                     self.points_list.append(point.xyz)
                     points_map[point.idx] = len(self.points_list)
