@@ -26,17 +26,10 @@ darts_dir = os.path.dirname(current_dir)  # 1 level up
 model_dir = os.path.join(darts_dir, '2ph_do')
 #model_dir = os.path.join(darts_dir, 'Uniform_Brugge')
 sys.path.insert(0, model_dir)
-from model import Model as DO_Model
 
 
-#from model_3ph_bo import Model as BO_Model
-# class Model(DO_Model):
 class Model(CICDModel):
     def __init__(self, discr_type='cpp', gridfile='', propfile='', sch_fname='', n_points=1000):
-        # measure time spend on reading/initialization
-        #self.timer.node["initialization"].start()
-        # call base class constructor
-        #super().__init__(pvt='physics.in')
         super().__init__()
         self.n_points = n_points
 
@@ -48,7 +41,7 @@ class Model(CICDModel):
         arrays = read_arrays(self.gridfile, self.propfile)
 
         if discr_type == 'cpp':
-            self.reservoir = super().set_reservoir(CPG_Reservoir(self.timer, arrays))
+            super().set_reservoir(CPG_Reservoir(self.timer, arrays))
         elif discr_type == 'python':
             self.set_reservoir()
 
@@ -60,8 +53,8 @@ class Model(CICDModel):
 
         self.timer.node["initialization"].stop()
 
-        self.initial_values = {self.physics.vars[0]: 200,
-                               self.physics.vars[1]: 0.001,
+        self.initial_values = {'pressure': 200,
+                               'w': 0.001,
                                }
 
     def set_reservoir(self):

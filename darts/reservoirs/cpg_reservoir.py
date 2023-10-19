@@ -30,7 +30,7 @@ sys.path.insert(0, os.path.join(parentdir2, 'python'))
 
 
 class CPG_Reservoir(ReservoirBase):
-    def __init__(self, timer: timer_node, arrays=None, faultfile=None, faultfile=None, cache: bool = False):
+    def __init__(self, timer: timer_node, arrays=None, faultfile=None, cache: bool = False):
         """
         Class constructor for UnstructReservoir class
         :param arrays: dictionary of numpy arrays with grid and props
