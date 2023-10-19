@@ -1,6 +1,6 @@
 import numpy as np
 import math
-from dataclasses import dataclass, is_dataclass, field
+from dataclasses import dataclass, field
 
 
 # region geometry dataclasses
@@ -256,9 +256,9 @@ class Circle(Shape):
             for i, radius in enumerate(radii):
                 p0 = len(self.points)
                 p1, p2, p3 = p0 + 1, p0 + 2, p0 + 3
-                self.points += [Point(p1, self.calc_radial_points(center, radius, orientation, math.radians(0))),
-                                Point(p2, self.calc_radial_points(center, radius, orientation, math.radians(120))),
-                                Point(p3, self.calc_radial_points(center, radius, orientation, math.radians(240)))]
+                self.points += [Point(p1, self.calc_radial_points(center, radius, orientation, math.radians(0)), lc=i),
+                                Point(p2, self.calc_radial_points(center, radius, orientation, math.radians(120)), lc=i),
+                                Point(p3, self.calc_radial_points(center, radius, orientation, math.radians(240)), lc=i)]
 
                 c0 = len(self.curves)
                 c1, c2, c3 = c0 + 1, c0 + 2, c0 + 3
@@ -272,12 +272,13 @@ class Circle(Shape):
                 if i == 0:
                     self.physical_curves['outer'] += [c1, c2, c3]
                 else:
-                    self.holes += [s0 + 1]
                     self.surfaces[i-1].holes = [s0 + 1]
+                    if i == len(radii) - 1 and hole:
+                        self.holes += [s0 + 1]
 
-            if not hole:
-                self.holes = self.holes[:-1]
-            else:
+            # if not hole:
+            #     self.holes = self.holes[:-1]
+            if hole:
                 c3 = len(self.curves)
                 c1, c2 = c3-2, c3-1
                 self.physical_curves['inner'] += [c1, c2, c3]
@@ -289,9 +290,9 @@ class Circle(Shape):
             for i, radius in enumerate(radii[:-1]):
                 p0 = len(self.points)
                 p1, p2, p3, p4, p5, p6 = p0 + 1, p0 + 2, p0 + 3, p0 + 4, p0 + 5, p0 + 6
-                self.points += [Point(p1, self.calc_radial_points(center, radius, orientation, math.radians(0))),
-                                Point(p2, self.calc_radial_points(center, radius, orientation, math.radians(angle*0.5))),
-                                Point(p3, self.calc_radial_points(center, radius, orientation, math.radians(angle)))]
+                self.points += [Point(p1, self.calc_radial_points(center, radius, orientation, math.radians(0)), lc=i),
+                                Point(p2, self.calc_radial_points(center, radius, orientation, math.radians(angle*0.5)), lc=i),
+                                Point(p3, self.calc_radial_points(center, radius, orientation, math.radians(angle)), lc=i)]
 
                 c0 = len(self.curves)
                 c1, c2, c3, c4, c6, c7 = c0 + 1, c0 + 2, c0 + 3, c0 + 4, c0 + 6, c0 + 7
@@ -333,8 +334,8 @@ class Circle(Shape):
             for i, radius in enumerate(radii[:-1]):
                 p0 = len(self.points)
                 p1, p2, p3, p4 = p0 + 1, p0 + 2, p0 + 3, p0 + 4
-                self.points += [Point(p1, self.calc_radial_points(center, radius, orientation, math.radians(0))),
-                                Point(p2, self.calc_radial_points(center, radius, orientation, math.radians(angle))),]
+                self.points += [Point(p1, self.calc_radial_points(center, radius, orientation, math.radians(0)), lc=i),
+                                Point(p2, self.calc_radial_points(center, radius, orientation, math.radians(angle)), lc=i),]
 
                 c0 = len(self.curves)
                 c1, c2, c3, c5 = c0 + 1, c0 + 2, c0 + 3, c0 + 5
