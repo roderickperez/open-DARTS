@@ -1,7 +1,7 @@
 import numpy as np
 import time
 
-from darts.reservoirs.cpg_reservoir import CPG_Reservoir, save_array
+from darts.reservoirs.cpg_reservoir import CPG_Reservoir, save_array, read_arrays
 from darts.discretizer import load_single_float_keyword, load_single_int_keyword
 from darts.discretizer import value_vector as value_vector_discr
 from darts.discretizer import index_vector as index_vector_discr
@@ -45,10 +45,12 @@ class Model(CICDModel):
         self.propfile = propfile
         self.sch_fname = sch_fname
 
+        arrays = read_arrays(self.gridfile, self.propfile)
+
         if discr_type == 'cpp':
-            reservoir = super().set_reservoir(CPG_Reservoir(self.timer, self.gridfile, self.propfile))
+            self.reservoir = super().set_reservoir(CPG_Reservoir(self.timer, arrays))
         elif discr_type == 'python':
-            reservoir = self.set_reservoir()
+            self.set_reservoir()
 
         self.set_wells()
 
@@ -122,8 +124,9 @@ class Model(CICDModel):
     def set_wells(self):
         # add wells
         if True:
-            self.add_wells(self.reservoir, mode='read', sch_fname=self.sch_fname,
-                           verbose=True)  # , well_index=1000) # add only perforations
+            self.read_and_add_perforations(self.reservoir, sch_fname=self.sch_fname, verbose=True)
+            # self.add_wells(self.reservoir, mode='read', sch_fname=self.sch_fname,
+            #                verbose=True)  # , well_index=1000) # add only perforations
         else:
             self.add_wells(self.reservoir, mode='generate', sch_fname=self.sch_fname)
         return super().set_wells()
@@ -168,8 +171,12 @@ class Model(CICDModel):
         nb = self.reservoir.mesh.n_blocks
         p_mesh[:self.reservoir.mesh.n_res_blocks * 2] = p_file[actnum > 0]
 
-    def add_wells(self, reservoir, mode='generate', sch_fname: str = None, well_index: float = None, verbose: bool = False):
-        self.read_and_add_perforations(reservoir, sch_fname, well_index=well_index, verbose=verbose)
+    def set_boundary_conditions(self):
+        for i, w in enumerate(self.reservoir.wells):
+            if "INJ" in w.name:
+                w.control = self.physics.new_bhp_inj(250, self.inj)
+            else:
+                w.control = self.physics.new_bhp_prod(100)
 
     def set_well_controls(self):
         for i, w in enumerate(self.reservoir.wells):
@@ -228,6 +235,7 @@ class Model(CICDModel):
                                 if wname == prev_well_name:
                                     pass
                                 else:
+                                    reservoir.add_well(wname)
                                     prev_well_name = wname
                                 # define perforation
                                 i1 = int(CompDat[1])
@@ -235,9 +243,8 @@ class Model(CICDModel):
                                 k1 = int(CompDat[3])
                                 k2 = int(CompDat[4])
 
-                                reservoir.add_well(wname)
                                 for k in range(k1, k2 + 1):
-                                    reservoir.add_perforation(wname, (i1, j1, k), well_radius=well_rad,
+                                    reservoir.add_perforation(wname, i1, j1, k, well_radius=well_rad,
                                                               well_index=well_index, multi_segment=False, verbose=verbose)
 
                             if len(CompDat) != 0 and '/' == CompDat[0]:
