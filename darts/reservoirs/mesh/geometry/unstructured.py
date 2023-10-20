@@ -9,7 +9,7 @@ import gmsh
 
 class Unstructured(Geometry):
     extrude: dict = None
-    physical_tags = {'matrix': {}, 'boundary': {}}
+    physical_groups = {'matrix': {}, 'boundary': {}}
     tags = [901, 9001, 90001, 900001]  # tags for physical points, lines, surfaces, volumes
 
     def calc_radial_points(self, center: list, radius: float, orientation: str, angle: float):
@@ -327,7 +327,7 @@ class Unstructured(Geometry):
                 # Write Physical Curve: out[0], out[2], ...
                 # Physical Point: ??
                 for i, (name, idxs) in enumerate(self.physical_points.items()):
-                    # self.physical_tags['edge'][name] = [i + self.tags[0]]
+                    # self.physical_groups['edge'][name] = i + self.tags[0]
                     f.write('Physical Point("{:s}", {:d}) = {{}};\n'.format(name, i + self.tags[0]))
                     f.write('\n')
 
@@ -342,7 +342,7 @@ class Unstructured(Geometry):
 
                 # Extrude physical curves and write as Physical Surfaces
                 for i, (name, idxs) in enumerate(self.physical_curves.items()):
-                    self.physical_tags['boundary'][name] = [i + self.tags[2]]
+                    self.physical_groups['boundary'][name] = i + self.tags[2]
                     f.write('Physical Surface("{:s}", {:d}) = {{}};\n'.format(name, i + self.tags[2]))
                     for curve_idx in idxs:
                         local_text = 'out[] = Extrude {{{:f}, {:f}, {:f}}}{{ Curve'.format(extrusion[0], extrusion[1], extrusion[2]) \
@@ -354,7 +354,7 @@ class Unstructured(Geometry):
                 # Extrude physical surfaces and write as Physical Volumes
                 surfaces_seen = []
                 for i, (name, idxs) in enumerate(self.physical_surfaces.items()):
-                    self.physical_tags['matrix'][name] = [i + self.tags[3]]
+                    self.physical_groups['matrix'][name] = i + self.tags[3]
                     f.write('Physical Volume("{:s}", {:d}) = {{}};\n'.format(name, i + self.tags[3]))
                     for surface_idx in idxs:
                         local_text = 'out[] = Extrude {{{:f}, {:f}, {:f}}}{{ Surface'.format(extrusion[0], extrusion[1], extrusion[2]) \
@@ -379,14 +379,14 @@ class Unstructured(Geometry):
                         f.write(local_text)
 
                         # Add Physical Volume
-                        self.physical_tags['matrix']['Volume_' + str(i+1)] = [i + nps + self.tags[3]]
+                        self.physical_groups['matrix']['Volume_' + str(i+1)] = i + nps + self.tags[3]
                         f.write('Physical Volume("Volume_{:d}", {:d}) = {{out[1]}};\n'.format(i + 1, i + nps + self.tags[3]))
                 f.write('\n')
         else:
             # Write 3D
             # Add Physical Points, Curves, Surfaces
             for i, (name, idxs) in enumerate(self.physical_points.items()):
-                # self.physical_tags['matrix'][name] = [i + self.tags[0]]
+                # self.physical_groups['matrix'][name] = i + self.tags[0]
                 local_text = 'Physical Point("{:s}", {:d}) = {{'.format(name, i + self.tags[0])
                 for point_idx in idxs:
                     local_text += '{:d}, '.format(point_idx)
@@ -395,7 +395,7 @@ class Unstructured(Geometry):
                 f.write(local_text)
 
             for i, (name, idxs) in enumerate(self.physical_curves.items()):
-                # self.physical_tags['matrix'][name] = [i + self.tags[1]]
+                # self.physical_groups['matrix'][name] = i + self.tags[1]
                 local_text = 'Physical Curve("{:s}", {:d}) = {{'.format(name, i + self.tags[1])
                 for curve_idx in idxs:
                     local_text += '{:d}, '.format(curve_idx)
@@ -404,7 +404,7 @@ class Unstructured(Geometry):
                 f.write(local_text)
 
             for i, (name, idxs) in enumerate(self.physical_surfaces.items()):
-                self.physical_tags['boundary'][name] = [i + self.tags[2]]
+                self.physical_groups['boundary'][name] = i + self.tags[2]
                 local_text = 'Physical Surface("{:s}", {:d}) = {{'.format(name, i + self.tags[2])
                 for surface_idx in idxs:
                     local_text += '{:d}, '.format(surface_idx)
@@ -429,7 +429,7 @@ class Unstructured(Geometry):
             # Add Physical Volumes
             volumes_seen = []
             for i, (name, idxs) in enumerate(self.physical_volumes.items()):
-                self.physical_tags['matrix'][name] = [i + self.tags[3]]
+                self.physical_groups['matrix'][name] = i + self.tags[3]
                 local_text = 'Physical Volume("{:s}", {:d}) = {{'.format(name, i + self.tags[3])
                 for volume_idx in idxs:
                     local_text += '{:d}, '.format(volume_idx)
@@ -444,7 +444,7 @@ class Unstructured(Geometry):
             for i, volume in enumerate(self.volumes):
                 if volume.idx not in volumes_seen:
                     # Add Physical Volume
-                    self.physical_tags['matrix']['Volume_' + str(i+1)] = [i + npv + self.tags[3]]
+                    self.physical_groups['matrix']['Volume_' + str(i+1)] = i + npv + self.tags[3]
                     f.write('Physical Volume("Volume_{:d}", {:d}) = {{{:d}}};\n'.format(i + 1, i + npv + self.tags[3], i + 1))
             f.write('\n')
 
