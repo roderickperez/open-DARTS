@@ -74,7 +74,7 @@ class CPG_Reservoir(ReservoirBase):
         self.permy_cpp = value_vector_discr(self.permy)
         self.permz_cpp = value_vector_discr(self.permz)
 
-    def discretize(self, cache: bool = False) -> None:
+    def discretize(self, verbose: bool = False) -> None:
         # Create mesh object (C++ object used by DARTS for all mesh related quantities):
         self.mesh = conn_mesh()
         # discretizer's mesh object - for computing transmissibility and create connectivity graph

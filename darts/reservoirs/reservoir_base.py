@@ -35,7 +35,7 @@ class ReservoirBase:
         return
 
     @abc.abstractmethod
-    def discretize(self, cache: bool = False):
+    def discretize(self, verbose: bool = False):
         """
         Function to generate discretized mesh
 
