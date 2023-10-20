@@ -41,7 +41,7 @@ from typing import List
 
 # Definitions for the unstructured discretization class:
 class UnstructDiscretizer:
-    def __init__(self, permx, permy, permz, frac_aper, mesh_file: str, physical_tags: dict = {}, poro=0.2,
+    def __init__(self, permx, permy, permz, frac_aper, mesh_file: str, physical_tags: dict = None, poro=0.2,
                  num_matrix_cells=0, num_fracture_cells=0, num_well_cells=0, verbose=False):
         """
         Class constructor method
@@ -101,8 +101,10 @@ class UnstructDiscretizer:
         self.mpfa_connections_num = 0 # Number of MPFA connections
         self.mpsa_connections_num = 0 # Number of MPSA connections
 
-        self.physical_tags = physical_tags
-        self.boundary_conditions = {tag: {'cells': []} for tag in physical_tags['boundary']}
+        self.physical_tags = physical_tags if physical_tags is not None else {'matrix': [], 'boundary': []}
+        self.boundary_conditions = {tag: {'cells': []} for tag in self.physical_tags['boundary']}
+        # self.physical_tags = physical_tags
+        # self.boundary_conditions = {tag: {'cells': []} for tag in physical_tags['boundary']}
         self.disp_gradients = {}    # Displacement gradient & corresponding stencil for every matrix cell
         self.ith_iter = 0
         self.Ft_prev = {}
