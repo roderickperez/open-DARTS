@@ -10,18 +10,20 @@ from darts.physics.super.operator_evaluator import PropertyOperators as props
 def plot_sol(n):
     Xn = np.array(n.physics.engine.X, copy=False)
     nc = n.property_container.nc + n.thermal
-    P = Xn[0:n.reservoir.nb * nc:nc]
-    z = np.ones((nc, n.reservoir.nb))
-    phi = np.ones(n.reservoir.nb)
+    nb = n.reservoir.mesh.n_res_blocks
+
+    P = Xn[0:nb * nc:nc]
+    z = np.ones((nc, nb))
+    phi = np.ones(nb)
     sat_ev = props(n.property_container)
     prop = np.zeros(2*n.property_container.nph)
 
     plt.figure(num=1, figsize=(12, 8), dpi=100)
     for i in range(nc-1):
-        z[i][:] = Xn[i + 1:n.reservoir.nb * nc:nc]
+        z[i][:] = Xn[i + 1:nb * nc:nc]
         z[-1][:] -= z[i][:]
 
-    for i in range(n.reservoir.nb):
+    for i in range(nb):
         state = Xn[i*nc:(i+1)*nc]
         sat_ev.evaluate(state, prop)
         density_tot = np.sum(prop[0:3] * prop[3:6])
@@ -54,24 +56,26 @@ def run_darts(mode):
         n.print_timers()
         n.print_stat()
 
-        time_data = pd.DataFrame.from_dict(n.physics.engine.time_data)
+        time_data = pd.DataFrame.from_dict(n.engine.time_data)
         time_data.to_pickle("darts_time_data.pkl")
         n.save_restart_data()
         writer = pd.ExcelWriter('time_data.xlsx')
         time_data.to_excel(writer, 'Sheet1')
         writer.close()
 
-        Xn = np.array(n.physics.engine.X, copy=False)
+        Xn = np.array(n.engine.X, copy=False)
         np.save(mode + '.npy', Xn)
     else:
         Xn_rhs = np.load('rhs.npy')
         Xn_wells = np.load('wells.npy')
         nc = n.physics.nc + n.physics.thermal
+        nb = n.reservoir.mesh.n_res_blocks
+
         plt.autoscale(False)
         plt.ylim(0, 400)
         plt.xlim(0, n.reservoir.nx - 1)
-        plt.plot(Xn_rhs[0:n.reservoir.nb*nc:nc], label='rhs')
-        plt.plot(Xn_wells[0:n.reservoir.nb * nc:nc], label='wells')
+        plt.plot(Xn_rhs[0:nb*nc:nc], label='rhs')
+        plt.plot(Xn_wells[0:nb * nc:nc], label='wells')
         plt.legend()
         plt.savefig('out.png')
 
