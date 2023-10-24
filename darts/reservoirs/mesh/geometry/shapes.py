@@ -308,11 +308,12 @@ class Circle(Shape):
                     self.physical_curves['outer'] += [c2, c3]
 
             # Add innermost surface
+            ii = len(radii) - 1
             p0 = len(self.points)
             p1, p2, p3 = p0 + 1, p0 + 2, p0 + 3
-            self.points += [Point(p1, self.calc_radial_points(center, radii[-1], orientation, math.radians(0))),
-                            Point(p2, self.calc_radial_points(center, radii[-1], orientation, math.radians(angle*0.5))),
-                            Point(p3, self.calc_radial_points(center, radii[-1], orientation, math.radians(angle)))]
+            self.points += [Point(p1, self.calc_radial_points(center, radii[-1], orientation, math.radians(0)), lc=ii),
+                            Point(p2, self.calc_radial_points(center, radii[-1], orientation, math.radians(angle*0.5)), lc=ii),
+                            Point(p3, self.calc_radial_points(center, radii[-1], orientation, math.radians(angle)), lc=ii)]
 
             c0 = len(self.curves)
             c1, c2, c3, c4 = c0 + 1, c0 + 2, c0 + 3, c0 + 4
@@ -350,10 +351,11 @@ class Circle(Shape):
                     self.physical_curves['outer'] += [c2]
 
             # Add innermost surface
+            ii = len(radii) - 1
             p0 = len(self.points)
             p1, p2 = p0 + 1, p0 + 2
-            self.points += [Point(p1, self.calc_radial_points(center, radii[-1], orientation, math.radians(0))),
-                            Point(p2, self.calc_radial_points(center, radii[-1], orientation, math.radians(angle)))]
+            self.points += [Point(p1, self.calc_radial_points(center, radii[-1], orientation, math.radians(0)), lc=ii),
+                            Point(p2, self.calc_radial_points(center, radii[-1], orientation, math.radians(angle)), lc=ii)]
 
             c0 = len(self.curves)
             c1, c2, c3 = c0 + 1, c0 + 2, c0 + 3
