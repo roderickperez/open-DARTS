@@ -1,8 +1,9 @@
-from darts.engines import conn_mesh, ms_well, ms_well_vector
+from darts.engines import conn_mesh, ms_well, ms_well_vector, timer_node
 from darts.discretizer import load_single_float_keyword, load_single_int_keyword
 from darts.discretizer import value_vector as value_vector_discr
 from darts.discretizer import index_vector as index_vector_discr
 import numpy as np
+from typing import Union
 
 from opmcpg._cpggrid import UnstructuredGrid, process_cpg_grid
 from opmcpg._cpggrid import value_vector as value_vector_cpggrid
@@ -12,10 +13,12 @@ from darts.discretizer import Mesh, Elem, Discretizer, BoundaryCondition, elem_l
 from darts.discretizer import index_vector, value_vector, matrix33, vector_matrix33, vector_vector3
 from darts.discretizer import load_single_float_keyword
 
+from darts.reservoirs.reservoir_base import ReservoirBase
+from darts.reservoirs.mesh.struct_discretizer import StructDiscretizer
+
 import datetime
 import darts
 from pyevtk import hl, vtk
-from darts.mesh.struct_discretizer import StructDiscretizer
 
 import os
 import sys
@@ -25,57 +28,17 @@ parentdir = os.path.dirname(currentdir)
 parentdir2 = os.path.dirname(parentdir)
 sys.path.insert(0, os.path.join(parentdir2, 'python'))
 
-# Definitions for the unstructured reservoir class:
-class CPG_Reservoir:
-    def __init__(self, arrays=None, faultfile=None):
+
+class CPG_Reservoir(ReservoirBase):
+    def __init__(self, timer: timer_node, arrays=None, faultfile=None, cache: bool = False):
         """
         Class constructor for UnstructReservoir class
         :param arrays: dictionary of numpy arrays with grid and props
         """
-        # Create mesh object (C++ object used by DARTS for all mesh related quantities):
-        self.mesh = conn_mesh()
-        # discretizer's mesh object - for computing transmissibility and create connectivity graph
-        self.discr_mesh = Mesh()
+        super().__init__(timer, cache)
 
-        self.set_arrays(arrays)
-
-        self.discretize_cpg()
-        #self.discr.write_mpfa_results('conn.dat')
-
-        mpfa_tran = np.array(self.discr.flux_vals, copy=False)
-        mpfa_tranD = np.array(self.discr.flux_vals_thermal, copy=False)
-        ids = np.array(self.discr.get_one_way_tpfa_transmissibilities())
-        cell_m = np.array(self.discr.cell_m)[ids]
-        cell_p = np.array(self.discr.cell_p)[ids]
-        tran = mpfa_tran[::2][ids]
-        tranD = mpfa_tranD[1::2][ids]
-
-        #self.discr.write_tran_cube('tran_cpg.grdecl', 'nnc_cpg.txt')
-        if faultfile is not None:
-            self.apply_fault_mult(faultfile, cell_m, cell_p, mpfa_tran, ids)
-            #self.discr.write_tran_cube('tran_faultmult.grdecl', 'nnc_faultmult.txt')
-
-        tran = np.fabs(tran)
-        self.mesh.init(darts.engines.index_vector(cell_m), darts.engines.index_vector(cell_p),
-                       darts.engines.value_vector(tran), darts.engines.value_vector(tranD))
-
-        # debug
-        #d = {'cell_m': cell_m, 'cell_p': cell_p, 'tran': tran, 'tranD': tranD}
-        #import pandas as pd
-        #df_cpg = pd.DataFrame(data=d)
-        #df_struct = pd.read_excel('tran_struct.xlsx')
-        #with pd.ExcelWriter('tran.xlsx') as writer:
-        #    df_struct.to_excel(writer, sheet_name='struct')
-        #    df_cpg.to_excel(writer, sheet_name='cpg')
-
-        # Create numpy arrays wrapped around mesh data (no copying, this will severely slow down the process!)
-        self.mesh.depth = darts.engines.value_vector(self.discr_mesh.depths)
-        self.mesh.volume = darts.engines.value_vector(self.discr_mesh.volumes)
-        self.bc = np.array(self.mesh.bc, copy=False)
-
-        # rock thermal properties
-        self.hcap = np.array(self.mesh.heat_capacity, copy=False)
-        self.conduction = np.array(self.mesh.rock_cond, copy=False)
+        self.arrays = arrays
+        self.faultfile = faultfile
 
         # create list of wells
         self.wells = []
@@ -110,6 +73,53 @@ class CPG_Reservoir:
         self.permx_cpp = value_vector_discr(self.permx)
         self.permy_cpp = value_vector_discr(self.permy)
         self.permz_cpp = value_vector_discr(self.permz)
+
+    def discretize(self, verbose: bool = False) -> None:
+        # Create mesh object (C++ object used by DARTS for all mesh related quantities):
+        self.mesh = conn_mesh()
+        # discretizer's mesh object - for computing transmissibility and create connectivity graph
+        self.discr_mesh = Mesh()
+
+        self.set_arrays(self.arrays)
+
+        self.discretize_cpg()
+        # self.discr.write_mpfa_results('conn.dat')
+
+        mpfa_tran = np.array(self.discr.flux_vals, copy=False)
+        mpfa_tranD = np.array(self.discr.flux_vals_thermal, copy=False)
+        ids = np.array(self.discr.get_one_way_tpfa_transmissibilities())
+        cell_m = np.array(self.discr.cell_m)[ids]
+        cell_p = np.array(self.discr.cell_p)[ids]
+        tran = mpfa_tran[::2][ids]
+        tranD = mpfa_tranD[1::2][ids]
+
+        # self.discr.write_tran_cube('tran_cpg.grdecl', 'nnc_cpg.txt')
+        if self.faultfile is not None:
+            self.apply_fault_mult(self.faultfile, cell_m, cell_p, mpfa_tran, ids)
+            # self.discr.write_tran_cube('tran_faultmult.grdecl', 'nnc_faultmult.txt')
+
+        tran = np.fabs(tran)
+        self.mesh.init(darts.engines.index_vector(cell_m), darts.engines.index_vector(cell_p),
+                       darts.engines.value_vector(tran), darts.engines.value_vector(tranD))
+
+        # debug
+        # d = {'cell_m': cell_m, 'cell_p': cell_p, 'tran': tran, 'tranD': tranD}
+        # import pandas as pd
+        # df_cpg = pd.DataFrame(data=d)
+        # df_struct = pd.read_excel('tran_struct.xlsx')
+        # with pd.ExcelWriter('tran.xlsx') as writer:
+        #    df_struct.to_excel(writer, sheet_name='struct')
+        #    df_cpg.to_excel(writer, sheet_name='cpg')
+
+        # Create numpy arrays wrapped around mesh data (no copying, this will severely slow down the process!)
+        self.mesh.depth = darts.engines.value_vector(self.discr_mesh.depths)
+        self.mesh.volume = darts.engines.value_vector(self.discr_mesh.volumes)
+        self.bc = np.array(self.mesh.bc, copy=False)
+
+        # rock thermal properties
+        self.hcap = np.array(self.mesh.heat_capacity, copy=False)
+        self.conduction = np.array(self.mesh.rock_cond, copy=False)
+        return
 
     def discretize_cpg(self):
         '''
@@ -214,7 +224,7 @@ class CPG_Reservoir:
 
         # calculate transmissibilities
         self.discr.calc_tpfa_transmissibilities(displaced_tags)
-
+        return
 
     def calc_well_index(self, i, j, k, well_radius=0.1524, segment_direction='z_axis', skin=0):
         """
@@ -364,36 +374,24 @@ class CPG_Reservoir:
 
         return bc
 
-    def add_well(self, name, depth=0):
+    def add_perforation(self, well_name: str, cell_index: Union[int, tuple], well_radius: float = 0.1524,
+                        well_index: float = None, well_indexD: float = None, segment_direction: str = 'z_axis',
+                        skin: float = 0., multi_segment: bool = False, verbose: bool = False):
         """
-        Class method which adds wells heads to the reservoir (Note: well head is not equal to a perforation!)
-        :param name:
-        :param depth:
-        :return:
+        Function to add perforations to wells.
         """
-        well = ms_well()
-        well.name = name
-        well.segment_volume = 0.0785 * 40  # 2.5 * pi * 0.15**2 / 4
-        well.well_head_depth = depth
-        well.well_body_depth = depth
-        well.segment_transmissibility = 1e5
-        well.segment_depth_increment = 1
-        self.wells.append(well)
-        return 0
+        well = self.get_well(well_name)
 
-    # ijk indices are is 1-based (starts from 1)
-    def add_perforation(self, well, i, j, k, well_radius=0.1524, well_index=-1, well_indexD=-1, segment_direction='z_axis', skin=0,
-                        multi_segment=True,
-                        verbose=False):
         # calculate well index and get local index of reservoir block
-        res_block_local, wi, wiD = self.calc_well_index(i=i, j=j, k=k, well_radius=well_radius,
-                                                               segment_direction=segment_direction,
-                                                               skin=skin)
+        # ijk indices are is 1-based (starts from 1)
+        i, j, k = cell_index
+        res_block_local, wi, wiD = self.calc_well_index(i, j, k, well_radius=well_radius,
+                                                        segment_direction=segment_direction, skin=skin)
 
-        if well_index == -1:
+        if well_index is None:
             well_index = wi
 
-        if well_indexD == -1:
+        if well_indexD is None:
             well_indexD = wiD
 
         # set well segment index (well block) equal to index of perforation layer
@@ -414,25 +412,14 @@ class CPG_Reservoir:
                 if p[0] == well_block and p[1] == res_block_local:
                     print('Neglected duplicate perforation for well %s to block [%d, %d, %d]' % (well.name, i, j, k))
                     return
-            well.perforations = well.perforations + [(well_block, res_block_local, well_index,well_indexD)]
+            well.perforations = well.perforations + [(well_block, res_block_local, well_index, well_indexD)]
             if verbose:
                 print('Added perforation for well %s to block %d [%d, %d, %d] with WI=%f WID=%f' % (
                     well.name, res_block_local, i, j, k, well_index, well_indexD))
         else:
             if verbose:
                 print('Neglected perforation for well %s to block [%d, %d, %d] (inactive block)' % (well.name, i, j, k))
-
-    def init_wells(self):
-        """
-        Class method which initializes the wells (adding wells and their perforations to the reservoir)
-        :return:
-        """
-
-        # Add wells to the DARTS mesh object and sort connection (DARTS related):
-        self.mesh.add_wells(ms_well_vector(self.wells))
-        self.mesh.reverse_and_sort()
-        self.mesh.init_grav_coef()
-        return 0
+        return
 
     def write_mpfa_conn_to_file(self, path = 'mpfa_conn.dat'):
         stencil = np.array(self.discr.flux_stencil, copy=False)
@@ -685,7 +672,6 @@ class CPG_Reservoir:
         self.vtkobj.GRDECL_Data.GRID_type = 'CornerPoint'
         self.vtkobj.GRDECL2VTK(self.discr_mesh.actnum)
         # self.vtkobj.decomposeModel()
-
 
     def apply_fault_mult(self, faultfile, cell_m, cell_p, mpfa_tran, ids):
         #Faults
