@@ -296,16 +296,32 @@ class DartsModel:
                                                          self.engine.stat.n_newton_total, self.engine.stat.n_newton_wasted,
                                                          self.engine.stat.n_linear_total, self.engine.stat.n_linear_wasted))
 
+    def set_rhs_flux(self) -> np.ndarray:
+        """
+        Function to specify modifications to RHS vector. User can implement his own boundary conditions here.
+
+        This function is empty in DartsModel, needs to be overloaded in child Model.
+
+        :return: Vector of modification to RHS vector
+        :rtype: np.ndarray
+        """
+        pass
+
     def apply_rhs_flux(self, dt: float):
-        '''
-        if self.rhs_flux is defined and it is not None, add its values to rhs
+        """
+        Function to apply modifications to RHS vector.
+
+        If self.set_rhs_flux() is defined in Model, this function will add its values to rhs
+
         :param dt: timestep [days]
-        '''
-        if not hasattr(self, 'rhs_flux') or self.rhs_flux is None:
+        :type dt: float
+        """
+        if type(self).set_rhs_flux is DartsModel.set_rhs_flux:
+            # If the function has not been overloaded, pass
             return
         rhs = np.array(self.engine.RHS, copy=False)
         n_res = self.reservoir.mesh.n_res_blocks * self.physics.n_vars
-        rhs[:n_res] += self.rhs_flux * dt
+        rhs[:n_res] += self.set_rhs_flux() * dt
         return
 
     def run_timestep_python(self, dt, t):

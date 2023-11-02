@@ -3,7 +3,8 @@ from darts.discretizer import load_single_float_keyword, load_single_int_keyword
 from darts.discretizer import value_vector as value_vector_discr
 from darts.discretizer import index_vector as index_vector_discr
 import numpy as np
-from typing import Union
+from typing import Union, List, Dict
+
 
 from opmcpg._cpggrid import UnstructuredGrid, process_cpg_grid
 from opmcpg._cpggrid import value_vector as value_vector_cpggrid
@@ -12,13 +13,18 @@ from opmcpg._cpggrid import index_vector as index_vector_cpggrid
 from darts.discretizer import Mesh, Elem, Discretizer, BoundaryCondition, elem_loc, elem_type
 from darts.discretizer import index_vector, value_vector, matrix33, vector_matrix33, vector_vector3
 from darts.discretizer import load_single_float_keyword
-
-from darts.reservoirs.reservoir_base import ReservoirBase
 from darts.reservoirs.mesh.struct_discretizer import StructDiscretizer
+from darts.reservoirs.reservoir_base import ReservoirBase
 
-import datetime
+import datetime, time
 import darts
 from pyevtk import hl, vtk
+
+try:
+    from vtk.util.numpy_support import numpy_to_vtk, vtk_to_numpy
+    from vtk import vtkCellArray, vtkHexahedron, vtkPoints
+except ImportError:
+    warnings.warn("No vtk module loaded.")
 
 import os
 import sys
@@ -51,6 +57,7 @@ class CPG_Reservoir(ReservoirBase):
         self.vtk_filenames_and_times = {}
         self.vtkobj = 0
         self.vtk_grid_type = 1
+        self.optimized_vtk_export = True
 
     def set_arrays(self, arrays):
         '''
@@ -444,7 +451,7 @@ class CPG_Reservoir(ReservoirBase):
             f.write(row + '\n')# + row_cells + '\n' + row_vals + '\n')
         f.close()
 
-    def export_vtk(self, file_name, t, local_cell_data, global_cell_data, export_constant_data=True):
+    def output_to_vtk(self, file_name, t, local_cell_data, global_cell_data, export_constant_data=True):
 
         nb = self.nx * self.ny * self.nz
         cell_data = global_cell_data.copy()
@@ -670,8 +677,51 @@ class CPG_Reservoir(ReservoirBase):
         self.vtkobj.GRDECL_Data.NZ = self.nz
         self.vtkobj.GRDECL_Data.N = self.nx * self.ny * self.nz
         self.vtkobj.GRDECL_Data.GRID_type = 'CornerPoint'
-        self.vtkobj.GRDECL2VTK(self.discr_mesh.actnum)
-        # self.vtkobj.decomposeModel()
+
+        start = time.perf_counter()
+        if not self.optimized_vtk_export:
+            # python implementation
+            self.vtkobj.GRDECL2VTK(self.actnum)
+        else:
+            # c++ implementation using discretizer.pyd
+            print('[Geometry] Converting GRDECL to Paraview Hexahedron mesh data (new implementation)....')
+            nodes_cpp = self.discr_mesh.get_nodes_array()
+            nodes_1d = np.array(nodes_cpp, copy=True)
+            points = nodes_1d.reshape((nodes_1d.size // 3, 3))
+
+            cells_1d = np.arange(self.discr_mesh.n_cells * 8)
+            cells = cells_1d.reshape((cells_1d.size//8, 8))
+            cells = [("hexahedron", cells)]
+
+            offset = np.arange(self.discr_mesh.n_cells + 1) * 8
+            offset_vtk = numpy_to_vtk(np.asarray(offset, dtype=np.int64), deep=True)
+
+            cells_vtk = numpy_to_vtk(np.asarray(cells_1d, dtype=np.int64), deep=True)
+
+            cellArray = vtkCellArray()
+            cellArray.SetNumberOfCells(cells_1d.size)
+            cellArray.SetData(offset_vtk, cells_vtk)
+
+            Cell = vtkHexahedron()
+            self.vtkobj.VTK_Grids.SetCells(Cell.GetCellType(),cellArray)
+
+            vtk_points = vtkPoints()
+            vtk_points.SetNumberOfPoints(points.size)
+            points_vtk = numpy_to_vtk(np.asarray(points, dtype=np.float32), deep=True)
+            vtk_points.SetData(points_vtk)
+            self.vtkobj.VTK_Grids.SetPoints(vtk_points)
+
+            print("new     NumOfPoints",self.vtkobj.VTK_Grids.GetNumberOfPoints())
+            print("new     NumOfCells",self.vtkobj.VTK_Grids.GetNumberOfCells())
+
+            # 3. Load grid properties data if applicable
+            for keyword,data in self.vtkobj.GRDECL_Data.SpatialDatas.items():
+                self.vtkobj.AppendScalarData(keyword,data)
+            print('new.....Done!')
+
+        end = time.perf_counter()
+        print('time:', end - start, 'sec.')
+
 
     def apply_fault_mult(self, faultfile, cell_m, cell_p, mpfa_tran, ids):
         #Faults
@@ -726,7 +776,7 @@ class CPG_Reservoir(ReservoirBase):
 
 #####################################################################
 
-def save_array(arr: np.array, fname: str, keyword: str, actnum: np.array, mode='w'):
+def save_array(arr: np.array, fname: str, keyword: str, actnum: np.array, mode='w', make_full=True):
     '''
     writes numpy array of n_active_cell size to text file in GRDECL format with n_cells_total
     :param arr: numpy array to write
@@ -736,7 +786,10 @@ def save_array(arr: np.array, fname: str, keyword: str, actnum: np.array, mode='
     :param mode: 'w' to rewrite the file or 'a' to append
     :return: None
     '''
-    arr_full = make_full_cube(arr, actnum)
+    if make_full:
+        arr_full = make_full_cube(arr, actnum)
+    else:
+        arr_full = arr
     with open(fname, mode) as f:
         f.write(keyword + '\n')
         s = ''
@@ -814,3 +867,47 @@ def read_arrays(gridfile: str, propfile: str):
         print('No ACTNUM found in input files. ACTNUM=1 will be used')
 
     return arrays
+
+
+def make_burden_layers(number_of_burden_layers: int, initial_thickness: float, property_dictionary, burden_layer_prop_value=1e-5):
+    """create overburden and underburden layers if the number of burden layers is not zero
+
+    :param number_of_burden_layers: the number of burden layers, applies to overburden and underburden layers
+    :type number_of_burden_layers: int
+    :param layer_thickness = 10  # thickness of one layer
+    :param property_dictionary: the dictionary which has different reservoir properties array
+    :type property_dictionary: dict
+    :param burden_layer_prop_value: the very low property values of the burden layers
+    :type burden_layer_prop_value: float
+    :return: a new dictionary
+    :rtype: dict
+    """
+    if number_of_burden_layers == 0:
+        return
+    thickness = initial_thickness
+
+    nx = property_dictionary['SPECGRID'][0]
+    ny = property_dictionary['SPECGRID'][1]
+    for i in range(0, number_of_burden_layers):
+        # for each burden layer, zcorn has 4 * nx * ny number of values
+        property_dictionary['ZCORN'] = np.concatenate(
+            [property_dictionary['ZCORN'][:4 * nx * ny] - thickness, property_dictionary['ZCORN'][:4 * nx * ny],
+             property_dictionary['ZCORN'],
+             property_dictionary['ZCORN'][-4 * nx * ny:],
+             property_dictionary['ZCORN'][-4 * nx * ny:] + thickness])
+        # for each burden layer, poro, perm have nx * ny number of values
+        for property_name in ['PORO', 'PERMX', 'PERMY', 'PERMZ']:
+            property_dictionary[property_name] = np.concatenate(
+                [np.ones(nx * ny) * burden_layer_prop_value, property_dictionary[property_name],
+                 np.ones(nx * ny) * burden_layer_prop_value])
+        # for each burden layer, actnum has nx * ny number of values
+        # which are the same the values from the top reservoir layer
+        property_dictionary['ACTNUM'] = np.concatenate(
+            [property_dictionary['ACTNUM'][:nx * ny], property_dictionary['ACTNUM'],
+             property_dictionary['ACTNUM'][-nx * ny:]])
+
+        thickness *= 2  # increase thickness for each new layer
+
+    # update the grid dimension in z direction for both overburden and underburden layers
+    property_dictionary['SPECGRID'][-1] += 2 * number_of_burden_layers
+    return property_dictionary
