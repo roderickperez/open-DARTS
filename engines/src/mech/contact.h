@@ -28,9 +28,9 @@ namespace pm
 	{ 
 		value_t a, b, vel0, Dc; 
 		std::vector<value_t> theta, theta_n;
+		std::vector<value_t> mu_rate, mu_state;
 		value_t min_vel;
 		StateLaw law;
-
 	};
 	struct SlipDependentFriction_props
 	{
