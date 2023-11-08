@@ -159,6 +159,9 @@ class StructReservoir(ReservoirBase):
         if well_indexD is None:
             well_indexD = wid
 
+        assert well_index >= 0
+        assert well_indexD >= 0
+
         # set well segment index (well block) equal to index of perforation layer
         if multi_segment:
             well_block = len(well.perforations)
