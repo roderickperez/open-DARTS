@@ -11,22 +11,15 @@ from darts.reservoirs.struct_reservoir import StructReservoir
 from darts.tools.keyword_file_tools import save_few_keywords
 
 from darts.models.cicd_model import CICDModel
+
 from darts.physics.super.physics import Compositional
-from darts.physics.super.property_container import PropertyContainer
+from darts.physics.super.property_container import PropertyContainer as PropertyContainerSuper
+
+from darts.physics.geothermal.physics import Geothermal
+from darts.physics.geothermal.property_container import PropertyContainer as PropertyContainerGeothermal
 
 from darts.physics.properties.basic import ConstFunc, PhaseRelPerm
 from darts.physics.properties.density import DensityBasic
-
-
-# inherit from darts-models/2ph_do model to use its physics; self.reservoir will be replaced in this file
-# add path to import
-import os, sys, inspect
-current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-darts_dir = os.path.dirname(current_dir)  # 1 level up
-model_dir = os.path.join(darts_dir, '2ph_do')
-#model_dir = os.path.join(darts_dir, 'Uniform_Brugge')
-sys.path.insert(0, model_dir)
-
 
 class Model(CICDModel):
     def __init__(self, discr_type='cpp', gridfile='', propfile='', sch_fname='', n_points=1000):
@@ -52,10 +45,6 @@ class Model(CICDModel):
         self.set_sim_params(first_ts=0.01, mult_ts=2, max_ts=5, runtime=300, tol_newton=1e-3, tol_linear=1e-6)
 
         self.timer.node["initialization"].stop()
-
-        self.initial_values = {'pressure': 200,
-                               'w': 0.001,
-                               }
 
     def set_reservoir(self):
         dims_cpp = index_vector_discr()
@@ -115,6 +104,7 @@ class Model(CICDModel):
         return super().set_reservoir(reservoir)
 
     def set_wells(self):
+        return super().set_wells()
         # add wells
         if True:
             self.read_and_add_perforations(self.reservoir, sch_fname=self.sch_fname, verbose=True)
@@ -124,7 +114,7 @@ class Model(CICDModel):
             self.add_wells(self.reservoir, mode='generate', sch_fname=self.sch_fname)
         return super().set_wells()
 
-    def set_physics(self):
+    def set_physics_do(self):
         """Physical properties"""
         zero = 1e-13
         components = ['w', 'o']
@@ -147,6 +137,39 @@ class Model(CICDModel):
                                 n_points=400, min_p=0, max_p=1000, min_z=zero, max_z=1 - zero)
         physics.add_property_region(property_container)
 
+        self.initial_values = {'pressure': 200,
+                               'w': 0.001,
+                               }
+
+        return super().set_physics(physics)
+
+    def set_physics(self):
+        '''
+        set Geothermal physics
+        :return:
+        '''
+        # set rock thermal properties: heat capacity and rock conduction
+        self.hcap = np.array(self.reservoir.mesh.heat_capacity, copy=False)
+        self.conduction = np.array(self.reservoir.mesh.rock_cond, copy=False)
+        self.hcap.fill(2200)  # [kJ/m3/K]
+        self.conduction.fill(181.44)  # [kJ/m/day/K]
+
+        # initialize physics for Geothermal
+        property_container = PropertyContainerGeothermal()
+        physics = Geothermal(timer=self.timer,
+                                  n_points=101,        # number of OBL points
+                                  min_p=1, max_p=600,       # pressure range
+                                  min_e=1, max_e=55000,  # enthalpy range
+                                  cache=False
+        )
+        physics.add_property_region(property_container)
+
+        T_init = 350.
+        state_init = value_vector([200., 0.])
+        enth_init = physics.property_containers[0].total_enthalpy(T_init).evaluate(state_init)
+        self.initial_values = {physics.vars[0]: state_init[0],
+                               physics.vars[1]: enth_init
+                               }
         return super().set_physics(physics)
 
     def set_initial_pressure_from_file(self, fname):
@@ -164,14 +187,16 @@ class Model(CICDModel):
         nb = self.reservoir.mesh.n_blocks
         p_mesh[:self.reservoir.mesh.n_res_blocks * 2] = p_file[actnum > 0]
 
+    '''
     def set_boundary_conditions(self):
         for i, w in enumerate(self.reservoir.wells):
             if "INJ" in w.name:
                 w.control = self.physics.new_bhp_inj(250, self.inj)
             else:
                 w.control = self.physics.new_bhp_prod(100)
-
+    '''
     def set_well_controls(self):
+        return
         for i, w in enumerate(self.reservoir.wells):
             if "INJ" in w.name:
                 w.control = self.physics.new_bhp_inj(250, value_vector([0.999]))
@@ -258,7 +283,7 @@ class Model(CICDModel):
         print('WELLS read from SCH file:', len(reservoir.wells))
 
 
-class ModelProperties(PropertyContainer):
+class ModelProperties(PropertyContainerSuper):
     def __init__(self, phases_name, components_name, min_z=1e-11):
         # Call base class constructor
         self.nph = len(phases_name)

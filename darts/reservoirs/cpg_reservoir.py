@@ -192,7 +192,7 @@ class CPG_Reservoir(ReservoirBase):
         bnd_faces_num = res[0]
         #self.discr_mesh.print_elems_nodes()
 
-        self.discr_mesh.construct_local_global()
+        self.discr_mesh.construct_local_global(global_cell)
 
         self.discr_mesh.cpg_cell_props(number_of_nodes, number_of_cells, number_of_faces,
                                            cell_volumes, cell_centroids, global_cell,
@@ -301,9 +301,11 @@ class CPG_Reservoir(ReservoirBase):
 
     def set_boundary_volume(self, xy_minus=-1, xy_plus=-1, yz_minus=-1, yz_plus=-1, xz_minus=-1, xz_plus=-1):
         mesh_volume = np.array(self.volume_all_cells, copy=False)
+        local_to_global = np.array(self.discr_mesh.local_to_global, copy=False)
+        global_to_local = np.array(self.discr_mesh.global_to_local, copy=False)
 
         # get 3d shape
-        volume = make_full_cube(mesh_volume[:self.discr_mesh.n_cells], self.actnum)
+        volume = make_full_cube(mesh_volume[:self.discr_mesh.n_cells], local_to_global, global_to_local)
         volume = volume.reshape(self.nx, self.ny, self.nz, order='F')
 
         actnum3d = self.actnum.reshape(self.nx, self.ny, self.nz, order='F')
@@ -400,7 +402,10 @@ class CPG_Reservoir(ReservoirBase):
 
         if well_indexD is None:
             well_indexD = wiD
-
+            
+        assert well_index >= 0
+        assert well_indexD >= 0
+        
         # set well segment index (well block) equal to index of perforation layer
         if multi_segment:
             well_block = len(well.perforations)
@@ -776,7 +781,7 @@ class CPG_Reservoir(ReservoirBase):
 
 #####################################################################
 
-def save_array(arr: np.array, fname: str, keyword: str, actnum: np.array, mode='w', make_full=True):
+def save_array(arr: np.array, fname: str, keyword: str, local_to_global: np.array, global_to_local: np.array, mode='w', make_full=True):
     '''
     writes numpy array of n_active_cell size to text file in GRDECL format with n_cells_total
     :param arr: numpy array to write
@@ -787,7 +792,7 @@ def save_array(arr: np.array, fname: str, keyword: str, actnum: np.array, mode='
     :return: None
     '''
     if make_full:
-        arr_full = make_full_cube(arr, actnum)
+        arr_full = make_full_cube(arr, local_to_global, global_to_local)
     else:
         arr_full = arr
     with open(fname, mode) as f:
@@ -803,17 +808,17 @@ def save_array(arr: np.array, fname: str, keyword: str, actnum: np.array, mode='
         print('Array saved to file', fname, ' (keyword ' + keyword + ')')
 
 
-def make_full_cube(cube: np.array, actnum: np.array):
+def make_full_cube(cube: np.array, local_to_global: np.array, global_to_local: np.array):
     '''
     returns 1d-array of size nx*ny*nz, filled with zeros where actnum is zero
     :param cube: 1d-array of size n_active_cells
     :param actnum: 1d-array of size nx*ny*nz
     :return:
     '''
-    if actnum.size == cube.size:
+    if global_to_local.size == cube.size:
         return cube
-    cube_full = np.zeros(actnum.size)
-    cube_full[actnum > 0] = cube
+    cube_full = np.zeros(global_to_local.size)
+    cube_full[local_to_global] = cube
     return cube_full
     
 
@@ -841,9 +846,14 @@ def read_arrays(gridfile: str, propfile: str):
             permy_cpp = permx_cpp
             arrays['PERMX'] = np.array(permx_cpp, copy=False)
             arrays['PERMY'] = np.array(permy_cpp, copy=False)
+    if arrays['PERMY'].size == 0:
+        arrays['PERMY'] = arrays['PERMX']
+        print('No PERMY found in input files. PERMY=PERMX will be used')
     load_single_float_keyword(permz_cpp, propfile, 'PERMZ', -1)
     arrays['PERMZ'] = np.array(permz_cpp, copy=False)
-
+    if arrays['PERMZ'].size == 0:
+        arrays['PERMZ'] = arrays['PERMX'] * 0.1
+        print('No PERMZ found in input files. PERMZ=PERMX/10 will be used')
     poro_cpp = value_vector_discr() #self.discr_mesh.poro
     load_single_float_keyword(poro_cpp, propfile, 'PORO', -1)
     arrays['PORO'] = np.array(poro_cpp, copy=False)
