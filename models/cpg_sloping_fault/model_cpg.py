@@ -186,20 +186,32 @@ class Model(CICDModel):
         '''
         Xn = np.array(self.engine.X, copy=False)
         P = Xn[0:self.reservoir.mesh.n_res_blocks * 2:2]
+
         try:
-            actnum = np.array(self.reservoir.actnum, copy=False)  # CPG Reservoir doesn't have 'global_data' object
-            suffix = 'cpg'
-        except:
             actnum = self.reservoir.global_data['actnum']  # Struct Reservoir
             suffix = 'struct'
+        except:
+            actnum = np.array(self.reservoir.actnum, copy=False)  # CPG Reservoir doesn't have 'global_data' object
+            suffix = 'cpg'
+
         fname_suf = fname + '_' + suffix + '.grdecl'
 
         arr_list += [P]
         arr_names += ['PRESSURE']
 
-        save_array(actnum, fname_suf, 'ACTNUM', actnum, 'w')
-        for i in range(len(arr_list)):
-            save_array(arr_list[i], fname_suf, arr_names[i], actnum, 'a')
+        if suffix == 'cpg':
+            local_to_global = np.array(self.reservoir.discr_mesh.local_to_global, copy=False)
+            global_to_local = np.array(self.reservoir.discr_mesh.global_to_local, copy=False)
+
+            save_array(actnum, fname_suf, 'ACTNUM', local_to_global, global_to_local, 'w')
+            for i in range(len(arr_list)):
+                save_array(arr_list[i], fname_suf, arr_names[i], local_to_global, global_to_local, 'a')
+        else:
+            print('save_array for not yet implemented for Struct Reservoir')
+            return
+            save_array(actnum, fname_suf, 'ACTNUM', actnum, 'w')
+            for i in range(len(arr_list)):
+                save_array(arr_list[i], fname_suf, arr_names[i], actnum, 'a')
 
     def read_and_add_perforations(self, reservoir, sch_fname, well_index: float = None, verbose: bool = False):
         '''
