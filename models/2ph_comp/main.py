@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-
+import sys
 from model import Model
 from darts.engines import value_vector, redirect_darts_output
 import matplotlib.pyplot as plt
@@ -45,6 +45,7 @@ def plot_sol(n):
 
 if __name__ == '__main__':
 
+
     redirect_darts_output('run.log')
     n = Model()
     # n.params.linear_type = n.params.linear_solver_t.cpu_superlu
@@ -76,10 +77,10 @@ if __name__ == '__main__':
         for i in range(nc if nc < 3 else 3):
             plt.subplot(330 + (i + 1))
             plt.plot(Xn[i:nb*nc:nc])
-        plt.show()
-    else:
-        #plot_sol(n)
-        n.print_and_plot('sim_data')
+            plt.savefig(str(i) + '.png')
+        else:
+            #plot_sol(n)
+            n.print_and_plot('sim_data')
 
 
 #z_c10 = Xn[nc-1:n.reservoir.nb*nc:nc]
