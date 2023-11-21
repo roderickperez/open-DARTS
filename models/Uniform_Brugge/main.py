@@ -10,7 +10,7 @@ if __name__ == '__main__':
     # n.params.linear_type = n.params.linear_solver_t.cpu_superlu
     n.init()
 
-    if 1:
+    if True:
         n.run_python(2000)
         n.print_timers()
         n.print_stat()
