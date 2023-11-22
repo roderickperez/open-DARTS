@@ -17,6 +17,7 @@
 - Generic structure for different engines and reservoirs
 	physics_base and reservoir_base classes added
 - vtk and shapely added to the requirements
+- fixes for GPU version, CUDA12 and updated AMGX compatibility
 - Folders reorganized
 Breaking changes: 
     Reservoir classes moved:
