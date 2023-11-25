@@ -52,7 +52,7 @@ if __name__ == '__main__':
     # n.params.linear_type = n.params.linear_solver_t.cpu_superlu
     n.init()
 
-    if 1:
+    if True:
         n.run_python(1000)
         # n.reservoir.wells[0].control = n.physics.new_bhp_inj(100, 3*[n.zero])
         # n.run_python(300, restart_dt=1e-3)
@@ -69,7 +69,7 @@ if __name__ == '__main__':
         time_data = pd.read_pickle("darts_time_data.pkl")
 
 
-    if 1:
+    if True:
         Xn = np.array(n.engine.X, copy=False)
         nc = n.physics.nc + n.physics.thermal
 

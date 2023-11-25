@@ -1,3 +1,5 @@
+echo "PYTHONPATH=" %PYTHONPATH%
+
 rem update submodules
 git submodule update --recursive --remote --init || goto :error
 echo "build_darts arg:" "%1" "%2"

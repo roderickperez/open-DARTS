@@ -338,7 +338,7 @@ class Model(CICDModel):
 
         plt.tight_layout()
         plt.savefig("results_kinetic_brief.pdf")
-        plt.show()
+
 
     def print_and_plot_2D(self):
         import matplotlib.pyplot as plt
@@ -405,7 +405,6 @@ class Model(CICDModel):
         plt.tight_layout()
         name = "results_kinetic_2D_" + str(self.nx) + "x" + str(self.ny)
         plt.savefig(name + ".pdf")
-        plt.show()
 
         return 0
 

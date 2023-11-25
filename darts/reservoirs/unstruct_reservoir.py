@@ -206,6 +206,9 @@ class UnstructReservoir(ReservoirBase):
             well_index = wi if well_index is None else well_index
             well_indexD = wid if well_indexD is None else well_indexD
 
+        assert well_index >= 0
+        assert well_indexD >= 0
+
         # set well segment index (well block) equal to index of perforation layer
         if multi_segment:
             well_block = len(well.perforations)

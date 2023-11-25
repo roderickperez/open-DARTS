@@ -305,7 +305,6 @@ def process_adjoint(history_matching=False):
     # well temperature----------------------------------
     well_tempr_name = []
     for i, w in enumerate(proxy_model.reservoir.wells):
-        well_tempr_name.append(w.name)
         if "P" in w.name:
             well_tempr_name.append(w.name)
 

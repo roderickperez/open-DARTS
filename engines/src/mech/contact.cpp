@@ -63,6 +63,8 @@ int contact::init_friction(pm_discretizer* _discr, conn_mesh* _mesh)
 
 		rsf.theta.resize( cell_ids.size() );
 		rsf.theta_n.resize( cell_ids.size() );
+		rsf.mu_rate.resize(cell_ids.size());
+		rsf.mu_state.resize(cell_ids.size());
 
 		for (index_t i = 0; i < cell_ids.size(); i++)
 		{
@@ -76,7 +78,10 @@ int contact::init_friction(pm_discretizer* _discr, conn_mesh* _mesh)
 			flux.values = (S_cur * flux).values;
 			flux_t_norm = sqrt(flux(1, 0) * flux(1, 0) + flux(2, 0) * flux(2, 0));
 			mu[i] = fabs(flux_t_norm / flux(0, 0));
-			rsf.theta[i] = rsf.theta_n[i] = rsf.Dc / rsf.vel0 * exp(rsf.a / rsf.b * log(2 * rsf.vel0 / rsf.min_vel * sinh( mu[i] / rsf.a )) - mu0[i] / rsf.b);
+			if (friction_model == RSF)
+				rsf.theta[i] = rsf.Dc / rsf.vel0 * exp((mu[i] - mu0[i]) / rsf.b);
+			else if (friction_model == RSF_STAB)
+				rsf.theta[i] = rsf.theta_n[i] = rsf.Dc / rsf.vel0 * exp(rsf.a / rsf.b * log(2 * rsf.vel0 / rsf.min_vel * sinh( mu[i] / rsf.a )) - mu0[i] / rsf.b);
 		}
 	}
 
@@ -176,11 +181,11 @@ int contact::init_fault()
 		avg_mu = (discr->stfs[face1.cell_id2](SUM_N(ND) - 1, SUM_N(ND) - 1) + discr->stfs[face1.cell_id2](SUM_N(ND) - 1, SUM_N(ND) - 1) ) / 2.0;
 		avg_lam = (discr->stfs[face1.cell_id2](0, 1) + discr->stfs[face1.cell_id2](0, 1) ) / 2.0;
 		avg_young = avg_mu * (3 * avg_lam + 2 * avg_mu) / (avg_lam + avg_mu);
-		eps_t.push_back(f_scale * avg_mu * face1.area* face1.area / avg_vol );
-		eps_n.push_back(f_scale * avg_young * face1.area* face1.area / avg_vol );
+		eps_t.push_back(f_scale * avg_mu);// *face1.area* face1.area / avg_vol );
+		eps_n.push_back(f_scale * avg_young);// *face1.area* face1.area / avg_vol );
 		value_t density = 2500.0;
 		value_t s_velocity = sqrt(avg_mu * 1e+5 / density) * 86400.0;
-		eta.push_back(eps_t.back());//avg_mu / s_velocity / 2.0);
+		eta.push_back(eps_t.back()); // avg_mu / s_velocity / 2.0);
 	}
 	phi.resize(cell_ids.size());
 	fault_stress.resize(ND * cell_ids.size());
@@ -1231,7 +1236,8 @@ vector<value_t> contact::getFrictionCoef(const index_t i, const value_t dt, Matr
 		mu_cur = mu0[i];
 		if (slip_vel_norm > EQUALITY_TOLERANCE || slip_vel_norm > 0.0001 * rsf.vel0)
 		{
-			mu_cur += rsf.a * log(slip_vel_norm / rsf.vel0);
+			rsf.mu_rate[i] = rsf.a * log(slip_vel_norm / rsf.vel0);
+			mu_cur += rsf.mu_rate[i];
 			dmu.values += rsf.a * slip_vel.values / dt / slip_vel_norm / slip_vel_norm;
 			jacobian_explicit_scheme[i](0, { ND }, { 1 }) += rsf.a * slip_vel.values / dt / slip_vel_norm / slip_vel_norm;
 
@@ -1239,7 +1245,8 @@ vector<value_t> contact::getFrictionCoef(const index_t i, const value_t dt, Matr
 			{
 				numer = rsf.Dc / slip_vel_norm * log(rsf.vel0 / rsf.Dc * rsf.theta_n[i]) + dt * log(rsf.vel0 / slip_vel_norm);
 				denom = rsf.Dc / slip_vel_norm + dt;
-				mu_cur += rsf.b * numer / denom;
+				rsf.mu_state[i] = rsf.b * numer / denom;
+				mu_cur += rsf.mu_state[i];
 				// new state
 				rsf.theta[i] = exp((rsf.Dc / slip_vel_norm * log(rsf.theta_n[i]) + dt * log(rsf.Dc / slip_vel_norm)) / denom);
 				// derivative
@@ -1249,7 +1256,8 @@ vector<value_t> contact::getFrictionCoef(const index_t i, const value_t dt, Matr
 			}
 			else																				// ageing law
 			{
-				mu_cur += rsf.b * log(rsf.vel0 * (dt + rsf.theta_n[i]) / (rsf.Dc + slip_vel_norm * dt));
+				rsf.mu_state[i] = rsf.b * log(rsf.vel0 * (dt + rsf.theta_n[i]) / (rsf.Dc + slip_vel_norm * dt));
+				mu_cur += rsf.mu_state[i];
 				// new state
 				rsf.theta[i] = rsf.Dc * (dt + rsf.theta_n[i]) / (rsf.Dc + dt * slip_vel_norm);
 				// derivative
