@@ -19,6 +19,7 @@
 - vtk and shapely added to the requirements
 - fixes for GPU version, CUDA12 and updated AMGX compatibility
 - Folders reorganized
+
 Breaking changes: 
     Reservoir classes moved:  
         Before: from darts.models.reservoirs.struct_reservoir import StructReservoir  
