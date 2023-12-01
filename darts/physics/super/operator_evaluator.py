@@ -284,7 +284,7 @@ class RateOperators(operator_set_evaluator_iface):
         # step-2
         flux_sum = np.sum(self.flux)
 
-        #(sat_sc, rho_m_sc) = self.property.evaluate_at_cond(1, 293, self.flux/flux_sum)
+        #(sat_sc, rho_m_sc) = self.property.evaluate_at_cond(1, self.flux/flux_sum)
         sat_sc = sat
         rho_m_sc = rho_m
 
@@ -292,8 +292,7 @@ class RateOperators(operator_set_evaluator_iface):
         total_density = np.sum(sat_sc * rho_m_sc)
         # step-4
         for j in ph:
-            #values[j] = sat_sc[j] * flux_sum / total_density
-            values[j] = rho_m[j] * kr[j] / mu[j]
+            values[j] = sat_sc[j] * flux_sum / total_density
 
         #print(state, values)
         return 0
