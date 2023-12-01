@@ -2,13 +2,13 @@
 - Adjoints with MPFA (C++ discretizer for the unstructured grid)
 - MPFA for the heat conduction (C++ discretizer for the unstructured grid)
 - Fast and accurate version of CPG discretizer
-	transmissibility computation at fault cells (NNC)
-	set boundary volume takes into account cells inactivity
-	fault transmissibility multiplier
-	initialization with arrays dictionary
-	added over- and underburden layers generation
-	faster grid initialization and vtk export
-	added export to grdecl files
+	- Transmissibility computation at fault cells (NNC)  
+	- Set boundary volume takes into account cells inactivity  
+	- Fault transmissibility multiplier  
+	- Initialization with arrays dictionary  
+	- Added over- and underburden layers generation  
+	- Faster grid initialization and vtk export  
+	- Added export to grdecl files  
 - Interface for the direct control of RHS from Python
 - Initial project documentation (readthedocs)
 - Maximum number of equations increased to 8
@@ -19,35 +19,32 @@
 - vtk and shapely added to the requirements
 - fixes for GPU version, CUDA12 and updated AMGX compatibility
 - Folders reorganized
-Breaking changes: 
-    Reservoir classes moved:
-        Before: from darts.models.reservoirs.struct_reservoir import StructReservoir
-        Now:    from darts.reservoirs.struct_reservoir import StructReservoir
-    Changes in base darts model:  
-        Before: self.mesh
-        Now:    self.reservoir.mesh
-	Changes in add_perforation() function of reservoir classes:
-		Before: three arguments: i, j, k
-        Now:    tuple of IJK indices: (i,j,k) as one argument
-		Before: default values: well_index=-1, well_indexD=-1
-        Now:    default values: well_index=None, well_indexD=None
-	set_initial_conditions in DartsModel class using self.initial_values dictionary
-		self.initial_values = {'pressure': 200, 'w': 0.001}
-	Physics initialization:
-		Before: self.physics = Geothermal(...)
-				self.physics.init_physics()
-		Now:    physics = Geothermal(...)
-				super().set_physics(physics)
-	Reservoir initialization:
-		Before: self.reservoir = StructReservoir(...)
-		Now:    reservoir = StructReservoir(...)
-				super().set_reservoir(reservoir)
-	Added method set_wells to the DartsModel class (function with the same name in user's model should be renamed)
-		Before: set_boundary_conditions() # well controls were here
-		Now:	rename it to set_wells() and added return super().set_wells() in the end of this method
-	The 'platform' parameter moved from the engine constructor to set_physics:
-		Before: Geothermal(..., platform='gpu')
-		Now:	Geothermal(...); super().set_physics(physics, platform='gpu')
+- Breaking changes:
+    - Reservoir classes moved:
+        - Before: from darts.models.reservoirs.struct_reservoir import StructReservoir  
+        - Now:    from darts.reservoirs.struct_reservoir import StructReservoir  
+    - Changes in base darts model:    
+        - Before: self.mesh  
+        - Now:    self.reservoir.mesh  
+	- Changes in add_perforation() function of reservoir classes:  
+		- Before: three arguments: i, j, k  
+        - Now:    tuple of IJK indices: (i,j,k) as one argument  
+		- Before: default values: well_index=-1, well_indexD=-1  
+        - Now:    default values: well_index=None, well_indexD=None  
+	- set_initial_conditions in DartsModel class using self.initial_values dictionary  
+		- self.initial_values = {'pressure': 200, 'w': 0.001}  
+	- Physics initialization:  
+		- Before: self.physics = Geothermal(...); self.physics.init_physics()  
+		- Now:    physics = Geothermal(...); super().set_physics(physics)  
+	- Reservoir initialization:  
+		- Before: self.reservoir = StructReservoir(...)  
+		- Now:    reservoir = StructReservoir(...); super().set_reservoir(reservoir)  
+	- Added method set_wells to the DartsModel class (function with the same name in user's model should be renamed)  
+		- Before: set_boundary_conditions() # well controls were here  
+		- Now:	rename it to set_wells() and added return super().set_wells() in the end of this method  
+	- The 'platform' parameter moved from the engine constructor to set_physics:  
+		- Before: Geothermal(..., platform='gpu')  
+		- Now:	Geothermal(...); super().set_physics(physics, platform='gpu')  
 
 **1.0.4 [11-09-2023]**
 Small fixes.
