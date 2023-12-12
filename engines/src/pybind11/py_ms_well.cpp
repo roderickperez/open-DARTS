@@ -2,7 +2,7 @@
 
 #include "py_globals.h"
 #include "ms_well.h"
-#include "stl.h"
+#include <pybind11/stl.h>
 
 namespace py = pybind11;
 

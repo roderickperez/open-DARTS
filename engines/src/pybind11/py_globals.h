@@ -1,7 +1,7 @@
 #ifndef PY_GLOBALS_H
 #define PY_GLOBALS_H
 
-#include <stl_bind.h>
+#include <pybind11/stl_bind.h>
 #include "globals.h"
 #include "ms_well.h"
 

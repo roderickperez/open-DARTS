@@ -41,7 +41,7 @@ accepted_dirs_adjoint = ['Adjoint_super_engine']  # for adjoint test
 
 def check_performance(mod):
     pkl_suffix = ''
-    if os.getenv('ODLS') != None and os.getenv('ODLS') == '0':
+    if os.getenv('ODLS') != None and os.getenv('ODLS') == '-a':
         pkl_suffix = '_iter'
     x = os.path.basename(os.getcwd())
     print("Running {:<30}".format(x + ': '), flush=True)

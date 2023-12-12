@@ -1,5 +1,5 @@
 #ifdef PYBIND11_ENABLED
-#include <stl_bind.h>
+#include <pybind11/stl_bind.h>
 #include "py_globals.h"
 #include "globals.h"
 #include "engines_build_info.h"
@@ -23,13 +23,11 @@ using namespace opendarts::config;
 namespace py = pybind11;
 
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
   // declaration of stream test main function
   // used to check the system bandwidth
   int stream_main();
-#endif // __linux__
-
-
+#endif // defined(__linux__) || defined(__APPLE__)
 
 
 void redirect_darts_output(std::string file_name) {
@@ -60,7 +58,6 @@ void cuda_device_reset()
   cudaDeviceReset();
 }
 #endif
-
 
 void print_build_info()
 {
@@ -160,11 +157,9 @@ void pybind_globals(py::module &m)
 
   m.def("print_build_info", &print_build_info, "Print build information: date, user, machine, git hash");
 
-#ifdef __linux__
+#ifdef defined(__linux__) || defined(__APPLE__)
   m.def("stream", &stream_main, "Launch stream bandwidth test");
-#endif // __linux__
-
-
+#endif // defined(__linux__) || defined(__APPLE__)
 
 #ifdef _OPENMP
   m.def("set_num_threads", &omp_set_num_threads, "Set the number of OpenMP threads to be used", "num_threads"_a);
