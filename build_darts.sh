@@ -69,8 +69,8 @@ then # deprecated linear solvers
 	./update_private_artifacts.sh $SMBNAME $SMBLOGIN $SMBPASS
 	cd ..
 else  #open-darts solvers
-	cd solvers/helper_scripts
-	./build_linux.sh "$config_solvers"
+    cd solvers/helper_scripts
+	./build_linux.sh -m $config_solvers
 	cd ../..
 fi
 
@@ -86,9 +86,9 @@ fi
 
 if [ $? == 0 ]
 then
-    echo "make successfull"
+    echo "engines: make successfull"
 else
-    echo "make failed"
+    echo "engines: make failed"
     exit 1
 fi
 
@@ -106,9 +106,9 @@ fi
 
 if [ $? == 0 ]
 then
-    echo "make successfull"
+    echo "discretizer: make successfull"
 else
-    echo "make failed"
+    echo "discretizer: make failed"
     exit 1
 fi
 

@@ -5,7 +5,7 @@
 #include <unordered_set>
 
 #include "mesh.h"
-#include "mesh/mshio/mshio.h"
+#include "mshio/mshio.h"
 #include "linalg/matrix.h"
 #include "linalg/vector3.h"
 #include "utils.h"
