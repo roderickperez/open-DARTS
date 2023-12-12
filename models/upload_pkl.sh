@@ -6,7 +6,7 @@ fname="pkl_lin.tar.gz"
 echo $fname
 
 pklname="perf_lin"
-if [ $odls == "0" ]
+if [ $odls == "-a" ]
 then
     pklname=$pklname"_iter"
 fi
