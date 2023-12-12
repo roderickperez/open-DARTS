@@ -83,7 +83,7 @@ public:
 
   int solve_linear_equation();
   void apply_obl_axis_local_correction(std::vector<value_t> &X, std::vector<value_t> &dX);
-  int run_single_newton_iteration(value_t deltat);
+  int assemble_linear_system(value_t deltat);
   int post_newtonloop(value_t deltat, value_t time, index_t converged);
   int post_explicit(value_t deltat, value_t time);
   // fluxes at current and previous time steps, fluxes for reference state at current and previous time steps

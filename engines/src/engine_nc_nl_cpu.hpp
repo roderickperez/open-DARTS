@@ -73,7 +73,7 @@ public:
   int init_jacobian_structure_mpfa(csr_matrix_base *jacobian);
 
   std::string appr_mode;
-  int run_single_newton_iteration(value_t deltat);
+  int assemble_linear_system(value_t deltat);
   int assemble_jacobian_array(value_t dt, std::vector<value_t> &X, csr_matrix_base *jacobian, std::vector<value_t> &RHS) { return 0; }
   int assemble_jacobian_array_avgmpfa(value_t dt, std::vector<value_t> &X, csr_matrix_base *jacobian, std::vector<value_t> &RHS);
   int assemble_jacobian_array_nltpfa(value_t dt, std::vector<value_t> &X, csr_matrix_base *jacobian, std::vector<value_t> &RHS);

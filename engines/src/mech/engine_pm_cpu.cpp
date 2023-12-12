@@ -1541,7 +1541,7 @@ engine_pm_cpu::calc_well_residual_L2()
 	return residual;
 }
 
-int engine_pm_cpu::run_single_newton_iteration(value_t deltat)
+int engine_pm_cpu::assemble_linear_system(value_t deltat)
 {
 	newton_update_coefficient = 1.0;
 	// switch constraints if needed

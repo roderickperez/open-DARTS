@@ -1401,7 +1401,7 @@ int engine_base::run_timestep(value_t deltat, value_t time)
 
 	for (n_newton_last_dt = 0, n_linear_last_dt = 0;; n_newton_last_dt++)
 	{
-		run_single_newton_iteration(deltat);
+		assemble_linear_system(deltat);
 		newton_residual_last_dt = calc_newton_residual();
 		well_residual_last_dt = calc_well_residual();
 
@@ -2604,7 +2604,7 @@ int engine_base::test_spmv(int n_times, int kernel_number, int dump_result)
 	return 0;
 }
 
-int engine_base::run_single_newton_iteration(value_t deltat)
+int engine_base::assemble_linear_system(value_t deltat)
 {
 	// switch constraints if needed
 	timer->node["jacobian assembly"].start();
