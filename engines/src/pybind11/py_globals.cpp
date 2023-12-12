@@ -76,6 +76,7 @@ void pybind_globals(py::module &m)
     .def_readwrite("first_ts", &sim_params::first_ts, "Length of the first time step (days)")
     .def_readwrite("max_ts", &sim_params::max_ts)
     .def_readwrite("mult_ts", &sim_params::mult_ts)
+    .def_readwrite("min_ts", &sim_params::min_ts)
     .def_readwrite("max_i_newton", &sim_params::max_i_newton)
     .def_readwrite("max_i_linear", &sim_params::max_i_linear)
     .def_readwrite("tolerance_newton", &sim_params::tolerance_newton)
@@ -89,6 +90,8 @@ void pybind_globals(py::module &m)
     .def_readwrite("trans_mult_exp", &sim_params::trans_mult_exp)
     .def_readwrite("obl_min_fac", &sim_params::obl_min_fac)
     .def_readwrite("global_actnum", &sim_params::global_actnum)
+    .def_readwrite("well_tolerance_coefficient", &sim_params::well_tolerance_coefficient)
+    .def_readwrite("stationary_point_tolerance", &sim_params::stationary_point_tolerance)
     .def_readwrite("assembly_kernel", &sim_params::assembly_kernel);
   
   py::class_<linear_solver_params>(m, "linear_solver_params", "Class linear solver parameters") \

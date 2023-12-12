@@ -99,12 +99,15 @@ public:
     first_ts = 1;
     max_ts = 10;
     mult_ts = 2;
+    min_ts = 1e-12;
 
     max_i_linear = 50;
     tolerance_linear = 1e-5;
     max_i_newton = 20;
     min_i_newton = 0;
     tolerance_newton = 1e-3;
+    well_tolerance_coefficient = 1e2;
+    stationary_point_tolerance = 1e-3;
     newton_type = NEWTON_LOCAL_CHOP;
     newton_params.push_back(0.1);
 
@@ -127,12 +130,15 @@ public:
   value_t first_ts; // first time step length (days)
   value_t max_ts;   // maximum time step length (days)
   value_t mult_ts;  // multiplication ts factor
+  value_t min_ts;   // minimum time step length (days)
 
   index_t max_i_newton;     // maximum number of newton iterations
   index_t min_i_newton;     // minimum number of newton iterations
   index_t max_i_linear;     // maximum number of linear iterations
   value_t tolerance_newton; // tolerance for newton solver
   value_t tolerance_linear; // tolerance for linear solver
+  value_t well_tolerance_coefficient; // tolerance multiplier for well newton tolerance
+  value_t stationary_point_tolerance; // stationary point tolerance
 
   //Added for debugging purposes:
   index_t tot_newt_count;      // total number of newton iterations (wasted + non-wasted)
