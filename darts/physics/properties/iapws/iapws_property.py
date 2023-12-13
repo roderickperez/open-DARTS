@@ -1,5 +1,5 @@
 from darts.engines import property_evaluator_iface
-from iapws.iapws97 import _Region1, _Region2, _Region4, _Backward1_T_Ph, _Backward2_T_Ph, _Bound_Ph, _Bound_TP, _TSat_P, Pmin
+from iapws.iapws97 import _Region1, _Region2, _Region4, _Backward1_T_Ph, _Backward2_T_Ph, _Bound_Ph, _Bound_TP, _TSat_P, Pmin, _ThCond
 from iapws._iapws import _D2O_Viscosity, _Viscosity
 from scipy.optimize import newton
 
@@ -274,4 +274,311 @@ class iapws_steam_viscosity_evaluator(property_evaluator_iface):
         density = iapws_steam_density_evaluator()
         den = density.evaluate(state) * 18.015
         return (_Viscosity(den, T)*1000)
+
+
+
+
+# ---------------IAPWS based on Pressure-Temperature system, mainly for P-T super engine (Xiaoming Tian)---------------
+class Density_iapws_water():
+    def __init__(self):
+        super().__init__()
+
+    def evaluate(self, pressure: float, temperature: float) -> float:
+        '''
+        evaluation function for water density
+        :param pressure: state pressure, [bars]
+        :param temperature: state temperature, [K]
+        :return: water density, [kg/m3]
+        '''
+        P = pressure * 0.1  # MPa
+        T = temperature     # K
+
+        if P < Pmin:
+           P = Pmin
+
+        region = _Bound_TP(T, P)  # warning: with P-T system, this function can't return Region 4 (two phase region)
+
+        if region == 1:
+            water_density = 1 / _Region1(T, P)['v']
+        elif region == 4:
+            T = _TSat_P(P)
+            if T <= 623.15:
+                water_density = 1 / _Region4(P, 0)['v']
+            else:
+                raise NotImplementedError("water: Incoming out of bound of IAPWS Region 4 (two phase region)")
+        elif region == 2:
+            water_density = 0
+        else:
+            raise NotImplementedError("water: Incoming out of bound of IAPWS Regions")
+        return water_density
+
+
+class Density_iapws_steam():
+    def __init__(self):
+        super().__init__()
+
+    def evaluate(self, pressure: float, temperature: float) -> float:
+        '''
+        evaluation function for steam density
+        :param pressure: state pressure, [bars]
+        :param temperature: state temperature, [K]
+        :return: steam density, [kg/m3]
+        '''
+        P = pressure * 0.1  # MPa
+        T = temperature     # K
+
+        if P < Pmin:
+           P = Pmin
+
+        region = _Bound_TP(T, P)  # warning: with P-T system, this function can't return Region 4 (two phase region)
+
+        if region == 1:
+            steam_density = 0
+        elif region == 4:
+            T = _TSat_P(P)
+            if T <= 623.15:
+                steam_density = 1 / _Region4(P, 1)['v']
+            else:
+                raise NotImplementedError("steam: Incoming out of bound of IAPWS Region 4 (two phase region)")
+        elif region == 2:
+            # To = _Backward2_T_Ph(P, h)
+            # T = newton(lambda T: _Region2(T, P)["h"]-h, To)
+            steam_density = 1 / _Region2(T, P)["v"]
+        else:
+            raise NotImplementedError("steam: Incoming out of bound of IAPWS Regions")
+        return steam_density
+
+
+class Viscosity_iapws_water():
+    def __init__(self):
+        super().__init__()
+
+    def evaluate(self, pressure: float, temperature: float) -> float:
+        '''
+        evaluation function for water viscosity
+        :param pressure: state pressure, [bars]
+        :param temperature: state temperature, [K]
+        :return: water viscosity, [cP]
+        '''
+        P = pressure * 0.1  # MPa
+        T = temperature     # K
+
+        den = Density_iapws_water().evaluate(pressure, temperature)
+        return _Viscosity(den, T)*1000
+
+
+class Viscosity_iapws_steam():
+    def __init__(self):
+        super().__init__()
+
+    def evaluate(self, pressure: float, temperature: float) -> float:
+        '''
+        evaluation function for steam viscosity
+        :param pressure: state pressure, [bars]
+        :param temperature: state temperature, [K]
+        :return: steam viscosity, [cP]
+        '''
+        P = pressure * 0.1  # MPa
+        T = temperature     # K
+
+        den = Density_iapws_steam().evaluate(pressure, temperature)
+        return _Viscosity(den, T)*1000
+
+
+class Saturation_iapws_water():
+    def __init__(self):
+        super().__init__()
+
+    def evaluate(self, pressure: float, temperature: float) -> float:
+        '''
+        evaluation function for water saturation
+        :param pressure: state pressure, [bars]
+        :param temperature: state temperature, [K]
+        :return: water saturation
+        '''
+        P = pressure * 0.1  # MPa
+        T = temperature     # K
+
+        if P < Pmin:
+           P = Pmin
+
+        region = _Bound_TP(T, P)  # warning: with P-T system, this function can't return Region 4 (two phase region)
+        if region == 1:
+            sw = 1
+        elif region == 4:
+            sw = 0
+            # todo: it is hard to get vapor quality (or saturation) in P-T system
+            # hw = _Region4(P, 0)["h"]
+            # hs = _Region4(P, 1)["h"]
+            # rhow = 1 / _Region4(P, 0)["v"]
+            # rhos = 1 / _Region4(P, 1)["v"]
+            # sw = rhos * (hs - h) / (h * (rhow - rhos) - (hw * rhow - hs * rhos))
+        elif region == 2:
+            sw = 0
+        else:
+            raise NotImplementedError("Incoming out of bound of IAPWS Regions")
+        return sw
+
+class Saturation_iapws_steam():
+    def __init__(self):
+        super().__init__()
+
+    def evaluate(self, pressure: float, temperature: float) -> float:
+        '''
+        evaluation function for steam saturation
+        :param pressure: state pressure, [bars]
+        :param temperature: state temperature, [K]
+        :return: steam saturation
+        '''
+        P = pressure * 0.1  # MPa
+        T = temperature  # K
+
+        water_saturation = Saturation_iapws_water()
+        ss = 1 - water_saturation.evaluate(pressure, temperature)
+        return ss
+
+
+class Relperm_iapws_water():
+    def __init__(self):
+        super().__init__()
+
+    def evaluate(self, pressure: float, temperature: float) -> float:
+        '''
+        evaluation function for water relative permeability
+        :param pressure: state pressure, [bars]
+        :param temperature: state temperature, [K]
+        :return: water relative permeability
+        '''
+        P = pressure * 0.1  # MPa
+        T = temperature  # K
+
+        water_saturation = Saturation_iapws_water()
+        water_rp = water_saturation.evaluate(pressure, temperature)**1
+        return water_rp
+
+class Relperm_iapws_steam():
+    def __init__(self):
+        super().__init__()
+
+    def evaluate(self, pressure: float, temperature: float) -> float:
+        '''
+        evaluation function for steam relative permeability
+        :param pressure: state pressure, [bars]
+        :param temperature: state temperature, [K]
+        :return: steam relative permeability
+        '''
+        P = pressure * 0.1  # MPa
+        T = temperature  # K
+
+        steam_saturation = Saturation_iapws_steam()
+        steam_rp = steam_saturation.evaluate(pressure, temperature)**1
+        return steam_rp
+
+
+class Enthalpy_iapws_water():
+    def __init__(self):
+        super().__init__()
+
+    def evaluate(self, pressure: float, temperature: float) -> float:
+        '''
+        evaluation function for water enthalpy
+        :param pressure: state pressure, [bars]
+        :param temperature: state temperature, [K]
+        :return: water enthalpy
+        '''
+        P = pressure * 0.1  # MPa
+        T = temperature     # K
+
+        if P < Pmin:
+           P = Pmin
+
+        region = _Bound_TP(T, P)  # warning: with P-T system, this function can't return Region 4 (two phase region)
+
+        if region == 1:
+            water_enth = _Region1(T, P)["h"]
+        elif region == 4:
+            T = _TSat_P(P)
+            if T <= 623.15:
+                water_enth = _Region4(P, 0)["h"]
+            else:
+                raise NotImplementedError("water: Incoming out of bound of IAPWS Region 4 (two phase region)")
+        elif region == 2:
+            water_enth = 0
+        else:
+            print(region)
+            raise NotImplementedError("Incoming out of bound")
+        return water_enth * 18.015
+
+class Enthalpy_iapws_steam():
+    def __init__(self):
+        super().__init__()
+
+    def evaluate(self, pressure: float, temperature: float) -> float:
+        '''
+        evaluation function for steam enthalpy
+        :param pressure: state pressure, [bars]
+        :param temperature: state temperature, [K]
+        :return: steam enthalpy
+        '''
+        P = pressure * 0.1  # MPa
+        T = temperature     # K
+
+        if P < Pmin:
+           P = Pmin
+
+        region = _Bound_TP(T, P)  # warning: with P-T system, this function can't return Region 4 (two phase region)
+
+        if region == 1:
+            steam_enth =  0
+        elif region == 4:
+            T = _TSat_P(P)
+            if T <= 623.15:
+                steam_enth = _Region4(P, 1)["h"]
+            else:
+                raise NotImplementedError("Incoming out of bound")
+        elif region == 2:
+            # To = _Backward2_T_Ph(P, h)
+            # T = newton(lambda T: _Region2(T, P)["h"]-h, To)
+            steam_enth = _Region2(T, P)["h"]
+        else:
+            raise NotImplementedError("Incoming out of bound")
+        return steam_enth * 18.015
+
+
+class Conductivity_iapws_water():
+    def __init__(self):
+        super().__init__()
+
+    def evaluate(self, pressure: float, temperature: float) -> float:
+        '''
+        evaluation function for water conductivity
+        :param pressure: state pressure, [bars]
+        :param temperature: state temperature, [K]
+        :return: water conductivity
+        '''
+        P = pressure * 0.1  # MPa
+        T = temperature     # K
+
+        rho_w = Density_iapws_water().evaluate(P, T)
+        k = _ThCond(rho_w, T)  # [W/(mK)]
+        return k / 1000 * 3600 * 24  # kJ/m/day/K
+
+
+class Conductivity_iapws_steam():
+    def __init__(self):
+        super().__init__()
+
+    def evaluate(self, pressure: float, temperature: float) -> float:
+        '''
+        evaluation function for steam conductivity
+        :param pressure: state pressure, [bars]
+        :param temperature: state temperature, [K]
+        :return: steam conductivity
+        '''
+        P = pressure * 0.1  # MPa
+        T = temperature     # K
+
+        rho_s = Density_iapws_steam().evaluate(P, T)
+        k = _ThCond(rho_s, T)  # [W/(mK)]
+        return k / 1000 * 86400  # kJ/m/day/K
 
