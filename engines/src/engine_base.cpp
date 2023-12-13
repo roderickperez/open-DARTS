@@ -1194,7 +1194,6 @@ engine_base::prepare_dj_dx(vec_3d q, vec_3d q_inj,
 
 
 
-
 	
 	if (objfun_well_tempr)
 	{
@@ -1218,41 +1217,53 @@ engine_base::prepare_dj_dx(vec_3d q, vec_3d q_inj,
 			else
 				upstream_idx = w->well_body_idx; // producer
 
-			//index_t nc = n_vars;
-			//index_t n_ops = 2 * nc;
-
-			std::vector<value_t> state;
-			std::vector<index_t> block_idx = { 0 };
-			std::vector<value_t> rates;
-			std::vector<value_t> rates_derivs;
-
-			rates.resize(w->n_phases);
-			rates_derivs.resize(w->n_phases * n_vars);
-
-			state.assign(X.begin() + upstream_idx * w->n_block_size + w->P_VAR, X.begin() + upstream_idx * w->n_block_size + w->P_VAR + n_vars);
-			w->rate_etor_ad->evaluate_with_derivatives(state, block_idx, rates, rates_derivs);
 
 
-			double ders_term, vals_term;
-			for (uint8_t v = 0; v < n_vars; v++)
+
+			if (w->thermal)  // for thermal super_engine_cpu and super_engine_mp_cpu
 			{
-				ders_term = 0.0;
-				vals_term = 0.0;
-
-                index_t p_idx = 0;  // the index of the phase in DARTS model definition
-				for (std::string phase : w->phase_names)
-				{
-					if (phase == "temperature")
-					{
-                        // adding minus sign on "wt_WT" to move Temp_dj_dx to the right hand side of eq.(18) and eq.(19), Tian et al. 2015  https://doi.org/10.1016/j.petrol.2021.109911
-						ders_term += rates_derivs[p_idx * n_vars + v] * (-wt_WT[ww]);
-						//vals_term += rates[p] * (-wt_WT[ww]);
-					}
-                    p_idx++;
-				}
-
-				Temp_dj_dx[upstream_idx * n_vars + v] += ders_term;
+				index_t v = n_vars - 1;  // derivatives w.r.t. temperature
+				Temp_dj_dx[upstream_idx * n_vars + v] += 1 * (-wt_WT[ww]);
 			}
+			else 
+			{
+				//index_t nc = n_vars;
+				//index_t n_ops = 2 * nc;
+
+				std::vector<value_t> state;
+				std::vector<index_t> block_idx = { 0 };
+				std::vector<value_t> rates;
+				std::vector<value_t> rates_derivs;
+
+				rates.resize(w->n_phases);
+				rates_derivs.resize(w->n_phases * n_vars);
+
+				state.assign(X.begin() + upstream_idx * w->n_block_size + w->P_VAR, X.begin() + upstream_idx * w->n_block_size + w->P_VAR + n_vars);
+				w->rate_etor_ad->evaluate_with_derivatives(state, block_idx, rates, rates_derivs);
+
+
+				double ders_term, vals_term;
+				for (uint8_t v = 0; v < n_vars; v++)
+				{
+					ders_term = 0.0;
+					vals_term = 0.0;
+
+					index_t p_idx = 0;  // the index of the phase in DARTS model definition
+					for (std::string phase : w->phase_names)
+					{
+						if (phase == "temperature")
+						{
+							// adding minus sign on "wt_WT" to move Temp_dj_dx to the right hand side of eq.(18) and eq.(19), Tian et al. 2015  https://doi.org/10.1016/j.petrol.2021.109911
+							ders_term += rates_derivs[p_idx * n_vars + v] * (-wt_WT[ww]);
+							//vals_term += rates[p] * (-wt_WT[ww]);
+						}
+						p_idx++;
+					}
+
+					Temp_dj_dx[upstream_idx * n_vars + v] += ders_term;
+				}
+			}
+
 			ww++;
 		}
 	}
