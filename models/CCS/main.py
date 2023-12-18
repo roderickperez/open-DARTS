@@ -51,7 +51,7 @@ print_props = list(range(nv)) + [nv, nv + 2, nv + 3]
 # plt.savefig('step0.png', format='png')
 
 for t in range(2):
-    m.run_python(200)
+    m.run(200)
     time_data = pd.DataFrame.from_dict(m.engine.time_data)
     m.print_timers()
     m.print_stat()

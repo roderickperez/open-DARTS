@@ -53,9 +53,9 @@ if __name__ == '__main__':
     n.init()
 
     if True:
-        n.run_python(1000)
+        n.run(1000)
         # n.reservoir.wells[0].control = n.physics.new_bhp_inj(100, 3*[n.zero])
-        # n.run_python(300, restart_dt=1e-3)
+        # n.run(300, restart_dt=1e-3)
         n.print_timers()
         n.print_stat()
         time_data = pd.DataFrame.from_dict(n.engine.time_data)
