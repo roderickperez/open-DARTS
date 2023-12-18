@@ -246,11 +246,6 @@ class DartsModel:
     def run(self, days: float = None, restart_dt: float = 0.):
         days = days if days is not None else self.runtime
 
-        self.engine.run(days)
-
-    def run_python(self, days: float = None, restart_dt: float = 0.):
-        days = days if days is not None else self.runtime
-
         # get current engine time
         t = self.engine.t
         stop_time = t + days
