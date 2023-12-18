@@ -274,11 +274,12 @@ class DartsModel:
                 print("# %d \tT = %3g\tDT = %2g\tNI = %d\tLI=%d"
                       % (ts, t, dt, self.engine.n_newton_last_dt, self.engine.n_linear_last_dt))
 
-                self.prev_ts = dt
                 dt = min(dt * self.params.mult_ts, self.params.max_ts)
 
                 if t + dt > stop_time:
                     dt = stop_time - t
+                else:
+                    self.prev_ts = dt
 
             else:
                 dt /= self.params.mult_ts
