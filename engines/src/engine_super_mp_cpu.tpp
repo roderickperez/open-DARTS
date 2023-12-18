@@ -1197,7 +1197,7 @@ int engine_super_mp_cpu<NC, NP, THERMAL>::adjoint_gradient_assembly(value_t dt, 
 	index_t diag_idx, jac_idx, nebr_jac_idx, csr_idx_start, csr_idx_end, upwd_jac_idx[NP], d_upwd_jac_idx[NP * NE], st_id = 0, conn_st_id = 0;
 	value_t p_diff, gamma_p_diff, t_diff, gamma_t_diff, phi_i, phi_j, phi_avg, phi_0_avg, pc_diff[NP], diff_diff[NP * NE], phase_p_diff[NP], ZEROS[NP * NE];
 	value_t avg_density, * buf, * buf_c, * buf_diff, avg_heat_cond_multiplier;
-	uint8_t d, v, c, p;
+	uint8_t d, v, p;
 	value_t CFL_in[NC], CFL_out[NC];
 	value_t CFL_max_local = 0;
 	int connected_with_well;
