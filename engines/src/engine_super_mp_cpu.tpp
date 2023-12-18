@@ -769,7 +769,7 @@ int engine_super_mp_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, st
     { // loop over grid blocks
 
 		// initialize the CFL_in and CFL_out
-		for (uint8_t c = 0; c < NC; c++)
+		for (c = 0; c < NC; c++)
 		{
 		CFL_out[c] = 0;
 		CFL_in[c] = 0;
@@ -860,7 +860,7 @@ int engine_super_mp_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, st
 					pc_diff[p] += tran[conn_st_id] * buf_c[p];
 					// diffusion
 					for (c = 0; c < NE; c++)
-						diff_diff[c * NP + p] += tranD[conn_st_id] * buf_diff[c * NP + p];
+						diff_diff[p * NE + c] += tranD[conn_st_id] * buf_diff[p * NE + c];
 				}
 
 				conn_st_id++;
@@ -903,15 +903,15 @@ int engine_super_mp_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, st
 				// identify upwind diffusion direction
 				for (c = 0; c < NE; c++)
 				{
-					if (diff_diff[c * NP + p] >= 0)
+					if (diff_diff[p * NE + c] >= 0)
 					{
-						d_upwd_idx[c * NP + p] = i;
-						d_upwd_jac_idx[c * NP + p] = diag_ind[i];
+						d_upwd_idx[p * NE + c] = i;
+						d_upwd_jac_idx[p * NE + c] = diag_ind[i];
 					}
 					else
 					{
-						d_upwd_idx[c * NP + p] = j;
-						d_upwd_jac_idx[c * NP + p] = nebr_jac_idx;
+						d_upwd_idx[p * NE + c] = j;
+						d_upwd_jac_idx[p * NE + c] = nebr_jac_idx;
 					}
 				}
 			}
@@ -947,8 +947,8 @@ int engine_super_mp_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, st
 							l_ind1 = st_id * N_VARS_SQ + (P_VAR + c) * N_VARS;						// jacobian
 							r_ind = upwd_idx[p] * N_OPS + FLUX_OP + p * NE + c;						// flux upwind multiplier
 							r_ind1 = (stencil[conn_st_id] * N_OPS + PC_OP + p) * N_VARS;			// capillary operator
-							r_ind2 = d_upwd_idx[c * NP + p] * N_OPS + UPSAT_OP + p;					// diffusion upwind multiplier
-							r_ind3 = (stencil[conn_st_id] * N_OPS + GRAD_OP + c * NP + p) * N_VARS;	// diffusion operator
+							r_ind2 = d_upwd_idx[p * NE + c] * N_OPS + UPSAT_OP + p;					// diffusion upwind multiplier
+							r_ind3 = (stencil[conn_st_id] * N_OPS + GRAD_OP + p * NE + c) * N_VARS;	// diffusion operator
 							// pressure contribution to flux
 							Jac[l_ind1 + P_VAR] += dt * op_vals_arr[r_ind] * tran[conn_st_id];
 							for (v = 0; v < NE; v++)
@@ -1002,19 +1002,19 @@ int engine_super_mp_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, st
 			if (i < mesh->n_res_blocks && j < mesh->n_res_blocks)
 			{
 				// Add diffusion term to the residual:
-				for (uint8_t c = 0; c < NE; c++)
+				for (c = 0; c < NE; c++)
 				{
-					for (uint8_t p = 0; p < NP; p++)
+					for (p = 0; p < NP; p++)
 					{
-						RHS[i * N_VARS + c] += dt * diff_diff[c * NP + p] * phi_avg * op_vals_arr[d_upwd_idx[c * NP + p] * N_OPS + UPSAT_OP + p]; // diffusion term
+						RHS[i * N_VARS + c] += dt * diff_diff[p * NE + c] * phi_avg * op_vals_arr[d_upwd_idx[p * NE + c] * N_OPS + UPSAT_OP + p]; // diffusion term
 
 						// upwind multiplier
-						if (d_upwd_jac_idx[c * NP + p] < csr_idx_end)
+						if (d_upwd_jac_idx[p * NE + c] < csr_idx_end)
 						{
-							l_ind = d_upwd_jac_idx[c * NP + p] * N_VARS_SQ + c * N_VARS;
+							l_ind = d_upwd_jac_idx[p * NE + c] * N_VARS_SQ + c * N_VARS;
 							r_ind = (i * N_OPS + UPSAT_OP + p) * N_VARS;
-							for (uint8_t v = 0; v < N_VARS; v++)
-								Jac[l_ind + v] += diff_diff[c * NP + p] * dt * phi_avg * op_ders_arr[r_ind + v];
+							for (v = 0; v < N_VARS; v++)
+								Jac[l_ind + v] += diff_diff[p * NE + c] * dt * phi_avg * op_ders_arr[r_ind + v];
 						}
 					}
 				}
@@ -1081,7 +1081,7 @@ int engine_super_mp_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, st
 		// calc CFL for reservoir cells, not connected with wells
 		if (i < mesh->n_res_blocks && !connected_with_well)
 		{
-			for (uint8_t c = 0; c < NC; c++)
+			for (c = 0; c < NC; c++)
 			{
 				if ((PV[i] * op_vals_arr[i * N_OPS + ACC_OP + c]) > 1e-4)
 				{
@@ -1197,7 +1197,7 @@ int engine_super_mp_cpu<NC, NP, THERMAL>::adjoint_gradient_assembly(value_t dt, 
 	index_t diag_idx, jac_idx, nebr_jac_idx, csr_idx_start, csr_idx_end, upwd_jac_idx[NP], d_upwd_jac_idx[NP * NE], st_id = 0, conn_st_id = 0;
 	value_t p_diff, gamma_p_diff, t_diff, gamma_t_diff, phi_i, phi_j, phi_avg, phi_0_avg, pc_diff[NP], diff_diff[NP * NE], phase_p_diff[NP], ZEROS[NP * NE];
 	value_t avg_density, * buf, * buf_c, * buf_diff, avg_heat_cond_multiplier;
-	uint8_t d, v, p;
+	uint8_t d, v, c, p;
 	value_t CFL_in[NC], CFL_out[NC];
 	value_t CFL_max_local = 0;
 	int connected_with_well;
@@ -1225,7 +1225,7 @@ int engine_super_mp_cpu<NC, NP, THERMAL>::adjoint_gradient_assembly(value_t dt, 
 
 
 		// initialize the CFL_in and CFL_out
-		for (uint8_t c = 0; c < NC; c++)
+		for (c = 0; c < NC; c++)
 		{
 			CFL_out[c] = 0;
 			CFL_in[c] = 0;
@@ -1291,7 +1291,7 @@ int engine_super_mp_cpu<NC, NP, THERMAL>::adjoint_gradient_assembly(value_t dt, 
 					pc_diff[p] += tran[conn_st_id] * buf_c[p];
 					// diffusion
 					for (c = 0; c < NE; c++)
-						diff_diff[c * NP + p] += tranD[conn_st_id] * buf_diff[c * NP + p];
+						diff_diff[p * NE + c] += tranD[conn_st_id] * buf_diff[p * NE + c];
 				}
 
 				conn_st_id++;
@@ -1334,15 +1334,15 @@ int engine_super_mp_cpu<NC, NP, THERMAL>::adjoint_gradient_assembly(value_t dt, 
 				// identify upwind diffusion direction
 				for (c = 0; c < NE; c++)
 				{
-					if (diff_diff[c * NP + p] >= 0)
+					if (diff_diff[p * NE + c] >= 0)
 					{
-						d_upwd_idx[c * NP + p] = i;
-						d_upwd_jac_idx[c * NP + p] = diag_ind[i];
+						d_upwd_idx[p * NE + c] = i;
+						d_upwd_jac_idx[p * NE + c] = diag_ind[i];
 					}
 					else
 					{
-						d_upwd_idx[c * NP + p] = j;
-						d_upwd_jac_idx[c * NP + p] = nebr_jac_idx;
+						d_upwd_idx[p * NE + c] = j;
+						d_upwd_jac_idx[p * NE + c] = nebr_jac_idx;
 					}
 				}
 			}
