@@ -102,14 +102,14 @@ class MaoDuan2009(Viscosity):
         for i in range(3):
             rhoH2O += self.rho_b[i] * 10 ** (self.rho_c[i] * temperature)
         for i in range(2):
-            rhoH2O += self.rho_d[i] * pressure ** i
+            rhoH2O += self.rho_d[i] * pressure ** (i+1)
 
         # Viscosity of pure water (Islam and Carlson, 2012)
         muH2O = self.mu_a
         for i in range(3):
             muH2O += self.mu_b[i] * np.exp(-self.mu_c[i] * temperature)
         for i in range(4):
-            muH2O += pressure * 0.1 * self.mu_d[i] * (temperature - 293.15) ** (i+1)
+            muH2O += pressure * 0.1 * self.mu_d[i] * (temperature - 293.15) ** i
 
         # # Viscosity of pure water (Mao and Duan, 2009)
         # muH2O = 0.
