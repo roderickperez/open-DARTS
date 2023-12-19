@@ -117,7 +117,7 @@ public:
 	virtual int init_jacobian_structure(csr_matrix_base *jacobian);
 
 	// newton loop
-	virtual int assemble_jacobian_array(value_t dt, std::vector<value_t> &X, csr_matrix_base *jacobian, std::vector<value_t> &RHS) = 0;
+	virtual int assemble_jacobian_array(value_t _dt, std::vector<value_t> &X, csr_matrix_base *jacobian, std::vector<value_t> &RHS) = 0;
 
 	virtual double calc_newton_residual();
 	virtual double calc_newton_residual_L1();
@@ -141,32 +141,17 @@ public:
 	void apply_global_chop_correction_new(std::vector<value_t> &X, std::vector<value_t> &dX);
 	void apply_local_chop_correction_new(std::vector<value_t> &X, std::vector<value_t> &dX);
 
-	virtual int apply_newton_update(value_t dt);
+	virtual int apply_newton_update(value_t _dt);
 
 	// Here we make the same thing as inside interpolation, but during Newton update
 	// It is correct from architectural point of view - X should be changed by engine, not inside interpolator
 	virtual void apply_obl_axis_local_correction(std::vector<value_t> &X, std::vector<value_t> &dX);
-
-	// main loop
-
-	double evaluate_next_dt();
 
 	// output routines
 
 	virtual int print_timestep(value_t time, value_t deltat);
 
 	int print_header();
-
-	/** @defgroup Engine_methods
-	   *  Methods of base engine class exposed to Python
-	   *  @{
-	   */
-
-	/// @brief runs simulation for the number of days using internal time management
-	virtual int run(value_t n_days);
-
-	/// @brief runs simulation for one timestep starting from particular time
-	virtual int run_timestep(value_t deltat, value_t time);
 
 	/// @brief report for one newton iteration
 	virtual int assemble_linear_system(value_t deltat);

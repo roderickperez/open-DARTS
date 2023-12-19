@@ -11,8 +11,6 @@ namespace py = pybind11;
 void pybind_engine_base (py::module &m)
 {
 	py::class_<engine_base>(m, "engine_base", "Base simulator engine class")  \
-		.def("run", &engine_base::run, py::call_guard<py::gil_scoped_release>())  \
-		.def("run_timestep", &engine_base::run_timestep, py::call_guard<py::gil_scoped_release>())  \
 		.def("report", &engine_base::report)  \
 		.def("print_stat", &engine_base::print_stat)  \
 		.def("test_assembly", &engine_base::test_assembly)  \
