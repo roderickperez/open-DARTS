@@ -2620,8 +2620,10 @@ int engine_base::post_newtonloop(value_t deltat, value_t time)
 		if (opt_history_matching)
 		{
 			X_t.push_back(X);
-			dt_t.push_back(dt);
-			t_t.push_back(t);
+			//dt_t.push_back(dt);
+			//t_t.push_back(t);
+			dt_t.push_back(deltat);
+			t_t.push_back(time + deltat);
 			if (is_mp)
 			{
 				Xop_t.push_back(Xop_mp);
