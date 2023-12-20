@@ -1758,7 +1758,7 @@ engine_base::calc_well_residual()
 
 //#define NORMAL_ZC //If you want to use logtransform of zc, i.e. X = [P, log(z1), ..., log(znc-1)] instead of [P, z1, ..., znc-1], comment this line!
 
-int engine_base::apply_newton_update(value_t _dt)
+int engine_base::apply_newton_update(value_t dt)
 {
 	timer->node["newton update"].node["composition correction"].start();
 	if (nc > 1)
