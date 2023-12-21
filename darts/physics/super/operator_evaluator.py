@@ -171,7 +171,7 @@ class WellOperators(OperatorsSuper):
         nm = self.property.nm
         nc_fl = self.nc - nm
 
-        for i in range(self.N_OP):
+        for i in range(self.n_ops):
             values[i] = 0
 
         ph, sat, x, rho, rho_m, mu, kr, pc, mass_source = self.property.evaluate(state)
