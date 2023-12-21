@@ -1,19 +1,20 @@
 import numpy as np
+from darts.engines import value_vector
 
 
 class PropertyBase:
-    output_props: {}
+    output_props = {}
 
-    def get_state(self, state):
+    def get_state(self, state: value_vector):
         pass
 
-    def evaluate(self, state):
+    def evaluate(self, state: value_vector):
         pass
 
-    def evaluate_thermal(self, state):
+    def evaluate_thermal(self, state: value_vector):
         pass
 
-    def evaluate_at_cond(self, state):
+    def evaluate_at_cond(self, state: value_vector):
         pass
 
     def set_output_props(self, props: dict):
