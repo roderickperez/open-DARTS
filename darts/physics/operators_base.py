@@ -50,6 +50,6 @@ class PropertyOperators(OperatorsBase):
             _ = self.property.evaluate_thermal(state)
 
         for i, prop in enumerate(self.props_name):
-            values[i] = self.props[prop]()
+            values[i] = self.property.output_props[prop]()
 
         return 0
