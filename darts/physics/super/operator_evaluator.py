@@ -202,7 +202,7 @@ class WellOperators(OperatorsSuper):
         """ Chi operator for diffusion """
 
         """ Delta operator for reaction """
-        for i in range(self.ne):
+        for i in range(self.nc):
             values[self.KIN_OP + i] = mass_source[i]
 
         """ Gravity and Capillarity operators """
