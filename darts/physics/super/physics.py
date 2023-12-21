@@ -2,7 +2,8 @@ import numpy as np
 from darts.engines import *
 from darts.physics.physics_base import PhysicsBase
 
-from darts.physics.super.operator_evaluator import *
+from darts.physics.operators_base import PropertyOperators
+from darts.physics.super.operator_evaluator import ReservoirOperators, WellOperators, RateOperators
 
 
 class Compositional(PhysicsBase):
@@ -72,16 +73,15 @@ class Compositional(PhysicsBase):
 
         :param regions: List of regions. It contains the keys of the `property_containers` and `reservoir_operators` dict
         :type regions: list
-        :param output_properties: Output property operators object, default is None
         """
+        for region, prop_container in self.property_containers.items():
+            self.reservoir_operators[region] = ReservoirOperators(prop_container, self.thermal)
+            self.property_operators[region] = PropertyOperators(prop_container, self.thermal)
+
         if self.thermal:
-            for region, prop_container in self.property_containers.items():
-                self.reservoir_operators[region] = ReservoirThermalOperators(prop_container)
-            self.wellbore_operators = ReservoirThermalOperators(self.property_containers[regions[0]])
+            self.wellbore_operators = ReservoirOperators(self.property_containers[regions[0]], self.thermal)
         else:
-            for region, prop_container in self.property_containers.items():
-                self.reservoir_operators[region] = ReservoirOperators(prop_container)
-            self.wellbore_operators = WellOperators(self.property_containers[regions[0]])
+            self.wellbore_operators = WellOperators(self.property_containers[regions[0]], self.thermal)
 
         self.rate_operators = RateOperators(self.property_containers[regions[0]])
 

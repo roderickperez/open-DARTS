@@ -32,9 +32,9 @@ class PhysicsBase:
     property_containers = {}
 
     reservoir_operators = {}
+    property_operators = {}
     wellbore_operators: operator_set_evaluator_iface
     rate_operators: operator_set_evaluator_iface
-    property_operators: operator_set_evaluator_iface = None
 
     def __init__(self, variables: list, nc: int, phases: list, n_ops: int,
                  axes_min: value_vector, axes_max: value_vector, n_points: int,
@@ -62,7 +62,6 @@ class PhysicsBase:
         # Define variables and number of operators
         self.vars = variables
         self.n_vars = len(variables)
-        self.n_props = 0
 
         self.nc = nc
         self.phases = phases
@@ -116,7 +115,7 @@ class PhysicsBase:
         self.define_well_controls()
         return engine
 
-    def add_property_region(self, property_container, region=0):
+    def add_property_region(self, property_container, region: int = 0):
         """
         Function to add :class:`PropertyContainer` object for specified region to `property_containers` dict.
 
@@ -125,16 +124,6 @@ class PhysicsBase:
         :param region: Name of the region, to be used as a key in `property_containers` dict
         """
         self.property_containers[region] = property_container
-        return
-
-    def add_property_operators(self, property_operators: operator_set_evaluator_iface):
-        """
-        Function to add PropertyOperators object for interpolation of properties after simulation
-
-        :param property_operators: :class:`PropertyOperators` object
-        """
-        self.property_operators = property_operators
-        self.n_props = property_operators.n_props
         return
 
     def set_operators(self, regions: list):
@@ -180,12 +169,19 @@ class PhysicsBase:
         :type itor_precision: str
         """
         self.acc_flux_itor = {}
+        self.property_itor = {}
         for region, operators in self.reservoir_operators.items():
             self.acc_flux_itor[region] = self.create_interpolator(operators, self.n_vars, self.n_ops,
                                                                   self.n_axes_points, self.axes_min, self.axes_max,
                                                                   platform=platform, algorithm=itor_type,
                                                                   mode=itor_mode, precision=itor_precision)
             self.create_itor_timers(self.acc_flux_itor[region], 'reservoir %d interpolation' % region)
+
+            self.property_itor[region] = self.create_interpolator(operators, self.n_vars, self.n_ops,
+                                                                  self.n_axes_points, self.axes_min, self.axes_max,
+                                                                  platform=platform, algorithm=itor_type,
+                                                                  mode=itor_mode, precision=itor_precision)
+            self.create_itor_timers(self.property_itor[region], 'property %d interpolation' % region)
 
         self.acc_flux_w_itor = self.create_interpolator(self.wellbore_operators, self.n_vars, self.n_ops,
                                                         self.n_axes_points, self.axes_min, self.axes_max,
@@ -198,13 +194,6 @@ class PhysicsBase:
                                                   platform=platform, algorithm=itor_type, mode=itor_mode,
                                                   precision=itor_precision)
         self.create_itor_timers(self.rate_itor, 'well controls interpolation')
-
-        if self.property_operators is not None:
-            self.property_itor = self.create_interpolator(self.property_operators, self.n_vars, self.n_ops,
-                                                          self.n_axes_points, self.axes_min, self.axes_max,
-                                                          platform=platform, algorithm=itor_type, mode=itor_mode,
-                                                          precision=itor_precision)
-            self.create_itor_timers(self.property_itor, 'property interpolation')
 
         return
 

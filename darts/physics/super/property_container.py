@@ -1,9 +1,10 @@
 import numpy as np
+from darts.physics.property_base import PropertyBase
 from darts.physics.properties.flash import Flash
 from darts.physics.properties.basic import CapillaryPressure, Diffusion, RockCompactionEvaluator, RockEnergyEvaluator
 
 
-class PropertyContainer:
+class PropertyContainer(PropertyBase):
     def __init__(self, phases_name, components_name, Mw, min_z=1e-11,
                  diff_coef=0., rock_comp=1e-6, solid_dens=None, rate_ann_mat=None, temperature=None):
 
@@ -64,6 +65,8 @@ class PropertyContainer:
         self.kappa = np.zeros(self.nph)
 
         self.phase_props = [self.dens, self.dens_m, self.sat, self.nu, self.mu, self.kr, self.pc, self.enthalpy, self.kappa]
+
+        self.output_props = {"sat0": lambda: self.sat[0]}
 
     def get_state(self, state):
         """
