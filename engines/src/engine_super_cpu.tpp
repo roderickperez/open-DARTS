@@ -284,7 +284,7 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
           {
             for (uint8_t p = 0; p < NP; p++)
             {
-              value_t grad_con = op_vals_arr[j * N_OPS + GRAD_OP + c * NP + p] - op_vals_arr[i * N_OPS + GRAD_OP + c * NP + p];
+              value_t grad_con = op_vals_arr[j * N_OPS + GRAD_OP + p * NE + c] - op_vals_arr[i * N_OPS + GRAD_OP + p * NE + c];
 
               if (grad_con < 0)
               {
@@ -296,8 +296,8 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
                 // Add diffusion terms to Jacobian:
                 for (uint8_t v = 0; v < N_VARS; v++)
                 {
-                  Jac[diag_idx + c * N_VARS + v] += diff_mob_ups_m * op_ders_arr[(i * N_OPS + GRAD_OP + c * NP + p) * N_VARS + v];
-                  Jac[jac_idx + c * N_VARS + v] -= diff_mob_ups_m * op_ders_arr[(j * N_OPS + GRAD_OP + c * NP + p) * N_VARS + v];
+                  Jac[diag_idx + c * N_VARS + v] += diff_mob_ups_m * op_ders_arr[(i * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
+                  Jac[jac_idx + c * N_VARS + v] -= diff_mob_ups_m * op_ders_arr[(j * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
 
                   Jac[diag_idx + c * N_VARS + v] -= grad_con * dt * mesh->tranD[conn_idx] * phi_avg * op_ders_arr[(i * N_OPS + UPSAT_OP + p) * N_VARS + v];
                 }
@@ -312,8 +312,8 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
                 // Add diffusion terms to Jacobian:
                 for (uint8_t v = 0; v < N_VARS; v++)
                 {
-                  Jac[diag_idx + c * N_VARS + v] += diff_mob_ups_m * op_ders_arr[(i * N_OPS + GRAD_OP + c * NP + p) * N_VARS + v];
-                  Jac[jac_idx + c * N_VARS + v] -= diff_mob_ups_m * op_ders_arr[(j * N_OPS + GRAD_OP + c * NP + p) * N_VARS + v];
+                  Jac[diag_idx + c * N_VARS + v] += diff_mob_ups_m * op_ders_arr[(i * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
+                  Jac[jac_idx + c * N_VARS + v] -= diff_mob_ups_m * op_ders_arr[(j * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
 
                   Jac[jac_idx + c * N_VARS + v] -= grad_con * dt * mesh->tranD[conn_idx] * phi_avg * op_ders_arr[(j * N_OPS + UPSAT_OP + p) * N_VARS + v];
                 }
