@@ -170,14 +170,14 @@ class PhysicsBase:
         """
         self.acc_flux_itor = {}
         self.property_itor = {}
-        for region, operators in self.reservoir_operators.items():
-            self.acc_flux_itor[region] = self.create_interpolator(operators, self.n_vars, self.n_ops,
+        for region in self.reservoir_operators.keys():
+            self.acc_flux_itor[region] = self.create_interpolator(self.reservoir_operators[region], self.n_vars, self.n_ops,
                                                                   self.n_axes_points, self.axes_min, self.axes_max,
                                                                   platform=platform, algorithm=itor_type,
                                                                   mode=itor_mode, precision=itor_precision)
             self.create_itor_timers(self.acc_flux_itor[region], 'reservoir %d interpolation' % region)
 
-            self.property_itor[region] = self.create_interpolator(operators, self.n_vars, self.n_ops,
+            self.property_itor[region] = self.create_interpolator(self.property_operators[region], self.n_vars, self.n_ops,
                                                                   self.n_axes_points, self.axes_min, self.axes_max,
                                                                   platform=platform, algorithm=itor_type,
                                                                   mode=itor_mode, precision=itor_precision)
