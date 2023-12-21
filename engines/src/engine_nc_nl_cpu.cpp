@@ -401,7 +401,7 @@ int engine_nc_nl_cpu<NC>::init_jacobian_structure_mpfa(csr_matrix_base *jacobian
 }
 
 template <uint8_t NC>
-int engine_nc_nl_cpu<NC>::run_single_newton_iteration(value_t deltat)
+int engine_nc_nl_cpu<NC>::assemble_linear_system(value_t deltat)
 {
 	// switch constraints if needed
 	timer->node["jacobian assembly"].start();

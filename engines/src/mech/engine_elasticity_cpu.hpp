@@ -62,7 +62,7 @@ public:
                 std::vector<operator_set_gradient_evaluator_iface *> &acc_flux_op_set_list_,
                 sim_params *params_, timer_node *timer_);
 
-  int run_single_newton_iteration(value_t deltat);
+  int assemble_linear_system(value_t deltat);
   int init_jacobian_structure_mpsa(csr_matrix_base *jacobian);
   int solve_linear_equation();
   double calc_newton_residual_L2();

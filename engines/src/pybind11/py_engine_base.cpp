@@ -11,13 +11,11 @@ namespace py = pybind11;
 void pybind_engine_base (py::module &m)
 {
 	py::class_<engine_base>(m, "engine_base", "Base simulator engine class")  \
-		.def("run", &engine_base::run, py::call_guard<py::gil_scoped_release>())  \
-		.def("run_timestep", &engine_base::run_timestep, py::call_guard<py::gil_scoped_release>())  \
 		.def("report", &engine_base::report)  \
 		.def("print_stat", &engine_base::print_stat)  \
 		.def("test_assembly", &engine_base::test_assembly)  \
 		.def("test_spmv", &engine_base::test_spmv)  \
-		.def("run_single_newton_iteration", &engine_base::run_single_newton_iteration, py::call_guard<py::gil_scoped_release>())  \
+		.def("assemble_linear_system", &engine_base::assemble_linear_system, py::call_guard<py::gil_scoped_release>())  \
 		.def("calc_newton_residual", &engine_base::calc_newton_residual, py::call_guard<py::gil_scoped_release>())  \
 		.def("calc_well_residual", &engine_base::calc_well_residual, py::call_guard<py::gil_scoped_release>())  \
 		.def("apply_newton_update", &engine_base::apply_newton_update, py::call_guard<py::gil_scoped_release>())  \

@@ -147,29 +147,14 @@ public:
 	// It is correct from architectural point of view - X should be changed by engine, not inside interpolator
 	virtual void apply_obl_axis_local_correction(std::vector<value_t> &X, std::vector<value_t> &dX);
 
-	// main loop
-
-	double evaluate_next_dt();
-
 	// output routines
 
 	virtual int print_timestep(value_t time, value_t deltat);
 
 	int print_header();
 
-	/** @defgroup Engine_methods
-	   *  Methods of base engine class exposed to Python
-	   *  @{
-	   */
-
-	/// @brief runs simulation for the number of days using internal time management
-	virtual int run(value_t n_days);
-
-	/// @brief runs simulation for one timestep starting from particular time
-	virtual int run_timestep(value_t deltat, value_t time);
-
 	/// @brief report for one newton iteration
-	virtual int run_single_newton_iteration(value_t deltat);
+	virtual int assemble_linear_system(value_t deltat);
 	virtual int solve_linear_equation();
 	virtual int post_newtonloop(value_t deltat, value_t time);
 

@@ -1321,156 +1321,6 @@ engine_base::prepare_dj_dx(vec_3d q, vec_3d q_inj,
 	return 0;
 };
 
-
-
-
-
-
-/*!
-
- @details
-
-	This base method runs simulation for particular time period. It use various
-	parameters kept from the previous run in internal structures. The timestep
-	managements is performed based on internal parameters (see 'params' class)
-
- @param n_days - number of days for simulation
-
- @note this procedure involve several internal parameters including:
-	- mesh - mesh information for simulation
-	- params - all parameters for simulation
-	- wells - well input used in simulation
-	- Xn and X - solution for initial and following timesteps
-  */
-int engine_base::run(value_t n_days)
-{
-	int last_ts = 0;
-
-	const char n_vars = get_n_vars();
-	const char n_ops = get_n_ops();
-	const uint8_t nc = get_n_comps();
-
-	stop_time = n_days + t;
-
-	if (fabs(t) < 1e-15)
-		prev_usual_dt = params->first_ts / params->mult_ts;
-	else
-		prev_usual_dt = params->max_ts;
-
-	dt = evaluate_next_dt();
-
-	for (; t + 1e-10 < stop_time;)
-	{
-		int converged = run_timestep(dt, t);
-
-		if (!converged) // no convergence reached
-		{
-			dt /= params->mult_ts;
-			prev_usual_dt = dt;
-
-			// terminate if not converging
-			if (dt < params->first_ts)
-				return 0;
-		}
-		else //convergence reached
-		{
-			dt = evaluate_next_dt();
-		}
-	} // end of timestep loop
-
-	return 0;
-}
-
-/*!
- @details
-
-	This base method runs simulation for a single timetep. For compatibility
-	between different runs, optional value for a current timetep can be provided.
-	.
-
- @param n_days - number of days for simulation
- @param time - starting time for the timestep
-
- @note this procedure involve several internal parameters including:
-	- mesh - mesh information for simulation
-	- params - all parameters for simulation
-	- wells - well input used in simulation
-	- Xn and X - solution for initial and following timesteps
-  */
-
-int engine_base::run_timestep(value_t deltat, value_t time)
-{
-	int r_code;
-	char buffer[1024];
-	double well_tolerance_coefficient = 1e2;
-
-	int converged;
-
-	int total_file_count = 0;
-
-	timer->start();
-
-	for (n_newton_last_dt = 0, n_linear_last_dt = 0;; n_newton_last_dt++)
-	{
-		run_single_newton_iteration(deltat);
-		newton_residual_last_dt = calc_newton_residual();
-		well_residual_last_dt = calc_well_residual();
-
-		// exit if target tolerance or maximum amount of newton iterations are reached
-		if ((newton_residual_last_dt < params->tolerance_newton && well_residual_last_dt < well_tolerance_coefficient * params->tolerance_newton) || n_newton_last_dt == params->max_i_newton)
-		{
-			if (n_newton_last_dt > params->min_i_newton)
-			{
-				break;
-			}
-		}
-
-		int error = solve_linear_equation();
-
-		if (0) //changed this to write jacobian to file!
-		{
-			Jacobian->write_matrix_to_file("jac_nc_dar.csr");
-			write_vector_to_file("jac_nc_dar.rhs", RHS);
-			write_vector_to_file("jac_nc_dar.sol", dX);
-			//apply_newton_update(deltat);
-			//write_vector_to_file("X_nc_dar", X);
-			//write_vector_to_file("Xn_nc_dar", Xn);
-			//exit(0);
-			//return 0;
-		}
-		// stop newton process if any error in solver occurs
-		if (error)
-		{
-			break;
-		}
-
-		timer->node["newton update"].start();
-		apply_newton_update(deltat);
-		timer->node["newton update"].stop();
-
-	} // end of newton loop
-	converged = post_newtonloop(dt, time);
-	timer->stop();
-
-	return converged;
-}
-
-double
-engine_base::evaluate_next_dt()
-{
-	// calculate next dt neglecting dt reduction because of reports
-	double usual_dt = std::min(prev_usual_dt * params->mult_ts, params->max_ts);
-	prev_usual_dt = usual_dt;
-	double next_dt = usual_dt;
-
-	double stop_dt = stop_time - t;
-	// if we not at the stop point already
-	if (stop_dt > 0)
-		next_dt = std::min(next_dt, stop_dt);
-
-	return next_dt;
-}
-
 int engine_base::print_timestep(value_t time, value_t deltat)
 {
 	double estimate;
@@ -2615,7 +2465,7 @@ int engine_base::test_spmv(int n_times, int kernel_number, int dump_result)
 	return 0;
 }
 
-int engine_base::run_single_newton_iteration(value_t deltat)
+int engine_base::assemble_linear_system(value_t deltat)
 {
 	// switch constraints if needed
 	timer->node["jacobian assembly"].start();
@@ -2781,8 +2631,10 @@ int engine_base::post_newtonloop(value_t deltat, value_t time)
 		if (opt_history_matching)
 		{
 			X_t.push_back(X);
-			dt_t.push_back(dt);
-			t_t.push_back(t);
+			//dt_t.push_back(dt);
+			//t_t.push_back(t);
+			dt_t.push_back(deltat);
+			t_t.push_back(time + deltat);
 			if (is_mp)
 			{
 				Xop_t.push_back(Xop_mp);

@@ -115,11 +115,6 @@ class Model(CICDModel):
 
         return rhs_flux
 
-    # overload base darts run function, because run does not apply_rhs_flux.
-    # in CI/CD only run() is called
-    def run(self):
-        self.run_python(self.runtime)
-
 
 class ModelProperties(PropertyContainer):
     def __init__(self, phases_name, components_name, min_z=1e-11):
