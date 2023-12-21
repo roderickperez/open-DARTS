@@ -77,7 +77,7 @@ int ms_well::calc_rates(std::vector<value_t>& X, std::vector<value_t>& op_vals_a
   {
     nc--;
     n_ops = 2 * nc + 5;
-    time_data[name + " : T (K)"].push_back(state[n_vars - 1]);
+    time_data[name + " : temperature (K)"].push_back(state[n_vars - 1]);
 	/*time_data[name + " : " + "energy" + " (kJ/day)"].push_back(rates[n_phases] * p_diff * segment_transmissibility);*/
   }
 

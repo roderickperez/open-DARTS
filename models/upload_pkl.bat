@@ -6,7 +6,7 @@ set fname=pkl_win.zip
 echo %fname%
 
 set pklname="perf_win"
-if "%odls%"=="0" (
+if "%odls%"=="-a" (
     set pklname=%pklname%"_iter"
 )
 

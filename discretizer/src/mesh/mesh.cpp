@@ -98,12 +98,24 @@ void Mesh::gmsh_mesh_reading(string filename, const PhysicalTags& tags)
 	uint8_t stride;
 	index_t counter = 0, offset = 0;
 	for (const auto& region : elem_order)
-	{
+	{	
+		index_t pnt_idx = 0, curv_idx = 0, surf_idx = 0, vol_idx = 0;
 		region_ranges[region].first = counter;
 		for (const auto& block : spec.elements.entity_blocks)
 		{
 			const auto& loc_tags = tags.at(region);
-			if (loc_tags.find(block.entity_tag) == loc_tags.end()) continue;
+
+			int block_tag;
+			if (block.entity_dim == 0)
+				block_tag = spec.entities.points[pnt_idx++].physical_group_tags[0];
+			else if (block.entity_dim == 1)
+				block_tag = spec.entities.curves[curv_idx++].physical_group_tags[0];
+			else if (block.entity_dim == 2)
+				block_tag = spec.entities.surfaces[surf_idx++].physical_group_tags[0];
+			else if (block.entity_dim == 3)
+				block_tag = spec.entities.volumes[vol_idx++].physical_group_tags[0];
+
+			if (loc_tags.find(block_tag) == loc_tags.end()) continue;
 
 			stride = Etype_PTS.at(static_cast<ElemType>(block.element_type)) + 1;
 

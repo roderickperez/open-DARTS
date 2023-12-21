@@ -125,6 +125,20 @@ class PropertyContainer:
             self.sat[j] = (self.nu[j] / self.dens_m[j]) / Vtot
 
         return
+        
+    def compute_saturation_full(self, state):
+        pressure, temperature, zc = self.get_state(state)
+        self.clean_arrays()
+        self.ph = self.run_flash(pressure, temperature, zc)
+
+        for j in self.ph:
+            M = np.sum(self.Mw * self.x[j][:])
+            self.dens_m[j] = self.density_ev[self.phases_name[j]].evaluate(pressure, temperature, self.x[j, :]) / M
+
+        self.compute_saturation(self.ph)
+
+        return self.sat[0]
+        
 
     def run_flash(self, pressure, temperature, zc):
         # Evaluates flash, then uses getter for nu and x - for compatibility with DARTS-flash
