@@ -170,26 +170,24 @@ class PhysicsBase:
             self.acc_flux_itor[region] = self.create_interpolator(self.reservoir_operators[region], self.n_vars, self.n_ops,
                                                                   self.n_axes_points, self.axes_min, self.axes_max,
                                                                   platform=platform, algorithm=itor_type,
-                                                                  mode=itor_mode, precision=itor_precision)
-            self.create_itor_timers(self.acc_flux_itor[region], 'reservoir %d interpolation' % region)
+                                                                  mode=itor_mode, precision=itor_precision,
+                                                                  timer_name='reservoir %d interpolation' % region)
 
             self.property_itor[region] = self.create_interpolator(self.property_operators[region], self.n_vars, self.n_ops,
                                                                   self.n_axes_points, self.axes_min, self.axes_max,
                                                                   platform=platform, algorithm=itor_type,
-                                                                  mode=itor_mode, precision=itor_precision)
-            self.create_itor_timers(self.property_itor[region], 'property %d interpolation' % region)
+                                                                  mode=itor_mode, precision=itor_precision,
+                                                                  timer_name='property %d interpolation' % region)
 
         self.acc_flux_w_itor = self.create_interpolator(self.wellbore_operators, self.n_vars, self.n_ops,
                                                         self.n_axes_points, self.axes_min, self.axes_max,
                                                         platform=platform, algorithm=itor_type, mode=itor_mode,
-                                                        precision=itor_precision)
-        self.create_itor_timers(self.acc_flux_w_itor, 'wellbore interpolation')
+                                                        precision=itor_precision, timer_name='wellbore interpolation')
 
         self.rate_itor = self.create_interpolator(self.rate_operators, self.n_vars, self.nph,
                                                   self.n_axes_points, self.axes_min, self.axes_max,
                                                   platform=platform, algorithm=itor_type, mode=itor_mode,
-                                                  precision=itor_precision)
-        self.create_itor_timers(self.rate_itor, 'well controls interpolation')
+                                                  precision=itor_precision, timer_name='well controls interpolation')
 
         return
 
@@ -208,7 +206,7 @@ class PhysicsBase:
             w.init_rate_parameters(self.n_vars, self.phases, self.rate_itor)
 
     def create_interpolator(self, evaluator: operator_set_evaluator_iface, n_dims: int, n_ops: int,
-                            axes_n_points: index_vector, axes_min: value_vector, axes_max: value_vector,
+                            axes_n_points: index_vector, axes_min: value_vector, axes_max: value_vector, timer_name: str,
                             algorithm: str = 'multilinear', mode: str = 'adaptive',
                             platform: str = 'cpu', precision: str = 'd'):
         """
@@ -306,6 +304,8 @@ class PhysicsBase:
             with open(itor_cache_filename, "wb") as fp:
                 print("Writing point data for ", type(itor).__name__)
                 pickle.dump(itor.point_data, fp, protocol=4)
+
+        self.create_itor_timers(itor, timer_name)
         return itor
 
     def create_itor_timers(self, itor: operator_set_gradient_evaluator_iface, timer_name: str):
