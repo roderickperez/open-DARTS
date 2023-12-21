@@ -28,6 +28,8 @@ class PhysicsBase:
     :type rate_operators: dict
     :ivar property_operators: :class:`PropertyOperators` object for evaluation and interpolation of properties
     :type property_operators: dict
+    :ivar regions: List of property regions
+    :type regions: list
     """
     property_containers = {}
 
@@ -35,6 +37,8 @@ class PhysicsBase:
     property_operators = {}
     wellbore_operators: operator_set_evaluator_iface
     rate_operators: operator_set_evaluator_iface
+
+    regions = []
 
     def __init__(self, variables: list, nc: int, phases: list, n_ops: int,
                  axes_min: value_vector, axes_max: value_vector, n_points: int,
@@ -83,14 +87,12 @@ class PhysicsBase:
             self.created_itors = []
             atexit.register(self.write_cache)
 
-    def init_physics(self, regions: list = None, discr_type: str = 'tpfa', platform: str = 'cpu',
+    def init_physics(self, discr_type: str = 'tpfa', platform: str = 'cpu',
                      itor_type: str = 'multilinear', itor_mode: str = 'adaptive', itor_precision: str = 'd',
                      verbose: bool = False):
         """
         Function to initialize all contained objects within the Physics object.
 
-        :param regions: List of regions. It contains the keys of the `property_containers` and `reservoir_operators` dict
-        :type regions: list
         :param discr_type: Discretization type, 'tpfa' (default) or 'mpfa'
         :type discr_type: str
         :param platform: Switch for CPU/GPU engine, 'cpu' (default) or 'gpu'
@@ -104,12 +106,8 @@ class PhysicsBase:
         :param verbose: Set verbose level
         :type verbose: bool
         """
-        # If no list of regions has been provided, generate it from the keys of self.property_containers dict
-        if regions is None:
-            regions = list(self.property_containers.keys())
-
         # Define operators, set engine, set interpolators and define well controls
-        self.set_operators(regions)
+        self.set_operators()
         engine = self.set_engine(discr_type, platform)
         self.set_interpolators(platform, itor_type, itor_mode, itor_precision)
         self.define_well_controls()
@@ -124,18 +122,16 @@ class PhysicsBase:
         :param region: Name of the region, to be used as a key in `property_containers` dict
         """
         self.property_containers[region] = property_container
+        self.regions.append(region)
         return
 
-    def set_operators(self, regions: list):
+    def set_operators(self):
         """
         Function to set operator objects: :class:`ReservoirOperators` for each of the reservoir regions,
         :class:`WellOperators` for the well cells, :class:`RateOperators` for evaluation of rates
         and a :class:`PropertyOperator` for the evaluation of properties.
 
         In PhysicsBase, this is an empty function, needs to be overloaded in child classes.
-
-        :param regions: List of regions. It contains the keys of the `property_containers` and `reservoir_operators` dict
-        :type regions: list
         """
         pass
 
@@ -170,7 +166,7 @@ class PhysicsBase:
         """
         self.acc_flux_itor = {}
         self.property_itor = {}
-        for region in self.reservoir_operators.keys():
+        for region in self.regions:
             self.acc_flux_itor[region] = self.create_interpolator(self.reservoir_operators[region], self.n_vars, self.n_ops,
                                                                   self.n_axes_points, self.axes_min, self.axes_max,
                                                                   platform=platform, algorithm=itor_type,
