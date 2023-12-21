@@ -243,7 +243,7 @@ class DartsModel:
         self.params.newton_type = newton_type if newton_type is not None else self.params.newton_type
         self.params.newton_params = newton_params if newton_params is not None else self.params.newton_params
 
-    def run(self, days: float = None, restart_dt: float = 0.):
+    def run(self, days: float = None, restart_dt: float = 0., verbose: bool = True):
         days = days if days is not None else self.runtime
 
         # get current engine time
@@ -261,13 +261,14 @@ class DartsModel:
         ts = 0
 
         while t < stop_time:
-            converged = self.run_timestep(dt, t)
+            converged = self.run_timestep(dt, t, verbose)
 
             if converged:
                 t += dt
                 ts += 1
-                print("# %d \tT = %3g\tDT = %2g\tNI = %d\tLI=%d"
-                      % (ts, t, dt, self.engine.n_newton_last_dt, self.engine.n_linear_last_dt))
+                if verbose:
+                    print("# %d \tT = %3g\tDT = %2g\tNI = %d\tLI=%d"
+                          % (ts, t, dt, self.engine.n_newton_last_dt, self.engine.n_linear_last_dt))
 
                 dt = min(dt * self.params.mult_ts, self.params.max_ts)
 
@@ -278,18 +279,20 @@ class DartsModel:
 
             else:
                 dt /= self.params.mult_ts
-                print("Cut timestep to %2.3f" % dt)
+                if verbose:
+                    print("Cut timestep to %2.3f" % dt)
                 if dt < self.params.min_ts:
                     break
         # update current engine time
         self.engine.t = stop_time
 
-        print("TS = %d(%d), NI = %d(%d), LI = %d(%d)" % (
-            self.engine.stat.n_timesteps_total, self.engine.stat.n_timesteps_wasted,
-            self.engine.stat.n_newton_total, self.engine.stat.n_newton_wasted,
-            self.engine.stat.n_linear_total, self.engine.stat.n_linear_wasted))
+        if verbose:
+            print("TS = %d(%d), NI = %d(%d), LI = %d(%d)"
+                  % (self.engine.stat.n_timesteps_total, self.engine.stat.n_timesteps_wasted,
+                     self.engine.stat.n_newton_total, self.engine.stat.n_newton_wasted,
+                     self.engine.stat.n_linear_total, self.engine.stat.n_linear_wasted))
 
-    def run_timestep(self, dt, t):
+    def run_timestep(self, dt, t, verbose: bool = True):
         max_newt = self.params.max_i_newton
         max_residual = np.zeros(max_newt + 1)
         self.engine.n_linear_last_dt = 0
@@ -306,7 +309,8 @@ class DartsModel:
                 if abs(max_residual[i] - max_residual[j])/max_residual[i] < self.params.stationary_point_tolerance:
                     counter += 1
             if counter > 2:
-                print("Stationary point detected!")
+                if verbose:
+                    print("Stationary point detected!")
                 break
 
             self.engine.well_residual_last_dt = self.engine.calc_well_residual()
