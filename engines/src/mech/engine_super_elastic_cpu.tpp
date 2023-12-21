@@ -1131,7 +1131,7 @@ int engine_super_elastic_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t d
 };
 
 template <uint8_t NC, uint8_t NP, bool THERMAL>
-int engine_super_elastic_cpu<NC, NP, THERMAL>::run_single_newton_iteration(value_t deltat)
+int engine_super_elastic_cpu<NC, NP, THERMAL>::assemble_linear_system(value_t deltat)
 {
 	newton_update_coefficient = 1.0;
 	// switch constraints if needed

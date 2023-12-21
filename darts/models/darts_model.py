@@ -231,6 +231,7 @@ class DartsModel:
         self.params.first_ts = first_ts if first_ts is not None else self.params.first_ts
         self.params.mult_ts = mult_ts if mult_ts is not None else self.params.mult_ts
         self.params.max_ts = max_ts if max_ts is not None else self.params.max_ts
+        self.prev_ts = first_ts if first_ts is not None else self.params.first_ts
         self.runtime = runtime
 
         # Newton tolerance is relatively high because of L2-norm for residual and well segments
@@ -242,61 +243,92 @@ class DartsModel:
         self.params.newton_type = newton_type if newton_type is not None else self.params.newton_type
         self.params.newton_params = newton_params if newton_params is not None else self.params.newton_params
 
-    def run(self, days: float = None):
-        runtime = days if days is not None else self.runtime
-
-        self.engine.run(runtime)
-
-    def run_python(self, days: float = None, restart_dt: float = 0, timestep_python: bool = False):
-        runtime = days if days is not None else self.runtime
-        mult_dt = self.params.mult_ts
-        max_dt = self.params.max_ts
+    def run(self, days: float = None, restart_dt: float = 0., verbose: bool = True):
+        days = days if days is not None else self.runtime
 
         # get current engine time
         t = self.engine.t
+        stop_time = t + days
 
         # same logic as in engine.run
         if fabs(t) < 1e-15:
             dt = self.params.first_ts
-        elif restart_dt > 0:
+        elif restart_dt > 0.:
             dt = restart_dt
         else:
-            dt = self.params.max_ts
+            dt = min(self.prev_ts * self.params.mult_ts, self.params.max_ts)
 
-        # evaluate end time
-        runtime += t
         ts = 0
 
-        while t < runtime:
-            if timestep_python:
-                 converged = self.engine.run_timestep(dt, t)
-            else:
-                 converged = self.run_timestep_python(dt, t)
+        while t < stop_time:
+            converged = self.run_timestep(dt, t, verbose)
 
             if converged:
                 t += dt
-                ts = ts + 1
-                print("# %d \tT = %3g\tDT = %2g\tNI = %d\tLI=%d"
-                      % (ts, t, dt, self.engine.n_newton_last_dt, self.engine.n_linear_last_dt))
+                ts += 1
+                if verbose:
+                    print("# %d \tT = %3g\tDT = %2g\tNI = %d\tLI=%d"
+                          % (ts, t, dt, self.engine.n_newton_last_dt, self.engine.n_linear_last_dt))
 
-                dt *= mult_dt
-                if dt > max_dt:
-                    dt = max_dt
+                dt = min(dt * self.params.mult_ts, self.params.max_ts)
 
-                if t + dt > runtime:
-                    dt = runtime - t
+                if t + dt > stop_time:
+                    dt = stop_time - t
+                else:
+                    self.prev_ts = dt
 
             else:
-                dt /= mult_dt
-                print("Cut timestep to %2.3f" % dt)
-                if dt < 1e-12:
+                dt /= self.params.mult_ts
+                if verbose:
+                    print("Cut timestep to %2.3f" % dt)
+                if dt < self.params.min_ts:
                     break
         # update current engine time
-        self.engine.t = runtime
+        self.engine.t = stop_time
 
-        print("TS = %d(%d), NI = %d(%d), LI = %d(%d)" % (self.engine.stat.n_timesteps_total, self.engine.stat.n_timesteps_wasted,
-                                                         self.engine.stat.n_newton_total, self.engine.stat.n_newton_wasted,
-                                                         self.engine.stat.n_linear_total, self.engine.stat.n_linear_wasted))
+        if verbose:
+            print("TS = %d(%d), NI = %d(%d), LI = %d(%d)"
+                  % (self.engine.stat.n_timesteps_total, self.engine.stat.n_timesteps_wasted,
+                     self.engine.stat.n_newton_total, self.engine.stat.n_newton_wasted,
+                     self.engine.stat.n_linear_total, self.engine.stat.n_linear_wasted))
+
+    def run_timestep(self, dt, t, verbose: bool = True):
+        max_newt = self.params.max_i_newton
+        max_residual = np.zeros(max_newt + 1)
+        self.engine.n_linear_last_dt = 0
+        self.timer.node['simulation'].start()
+        for i in range(max_newt+1):
+            # self.engine.run_single_newton_iteration(dt)
+            self.engine.assemble_linear_system(dt)  # assemble Jacobian and residual of reservoir and well blocks
+            self.apply_rhs_flux(dt)  # apply RHS flux
+            self.engine.newton_residual_last_dt = self.engine.calc_newton_residual()  # calc norm of residual
+
+            max_residual[i] = self.engine.newton_residual_last_dt
+            counter = 0
+            for j in range(i):
+                if abs(max_residual[i] - max_residual[j])/max_residual[i] < self.params.stationary_point_tolerance:
+                    counter += 1
+            if counter > 2:
+                if verbose:
+                    print("Stationary point detected!")
+                break
+
+            self.engine.well_residual_last_dt = self.engine.calc_well_residual()
+            self.engine.n_newton_last_dt = i
+            #  check tolerance if it converges
+            if ((self.engine.newton_residual_last_dt < self.params.tolerance_newton and
+                 self.engine.well_residual_last_dt < self.params.well_tolerance_coefficient * self.params.tolerance_newton) or
+                    self.engine.n_newton_last_dt == self.params.max_i_newton):
+                if i > 0:  # min_i_newton
+                    break
+            r_code = self.engine.solve_linear_equation()
+            self.timer.node["newton update"].start()
+            self.engine.apply_newton_update(dt)
+            self.timer.node["newton update"].stop()
+        # End of newton loop
+        converged = self.engine.post_newtonloop(dt, t)
+        self.timer.node['simulation'].stop()
+        return converged
 
     def set_rhs_flux(self) -> np.ndarray:
         """
@@ -325,43 +357,6 @@ class DartsModel:
         n_res = self.reservoir.mesh.n_res_blocks * self.physics.n_vars
         rhs[:n_res] += self.set_rhs_flux() * dt
         return
-
-    def run_timestep_python(self, dt, t):
-        max_newt = self.params.max_i_newton
-        max_residual = np.zeros(max_newt + 1)
-        self.engine.n_linear_last_dt = 0
-        well_tolerance_coefficient = 1e2
-        self.timer.node['simulation'].start()
-        for i in range(max_newt+1):
-            self.engine.run_single_newton_iteration(dt)
-            self.apply_rhs_flux(dt)
-            self.engine.newton_residual_last_dt = self.engine.calc_newton_residual()
-
-            max_residual[i] = self.engine.newton_residual_last_dt
-            counter = 0
-            for j in range(i):
-                if abs(max_residual[i] - max_residual[j])/max_residual[i] < 1e-3:
-                    counter += 1
-            if counter > 2:
-                print("Stationary point detected!")
-                break
-
-            self.engine.well_residual_last_dt = self.engine.calc_well_residual()
-            self.engine.n_newton_last_dt = i
-            #  check tolerance if it converges
-            if ((self.engine.newton_residual_last_dt < self.params.tolerance_newton and
-                 self.engine.well_residual_last_dt < well_tolerance_coefficient * self.params.tolerance_newton) or
-                    self.engine.n_newton_last_dt == self.params.max_i_newton):
-                if i > 0:  # min_i_newton
-                    break
-            r_code = self.engine.solve_linear_equation()
-            self.timer.node["newton update"].start()
-            self.engine.apply_newton_update(dt)
-            self.timer.node["newton update"].stop()
-        # End of newton loop
-        converged = self.engine.post_newtonloop(dt, t)
-        self.timer.node['simulation'].stop()
-        return converged
 
     def output_properties(self):
         """

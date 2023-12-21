@@ -48,7 +48,7 @@ def run(discr_type : str, gridfile : str, propfile : str, sch_fname : str,
     #print_range(m, t)
 
     for ti in range(n_time_steps):
-        m.run_python(dt)
+        m.run(dt)
 
         #print_range(m, t)
         t += dt

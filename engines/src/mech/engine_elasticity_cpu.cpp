@@ -498,7 +498,7 @@ int engine_elasticity_cpu<ND>::assemble_jacobian_array(value_t dt, std::vector<v
 };
 
 template <uint8_t ND>
-int engine_elasticity_cpu<ND>::run_single_newton_iteration(value_t deltat)
+int engine_elasticity_cpu<ND>::assemble_linear_system(value_t deltat)
 {
 	newton_update_coefficient = 1.0;
 

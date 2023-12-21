@@ -11,7 +11,7 @@ if __name__ == '__main__':
     n.init()
 
     if True:
-        n.run_python(2000)
+        n.run(2000)
         n.print_timers()
         n.print_stat()
         time_data = pd.DataFrame.from_dict(n.engine.time_data)
