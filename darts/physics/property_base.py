@@ -3,6 +3,8 @@ from darts.engines import value_vector
 
 
 class PropertyBase:
+    nc: int
+    nph: int
     output_props = {}
 
     def get_state(self, state: value_vector):

@@ -5,9 +5,13 @@ from darts.physics.properties.basic import ConstFunc
 
 
 class PropertyContainer:
-    '''
-    Class resposible for collecting all needed properties in geothermal simulation
-    '''
+    """
+    Class responsible for collecting all needed properties in geothermal simulation
+    """
+    nc: int = 1
+    nph: int = 2
+    output_props = {}
+
     def __init__(self, property_evaluator='IAPWS'):
         """
         Constructor
