@@ -132,8 +132,8 @@ class Model(CICDModel, OptModuleSettings):
                                                                          self.physics.n_axes_points, self.physics.axes_min,
                                                                          self.physics.axes_max,
                                                                          platform='cpu', algorithm='multilinear',
-                                                                         mode='adaptive', precision='d')
-            self.physics.create_itor_timers(customized_component_itor, "customized component interpolation")
+                                                                         mode='adaptive', precision='d',
+                                                                         timer_name='customized component interpolation')
             self.engine.customize_operator = self.customize_new_operator
 
             self.op_list = [self.physics.acc_flux_itor[0], customized_component_itor]
