@@ -65,10 +65,6 @@ class Geothermal(PhysicsBase):
         Function to set operator objects: :class:`acc_flux_gravity_evaluator` for each of the reservoir regions,
         :class:`acc_flux_gravity_evaluator_python_well` for the well cells
         and :class:`geothermal_rate_custom_evaluator_python` for evaluation of rates.
-
-        :param regions: List of regions. It contains the keys of the `property_containers` and `reservoir_operators` dict
-        :type regions: list
-        :param output_properties: Output property operators object, default is None
         """
         for region in self.regions:
             self.reservoir_operators[region] = acc_flux_gravity_evaluator_python(self.property_containers[region])

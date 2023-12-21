@@ -70,9 +70,6 @@ class Compositional(PhysicsBase):
         Function to set operator objects: :class:`ReservoirOperators` for each of the reservoir regions,
         :class:`WellOperators` for the well cells, :class:`RateOperators` for evaluation of rates
         and a :class:`PropertyOperator` for the evaluation of properties.
-
-        :param regions: List of regions. It contains the keys of the `property_containers` and `reservoir_operators` dict
-        :type regions: list
         """
         for region in self.regions:
             self.reservoir_operators[region] = ReservoirOperators(self.property_containers[region], self.thermal)

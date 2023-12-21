@@ -22,12 +22,12 @@ class PhysicsBase:
     :type property_containers: dict
     :ivar reservoir_operators: Set of :class:`ReservoirOperators` objects for each of the regions for evaluation of reservoir cell states
     :type reservoir_operators: dict
+    :ivar property_operators: :class:`PropertyOperators` object for evaluation and interpolation of properties
+    :type property_operators: dict
     :ivar wellbore_operators: :class:`WellOperators` object for evaluation of well cell states
     :type wellbore_operators: dict
     :ivar rate_operators: :class:`RateOperators` object for evaluation of fluxes
     :type rate_operators: dict
-    :ivar property_operators: :class:`PropertyOperators` object for evaluation and interpolation of properties
-    :type property_operators: dict
     :ivar regions: List of property regions
     :type regions: list
     """
@@ -119,7 +119,7 @@ class PhysicsBase:
 
         :param property_container: Object for evaluation of properties
         :type property_container: :class:`PropertyContainer`
-        :param region: Name of the region, to be used as a key in `property_containers` dict
+        :param region: Tag of the region, to be used as a key in `property_containers` dict
         """
         self.property_containers[region] = property_container
         self.regions.append(region)
