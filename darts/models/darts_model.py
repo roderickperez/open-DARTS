@@ -368,7 +368,7 @@ class DartsModel:
         """
         # Initialize property_array
         n_vars = self.physics.n_vars
-        n_props = self.physics.n_props
+        n_props = self.physics.property_operators[0].n_ops
         tot_props = n_vars + n_props
         nb = self.reservoir.mesh.n_res_blocks
         property_array = np.zeros((tot_props, nb))
@@ -383,7 +383,7 @@ class DartsModel:
 
             for i in range(nb):
                 state = value_vector(property_array[0:n_vars, i])
-                self.physics.property_itor.evaluate(state, values)
+                self.physics.property_itor[0].evaluate(state, values)
 
                 for j in range(n_props):
                     property_array[j + n_vars, i] = values[j]
