@@ -8,6 +8,12 @@ if "%1"=="-a" (
   set bos_solvers_option=-D BOS_SOLVERS_DIR=%cd%\engines\lib\darts_linear_solvers -DOPENDARTS_CONFIG=MT
 )
 
+if "%1"=="-b" (
+  set bos_solvers_option=-D BOS_SOLVERS_DIR=%2 -DOPENDARTS_CONFIG=MT
+)
+
+echo "bos_solvers_option=" %bos_solvers_option%
+
 rem - Update submodules: START
 rmdir /s /q thirdparty\eigen thirdparty\pybind11
 git submodule update --recursive --remote --init || goto :error
