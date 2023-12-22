@@ -226,13 +226,13 @@ class WellOperators(OperatorsSuper):
 
 class RateOperators(operator_set_evaluator_iface):
     def __init__(self, property_container):
-        super().__init__()  # Initialize base-class
-        # Store your input parameters in self here, and initialize other parameters here in self
+        super().__init__()
+
         self.nc = property_container.nc
         self.nph = property_container.nph
-        self.min_z = property_container.min_z
+        self.n_ops = property_container.nph
+
         self.property = property_container
-        self.flux = np.zeros(self.nc)
 
     def evaluate(self, state: value_vector, values: value_vector):
         """
@@ -241,18 +241,18 @@ class RateOperators(operator_set_evaluator_iface):
         :param values: values of the operators (used for storing the operator values)
         :return: updated value for operators, stored in values
         """
-        for i in range(self.nph):
+        for i in range(self.n_ops):
             values[i] = 0
 
         ph, sat, x, rho, rho_m, mu, kr, pc, mass_source = self.property.evaluate(state)
 
-        self.flux[:] = 0
+        flux = np.zeros(self.nc)
         # step-1
         for j in ph:
             for i in range(self.nc):
-                self.flux[i] += rho_m[j] * kr[j] * x[j][i] / mu[j]
+                flux[i] += rho_m[j] * kr[j] * x[j][i] / mu[j]
         # step-2
-        flux_sum = np.sum(self.flux)
+        flux_sum = np.sum(flux)
 
         #(sat_sc, rho_m_sc) = self.property.evaluate_at_cond(1, self.flux/flux_sum)
         sat_sc = sat
@@ -264,5 +264,5 @@ class RateOperators(operator_set_evaluator_iface):
         for j in ph:
             values[j] = sat_sc[j] * flux_sum / total_density
 
-        #print(state, values)
+        # print(state, values)
         return 0

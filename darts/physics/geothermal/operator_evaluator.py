@@ -1,12 +1,15 @@
 from darts.engines import operator_set_evaluator_iface, value_vector
+from darts.physics.operators_base import OperatorsBase
 from darts.physics.geothermal.property_container import PropertyContainer
 
 
-class acc_flux_custom_iapws_evaluator_python(operator_set_evaluator_iface):
-    def __init__(self, property_container: PropertyContainer):
-        super().__init__()
+class OperatorsGeothermal(OperatorsBase):
+    def __init__(self, property_container: PropertyContainer, thermal: bool = True):
+        super().__init__(property_container, thermal)
 
-        self.property = property_container
+
+class acc_flux_custom_iapws_evaluator_python(OperatorsGeothermal):
+    n_ops = 8
 
     def evaluate(self, state, values):
 
@@ -49,12 +52,8 @@ class acc_flux_custom_iapws_evaluator_python(operator_set_evaluator_iface):
         return 0
 
 
-class acc_flux_custom_iapws_evaluator_python_well(operator_set_evaluator_iface):
-    def __init__(self, property_container: PropertyContainer):
-        super().__init__()
-
-        self.property = property_container
-
+class acc_flux_custom_iapws_evaluator_python_well(OperatorsGeothermal):
+    n_ops = 8
     def evaluate(self, state, values):
 
         water_enth = self.property.water_enthalpy.evaluate(state)
@@ -94,11 +93,8 @@ class acc_flux_custom_iapws_evaluator_python_well(operator_set_evaluator_iface):
         return 0
 
 
-class acc_flux_gravity_evaluator_python(operator_set_evaluator_iface):
-    def __init__(self, property_container: PropertyContainer):
-        super().__init__()
-
-        self.property = property_container
+class acc_flux_gravity_evaluator_python(OperatorsGeothermal):
+    n_ops = 12
 
     def evaluate(self, state, values):
         water_enth = self.property.water_enthalpy.evaluate(state)
@@ -146,11 +142,8 @@ class acc_flux_gravity_evaluator_python(operator_set_evaluator_iface):
         return 0
 
 
-class acc_flux_gravity_evaluator_python_well(operator_set_evaluator_iface):
-    def __init__(self, property_container: PropertyContainer):
-        super().__init__()
-
-        self.property = property_container
+class acc_flux_gravity_evaluator_python_well(OperatorsGeothermal):
+    n_ops = 12
 
     def evaluate(self, state, values):
         water_enth = self.property.water_enthalpy.evaluate(state)
@@ -196,11 +189,8 @@ class acc_flux_gravity_evaluator_python_well(operator_set_evaluator_iface):
         return 0
 
 
-class geothermal_rate_custom_evaluator_python(operator_set_evaluator_iface):
-    def __init__(self, property_container: PropertyContainer):
-        super().__init__()
-
-        self.property = property_container
+class geothermal_rate_custom_evaluator_python(OperatorsGeothermal):
+    n_ops = 4
 
     def evaluate(self, state, values):
         water_den = self.property.water_density.evaluate(state)
@@ -229,11 +219,8 @@ class geothermal_rate_custom_evaluator_python(operator_set_evaluator_iface):
         return 0
 
 
-class geothermal_mass_rate_custom_evaluator_python(operator_set_evaluator_iface):
-    def __init__(self, property_container: PropertyContainer):
-        super().__init__()
-
-        self.property = property_container
+class geothermal_mass_rate_custom_evaluator_python(OperatorsGeothermal):
+    n_ops = 4
 
     def evaluate(self, state, values):
         water_den = self.property.water_density.evaluate(state)
