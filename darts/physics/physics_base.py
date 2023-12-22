@@ -167,27 +167,25 @@ class PhysicsBase:
         self.acc_flux_itor = {}
         self.property_itor = {}
         for region in self.regions:
-            self.acc_flux_itor[region] = self.create_interpolator(self.reservoir_operators[region], self.n_vars, self.n_ops,
-                                                                  self.n_axes_points, self.axes_min, self.axes_max,
+            self.acc_flux_itor[region] = self.create_interpolator(self.reservoir_operators[region], n_ops=self.n_ops,
                                                                   platform=platform, algorithm=itor_type,
                                                                   mode=itor_mode, precision=itor_precision,
                                                                   timer_name='reservoir %d interpolation' % region)
 
-            self.property_itor[region] = self.create_interpolator(self.property_operators[region], self.n_vars, self.n_ops,
-                                                                  self.n_axes_points, self.axes_min, self.axes_max,
+            self.property_itor[region] = self.create_interpolator(self.property_operators[region], n_ops=self.n_ops,
                                                                   platform=platform, algorithm=itor_type,
                                                                   mode=itor_mode, precision=itor_precision,
                                                                   timer_name='property %d interpolation' % region)
 
-        self.acc_flux_w_itor = self.create_interpolator(self.wellbore_operators, self.n_vars, self.n_ops,
-                                                        self.n_axes_points, self.axes_min, self.axes_max,
+        self.acc_flux_w_itor = self.create_interpolator(self.wellbore_operators, n_ops=self.n_ops,
+                                                        timer_name='wellbore interpolation',
                                                         platform=platform, algorithm=itor_type, mode=itor_mode,
-                                                        precision=itor_precision, timer_name='wellbore interpolation')
+                                                        precision=itor_precision)
 
-        self.rate_itor = self.create_interpolator(self.rate_operators, self.n_vars, self.nph,
-                                                  self.n_axes_points, self.axes_min, self.axes_max,
+        self.rate_itor = self.create_interpolator(self.rate_operators, n_ops=self.nph,
+                                                  timer_name='well controls interpolation',
                                                   platform=platform, algorithm=itor_type, mode=itor_mode,
-                                                  precision=itor_precision, timer_name='well controls interpolation')
+                                                  precision=itor_precision)
 
         return
 
@@ -205,8 +203,7 @@ class PhysicsBase:
             assert isinstance(w, ms_well)
             w.init_rate_parameters(self.n_vars, self.phases, self.rate_itor)
 
-    def create_interpolator(self, evaluator: operator_set_evaluator_iface, n_dims: int, n_ops: int,
-                            axes_n_points: index_vector, axes_min: value_vector, axes_max: value_vector, timer_name: str,
+    def create_interpolator(self, evaluator: operator_set_evaluator_iface, timer_name: str, n_ops: int,
                             algorithm: str = 'multilinear', mode: str = 'adaptive',
                             platform: str = 'cpu', precision: str = 'd'):
         """
@@ -214,14 +211,8 @@ class PhysicsBase:
 
         :param evaluator: State operators to be interpolated. Evaluator object is used to generate supporting points
         :type evaluator: darts.engines.operator_set_evaluator_iface
-        :param n_dims: The number of dimensions for interpolation (parameter space dimensionality)
-        :type n_dims: int
-        :param n_ops: The number of operators to be interpolated. Should be consistent with evaluator.
-        :type n_ops: int
-        :param axes_n_points: The number of supporting points for each axis.
-        :type axes_n_points: darts.engines.index_vector
-        :param axes_min, axes_max: The minimum/maximum value for each axis.
-        :type axes_min: darts.engines.value_vector
+        :param timer_name: Name of timer object
+        :type timer_name: str
         :param algorithm: interpolator type:
                     'multilinear' (default) - piecewise multilinear generalization of piecewise bilinear interpolation
                                               on rectangles;
@@ -241,13 +232,14 @@ class PhysicsBase:
         :type precision: str
         """
         # verify then inputs are valid
-        assert len(axes_n_points) == n_dims
-        assert len(axes_min) == n_dims
-        assert len(axes_max) == n_dims
-        for n_p in axes_n_points:
+        assert len(self.n_axes_points) == self.n_vars
+        assert len(self.axes_min) == self.n_vars
+        assert len(self.axes_max) == self.n_vars
+        for n_p in self.n_axes_points:
             assert n_p > 1
 
         # calculate object name using 32 bit index type (i)
+        n_dims = self.n_vars
         itor_name = "%s_%s_%s_interpolator_i_%s_%d_%d" % (algorithm,
                                                           mode,
                                                           platform,
@@ -259,18 +251,18 @@ class PhysicsBase:
         cache_loaded = 0
         # try to create itor with 32-bit index type first (kinda a bit faster)
         try:
-            itor = eval(itor_name)(evaluator, axes_n_points, axes_min, axes_max)
+            itor = eval(itor_name)(evaluator, self.n_axes_points, self.axes_min, self.axes_max)
         except (ValueError, NameError):
             # 32-bit index type did not succeed: either total amount of points is out of range or has not been compiled
             # try 64 bit now raising exception this time if goes wrong:
             itor_name = itor_name.replace('interpolator_i', 'interpolator_l')
             try:
-                itor = eval(itor_name)(evaluator, axes_n_points, axes_min, axes_max)
+                itor = eval(itor_name)(evaluator, self.n_axes_points, self.axes_min, self.axes_max)
             except (ValueError, NameError):
                 # if 64-bit index also failed, probably the combination of required n_ops and n_dims
                 # was not instantiated/exposed. In this case substitute general implementation of interpolator
-                itor = eval("multilinear_adaptive_cpu_interpolator_general")(evaluator, axes_n_points, axes_min, axes_max,
-                                                                             n_dims, n_ops)
+                itor = eval("multilinear_adaptive_cpu_interpolator_general")(evaluator, self.n_axes_points,
+                                                                             self.axes_min, self.axes_max, n_dims, n_ops)
                 general = True
 
         if self.cache:
@@ -280,7 +272,7 @@ class PhysicsBase:
             if general:
                 itor_cache_signature += "_general_"
             for dim in range(n_dims):
-                itor_cache_signature += "_%d_%e_%e" % (axes_n_points[dim], axes_min[dim], axes_max[dim])
+                itor_cache_signature += "_%d_%e_%e" % (self.n_axes_points[dim], self.axes_min[dim], self.axes_max[dim])
             # compute signature hash to uniquely identify itor parameters and load correct cache
             itor_cache_signature_hash = str(hashlib.md5(itor_cache_signature.encode()).hexdigest())
             itor_cache_filename = 'obl_point_data_' + itor_cache_signature_hash + '.pkl'
