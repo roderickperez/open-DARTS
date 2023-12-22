@@ -5,7 +5,7 @@ if "%1"=="-a" (
   cd engines
   call .\update_private_artifacts.bat %SMBNAME% %SMBLOGIN% %SMBPASS%
   cd ..
-  set bos_solvers_option=-D BOS_SOLVERS_DIR=%cd%\engines\lib\darts_linear_solvers
+  set bos_solvers_option=-D BOS_SOLVERS_DIR=%cd%\engines\lib\darts_linear_solvers -DOPENDARTS_CONFIG=MT
 )
 
 rem - Update submodules: START

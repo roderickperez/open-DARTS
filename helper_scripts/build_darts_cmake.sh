@@ -15,7 +15,7 @@ Help_Info()
   echo "   -c : cleans up build to prepare a new fresh build. Default: don't clean"
   echo "   -t : Enable testing: ctest of solvers. Default: don't test"
   echo "   -w : Enable generation of python wheel. Default: false"
-  echo "   -m : Enable Multi-thread MT (with OMP) build. Warning: Solvers is not MT. Default: false"
+  echo "   -m : Enable Multi-thread MT (with OMP) build. Warning: Solvers is not MT. Default: true"
   echo "   -r : Skip building thirdparty libraries (if you have them already compiled). Default: false"
   echo "   -a : Update private artifacts bos_solvers (instead of openDARTS solvers). This is meant to be used by CI/CD. Default: false"
   echo "   -b SPATH  : Path to bos_solvers (instead of openDARTS solvers), example: -b ./darts-linear-solvers containing lib/libdarts_linear_solvers.a (already compiled)."
@@ -32,7 +32,7 @@ clean_mode=false  # Set mode to clean up, cleans build to prepare for fresh new 
 testing=false     # Whether to enable the testing (ctest) of solvers.
 wheel=false       # Whether to generate python wheel.
 bos_solvers_artifact=false # Fetch the bos_solvers library from artifacts (for CI/CD purposes)
-MT=false          # Build openDARTS multi-threaded. This is for engines and bos_solvers (if defined)
+MT=true           # Build openDARTS multi-threaded. This is for engines and bos_solvers (if defined)
 skip_req=false    # Skip building requirements.
 config="Release"  # Default configuration (install).
 NT=8              # Number of threads by default 8
