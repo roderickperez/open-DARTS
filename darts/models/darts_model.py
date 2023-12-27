@@ -16,7 +16,7 @@ from darts.print_build_info import print_build_info as package_pbi
 class DartsModel:
     """
     This is a base class for creating a model in DARTS.
-    A model is composed of a :class:`darts.models.Reservoir` object and a `darts.physics.Physics` object.
+    A model is composed of a :class:`Reservoir` object and a :class:`Physics` object.
     Initialization and communication between these two objects takes place through the Model object
 
     :ivar reservoir: Reservoir object
@@ -196,12 +196,9 @@ class DartsModel:
 
         Operator list is in order [acc_flux_itor[0], ..., acc_flux_itor[n-1], acc_flux_w_itor]
         """
-        if type(self.physics.acc_flux_itor) == dict:
-            self.op_list = list(self.physics.acc_flux_itor.values()) + [self.physics.acc_flux_w_itor]
-            self.op_num = np.array(self.reservoir.mesh.op_num, copy=False)
-            self.op_num[self.reservoir.mesh.n_res_blocks:] = len(self.op_list) - 1
-        else: # for backward compatibility
-            self.op_list = [self.physics.acc_flux_itor]
+        self.op_list = [self.physics.acc_flux_itor[region] for region in self.physics.regions] + [self.physics.acc_flux_w_itor]
+        self.op_num = np.array(self.reservoir.mesh.op_num, copy=False)
+        self.op_num[self.reservoir.mesh.n_res_blocks:] = len(self.op_list) - 1
 
     def set_sim_params(self, first_ts: float = None, mult_ts: float = None, max_ts: float = None, runtime: float = 1000,
                        tol_newton: float = None, tol_linear: float = None, it_newton: int = None, it_linear: int = None,
