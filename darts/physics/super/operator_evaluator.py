@@ -262,7 +262,8 @@ class RateOperators(operator_set_evaluator_iface):
         total_density = np.sum(sat_sc * rho_m_sc)
         # step-4
         for j in ph:
-            values[j] = sat_sc[j] * flux_sum / total_density
+            values[j] = rho_m[j] * kr[j] / mu[j]
+            #sat_sc[j] * flux_sum / total_density
 
         # print(state, values)
         return 0
