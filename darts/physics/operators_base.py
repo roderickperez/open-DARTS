@@ -23,16 +23,19 @@ class PropertyOperators(OperatorsBase):
     This class contains a set of operators for evaluation of output properties.
     A set of interpolators is created in the :class:`Physics` object to rapidly obtain properties after simulation.
     """
-    def __init__(self, property_container: PropertyBase, thermal: bool):
+    def __init__(self, property_container: PropertyBase, thermal: bool, props: dict = None):
         """
         This is the constructor for PropertyOperator.
         The properties to be obtained from the PropertyOperators are passed to PropertyContainer as a dictionary.
 
         :param property_container: PropertyBase object to evaluate properties at given state
+        :param thermal: Bool for thermal
+        :param props: Optional dictionary of properties, default is taken from PropertyContainer
         """
         super().__init__(property_container, thermal)
 
-        self.props_name = [key for key in property_container.output_props.keys()]
+        self.props = property_container.output_props if props is None else props
+        self.props_name = [key for key in self.props.keys()]
         self.n_ops = len(self.props_name)
 
     def evaluate(self, state: value_vector, values: value_vector):
@@ -50,6 +53,6 @@ class PropertyOperators(OperatorsBase):
             _ = self.property.evaluate_thermal(state)
 
         for i, prop in enumerate(self.props_name):
-            values[i] = self.property.output_props[prop]()
+            values[i] = self.props[prop]()
 
         return 0
