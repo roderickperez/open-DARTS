@@ -63,6 +63,7 @@ class PropertyContainer(PropertyBase):
         self.pc = np.zeros(self.nph)
         self.enthalpy = np.zeros(self.nph)
         self.kappa = np.zeros(self.nph)
+        self.dX = []
 
         self.phase_props = [self.dens, self.dens_m, self.sat, self.nu, self.mu, self.kr, self.pc, self.enthalpy, self.kappa]
 
@@ -141,7 +142,6 @@ class PropertyContainer(PropertyBase):
         self.compute_saturation(self.ph)
 
         return self.sat[0]
-        
 
     def run_flash(self, pressure, temperature, zc):
         # Evaluates flash, then uses getter for nu and x - for compatibility with DARTS-flash
@@ -160,10 +160,14 @@ class PropertyContainer(PropertyBase):
         return ph
 
     def evaluate_mass_source(self, pressure, temperature, zc):
+        self.dX = np.zeros(len(self.kinetic_rate_ev))
         mass_source = np.zeros(self.nc)
+
         for j, reaction in self.kinetic_rate_ev.items():
-            # mass_source += reaction.evaluate(pressure, temperature, self.x, zc[-1])
-            mass_source += reaction.evaluate(pressure, temperature, self.x, self.sat[-1])
+            # dm, self.dX[j] += reaction.evaluate(pressure, temperature, self.x, zc[-1])
+            dm, self.dX[j] = reaction.evaluate(pressure, temperature, self.x, self.sat[-1])
+            mass_source += dm
+
         return mass_source
 
     def evaluate(self, state):

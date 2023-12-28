@@ -26,15 +26,17 @@ class KineticBasic:
     def evaluate(self, pressure, temperature, x, nu_sol):
         if self.combined_ions:
             ion_prod = (x[1][1] / 2) ** 2
-            self.kinetic_rate[1] = - self.kin_rate_cte * (1 - ion_prod / self.equi_prod) * nu_sol
+            dQ = (1 - ion_prod / self.equi_prod)
+            self.kinetic_rate[1] = - self.kin_rate_cte * dQ * nu_sol
             self.kinetic_rate[-1] = - 0.5 * self.kinetic_rate[1]
         else:
             ion_prod = x[1][1] * x[1][2]
-            self.kinetic_rate[1] = - self.kin_rate_cte * (1 - ion_prod / self.equi_prod) * nu_sol
-            self.kinetic_rate[2] = - self.kin_rate_cte * (1 - ion_prod / self.equi_prod) * nu_sol
+            dQ = (1 - ion_prod / self.equi_prod)
+            self.kinetic_rate[1] = - self.kin_rate_cte * dQ * nu_sol
+            self.kinetic_rate[2] = - self.kin_rate_cte * dQ * nu_sol
             self.kinetic_rate[-1] = - self.kinetic_rate[1]
 
-        return self.kinetic_rate
+        return self.kinetic_rate, dQ
 
 
 class LawOfMassAction(Kinetics):
@@ -58,9 +60,10 @@ class LawOfMassAction(Kinetics):
             prod = prod * x[self.fl_idx, i] ** self.stoich[i] if self.stoich[i] != 0 else prod
 
         # Calculate rate = c * As * (1-Q/K)
-        rate = self.kin_rate_cte * sat_sol * (1. - prod / self.equi_prod)
+        dQ = (1. - prod / self.equi_prod)
+        rate = self.kin_rate_cte * sat_sol * dQ
 
-        return [stoich * rate for stoich in self.stoich]
+        return [stoich * rate for stoich in self.stoich], dQ
 
 
 class HydrateKinetics(Kinetics):
@@ -120,7 +123,7 @@ class HydrateKinetics(Kinetics):
         # K is reaction cons, A_s hydrate surface area, dE activation energy, driving force is fugacity difference
         self.rate = self.K * A_s * np.exp(dE / (R * temperature)) * df
 
-        return [stoich * self.rate for stoich in self.stoich]
+        return [stoich * self.rate for stoich in self.stoich], df
 
     def evaluate_enthalpy(self, pressure, temperature, x, sat):
         if self.enthalpy:
