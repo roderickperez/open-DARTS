@@ -376,11 +376,11 @@ class DartsModel:
             property_array[j, :] = self.engine.X[j:nb * n_vars:n_vars]
 
         # If it has been defined, interpolate secondary variables in property_itor,
-        if n_props:
-            values = value_vector(np.zeros(self.physics.n_ops))
-            for i in range(nb):
+        for i in range(nb):
+            if self.physics.property_operators[self.op_num[i]].n_ops:
+                values = value_vector(np.zeros(self.physics.n_ops))
                 state = value_vector(property_array[0:n_vars, i])
-                self.physics.property_itor[0].evaluate(state, values)
+                self.physics.property_itor[self.op_num[i]].evaluate(state, values)
 
                 for j in range(n_props):
                     property_array[j + n_vars, i] = values[j]
