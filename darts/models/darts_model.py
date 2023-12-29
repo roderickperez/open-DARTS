@@ -2,6 +2,7 @@ from math import fabs
 import pickle
 import os
 import numpy as np
+from copy import copy
 
 from darts.engines import conn_mesh, engine_base
 from darts.reservoirs.reservoir_base import ReservoirBase
@@ -375,9 +376,8 @@ class DartsModel:
             property_array[j, :] = self.engine.X[j:nb * n_vars:n_vars]
 
         # If it has been defined, interpolate secondary variables in property_itor,
-        if self.physics.property_operators is not None:
+        if n_props:
             values = value_vector(np.zeros(self.physics.n_ops))
-
             for i in range(nb):
                 state = value_vector(property_array[0:n_vars, i])
                 self.physics.property_itor[0].evaluate(state, values)
