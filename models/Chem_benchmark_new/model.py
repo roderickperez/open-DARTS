@@ -220,14 +220,14 @@ class Model(CICDModel):
 
             physics.add_property_region(property_container, i)
 
-        physics.property_containers[0].output_props = {"y_CO2": lambda: physics.property_containers[0].x[0, 0],
+        physics.property_containers[0].output_props = {"sat_gas": lambda: physics.property_containers[0].sat[0],
+                                                       # "sat_wat": lambda: physics.property_containers[0].sat[1],
+                                                       "y_CO2": lambda: physics.property_containers[0].x[0, 0],
                                                        "y_Ions": lambda: physics.property_containers[0].x[0, 1],
                                                        "y_H2O": lambda: physics.property_containers[0].x[0, 2],
                                                        "x_CO2": lambda: physics.property_containers[0].x[1, 0],
                                                        "x_Ions": lambda: physics.property_containers[0].x[1, 1],
                                                        "x_H2O": lambda: physics.property_containers[0].x[1, 2],
-                                                       "sat_gas": lambda: physics.property_containers[0].sat[0],
-                                                       # "sat_wat": lambda: physics.property_containers[0].sat[1],
                                                        }
 
         return super().set_physics(physics=physics)
@@ -262,20 +262,21 @@ class Model(CICDModel):
     def set_op_list(self):
         self.op_num = np.array(self.reservoir.mesh.op_num, copy=False)
         n_res = self.reservoir.mesh.n_res_blocks
-        self.op_num[n_res:] = 1
 
         if self.grid_1D:
             self.op_list = [self.physics.acc_flux_itor[0], self.physics.acc_flux_w_itor]
+            self.op_num[n_res:] = 1
         else:
             self.slice_liq_inj = np.arange(0, self.nx * self.ny // 2 - 1, self.nx, dtype=int)
             self.slice_gas_inj = np.arange(self.nx * self.ny // 2, self.nx * self.ny - 1, self.nx, dtype=int)
 
-            self.op_num[self.slice_gas_inj] = 2
-            self.op_num[self.slice_liq_inj] = 3
+            self.op_num[self.slice_gas_inj] = 1
+            self.op_num[self.slice_liq_inj] = 2
+            self.op_num[n_res:] = 3
 
             # self.op_list = [self.physics.acc_flux_itor, self.physics.acc_flux_w_itor]
-            self.op_list = [self.physics.acc_flux_itor[0], self.physics.acc_flux_w_itor, self.physics.acc_flux_itor[1],
-                            self.physics.acc_flux_itor[2]]
+            self.op_list = [self.physics.acc_flux_itor[0], self.physics.acc_flux_itor[1], self.physics.acc_flux_itor[2],
+                            self.physics.acc_flux_w_itor]
 
     def print_and_plot_1D(self):
         nc = self.physics.nc
@@ -376,9 +377,9 @@ class Model(CICDModel):
         z_inert = output_props[2, :] / phi
         z_h2o = output_props[3, :] / phi
 
-        y_idx = self.physics.n_vars
+        sat_idx = self.physics.n_vars
+        y_idx = sat_idx + 1
         x_idx = y_idx + nc - 1
-        sat_idx = x_idx + nc - 1
         for ii in range(nb):
             x0 = [output_props[x_idx + i, ii] for i in range(nc - 1)]
             x1 = [output_props[y_idx + i, ii] for i in range(nc - 1)]
