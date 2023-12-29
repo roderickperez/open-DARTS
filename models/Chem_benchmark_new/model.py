@@ -507,24 +507,23 @@ class CustomPhysics(Compositional):
 
         super().__init__(components, phases, timer, n_points, min_p, max_p, min_z, max_z, min_t, max_t, thermal, cache)
 
-    def set_operators(self, regions, output_props=None):  # default definition of operators
-        self.reservoir_operators[0] = ReservoirOperators(self.property_containers[0])
-        self.wellbore_operators = ReservoirOperators(self.property_containers[0])
+    def set_operators(self):  # default definition of operators
+        self.reservoir_operators[0] = ReservoirOperators(self.property_containers[0], self.thermal)
+        self.property_operators[0] = PropertyOperators(self.property_containers[0], self.thermal)
+
+        self.wellbore_operators = ReservoirOperators(self.property_containers[0], self.thermal)
 
         self.reservoir_operators[1] = ReservoirWithSourceOperators(self.property_containers[0], comp_inj_id=0,
                                                                    delta_volume=self.delta_volume,
                                                                    num_well_blocks=self.num_well_blocks)
+        self.property_operators[1] = PropertyOperators(self.property_containers[0], self.thermal)
 
         self.reservoir_operators[2] = ReservoirWithSourceOperators(self.property_containers[0], comp_inj_id=1,
                                                                    delta_volume=self.delta_volume,
                                                                    num_well_blocks=self.num_well_blocks)
+        self.property_operators[2] = PropertyOperators(self.property_containers[0], self.thermal)
 
         self.rate_operators = RateOperators(self.property_containers[0])
-
-        if output_props is None:
-            self.property_operators = PropertyOperators(self.vars, self.property_containers[0])
-        else:
-            self.property_operators = output_props
 
         return
 
