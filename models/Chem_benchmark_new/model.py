@@ -218,13 +218,17 @@ class Model(CICDModel):
                 if mass_sources[i] is not None:
                     property_container.kinetic_rate_ev[1] = mass_sources[i]
 
-            for j, ph in enumerate(phases):
-                property_container.output_props["sat_" + ph] = lambda: property_container.sat[j]
-                property_container.output_props["dens_" + ph] = lambda: property_container.dens[j]
-                property_container.output_props["den_" + ph] = lambda: property_container.dens[j]
-                property_container.output_props["kr_" + ph] = lambda: property_container.kr[j]
-
             physics.add_property_region(property_container, i)
+
+        physics.property_containers[0].output_props = {"y_CO2": lambda: physics.property_containers[0].x[0, 0],
+                                                       "y_Ions": lambda: physics.property_containers[0].x[0, 1],
+                                                       "y_H2O": lambda: physics.property_containers[0].x[0, 2],
+                                                       "x_CO2": lambda: physics.property_containers[0].x[1, 0],
+                                                       "x_Ions": lambda: physics.property_containers[0].x[1, 1],
+                                                       "x_H2O": lambda: physics.property_containers[0].x[1, 2],
+                                                       "sat_gas": lambda: physics.property_containers[0].sat[0],
+                                                       # "sat_wat": lambda: physics.property_containers[0].sat[1],
+                                                       }
 
         return super().set_physics(physics=physics)
 
@@ -343,7 +347,6 @@ class Model(CICDModel):
         plt.tight_layout()
         plt.savefig("results_kinetic_brief.pdf")
 
-
     def print_and_plot_2D(self):
         import matplotlib.pyplot as plt
 
@@ -363,25 +366,26 @@ class Model(CICDModel):
         Sg = np.zeros(nb)
         Ss = np.zeros(nb)
         X = np.zeros((nb, nc - 1, 2))
-        Xn = np.array(self.engine.X, copy=True)
 
-        P = Xn[0:nb * nc:nc]
-        z_caco3 = 1 - (Xn[1:nb * nc:nc] + Xn[2:nb * nc:nc] + Xn[3:nb * nc:nc])
-
-        z_co2 = Xn[1:nb * nc:nc] / (1 - z_caco3)
-        z_inert = Xn[2:nb * nc:nc] / (1 - z_caco3)
-        z_h2o = Xn[3:nb * nc:nc] / (1 - z_caco3)
-
-        for ii in range(nb):
-            x_list = Xn[ii * nc:(ii + 1) * nc]
-            state = value_vector(x_list)
-            ph, sat, x, rho, rho_m, mu, kr, pc, kin_rates = self.physics.property_operators[0].property.evaluate(state)
-
-            X[ii, :, 0] = x[1][:-1]
-            X[ii, :, 1] = x[0][:-1]
-            Sg[ii] = sat[0]
-            Ss[ii] = z_caco3[ii]
+        output_props = self.output_properties()
+        P = output_props[0, :]
+        z_caco3 = 1 - np.sum(output_props[1:nc, :], axis=0)
         phi = 1 - z_caco3
+
+        z_co2 = output_props[1, :] / phi
+        z_inert = output_props[2, :] / phi
+        z_h2o = output_props[3, :] / phi
+
+        y_idx = self.physics.n_vars
+        x_idx = y_idx + nc - 1
+        sat_idx = x_idx + nc - 1
+        for ii in range(nb):
+            x0 = [output_props[x_idx + i, ii] for i in range(nc - 1)]
+            x1 = [output_props[y_idx + i, ii] for i in range(nc - 1)]
+            X[ii, :, 0] = x0
+            X[ii, :, 1] = x1
+            Sg[ii] = output_props[sat_idx, ii]
+            Ss[ii] = z_caco3[ii]
 
         fig, ax = plt.subplots(3, 2, figsize=(10, 6), dpi=200, facecolor='w', edgecolor='k')
         plt.set_cmap('jet')
@@ -409,6 +413,8 @@ class Model(CICDModel):
         plt.tight_layout()
         name = "results_kinetic_2D_" + str(self.nx) + "x" + str(self.ny)
         plt.savefig(name + ".pdf")
+
+        plt.show()
 
         return 0
 
@@ -438,10 +444,12 @@ class ModelProperties(PropertyContainer):
         if V <= 0:
             V = 0
             xr[1] = zc_r
+            xr[0] = np.zeros(nc_fl)
             ph = [1]
         elif V >= 1:
             V = 1
             xr[0] = zc_r
+            xr[1] = np.zeros(nc_fl)
             ph = [0]
         else:
             ph = [0, 1]
