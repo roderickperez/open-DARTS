@@ -458,17 +458,20 @@ class ModelProperties(PropertyContainer):
     def evaluate_mass_source(self, pressure, temperature, zc):
         # Kinetic reaction
         mass_source = np.zeros(self.nc)
-        mass_source += self.kinetic_rate_ev[0].evaluate(pressure, temperature, self.x, zc[-1])
+        dm, _ = self.kinetic_rate_ev[0].evaluate(pressure, temperature, self.x, zc[-1])
+        mass_source += dm
 
         # Mass source
         if 1 in self.kinetic_rate_ev.keys():
             id = self.kinetic_rate_ev[1].comp_inj_id
             if id == 0:
                 dens_m_pure = self.density_ev['gas'].evaluate(pressure, 0) / 44.01
-                mass_source[id] -= self.kinetic_rate_ev[1].evaluate(dens_m_pure)
+                dm, _ = self.kinetic_rate_ev[1].evaluate(dens_m_pure)
+                mass_source[id] -= dm
             elif id == 2:
                 dens_m_pure = self.density_ev['wat'].evaluate(pressure, 0) / 18.015
-                mass_source[id] -= self.kinetic_rate_ev[1].evaluate(dens_m_pure)
+                dm, _ = self.kinetic_rate_ev[1].evaluate(dens_m_pure)
+                mass_source[id] -= dm
         else:
             ''
 
@@ -483,7 +486,7 @@ class MassSource:
         self.rate = rate
 
     def evaluate(self, dens_m_pure):
-        return self.rate / self.num_well_blocks / self.delta_volume * dens_m_pure
+        return self.rate / self.num_well_blocks / self.delta_volume * dens_m_pure, None
 
 
 class CustomPhysics(Compositional):
@@ -536,25 +539,19 @@ class ReservoirWithSourceOperators(ReservoirOperators):
         :param values: values of the operators (used for storing the operator values)
         :return: updated value for operators, stored in values
         """
-
         super().evaluate(state, values)
+
         # Composition vector and pressure from state:
         vec_state_as_np = np.asarray(state)
         pressure = vec_state_as_np[0]
 
-        nc = self.property.nc
-        nph = self.property.nph
-        ne = nc + self.thermal
-
         """ Delta operator for reaction """
-        shift = nph * ne + nph + ne + ne * nph
-
         # mass flux injection (if comp 0 then pure CO2 in gas vorm if 2 then pure H2O in liquid)
         if self.comp_inj_id == 0:
-            values[shift + 0] -= 1000 / self.num_well_blocks / self.delta_volume \
-                               * self.property.density_ev['gas'].evaluate(pressure, 0) / 44.01
+            values[self.KIN_OP + 0] -= 1000 / self.num_well_blocks / self.delta_volume \
+                                       * self.property.density_ev['gas'].evaluate(pressure, 0) / 44.01
         elif self.comp_inj_id == 1:
-            values[shift + 2] -= 200 / self.num_well_blocks / self.delta_volume \
-                               * self.property.density_ev['wat'].evaluate(pressure, 0) / 18.015
+            values[self.KIN_OP + 2] -= 200 / self.num_well_blocks / self.delta_volume \
+                                       * self.property.density_ev['wat'].evaluate(pressure, 0) / 18.015
 
         return 0
