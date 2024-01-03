@@ -95,8 +95,8 @@ class StructReservoir(ReservoirBase):
         # apply actnum filter if needed - all arrays providing a value for a single grid block should be passed
         arrs = [self.global_data['poro'], self.global_data['rcond'], self.global_data['hcap'],
                 self.global_data['depth'], volume, self.global_data['op_num']]
-        cell_m, cell_p, tran, tran_thermal, arrs_local = self.discretizer.apply_actnum_filter(self.actnum, cell_m, cell_p,
-                                                                                              tran, tran_thermal, arrs)
+        self.cell_m, self.cell_p, tran, tran_thermal, arrs_local =\
+            self.discretizer.apply_actnum_filter(self.actnum, cell_m, cell_p, tran, tran_thermal, arrs)
         poro, rcond, hcap, depth, volume, op_num = arrs_local
         self.global_data['global_to_local'] = self.discretizer.global_to_local
 
@@ -105,7 +105,7 @@ class StructReservoir(ReservoirBase):
 
         # Initialize mesh using built connection list
         self.mesh = conn_mesh()
-        self.mesh.init(index_vector(cell_m), index_vector(cell_p), value_vector(tran), value_vector(tran_thermal))
+        self.mesh.init(index_vector(self.cell_m), index_vector(self.cell_p), value_vector(tran), value_vector(tran_thermal))
 
         # Create numpy arrays wrapped around mesh data (no copying)
         np.array(self.mesh.poro, copy=False)[:] = poro
