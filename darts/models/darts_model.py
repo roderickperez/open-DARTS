@@ -125,7 +125,7 @@ class DartsModel:
         """
         self.physics = physics
         self.engine = self.physics.init_physics(discr_type=discr_type, platform=platform, verbose=verbose)
-        if platform =='gpu':
+        if platform == 'gpu':
             self.params.linear_type = sim_params.gpu_gmres_cpr_amgx_ilu
         return
 
@@ -160,7 +160,7 @@ class DartsModel:
             initial_value = initial_values[variable]
 
             if variable not in ['pressure', 'temperature', 'enthalpy']:
-                c = i-1
+                c = i - 1
                 values[c::(self.physics.nc - 1)] = initial_value
             elif isinstance(initial_values[variable], (list, np.ndarray)):
                 # If initial value is an array, assign array
@@ -242,6 +242,16 @@ class DartsModel:
         self.params.newton_params = newton_params if newton_params is not None else self.params.newton_params
 
     def run(self, days: float = None, restart_dt: float = 0., verbose: bool = True):
+        """
+        Method to run simulation for specified time. Optional argument to specify dt to restart simulation with.
+
+        :param days: Time increment [days]
+        :type days: float
+        :param restart_dt: Restart value for timestep size [days, optional]
+        :type restart_dt: float
+        :param verbose: Switch for verbose, default is True
+        :type verbose: bool
+        """
         days = days if days is not None else self.runtime
 
         # get current engine time
@@ -290,7 +300,17 @@ class DartsModel:
                      self.engine.stat.n_newton_total, self.engine.stat.n_newton_wasted,
                      self.engine.stat.n_linear_total, self.engine.stat.n_linear_wasted))
 
-    def run_timestep(self, dt, t, verbose: bool = True):
+    def run_timestep(self, dt: float, t: float, verbose: bool = True):
+        """
+        Method to solve Newton loop for specified timestep
+
+        :param dt: Timestep size [days]
+        :type dt: float
+        :param t: Current time [days]
+        :type t: float
+        :param verbose: Switch for verbose, default is True
+        :type verbose: bool
+        """
         max_newt = self.params.max_i_newton
         max_residual = np.zeros(max_newt + 1)
         self.engine.n_linear_last_dt = 0
@@ -298,7 +318,7 @@ class DartsModel:
         for i in range(max_newt+1):
             # self.engine.run_single_newton_iteration(dt)
             self.engine.assemble_linear_system(dt)  # assemble Jacobian and residual of reservoir and well blocks
-            self.apply_rhs_flux(dt)  # apply RHS flux
+            self.apply_rhs_flux(dt, t)  # apply RHS flux
             self.engine.newton_residual_last_dt = self.engine.calc_newton_residual()  # calc norm of residual
 
             max_residual[i] = self.engine.newton_residual_last_dt
@@ -328,18 +348,20 @@ class DartsModel:
         self.timer.node['simulation'].stop()
         return converged
 
-    def set_rhs_flux(self) -> np.ndarray:
+    def set_rhs_flux(self, t: float = None) -> np.ndarray:
         """
         Function to specify modifications to RHS vector. User can implement his own boundary conditions here.
 
         This function is empty in DartsModel, needs to be overloaded in child Model.
 
+        :param t: current time [days]
+        :type t: float
         :return: Vector of modification to RHS vector
         :rtype: np.ndarray
         """
         pass
 
-    def apply_rhs_flux(self, dt: float):
+    def apply_rhs_flux(self, dt: float, t: float):
         """
         Function to apply modifications to RHS vector.
 
@@ -347,13 +369,15 @@ class DartsModel:
 
         :param dt: timestep [days]
         :type dt: float
+        :param t: current time [days]
+        :type t: float
         """
         if type(self).set_rhs_flux is DartsModel.set_rhs_flux:
             # If the function has not been overloaded, pass
             return
         rhs = np.array(self.engine.RHS, copy=False)
         n_res = self.reservoir.mesh.n_res_blocks * self.physics.n_vars
-        rhs[:n_res] += self.set_rhs_flux() * dt
+        rhs[:n_res] += self.set_rhs_flux(t) * dt
         return
 
     def output_properties(self):
