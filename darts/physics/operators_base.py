@@ -36,6 +36,7 @@ class PropertyOperators(OperatorsBase):
 
         self.props = property_container.output_props if props is None else props
         self.props_name = [key for key in self.props.keys()]
+        self.props_idx = {prop: j for j, prop in enumerate(self.props_name)}
         self.n_ops = len(self.props_name)
 
     def evaluate(self, state: value_vector, values: value_vector):
