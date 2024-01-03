@@ -22,19 +22,23 @@ class PhysicsBase:
     :type property_containers: dict
     :ivar reservoir_operators: Set of :class:`ReservoirOperators` objects for each of the regions for evaluation of reservoir cell states
     :type reservoir_operators: dict
+    :ivar property_operators: :class:`PropertyOperators` object for evaluation and interpolation of properties
+    :type property_operators: dict
     :ivar wellbore_operators: :class:`WellOperators` object for evaluation of well cell states
     :type wellbore_operators: dict
     :ivar rate_operators: :class:`RateOperators` object for evaluation of fluxes
     :type rate_operators: dict
-    :ivar property_operators: :class:`PropertyOperators` object for evaluation and interpolation of properties
-    :type property_operators: dict
+    :ivar regions: List of property regions
+    :type regions: list
     """
     property_containers = {}
 
     reservoir_operators = {}
+    property_operators = {}
     wellbore_operators: operator_set_evaluator_iface
     rate_operators: operator_set_evaluator_iface
-    property_operators: operator_set_evaluator_iface = None
+
+    regions = []
 
     def __init__(self, variables: list, nc: int, phases: list, n_ops: int,
                  axes_min: value_vector, axes_max: value_vector, n_points: int,
@@ -62,7 +66,6 @@ class PhysicsBase:
         # Define variables and number of operators
         self.vars = variables
         self.n_vars = len(variables)
-        self.n_props = 0
 
         self.nc = nc
         self.phases = phases
@@ -84,14 +87,12 @@ class PhysicsBase:
             self.created_itors = []
             atexit.register(self.write_cache)
 
-    def init_physics(self, regions: list = None, discr_type: str = 'tpfa', platform: str = 'cpu',
+    def init_physics(self, discr_type: str = 'tpfa', platform: str = 'cpu',
                      itor_type: str = 'multilinear', itor_mode: str = 'adaptive', itor_precision: str = 'd',
                      verbose: bool = False):
         """
         Function to initialize all contained objects within the Physics object.
 
-        :param regions: List of regions. It contains the keys of the `property_containers` and `reservoir_operators` dict
-        :type regions: list
         :param discr_type: Discretization type, 'tpfa' (default) or 'mpfa'
         :type discr_type: str
         :param platform: Switch for CPU/GPU engine, 'cpu' (default) or 'gpu'
@@ -105,48 +106,32 @@ class PhysicsBase:
         :param verbose: Set verbose level
         :type verbose: bool
         """
-        # If no list of regions has been provided, generate it from the keys of self.property_containers dict
-        if regions is None:
-            regions = list(self.property_containers.keys())
-
         # Define operators, set engine, set interpolators and define well controls
-        self.set_operators(regions)
+        self.set_operators()
         engine = self.set_engine(discr_type, platform)
         self.set_interpolators(platform, itor_type, itor_mode, itor_precision)
         self.define_well_controls()
         return engine
 
-    def add_property_region(self, property_container, region=0):
+    def add_property_region(self, property_container, region: int = 0):
         """
         Function to add :class:`PropertyContainer` object for specified region to `property_containers` dict.
 
         :param property_container: Object for evaluation of properties
         :type property_container: :class:`PropertyContainer`
-        :param region: Name of the region, to be used as a key in `property_containers` dict
+        :param region: Tag of the region, to be used as a key in `property_containers` dict
         """
         self.property_containers[region] = property_container
+        self.regions.append(region)
         return
 
-    def add_property_operators(self, property_operators: operator_set_evaluator_iface):
-        """
-        Function to add PropertyOperators object for interpolation of properties after simulation
-
-        :param property_operators: :class:`PropertyOperators` object
-        """
-        self.property_operators = property_operators
-        self.n_props = property_operators.n_props
-        return
-
-    def set_operators(self, regions: list):
+    def set_operators(self):
         """
         Function to set operator objects: :class:`ReservoirOperators` for each of the reservoir regions,
         :class:`WellOperators` for the well cells, :class:`RateOperators` for evaluation of rates
         and a :class:`PropertyOperator` for the evaluation of properties.
 
         In PhysicsBase, this is an empty function, needs to be overloaded in child classes.
-
-        :param regions: List of regions. It contains the keys of the `property_containers` and `reservoir_operators` dict
-        :type regions: list
         """
         pass
 
@@ -180,31 +165,27 @@ class PhysicsBase:
         :type itor_precision: str
         """
         self.acc_flux_itor = {}
-        for region, operators in self.reservoir_operators.items():
-            self.acc_flux_itor[region] = self.create_interpolator(operators, self.n_vars, self.n_ops,
-                                                                  self.n_axes_points, self.axes_min, self.axes_max,
+        self.property_itor = {}
+        for region in self.regions:
+            self.acc_flux_itor[region] = self.create_interpolator(self.reservoir_operators[region], n_ops=self.n_ops,
                                                                   platform=platform, algorithm=itor_type,
-                                                                  mode=itor_mode, precision=itor_precision)
-            self.create_itor_timers(self.acc_flux_itor[region], 'reservoir %d interpolation' % region)
+                                                                  mode=itor_mode, precision=itor_precision,
+                                                                  timer_name='reservoir %d interpolation' % region)
 
-        self.acc_flux_w_itor = self.create_interpolator(self.wellbore_operators, self.n_vars, self.n_ops,
-                                                        self.n_axes_points, self.axes_min, self.axes_max,
+            self.property_itor[region] = self.create_interpolator(self.property_operators[region], n_ops=self.n_ops,
+                                                                  platform=platform, algorithm=itor_type,
+                                                                  mode=itor_mode, precision=itor_precision,
+                                                                  timer_name='property %d interpolation' % region)
+
+        self.acc_flux_w_itor = self.create_interpolator(self.wellbore_operators, n_ops=self.n_ops,
+                                                        timer_name='wellbore interpolation',
                                                         platform=platform, algorithm=itor_type, mode=itor_mode,
                                                         precision=itor_precision)
-        self.create_itor_timers(self.acc_flux_w_itor, 'wellbore interpolation')
 
-        self.rate_itor = self.create_interpolator(self.rate_operators, self.n_vars, self.nph,
-                                                  self.n_axes_points, self.axes_min, self.axes_max,
+        self.rate_itor = self.create_interpolator(self.rate_operators, n_ops=self.nph,
+                                                  timer_name='well controls interpolation',
                                                   platform=platform, algorithm=itor_type, mode=itor_mode,
                                                   precision=itor_precision)
-        self.create_itor_timers(self.rate_itor, 'well controls interpolation')
-
-        if self.property_operators is not None:
-            self.property_itor = self.create_interpolator(self.property_operators, self.n_vars, self.n_ops,
-                                                          self.n_axes_points, self.axes_min, self.axes_max,
-                                                          platform=platform, algorithm=itor_type, mode=itor_mode,
-                                                          precision=itor_precision)
-            self.create_itor_timers(self.property_itor, 'property interpolation')
 
         return
 
@@ -222,8 +203,7 @@ class PhysicsBase:
             assert isinstance(w, ms_well)
             w.init_rate_parameters(self.n_vars, self.phases, self.rate_itor)
 
-    def create_interpolator(self, evaluator: operator_set_evaluator_iface, n_dims: int, n_ops: int,
-                            axes_n_points: index_vector, axes_min: value_vector, axes_max: value_vector,
+    def create_interpolator(self, evaluator: operator_set_evaluator_iface, timer_name: str, n_ops: int,
                             algorithm: str = 'multilinear', mode: str = 'adaptive',
                             platform: str = 'cpu', precision: str = 'd'):
         """
@@ -231,14 +211,8 @@ class PhysicsBase:
 
         :param evaluator: State operators to be interpolated. Evaluator object is used to generate supporting points
         :type evaluator: darts.engines.operator_set_evaluator_iface
-        :param n_dims: The number of dimensions for interpolation (parameter space dimensionality)
-        :type n_dims: int
-        :param n_ops: The number of operators to be interpolated. Should be consistent with evaluator.
-        :type n_ops: int
-        :param axes_n_points: The number of supporting points for each axis.
-        :type axes_n_points: darts.engines.index_vector
-        :param axes_min, axes_max: The minimum/maximum value for each axis.
-        :type axes_min: darts.engines.value_vector
+        :param timer_name: Name of timer object
+        :type timer_name: str
         :param algorithm: interpolator type:
                     'multilinear' (default) - piecewise multilinear generalization of piecewise bilinear interpolation
                                               on rectangles;
@@ -258,13 +232,14 @@ class PhysicsBase:
         :type precision: str
         """
         # verify then inputs are valid
-        assert len(axes_n_points) == n_dims
-        assert len(axes_min) == n_dims
-        assert len(axes_max) == n_dims
-        for n_p in axes_n_points:
+        assert len(self.n_axes_points) == self.n_vars
+        assert len(self.axes_min) == self.n_vars
+        assert len(self.axes_max) == self.n_vars
+        for n_p in self.n_axes_points:
             assert n_p > 1
 
         # calculate object name using 32 bit index type (i)
+        n_dims = self.n_vars
         itor_name = "%s_%s_%s_interpolator_i_%s_%d_%d" % (algorithm,
                                                           mode,
                                                           platform,
@@ -276,18 +251,18 @@ class PhysicsBase:
         cache_loaded = 0
         # try to create itor with 32-bit index type first (kinda a bit faster)
         try:
-            itor = eval(itor_name)(evaluator, axes_n_points, axes_min, axes_max)
+            itor = eval(itor_name)(evaluator, self.n_axes_points, self.axes_min, self.axes_max)
         except (ValueError, NameError):
             # 32-bit index type did not succeed: either total amount of points is out of range or has not been compiled
             # try 64 bit now raising exception this time if goes wrong:
             itor_name = itor_name.replace('interpolator_i', 'interpolator_l')
             try:
-                itor = eval(itor_name)(evaluator, axes_n_points, axes_min, axes_max)
+                itor = eval(itor_name)(evaluator, self.n_axes_points, self.axes_min, self.axes_max)
             except (ValueError, NameError):
                 # if 64-bit index also failed, probably the combination of required n_ops and n_dims
                 # was not instantiated/exposed. In this case substitute general implementation of interpolator
-                itor = eval("multilinear_adaptive_cpu_interpolator_general")(evaluator, axes_n_points, axes_min, axes_max,
-                                                                             n_dims, n_ops)
+                itor = eval("multilinear_adaptive_cpu_interpolator_general")(evaluator, self.n_axes_points,
+                                                                             self.axes_min, self.axes_max, n_dims, n_ops)
                 general = True
 
         if self.cache:
@@ -297,7 +272,7 @@ class PhysicsBase:
             if general:
                 itor_cache_signature += "_general_"
             for dim in range(n_dims):
-                itor_cache_signature += "_%d_%e_%e" % (axes_n_points[dim], axes_min[dim], axes_max[dim])
+                itor_cache_signature += "_%d_%e_%e" % (self.n_axes_points[dim], self.axes_min[dim], self.axes_max[dim])
             # compute signature hash to uniquely identify itor parameters and load correct cache
             itor_cache_signature_hash = str(hashlib.md5(itor_cache_signature.encode()).hexdigest())
             itor_cache_filename = 'obl_point_data_' + itor_cache_signature_hash + '.pkl'
@@ -321,6 +296,8 @@ class PhysicsBase:
             with open(itor_cache_filename, "wb") as fp:
                 print("Writing point data for ", type(itor).__name__)
                 pickle.dump(itor.point_data, fp, protocol=4)
+
+        self.create_itor_timers(itor, timer_name)
         return itor
 
     def create_itor_timers(self, itor: operator_set_gradient_evaluator_iface, timer_name: str):

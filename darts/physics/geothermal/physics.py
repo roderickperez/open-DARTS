@@ -1,6 +1,7 @@
 from darts.engines import *
 from darts.physics.properties.iapws.iapws_property import *
 from darts.physics.physics_base import PhysicsBase
+from darts.physics.operators_base import PropertyOperators
 from darts.physics.geothermal.operator_evaluator import *
 
 import numpy as np
@@ -59,25 +60,22 @@ class Geothermal(PhysicsBase):
         super().__init__(variables=variables, nc=nc, phases=phases, n_ops=n_ops,
                          axes_min=axes_min, axes_max=axes_max, n_points=n_points, timer=timer, cache=cache)
 
-    def set_operators(self, regions):
+    def set_operators(self):
         """
         Function to set operator objects: :class:`acc_flux_gravity_evaluator` for each of the reservoir regions,
         :class:`acc_flux_gravity_evaluator_python_well` for the well cells
         and :class:`geothermal_rate_custom_evaluator_python` for evaluation of rates.
-
-        :param regions: List of regions. It contains the keys of the `property_containers` and `reservoir_operators` dict
-        :type regions: list
-        :param output_properties: Output property operators object, default is None
         """
-        for region, prop_container in self.property_containers.items():
-            self.reservoir_operators[region] = acc_flux_gravity_evaluator_python(prop_container)
-        self.wellbore_operators = acc_flux_gravity_evaluator_python_well(self.property_containers[regions[0]])
+        for region in self.regions:
+            self.reservoir_operators[region] = acc_flux_gravity_evaluator_python(self.property_containers[region])
+            self.property_operators[region] = PropertyOperators(self.property_containers[region], thermal=True)
+        self.wellbore_operators = acc_flux_gravity_evaluator_python_well(self.property_containers[self.regions[0]])
 
         # create rate operators evaluator
         if self.mass_rate:
-            self.rate_operators = geothermal_mass_rate_custom_evaluator_python(self.property_containers[regions[0]])
+            self.rate_operators = geothermal_mass_rate_custom_evaluator_python(self.property_containers[self.regions[0]])
         else:
-            self.rate_operators = geothermal_rate_custom_evaluator_python(self.property_containers[regions[0]])
+            self.rate_operators = geothermal_rate_custom_evaluator_python(self.property_containers[self.regions[0]])
 
         return
 

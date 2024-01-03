@@ -6,7 +6,7 @@ from copy import deepcopy
 
 from darts.physics.super.physics import Compositional
 from darts.physics.super.property_container import PropertyContainer
-from darts.physics.super.operator_evaluator import PropertyOperators
+from darts.physics.operators_base import PropertyOperators
 
 from darts.physics.properties.basic import ConstFunc, PhaseRelPerm
 from darts.physics.properties.flash import ConstantK
@@ -220,8 +220,16 @@ class Model(CICDModel):
 
             physics.add_property_region(property_container, i)
 
-        property_operators = CustomPropertyOperators(physics.vars, property_container)
-        physics.add_property_operators(property_operators)
+        physics.property_containers[0].output_props = {"sat_gas": lambda: physics.property_containers[0].sat[0],
+                                                       # "sat_wat": lambda: physics.property_containers[0].sat[1],
+                                                       "y_CO2": lambda: physics.property_containers[0].x[0, 0],
+                                                       "y_Ions": lambda: physics.property_containers[0].x[0, 1],
+                                                       "y_H2O": lambda: physics.property_containers[0].x[0, 2],
+                                                       "x_CO2": lambda: physics.property_containers[0].x[1, 0],
+                                                       "x_Ions": lambda: physics.property_containers[0].x[1, 1],
+                                                       "x_H2O": lambda: physics.property_containers[0].x[1, 2],
+                                                       }
+
         return super().set_physics(physics=physics)
 
     # Initialize reservoir and set boundary conditions:
@@ -254,20 +262,21 @@ class Model(CICDModel):
     def set_op_list(self):
         self.op_num = np.array(self.reservoir.mesh.op_num, copy=False)
         n_res = self.reservoir.mesh.n_res_blocks
-        self.op_num[n_res:] = 1
 
         if self.grid_1D:
             self.op_list = [self.physics.acc_flux_itor[0], self.physics.acc_flux_w_itor]
+            self.op_num[n_res:] = 1
         else:
             self.slice_liq_inj = np.arange(0, self.nx * self.ny // 2 - 1, self.nx, dtype=int)
             self.slice_gas_inj = np.arange(self.nx * self.ny // 2, self.nx * self.ny - 1, self.nx, dtype=int)
 
-            self.op_num[self.slice_gas_inj] = 2
-            self.op_num[self.slice_liq_inj] = 3
+            self.op_num[self.slice_gas_inj] = 1
+            self.op_num[self.slice_liq_inj] = 2
+            self.op_num[n_res:] = 3
 
             # self.op_list = [self.physics.acc_flux_itor, self.physics.acc_flux_w_itor]
-            self.op_list = [self.physics.acc_flux_itor[0], self.physics.acc_flux_w_itor, self.physics.acc_flux_itor[1],
-                            self.physics.acc_flux_itor[2]]
+            self.op_list = [self.physics.acc_flux_itor[0], self.physics.acc_flux_itor[1], self.physics.acc_flux_itor[2],
+                            self.physics.acc_flux_w_itor]
 
     def print_and_plot_1D(self):
         nc = self.physics.nc
@@ -293,14 +302,14 @@ class Model(CICDModel):
         for ii in range(nb):
             x_list = Xn[ii*nc:(ii+1)*nc]
             state = value_vector(x_list)
-            ph, sat, x, rho, rho_m, mu, kr, pc, kin_rates = self.physics.property_operators.property_container.evaluate(state)
+            ph, sat, x, rho, rho_m, mu, kr, pc, kin_rates = self.physics.property_operators[0].property.evaluate(state)
 
             rel_perm[ii, :] = kr
             visc[ii, :] = mu
             density[ii, :2] = rho
             density_m[ii, :2] = rho_m
 
-            density[2] = self.physics.property_operators.property_container.solid_dens[-1]
+            density[2] = self.physics.property_operators[0].property.solid_dens[-1]
 
             X[ii, :, 0] = x[1][:-1]
             X[ii, :, 1] = x[0][:-1]
@@ -339,7 +348,6 @@ class Model(CICDModel):
         plt.tight_layout()
         plt.savefig("results_kinetic_brief.pdf")
 
-
     def print_and_plot_2D(self):
         import matplotlib.pyplot as plt
 
@@ -359,25 +367,26 @@ class Model(CICDModel):
         Sg = np.zeros(nb)
         Ss = np.zeros(nb)
         X = np.zeros((nb, nc - 1, 2))
-        Xn = np.array(self.engine.X, copy=True)
 
-        P = Xn[0:nb * nc:nc]
-        z_caco3 = 1 - (Xn[1:nb * nc:nc] + Xn[2:nb * nc:nc] + Xn[3:nb * nc:nc])
-
-        z_co2 = Xn[1:nb * nc:nc] / (1 - z_caco3)
-        z_inert = Xn[2:nb * nc:nc] / (1 - z_caco3)
-        z_h2o = Xn[3:nb * nc:nc] / (1 - z_caco3)
-
-        for ii in range(nb):
-            x_list = Xn[ii * nc:(ii + 1) * nc]
-            state = value_vector(x_list)
-            ph, sat, x, rho, rho_m, mu, kr, pc, kin_rates = self.physics.property_operators.property_container.evaluate(state)
-
-            X[ii, :, 0] = x[1][:-1]
-            X[ii, :, 1] = x[0][:-1]
-            Sg[ii] = sat[0]
-            Ss[ii] = z_caco3[ii]
+        output_props = self.output_properties()
+        P = output_props[0, :]
+        z_caco3 = 1 - np.sum(output_props[1:nc, :], axis=0)
         phi = 1 - z_caco3
+
+        z_co2 = output_props[1, :] / phi
+        z_inert = output_props[2, :] / phi
+        z_h2o = output_props[3, :] / phi
+
+        sat_idx = self.physics.n_vars
+        y_idx = sat_idx + 1
+        x_idx = y_idx + nc - 1
+        for ii in range(nb):
+            x0 = [output_props[x_idx + i, ii] for i in range(nc - 1)]
+            x1 = [output_props[y_idx + i, ii] for i in range(nc - 1)]
+            X[ii, :, 0] = x0
+            X[ii, :, 1] = x1
+            Sg[ii] = output_props[sat_idx, ii]
+            Ss[ii] = z_caco3[ii]
 
         fig, ax = plt.subplots(3, 2, figsize=(10, 6), dpi=200, facecolor='w', edgecolor='k')
         plt.set_cmap('jet')
@@ -405,6 +414,8 @@ class Model(CICDModel):
         plt.tight_layout()
         name = "results_kinetic_2D_" + str(self.nx) + "x" + str(self.ny)
         plt.savefig(name + ".pdf")
+
+        plt.show()
 
         return 0
 
@@ -434,10 +445,12 @@ class ModelProperties(PropertyContainer):
         if V <= 0:
             V = 0
             xr[1] = zc_r
+            xr[0] = np.zeros(nc_fl)
             ph = [1]
         elif V >= 1:
             V = 1
             xr[0] = zc_r
+            xr[1] = np.zeros(nc_fl)
             ph = [0]
         else:
             ph = [0, 1]
@@ -454,41 +467,24 @@ class ModelProperties(PropertyContainer):
     def evaluate_mass_source(self, pressure, temperature, zc):
         # Kinetic reaction
         mass_source = np.zeros(self.nc)
-        mass_source += self.kinetic_rate_ev[0].evaluate(pressure, temperature, self.x, zc[-1])
+        dm, _ = self.kinetic_rate_ev[0].evaluate(pressure, temperature, self.x, zc[-1])
+        mass_source += dm
 
         # Mass source
         if 1 in self.kinetic_rate_ev.keys():
             id = self.kinetic_rate_ev[1].comp_inj_id
             if id == 0:
                 dens_m_pure = self.density_ev['gas'].evaluate(pressure, 0) / 44.01
-                mass_source[id] -= self.kinetic_rate_ev[1].evaluate(dens_m_pure)
+                dm, _ = self.kinetic_rate_ev[1].evaluate(dens_m_pure)
+                mass_source[id] -= dm
             elif id == 2:
                 dens_m_pure = self.density_ev['wat'].evaluate(pressure, 0) / 18.015
-                mass_source[id] -= self.kinetic_rate_ev[1].evaluate(dens_m_pure)
+                dm, _ = self.kinetic_rate_ev[1].evaluate(dens_m_pure)
+                mass_source[id] -= dm
         else:
             ''
 
         return mass_source
-
-
-class CustomPropertyOperators(PropertyOperators):
-    def evaluate(self, state, values):
-        """
-        Class methods which evaluates the state operators for the element based physics
-        :param state: state variables [pres, comp_0, ..., comp_N-1]
-        :param values: values of the operators (used for storing the operator values)
-        :return: updated value for operators, stored in values
-        """
-        ph, sat, x, dens, dens_m, mu, kr, pc, mass_source = self.property_container.evaluate(state)
-
-        nph = self.property.nph
-        for i in range(nph):
-            values[i + 0 * nph] = sat[i]
-            values[i + 1 * nph] = dens[i]
-            values[i + 2 * nph] = dens[i]
-            values[i + 3 * nph] = kr[i]
-
-        return 0
 
 
 class MassSource:
@@ -499,7 +495,7 @@ class MassSource:
         self.rate = rate
 
     def evaluate(self, dens_m_pure):
-        return self.rate / self.num_well_blocks / self.delta_volume * dens_m_pure
+        return self.rate / self.num_well_blocks / self.delta_volume * dens_m_pure, None
 
 
 class CustomPhysics(Compositional):
@@ -511,24 +507,23 @@ class CustomPhysics(Compositional):
 
         super().__init__(components, phases, timer, n_points, min_p, max_p, min_z, max_z, min_t, max_t, thermal, cache)
 
-    def set_operators(self, regions, output_props=None):  # default definition of operators
-        self.reservoir_operators[0] = ReservoirOperators(self.property_containers[0])
-        self.wellbore_operators = ReservoirOperators(self.property_containers[0])
+    def set_operators(self):  # default definition of operators
+        self.reservoir_operators[0] = ReservoirOperators(self.property_containers[0], self.thermal)
+        self.property_operators[0] = PropertyOperators(self.property_containers[0], self.thermal)
+
+        self.wellbore_operators = ReservoirOperators(self.property_containers[0], self.thermal)
 
         self.reservoir_operators[1] = ReservoirWithSourceOperators(self.property_containers[0], comp_inj_id=0,
                                                                    delta_volume=self.delta_volume,
                                                                    num_well_blocks=self.num_well_blocks)
+        self.property_operators[1] = PropertyOperators(self.property_containers[0], self.thermal)
 
         self.reservoir_operators[2] = ReservoirWithSourceOperators(self.property_containers[0], comp_inj_id=1,
                                                                    delta_volume=self.delta_volume,
                                                                    num_well_blocks=self.num_well_blocks)
+        self.property_operators[2] = PropertyOperators(self.property_containers[0], self.thermal)
 
         self.rate_operators = RateOperators(self.property_containers[0])
-
-        if output_props is None:
-            self.property_operators = PropertyOperators(self.vars, self.property_containers[0])
-        else:
-            self.property_operators = output_props
 
         return
 
@@ -552,25 +547,19 @@ class ReservoirWithSourceOperators(ReservoirOperators):
         :param values: values of the operators (used for storing the operator values)
         :return: updated value for operators, stored in values
         """
-
         super().evaluate(state, values)
+
         # Composition vector and pressure from state:
         vec_state_as_np = np.asarray(state)
         pressure = vec_state_as_np[0]
 
-        nc = self.property.nc
-        nph = self.property.nph
-        ne = nc + self.thermal
-
         """ Delta operator for reaction """
-        shift = nph * ne + nph + ne + ne * nph
-
         # mass flux injection (if comp 0 then pure CO2 in gas vorm if 2 then pure H2O in liquid)
         if self.comp_inj_id == 0:
-            values[shift + 0] -= 1000 / self.num_well_blocks / self.delta_volume \
-                               * self.property.density_ev['gas'].evaluate(pressure, 0) / 44.01
+            values[self.KIN_OP + 0] -= 1000 / self.num_well_blocks / self.delta_volume \
+                                       * self.property.density_ev['gas'].evaluate(pressure, 0) / 44.01
         elif self.comp_inj_id == 1:
-            values[shift + 2] -= 200 / self.num_well_blocks / self.delta_volume \
-                               * self.property.density_ev['wat'].evaluate(pressure, 0) / 18.015
+            values[self.KIN_OP + 2] -= 200 / self.num_well_blocks / self.delta_volume \
+                                       * self.property.density_ev['wat'].evaluate(pressure, 0) / 18.015
 
         return 0

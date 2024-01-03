@@ -1,9 +1,10 @@
 import numpy as np
+from darts.physics.property_base import PropertyBase
 from darts.physics.properties.flash import Flash
 from darts.physics.properties.basic import CapillaryPressure, Diffusion, RockCompactionEvaluator, RockEnergyEvaluator
 
 
-class PropertyContainer:
+class PropertyContainer(PropertyBase):
     def __init__(self, phases_name, components_name, Mw, min_z=1e-11,
                  diff_coef=0., rock_comp=1e-6, solid_dens=None, rate_ann_mat=None, temperature=None):
 
@@ -62,8 +63,11 @@ class PropertyContainer:
         self.pc = np.zeros(self.nph)
         self.enthalpy = np.zeros(self.nph)
         self.kappa = np.zeros(self.nph)
+        self.dX = []
 
         self.phase_props = [self.dens, self.dens_m, self.sat, self.nu, self.mu, self.kr, self.pc, self.enthalpy, self.kappa]
+
+        self.output_props = {"sat0": lambda: self.sat[0]}
 
     def get_state(self, state):
         """
@@ -138,7 +142,6 @@ class PropertyContainer:
         self.compute_saturation(self.ph)
 
         return self.sat[0]
-        
 
     def run_flash(self, pressure, temperature, zc):
         # Evaluates flash, then uses getter for nu and x - for compatibility with DARTS-flash
@@ -157,10 +160,14 @@ class PropertyContainer:
         return ph
 
     def evaluate_mass_source(self, pressure, temperature, zc):
+        self.dX = np.zeros(len(self.kinetic_rate_ev))
         mass_source = np.zeros(self.nc)
+
         for j, reaction in self.kinetic_rate_ev.items():
-            # mass_source += reaction.evaluate(pressure, temperature, self.x, zc[-1])
-            mass_source += reaction.evaluate(pressure, temperature, self.x, self.sat[-1])
+            # dm, self.dX[j] += reaction.evaluate(pressure, temperature, self.x, zc[-1])
+            dm, self.dX[j] = reaction.evaluate(pressure, temperature, self.x, self.sat)
+            mass_source += dm
+
         return mass_source
 
     def evaluate(self, state):

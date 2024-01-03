@@ -284,6 +284,8 @@ class ModelProperties(PropertyContainer):
     def evaluate_mass_source(self, pressure, temperature, zc):
         mass_source = np.zeros(self.nc)
         for j, reaction in self.kinetic_rate_ev.items():
-            mass_source += reaction.evaluate(pressure, temperature, self.x, zc[-1])
-            # mass_source += reaction.evaluate(pressure, temperature, self.x, self.sat[-1])
+            dm, _ = reaction.evaluate(pressure, temperature, self.x, zc[-1])
+            # dm, _ += reaction.evaluate(pressure, temperature, self.x, self.sat[-1])
+            mass_source += dm
+
         return mass_source

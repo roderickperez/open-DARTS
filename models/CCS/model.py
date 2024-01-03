@@ -4,7 +4,7 @@ from darts.models.darts_model import DartsModel
 
 from darts.physics.super.physics import Compositional
 from darts.physics.super.property_container import PropertyContainer
-from darts.physics.super.operator_evaluator import PropertyOperators
+from darts.physics.operators_base import PropertyOperators
 
 from darts.physics.properties.basic import PhaseRelPerm, ConstFunc
 from darts.physics.properties.density import Garcia2001
@@ -94,11 +94,15 @@ class Model(DartsModel):
         property_container.conductivity_ev = dict([('V', ConstFunc(0.)),
                                                    ('Aq', ConstFunc(0.)), ])
 
+        property_container.output_props = {"satA": lambda: property_container.sat[0],
+                                           "satV": lambda: property_container.sat[1],
+                                           "xCO2": lambda: property_container.x[0, 1],
+                                           "yH2O": lambda: property_container.x[1, 0]
+                                           }
+
         physics = Compositional(components, phases, self.timer, n_points, min_p=1, max_p=400, min_z=zero/10,
                                 max_z=1-zero/10, min_t=273.15, max_t=373.15, thermal=thermal, cache=False)
         physics.add_property_region(property_container)
-        props = [('satA', 'sat', 0), ('satV', 'sat', 1), ('xCO2', 'x', (0, 1)), ('yH2O', 'x', (1, 0))]
-        physics.add_property_operators(PropertyOperators(props, property_container))
 
         return super().set_physics(physics)
 

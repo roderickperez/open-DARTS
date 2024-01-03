@@ -1,19 +1,14 @@
 import numpy as np
 from darts.engines import operator_set_evaluator_iface, value_vector
+from darts.physics.operators_base import OperatorsBase
 from darts.physics.super.property_container import PropertyContainer
 
 
-class OperatorsBase(operator_set_evaluator_iface):
-    def __init__(self, property_container, thermal):
-        super().__init__()  # Initialize base-class
-        # Store your input parameters in self here, and initialize other parameters here in self
-        self.min_z = property_container.min_z
-        self.property = property_container
-        self.thermal = thermal
+class OperatorsSuper(OperatorsBase):
+    def __init__(self, property_container: PropertyContainer, thermal: bool):
+        super().__init__(property_container, thermal)  # Initialize base-class
 
-        self.nc = property_container.nc
-        self.ne = self.nc + self.thermal
-        self.nph = property_container.nph
+        self.min_z = property_container.min_z
 
         # Operator order
         self.ACC_OP = 0  # accumulation operator - ne
@@ -29,9 +24,9 @@ class OperatorsBase(operator_set_evaluator_iface):
         self.GRAV_OP = self.RE_INTER_OP + 3  # gravity operator - nph
         self.PC_OP = self.RE_INTER_OP + 3 + self.nph  # capillary operator - nph
         self.PORO_OP = self.RE_INTER_OP + 3 + 2 * self.nph  # porosity operator - 1
-        self.N_OP = self.PORO_OP + 1
+        self.n_ops = self.PORO_OP + 1
 
-    def print_operators(self, state, values):
+    def print_operators(self, state: value_vector, values: value_vector):
         """Method for printing operators, grouped"""
         print("================================================")
         print("STATE", state)
@@ -52,11 +47,8 @@ class OperatorsBase(operator_set_evaluator_iface):
         return
 
 
-class ReservoirOperators(OperatorsBase):
-    def __init__(self, property_container, thermal=0):
-        super().__init__(property_container, thermal)  # Initialize base-class
-
-    def evaluate(self, state, values):
+class ReservoirOperators(OperatorsSuper):
+    def evaluate(self, state: value_vector, values: value_vector):
         """
         Class methods which evaluates the state operators for the element based physics
         :param state: state variables [pres, comp_0, ..., comp_N-1]
@@ -70,7 +62,7 @@ class ReservoirOperators(OperatorsBase):
         nm = self.property.nm
         nc_fl = self.nc - nm
 
-        for i in range(self.N_OP):
+        for i in range(self.n_ops):
             values[i] = 0
 
         #  some arrays will be reused in thermal
@@ -121,26 +113,14 @@ class ReservoirOperators(OperatorsBase):
         # E5_> porosity
         values[self.PORO_OP] = phi
 
-        #print(state, values)
+        if self.thermal:
+            self.evaluate_thermal(state, values)
+
         # self.print_operators(state, values)
 
         return 0
 
-
-class ReservoirThermalOperators(ReservoirOperators):
-    def __init__(self, property_container, thermal=1):
-        super().__init__(property_container, thermal=thermal)  # Initialize base-class
-
-    def evaluate(self, state, values):
-        """
-        Class methods which evaluates the state operators for the element based physics
-        :param state: state variables [pres, comp_0, ..., comp_N-1]
-        :param values: values of the operators (used for storing the operator values)
-        :return: updated value for operators, stored in values
-        """
-        # Composition vector and pressure from state:
-        super().evaluate(state, values)
-
+    def evaluate_thermal(self, state: value_vector, values: value_vector):
         vec_state_as_np = np.asarray(state)
         pressure = state[0]
         temperature = vec_state_as_np[-1]
@@ -150,7 +130,8 @@ class ReservoirThermalOperators(ReservoirOperators):
 
         """ Alpha operator represents accumulation term: """
         for m in self.ph:
-            values[self.ACC_OP + self.nc] += self.compr * self.sat[m] * self.rho_m[m] * enthalpy[m]  # fluid enthalpy (kJ/m3)
+            values[self.ACC_OP + self.nc] += self.compr * self.sat[m] * self.rho_m[m] * enthalpy[
+                m]  # fluid enthalpy (kJ/m3)
         values[self.ACC_OP + self.nc] -= self.compr * 100 * pressure
 
         """ Beta operator represents flux term: """
@@ -172,17 +153,11 @@ class ReservoirThermalOperators(ReservoirOperators):
         # E3-> rock conduction
         values[self.ROCK_COND] = 1 / self.compr  # multiplied by rock cond inside engine
 
-        #print(state, values)
-        # self.print_operators(state, values)
-
         return 0
 
 
-class WellOperators(OperatorsBase):
-    def __init__(self, property_container, thermal=0):
-        super().__init__(property_container, thermal)  # Initialize base-class
-
-    def evaluate(self, state, values):
+class WellOperators(OperatorsSuper):
+    def evaluate(self, state: value_vector, values: value_vector):
         """
         Class methods which evaluates the state operators for the element based physics
         :param state: state variables [pres, comp_0, ..., comp_N-1]
@@ -196,7 +171,7 @@ class WellOperators(OperatorsBase):
         nm = self.property.nm
         nc_fl = self.nc - nm
 
-        for i in range(self.N_OP):
+        for i in range(self.n_ops):
             values[i] = 0
 
         ph, sat, x, rho, rho_m, mu, kr, pc, mass_source = self.property.evaluate(state)
@@ -227,7 +202,7 @@ class WellOperators(OperatorsBase):
         """ Chi operator for diffusion """
 
         """ Delta operator for reaction """
-        for i in range(self.ne):
+        for i in range(self.nc):
             values[self.KIN_OP + i] = mass_source[i]
 
         """ Gravity and Capillarity operators """
@@ -238,39 +213,46 @@ class WellOperators(OperatorsBase):
         # E5_> porosity
         values[self.PORO_OP] = phi
 
-        #print(state, values)
+        if self.thermal:
+            self.evaluate_thermal(state, values)
+
+        # self.print_operators(state, values)
+
         return 0
+
+    def evaluate_thermal(self, state: value_vector, values: value_vector):
+        return
 
 
 class RateOperators(operator_set_evaluator_iface):
     def __init__(self, property_container):
-        super().__init__()  # Initialize base-class
-        # Store your input parameters in self here, and initialize other parameters here in self
+        super().__init__()
+
         self.nc = property_container.nc
         self.nph = property_container.nph
-        self.min_z = property_container.min_z
-        self.property = property_container
-        self.flux = np.zeros(self.nc)
+        self.n_ops = property_container.nph
 
-    def evaluate(self, state, values):
+        self.property = property_container
+
+    def evaluate(self, state: value_vector, values: value_vector):
         """
         Class methods which evaluates the state operators for the element based physics
         :param state: state variables [pres, comp_0, ..., comp_N-1]
         :param values: values of the operators (used for storing the operator values)
         :return: updated value for operators, stored in values
         """
-        for i in range(self.nph):
+        for i in range(self.n_ops):
             values[i] = 0
 
         ph, sat, x, rho, rho_m, mu, kr, pc, mass_source = self.property.evaluate(state)
 
-        self.flux[:] = 0
+        flux = np.zeros(self.nc)
         # step-1
         for j in ph:
             for i in range(self.nc):
-                self.flux[i] += rho_m[j] * kr[j] * x[j][i] / mu[j]
+                flux[i] += rho_m[j] * kr[j] * x[j][i] / mu[j]
         # step-2
-        flux_sum = np.sum(self.flux)
+        flux_sum = np.sum(flux)
 
         #(sat_sc, rho_m_sc) = self.property.evaluate_at_cond(1, self.flux/flux_sum)
         sat_sc = sat
@@ -280,53 +262,8 @@ class RateOperators(operator_set_evaluator_iface):
         total_density = np.sum(sat_sc * rho_m_sc)
         # step-4
         for j in ph:
-            values[j] = sat_sc[j] * flux_sum / total_density
+            values[j] = rho_m[j] * kr[j] / mu[j]
+            #sat_sc[j] * flux_sum / total_density
 
-        #print(state, values)
-        return 0
-
-
-class PropertyOperators(operator_set_evaluator_iface):
-    """
-    This class contains a set of operators for evaluation of properties.
-    An interpolator is created in the :class:`Physics` object to rapidly obtain properties after simulation.
-
-    :ivar prop_idxs: Dictionary of indices for each property as they are returned in property_container.evaluate()
-    :type prop_idxs: dict
-    """
-    prop_idxs = {"sat": 1, "x": 2, "rho": 3, "rho_m": 4, "mu": 5, "kr": 6, "pc": 7, "mass_source": 8}
-
-    def __init__(self, props: list, property_container: PropertyContainer):
-        """
-        This is the constructor for PropertyOperator.
-        The properties to be obtained from the PropertyContainer are passed as a list of tuples.
-
-        :param props: List of tuples with ('name', 'key', index), where key must match self.prop_dict and index is for phase, (component)
-        :type props: list[tuple]
-        :param property_container: PropertyContainer object to evaluate properties at given state
-        """
-        super().__init__()  # Initialize base-class
-
-        self.property_container = property_container
-
-        self.props = props
-        self.n_props = len(props)
-        self.props_name = [prop[0] for prop in props]
-
-    def evaluate(self, state: value_vector, values: value_vector):
-        """
-        This function evaluates the properties at given `state` (P,z) or (P,T,z) from the :class:`PropertyContainer` object.
-        The user-specified properties are stored in the `values` object.
-
-        :param state: Vector of state variables [pres, comp_0, ..., comp_N-1, (temp)]
-        :type state: darts.engines.value_vector
-        :param values: Vector for storage of operator values
-        :type values: darts.engines.value_vector
-        """
-        prop_output = self.property_container.evaluate(state)
-
-        for i, prop in enumerate(self.props):
-            prop_idx = self.prop_idxs[prop[1]]
-            values[i] = prop_output[prop_idx][prop[2]]
-
+        # print(state, values)
         return 0

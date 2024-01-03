@@ -94,7 +94,7 @@ class Model(CICDModel):
             else:
                 w.control = self.physics.new_rate_prod(self.well_rate, iph=0)
 
-    def set_rhs_flux(self):
+    def set_rhs_flux(self, t: float = None):
         '''
         function to specify the inflow or outflow to the cells
         it sets up self.rhs_flux vector on nvar * ncells size

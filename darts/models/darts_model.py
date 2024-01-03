@@ -2,6 +2,7 @@ from math import fabs
 import pickle
 import os
 import numpy as np
+from copy import copy
 
 from darts.engines import conn_mesh, engine_base
 from darts.reservoirs.reservoir_base import ReservoirBase
@@ -16,7 +17,7 @@ from darts.print_build_info import print_build_info as package_pbi
 class DartsModel:
     """
     This is a base class for creating a model in DARTS.
-    A model is composed of a :class:`darts.models.Reservoir` object and a `darts.physics.Physics` object.
+    A model is composed of a :class:`Reservoir` object and a :class:`Physics` object.
     Initialization and communication between these two objects takes place through the Model object
 
     :ivar reservoir: Reservoir object
@@ -124,7 +125,7 @@ class DartsModel:
         """
         self.physics = physics
         self.engine = self.physics.init_physics(discr_type=discr_type, platform=platform, verbose=verbose)
-        if platform =='gpu':
+        if platform == 'gpu':
             self.params.linear_type = sim_params.gpu_gmres_cpr_amgx_ilu
         return
 
@@ -159,7 +160,7 @@ class DartsModel:
             initial_value = initial_values[variable]
 
             if variable not in ['pressure', 'temperature', 'enthalpy']:
-                c = i-1
+                c = i - 1
                 values[c::(self.physics.nc - 1)] = initial_value
             elif isinstance(initial_values[variable], (list, np.ndarray)):
                 # If initial value is an array, assign array
@@ -196,12 +197,9 @@ class DartsModel:
 
         Operator list is in order [acc_flux_itor[0], ..., acc_flux_itor[n-1], acc_flux_w_itor]
         """
-        if type(self.physics.acc_flux_itor) == dict:
-            self.op_list = list(self.physics.acc_flux_itor.values()) + [self.physics.acc_flux_w_itor]
-            self.op_num = np.array(self.reservoir.mesh.op_num, copy=False)
-            self.op_num[self.reservoir.mesh.n_res_blocks:] = len(self.op_list) - 1
-        else: # for backward compatibility
-            self.op_list = [self.physics.acc_flux_itor]
+        self.op_list = [self.physics.acc_flux_itor[region] for region in self.physics.regions] + [self.physics.acc_flux_w_itor]
+        self.op_num = np.array(self.reservoir.mesh.op_num, copy=False)
+        self.op_num[self.reservoir.mesh.n_res_blocks:] = len(self.op_list) - 1
 
     def set_sim_params(self, first_ts: float = None, mult_ts: float = None, max_ts: float = None, runtime: float = 1000,
                        tol_newton: float = None, tol_linear: float = None, it_newton: int = None, it_linear: int = None,
@@ -244,6 +242,16 @@ class DartsModel:
         self.params.newton_params = newton_params if newton_params is not None else self.params.newton_params
 
     def run(self, days: float = None, restart_dt: float = 0., verbose: bool = True):
+        """
+        Method to run simulation for specified time. Optional argument to specify dt to restart simulation with.
+
+        :param days: Time increment [days]
+        :type days: float
+        :param restart_dt: Restart value for timestep size [days, optional]
+        :type restart_dt: float
+        :param verbose: Switch for verbose, default is True
+        :type verbose: bool
+        """
         days = days if days is not None else self.runtime
 
         # get current engine time
@@ -292,7 +300,17 @@ class DartsModel:
                      self.engine.stat.n_newton_total, self.engine.stat.n_newton_wasted,
                      self.engine.stat.n_linear_total, self.engine.stat.n_linear_wasted))
 
-    def run_timestep(self, dt, t, verbose: bool = True):
+    def run_timestep(self, dt: float, t: float, verbose: bool = True):
+        """
+        Method to solve Newton loop for specified timestep
+
+        :param dt: Timestep size [days]
+        :type dt: float
+        :param t: Current time [days]
+        :type t: float
+        :param verbose: Switch for verbose, default is True
+        :type verbose: bool
+        """
         max_newt = self.params.max_i_newton
         max_residual = np.zeros(max_newt + 1)
         self.engine.n_linear_last_dt = 0
@@ -300,7 +318,7 @@ class DartsModel:
         for i in range(max_newt+1):
             # self.engine.run_single_newton_iteration(dt)
             self.engine.assemble_linear_system(dt)  # assemble Jacobian and residual of reservoir and well blocks
-            self.apply_rhs_flux(dt)  # apply RHS flux
+            self.apply_rhs_flux(dt, t)  # apply RHS flux
             self.engine.newton_residual_last_dt = self.engine.calc_newton_residual()  # calc norm of residual
 
             max_residual[i] = self.engine.newton_residual_last_dt
@@ -330,18 +348,20 @@ class DartsModel:
         self.timer.node['simulation'].stop()
         return converged
 
-    def set_rhs_flux(self) -> np.ndarray:
+    def set_rhs_flux(self, t: float = None) -> np.ndarray:
         """
         Function to specify modifications to RHS vector. User can implement his own boundary conditions here.
 
         This function is empty in DartsModel, needs to be overloaded in child Model.
 
+        :param t: current time [days]
+        :type t: float
         :return: Vector of modification to RHS vector
         :rtype: np.ndarray
         """
         pass
 
-    def apply_rhs_flux(self, dt: float):
+    def apply_rhs_flux(self, dt: float, t: float):
         """
         Function to apply modifications to RHS vector.
 
@@ -349,13 +369,15 @@ class DartsModel:
 
         :param dt: timestep [days]
         :type dt: float
+        :param t: current time [days]
+        :type t: float
         """
         if type(self).set_rhs_flux is DartsModel.set_rhs_flux:
             # If the function has not been overloaded, pass
             return
         rhs = np.array(self.engine.RHS, copy=False)
         n_res = self.reservoir.mesh.n_res_blocks * self.physics.n_vars
-        rhs[:n_res] += self.set_rhs_flux() * dt
+        rhs[:n_res] += self.set_rhs_flux(t) * dt
         return
 
     def output_properties(self):
@@ -368,7 +390,7 @@ class DartsModel:
         """
         # Initialize property_array
         n_vars = self.physics.n_vars
-        n_props = self.physics.n_props
+        n_props = self.physics.property_operators[0].n_ops
         tot_props = n_vars + n_props
         nb = self.reservoir.mesh.n_res_blocks
         property_array = np.zeros((tot_props, nb))
@@ -378,12 +400,11 @@ class DartsModel:
             property_array[j, :] = self.engine.X[j:nb * n_vars:n_vars]
 
         # If it has been defined, interpolate secondary variables in property_itor,
-        if self.physics.property_operators is not None:
-            values = value_vector(np.zeros(self.physics.n_ops))
-
-            for i in range(nb):
+        for i in range(nb):
+            if self.physics.property_operators[self.op_num[i]].n_ops:
+                values = value_vector(np.zeros(self.physics.n_ops))
                 state = value_vector(property_array[0:n_vars, i])
-                self.physics.property_itor.evaluate(state, values)
+                self.physics.property_itor[self.op_num[i]].evaluate(state, values)
 
                 for j in range(n_props):
                     property_array[j + n_vars, i] = values[j]
