@@ -1,7 +1,7 @@
 import abc
 import warnings
 import numpy as np
-from .flash import SolidFlash
+from darts.physics.properties.flash import SolidFlash
 
 
 class Kinetics:
@@ -67,8 +67,9 @@ class LawOfMassAction(Kinetics):
 
 
 class HydrateKinetics(Kinetics):
-    def __init__(self, components: list, Mw, flash: SolidFlash, hydrate_eos, fluid_eos: list, stoich: list = None,
-                 perm=300., poro=0.2, k=None, F_a=1., enthalpy: bool = False):
+    def __init__(self, components: list, phases: list, Mw, flash: SolidFlash, hydrate_eos, fluid_eos: list,
+                 stoich: list = None, perm: float = 300., poro: float = 0.2, k: float = None, F_a=1.,
+                 moridis: bool = True, enthalpy: bool = False):
         super().__init__(stoich)
 
         self.flash = flash
@@ -78,6 +79,10 @@ class HydrateKinetics(Kinetics):
         self.water_idx = components.index("H2O")
         self.guest_idx = 0 if self.water_idx == 1 else 1
         # self.hydrate_idx = components.index("H")
+
+        self.a_idx = phases.index("Aq")
+        self.v_idx = phases.index("V")
+        self.h_idx = phases.index("sI")
 
         self.stoich = stoich
         if stoich is not None:
@@ -90,6 +95,16 @@ class HydrateKinetics(Kinetics):
         self.F_a = F_a
         self.perm = perm * 1E-15  # mD to m2
         self.poro = poro
+
+        if moridis:
+            r_p = np.sqrt(45. * self.perm * (1 - self.poro) ** 2 / self.poro ** 3)
+            self.A_s = lambda sat: 0.879 * self.F_a * (1 - self.poro) / r_p * sat[self.h_idx] ** (2. / 3.)
+        else:
+            self.K = 8.06 / Mw[-1] * 1e5 * 86400  # kg/m2.Pa.s
+            r_p = 3.75e-4
+            beta = 2. / 3.
+            self.A_s = lambda sat: (0.879 * (1 - self.poro) / r_p *
+                                    sat[self.v_idx] ** (2. / 3.) * sat[self.a_idx] ** beta * (1 - sat[self.h_idx]) ** beta)
 
         self.enthalpy = enthalpy
 
@@ -108,13 +123,12 @@ class HydrateKinetics(Kinetics):
 
         return df, xH
 
-    def evaluate(self, pressure, temperature, x, sat):
+    def evaluate(self, pressure, temperature, x, sat: list):
         df, xH = self.calc_df(pressure, temperature, x)
 
         # Reaction rate following Yin (2018)
         # surface area
-        r_p = np.sqrt(45. * self.perm * (1 - self.poro) ** 2 / self.poro ** 3)
-        A_s = 0.879 * self.F_a * (1 - self.poro) / r_p * sat ** (2 / 3)  # hydrate surface area [m2]
+        A_s = self.A_s(sat)
 
         # Thermodynamic parameters
         dE = -81E3  # activation energy [J/mol]

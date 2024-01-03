@@ -165,7 +165,7 @@ class PropertyContainer(PropertyBase):
 
         for j, reaction in self.kinetic_rate_ev.items():
             # dm, self.dX[j] += reaction.evaluate(pressure, temperature, self.x, zc[-1])
-            dm, self.dX[j] = reaction.evaluate(pressure, temperature, self.x, self.sat[-1])
+            dm, self.dX[j] = reaction.evaluate(pressure, temperature, self.x, self.sat)
             mass_source += dm
 
         return mass_source
