@@ -214,21 +214,20 @@ class PhysicsBase:
         :param timer_name: Name of timer object
         :type timer_name: str
         :param algorithm: interpolator type:
-                    'multilinear' (default) - piecewise multilinear generalization of piecewise bilinear interpolation
-                                              on rectangles;
-                    'linear' - a piecewise linear generalization of piecewise linear interpolation on triangles
+            'multilinear' (default) - piecewise multilinear generalization of piecewise bilinear interpolation on rectangles;
+            'linear' - a piecewise linear generalization of piecewise linear interpolation on triangles
         :type algorithm: str
         :param mode: interpolator mode:
-                    'adaptive' (default) - only supporting points required to perform interpolation are evaluated on-the-fly;
-                    'static' - all supporting points are evaluated during itor object construction
+            'adaptive' (default) - only supporting points required to perform interpolation are evaluated on-the-fly;
+            'static' - all supporting points are evaluated during itor object construction
         :type mode: str
         :param platform: platform used for interpolation calculations :
-                    'cpu' (default) - interpolation happens on CPU;
-                    'gpu' - interpolation happens on GPU
+            'cpu' (default) - interpolation happens on CPU;
+            'gpu' - interpolation happens on GPU
         :type platform: str
         :param precision: precision used in interpolation calculations:
-                    'd' (default) - supporting points are stored and interpolation is performed using double precision;
-                    's' - supporting points are stored and interpolation is performed using single precision
+            'd' (default) - supporting points are stored and interpolation is performed using double precision;
+            's' - supporting points are stored and interpolation is performed using single precision
         :type precision: str
         """
         # verify then inputs are valid
@@ -304,7 +303,7 @@ class PhysicsBase:
         """
         Create timers for interpolators.
 
-        :param itor: The object which performes evaluation of operator gradient (interpolators currently, AD-based in future)
+        :param itor: The object which performs evaluation of operator gradient (interpolators currently, AD-based in future)
         :type itor: operator_set_gradient_evaluator_iface object
         :param timer_name: Timer name to be used for the given interpolator
         :type timer_name: str
