@@ -1,6 +1,5 @@
 # openDARTS
 
-[![Documentation Status](https://readthedocs.org/projects/open-darts/badge/?version=latest)](https://open-darts.readthedocs.io/en/latest/?badge=latest)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8046983.svg)](https://doi.org/10.5281/zenodo.8046983)
 
 DARTS is a scalable parallel modeling framework and aims to accelerate the simulation performance while capturing multi-physics processes in geo-engineering fields such as hydrocarbon, geothermal, CO2 sequestration and hydrogen storage.
@@ -21,7 +20,7 @@ Check some our tutorials and a crash-course on openDARTS [here](https://gitlab.c
 
 ## Documentation
 
-For more informatin about how to get started visit the [documentation](https://open-darts.readthedocs.io/en/latest/).
+For more information about how to get started visit the [documentation](https://open-darts.gitlab.io/open-darts/).
 
 ## Advanced examples
 
@@ -34,6 +33,10 @@ Please refer to [LICENSE.md](LICENSE.md) for more information about the licensin
 ## For developers
 
 Check our [wiki](https://gitlab.com/open-darts/open-darts/-/wikis/home).
+
+## How to cite
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8116928.svg)](https://doi.org/10.5281/zenodo.8116928)
 
 ## Help and support
 
