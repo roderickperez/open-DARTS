@@ -1,3 +1,9 @@
+**1.0.6 [2024]**
+- Migrated to cmake build system. We kept the old Visual Studio project, but it will be removed later.
+- Well rates in SuperEngine ("Compositional") are defined in reservoir conditions now
+- Breaking changes:
+    - The function of darts_model run_python() renamed to run()
+
 **1.0.5 [20-11-2023]**
 - Adjoints with MPFA (C++ discretizer for the unstructured grid)
 - MPFA for the heat conduction (C++ discretizer for the unstructured grid)
