@@ -71,6 +71,7 @@ class DartsModel:
         - initialize engine
         """
         self.set_boundary_conditions()
+        self.reservoir.init_wells()
         self.physics.init_wells(self.reservoir.wells)
         self.set_initial_conditions()
         self.set_well_controls()
@@ -95,18 +96,6 @@ class DartsModel:
         """
         self.reservoir = reservoir
         self.reservoir.init_reservoir(verbose=verbose)
-        return
-
-    def set_wells(self, verbose: bool = False) -> None:
-        """
-        Function to set (optionally) predefined wells in :class:`Reservoir` object
-        and initialize :class:`ms_wells` object.
-
-        :param verbose: Set verbose level
-        :type verbose: bool
-        """
-        self.reservoir.set_wells(verbose=verbose)
-        self.wells = self.reservoir.init_wells(verbose=verbose)
         return
 
     def set_physics(self, physics: PhysicsBase, discr_type: str = 'tpfa', platform: str = 'cpu',

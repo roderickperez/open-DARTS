@@ -217,25 +217,6 @@ class StructReservoir(ReservoirBase):
                 idx = j
         return idx
 
-    def init_wells(self, verbose: bool = False) -> ms_well_vector:
-        for w in self.wells:
-            assert (len(w.perforations) > 0), "Well %s does not perforate any active reservoir blocks" % w.name
-        self.mesh.add_wells(ms_well_vector(self.wells))
-
-        # connect perforations of wells (for example, for closed loop geothermal)
-        # dictionary: key is a pair of 2 well names; value is a list of well perforation indices to connect
-        # example {(well_1.name, well_2.name): [(w1_perf_1, w2_perf_1),(w1_perf_2, w2_perf_2)]}
-        for well_pair in self.connected_well_segments.keys():
-            well_1 = self.get_well(well_pair[0])
-            well_2 = self.get_well(well_pair[1])
-            for perf_pair in self.connected_well_segments[well_pair]:
-                self.mesh.connect_segments(well_1, well_2, perf_pair[0], perf_pair[1], 1)
-
-        self.mesh.reverse_and_sort()
-        self.mesh.init_grav_coef()
-
-        return self.wells
-
     def get_cell_cpg_widths(self):
         assert self.discretizer.is_cpg
 
