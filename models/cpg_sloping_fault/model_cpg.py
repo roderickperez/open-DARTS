@@ -112,7 +112,6 @@ class Model(CICDModel):
             #                verbose=True)  # , well_index=1000) # add only perforations
         else:
             self.add_wells(self.reservoir, mode='generate', sch_fname=self.sch_fname)
-        return super().set_wells()
 
     def set_physics_do(self):
         """Physical properties"""

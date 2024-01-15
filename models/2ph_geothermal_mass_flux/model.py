@@ -50,7 +50,6 @@ class Model(CICDModel):
         if mode == 'wells':
             self.reservoir.add_well("P1")
             self.reservoir.add_perforation("P1", cell_index=(self.reservoir.nx//2, 1, 1), multi_segment=False)
-        return super().set_wells()
 
     def set_physics(self):
         """Physical properties"""

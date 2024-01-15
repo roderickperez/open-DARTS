@@ -72,7 +72,6 @@ class Model(CICDModel):
         for k in range(1, self.reservoir.nz):
             self.reservoir.add_perforation("PRD", cell_index=(iw[1], jw[1], k + 1),
                                            well_radius=0.16, multi_segment=True)
-        return super().set_wells()
 
     def set_physics(self, n_points):
         # create pre-defined physics for geothermal

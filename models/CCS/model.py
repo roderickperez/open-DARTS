@@ -45,8 +45,6 @@ class Model(DartsModel):
             self.reservoir.add_perforation("P1", cell_index=(self.reservoir.nx, self.reservoir.ny, k+1),
                                            well_index=100, well_indexD=100)
 
-        return super().set_wells()
-
     def set_physics(self,  zero, n_points, temperature=None, temp_inj=350.):
         """Physical properties"""
         # Fluid components, ions and solid

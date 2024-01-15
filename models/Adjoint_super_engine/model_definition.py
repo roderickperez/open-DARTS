@@ -86,8 +86,6 @@ class Model(CICDModel, OptModuleSettings):
                 self.reservoir.add_perforation('P' + str(p + 1), cell_index=(prod[0], prod[1], k + 1),
                                                well_radius=0.1, well_index=WI)
 
-        return super().set_wells()
-
     def set_physics(self):
         """Physical properties"""
         # Create property containers:

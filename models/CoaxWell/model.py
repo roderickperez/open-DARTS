@@ -87,8 +87,6 @@ class Model(CICDModel):
             (self.reservoir.wells[0].name, self.reservoir.wells[1].name): [(perf_1, perf_2)]
         }
 
-        return super().set_wells()
-
     def set_physics(self, n_points):
         # create pre-defined physics for geothermal
         property_container = PropertyContainer()

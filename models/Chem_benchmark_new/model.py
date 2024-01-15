@@ -108,8 +108,6 @@ class Model(CICDModel):
             for k in range(self.reservoir.ny):
                 self.reservoir.add_perforation("PROD_" + str(1), cell_index=(self.reservoir.nx, 1, k + 1))
 
-        return super().set_wells()
-
     def set_physics(self, grid_1D: bool, solid_init: float, custom_physics: bool):
         """PHYSICS AND RESERVOIR"""
         self.zero = 1e-12
