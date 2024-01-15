@@ -152,11 +152,12 @@ class ReservoirBase:
         # connect perforations of wells (for example, for closed loop geothermal)
         # dictionary: key is a pair of 2 well names; value is a list of well perforation indices to connect
         # example {(well_1.name, well_2.name): [(w1_perf_1, w2_perf_1),(w1_perf_2, w2_perf_2)]}
-        for well_pair in self.connected_well_segments.keys():
-            well_1 = self.get_well(well_pair[0])
-            well_2 = self.get_well(well_pair[1])
-            for perf_pair in self.connected_well_segments[well_pair]:
-                self.mesh.connect_segments(well_1, well_2, perf_pair[0], perf_pair[1], 1)
+        if hasattr (self, 'connected_well_segments'):
+            for well_pair in self.connected_well_segments.keys():
+                well_1 = self.get_well(well_pair[0])
+                well_2 = self.get_well(well_pair[1])
+                for perf_pair in self.connected_well_segments[well_pair]:
+                    self.mesh.connect_segments(well_1, well_2, perf_pair[0], perf_pair[1], 1)
         
         # allocate mesh arrays
         self.mesh.reverse_and_sort()
