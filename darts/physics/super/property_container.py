@@ -1,7 +1,8 @@
 import numpy as np
+from darts.engines import value_vector
 from darts.physics.property_base import PropertyBase
 from darts.physics.properties.flash import Flash
-from darts.physics.properties.basic import CapillaryPressure, Diffusion, RockCompactionEvaluator, RockEnergyEvaluator
+from darts.physics.properties.basic import ConstFunc, Diffusion, RockCompactionEvaluator, RockEnergyEvaluator
 
 
 class PropertyContainer(PropertyBase):
@@ -46,7 +47,7 @@ class PropertyContainer(PropertyBase):
         self.rel_well_perm_ev = []
         self.rock_energy_ev = RockEnergyEvaluator()
         self.rock_compr_ev = RockCompactionEvaluator(compres=rock_comp)
-        self.capillary_pressure_ev = CapillaryPressure(self.nph)
+        self.capillary_pressure_ev = ConstFunc(np.zeros(self.nph))
         self.diffusion_ev = Diffusion(diff_coeff=diff_coef)
         self.kinetic_rate_ev = {}
         self.energy_source_ev = []
@@ -170,11 +171,13 @@ class PropertyContainer(PropertyBase):
 
         return mass_source
 
-    def evaluate(self, state):
+    def evaluate(self, state: value_vector):
         """
         Class methods which evaluates the state operators for the element based physics
+
         :param state: state variables [pres, comp_0, ..., comp_N-1, temperature (optional)]
-        :param values: values of the operators (used for storing the operator values)
+        :type state: value_vector
+
         :return: updated value for operators, stored in values
         """
         # Composition vector and pressure from state:
