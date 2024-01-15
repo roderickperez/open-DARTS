@@ -21,6 +21,7 @@ from darts.physics.geothermal.property_container import PropertyContainer as Pro
 from darts.physics.properties.basic import ConstFunc, PhaseRelPerm
 from darts.physics.properties.density import DensityBasic
 
+
 class Model(CICDModel):
     def __init__(self, discr_type='cpp', gridfile='', propfile='', sch_fname='', n_points=1000):
         super().__init__()
@@ -166,7 +167,7 @@ class Model(CICDModel):
 
         T_init = 350.
         state_init = value_vector([200., 0.])
-        enth_init = physics.property_containers[0].total_enthalpy(T_init).evaluate(state_init)
+        enth_init = physics.property_containers[0].enthalpy_ev['total'](T_init).evaluate(state_init)
         self.initial_values = {physics.vars[0]: state_init[0],
                                physics.vars[1]: enth_init
                                }
