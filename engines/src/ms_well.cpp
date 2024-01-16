@@ -69,8 +69,6 @@ int ms_well::calc_rates(std::vector<value_t>& X, std::vector<value_t>& op_vals_a
   }
 
   int nc = n_vars;
-  int n_ops = nc + nc * n_phases + n_phases + nc + nc * n_phases + 3 + 2 * n_phases + 1;
-
 
   // temperature-based thermal formulation
   if (thermal == 1)
