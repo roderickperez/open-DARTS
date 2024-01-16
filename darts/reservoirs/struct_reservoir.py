@@ -74,10 +74,8 @@ class StructReservoir(ReservoirBase):
                                  'yz_minus': None, 'yz_plus': None,
                                  'xz_minus': None, 'xz_plus': None}
         self.connected_well_segments = {}
-        self.wells = []
-        self.mesh = conn_mesh()
 
-    def discretize(self, verbose: bool = False):
+    def discretize(self, cache: bool = False, verbose: bool = False) -> conn_mesh:
         self.discretizer = StructDiscretizer(nx=self.nx, ny=self.ny, nz=self.nz, global_data=self.global_data,
                                              global_to_local=self.global_to_local, coord=self.coord, zcorn=self.zcorn,
                                              is_cpg=self.is_cpg)
@@ -105,21 +103,21 @@ class StructReservoir(ReservoirBase):
         self.set_layer_properties()
 
         # Initialize mesh using built connection list
-        self.mesh = conn_mesh()
-        self.mesh.init(index_vector(self.cell_m), index_vector(self.cell_p), value_vector(tran), value_vector(tran_thermal))
+        mesh = conn_mesh()
+        mesh.init(index_vector(self.cell_m), index_vector(self.cell_p), value_vector(tran), value_vector(tran_thermal))
 
         # Create numpy arrays wrapped around mesh data (no copying)
-        np.array(self.mesh.poro, copy=False)[:] = poro
-        np.array(self.mesh.rock_cond, copy=False)[:] = rcond
-        np.array(self.mesh.heat_capacity, copy=False)[:] = hcap
-        np.array(self.mesh.depth, copy=False)[:] = depth
-        self.volume = np.array(self.mesh.volume, copy=False)
+        np.array(mesh.poro, copy=False)[:] = poro
+        np.array(mesh.rock_cond, copy=False)[:] = rcond
+        np.array(mesh.heat_capacity, copy=False)[:] = hcap
+        np.array(mesh.depth, copy=False)[:] = depth
+        self.volume = np.array(mesh.volume, copy=False)
         self.volume[:] = volume
-        np.array(self.mesh.op_num, copy=False)[:] = op_num
+        np.array(mesh.op_num, copy=False)[:] = op_num
 
         self.set_boundary_volume(self.boundary_volumes)
 
-        return
+        return mesh
 
     def set_boundary_volume(self, boundary_volumes: dict):
         # apply changes

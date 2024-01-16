@@ -22,18 +22,12 @@ class DartsModel:
 
     :ivar reservoir: Reservoir object
     :type reservoir: :class:`ReservoirBase`
-    :ivar mesh: Mesh object
-    :type mesh: :class:`darts.engines.conn_mesh`
     :ivar physics: Physics object
     :type physics: :class:`PhysicsBase`
-    :ivar engine: Engine object
-    :type engine: :class:`darts.engines.engine`
     """
     reservoir: ReservoirBase
-    mesh: conn_mesh
     physics: PhysicsBase
     engine: engine_base
-    wells: ms_well_vector
 
     def __init__(self):
         """"
@@ -60,7 +54,7 @@ class DartsModel:
 
         self.timer.node["initialization"].stop()  # Stop recording "initialization" time
 
-    def init(self):
+    def init(self, discr_type: str = 'tpfa', platform: str = 'cpu', verbose: bool = False):
         """
         Function to initialize the model, which includes:
         - initialize well (perforation) position
@@ -70,9 +64,22 @@ class DartsModel:
         - define list of operator interpolators for accumulation-flux regions and wells
         - initialize engine
         """
-        self.set_boundary_conditions()
+        # Initialize reservoir and Mesh object
+        assert self.reservoir is not None, "Reservoir object has not been defined"
+        self.reservoir.init_reservoir(verbose)
+        self.set_wells()
         self.reservoir.init_wells()
+
+        # Initialize physics and Engine object
+        assert self.reservoir is not None, "Physics object has not been defined"
+        self.engine = self.physics.init_physics(discr_type=discr_type, platform=platform, verbose=verbose)
+        if platform == 'gpu':
+            self.params.linear_type = sim_params.gpu_gmres_cpr_amgx_ilu
+
+        # Initialize well objects
         self.physics.init_wells(self.reservoir.wells)
+
+        self.set_boundary_conditions()
         self.set_initial_conditions()
         self.set_well_controls()
         self.set_op_list()
@@ -85,37 +92,8 @@ class DartsModel:
         self.engine.init(self.reservoir.mesh, ms_well_vector(self.reservoir.wells), op_vector(self.op_list),
                          self.params, self.timer.node["simulation"])
 
-    def set_reservoir(self, reservoir: ReservoirBase, verbose: bool = False) -> None:
-        """
-        Function to define reservoir and initialize :class:`Reservoir` object.
-
-        :param reservoir: :class:`Reservoir` object
-        :type reservoir: ReservoirBase
-        :param verbose: Set verbose level
-        :type verbose: bool
-        """
-        self.reservoir = reservoir
-        self.reservoir.init_reservoir(verbose=verbose)
-        return
-
-    def set_physics(self, physics: PhysicsBase, discr_type: str = 'tpfa', platform: str = 'cpu',
-                    verbose: bool = False) -> None:
-        """
-        Function to define properties and regions and initialize :class:`Physics` object.
-
-        :param physics: :class:`Physics` object
-        :type physics: PhysicsBase
-        :param discr_type: Discretization type, 'tpfa' (default) or 'mpfa'
-        :type discr_type: str
-        :param platform: Switch for CPU/GPU engine, 'cpu' (default) or 'gpu'
-        :type platform: str
-        :param verbose: Set verbose level
-        :type verbose: bool
-        """
-        self.physics = physics
-        self.engine = self.physics.init_physics(discr_type=discr_type, platform=platform, verbose=verbose)
-        if platform == 'gpu':
-            self.params.linear_type = sim_params.gpu_gmres_cpr_amgx_ilu
+    def set_wells(self, verbose: bool = False):
+        self.reservoir.set_wells()
         return
 
     def set_initial_conditions(self, initial_values: dict = None, gradient: dict = None):

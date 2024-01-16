@@ -43,10 +43,7 @@ class UnstructReservoir(ReservoirBase):
         self.hcap = hcap
         self.op_num = op_num
 
-        # Create empty list of wells:
-        self.wells = []
-
-    def discretize(self, verbose: bool = False) -> None:
+    def discretize(self, verbose: bool = False) -> conn_mesh:
         # Construct instance of Unstructured Discretization class:
         self.discretizer = UnstructDiscretizer(mesh_file=self.mesh_file, physical_tags=self.physical_tags,
                                                permx=self.permx, permy=self.permy, permz=self.permz,
@@ -70,18 +67,18 @@ class UnstructReservoir(ReservoirBase):
         cell_m, cell_p, tran, tran_thermal = self.discretizer.calc_connections_all_cells()
 
         # Initialize mesh using built connection list
-        self.mesh = conn_mesh()
-        self.mesh.init(index_vector(cell_m), index_vector(cell_p), value_vector(tran), value_vector(tran_thermal))
+        mesh = conn_mesh()
+        mesh.init(index_vector(cell_m), index_vector(cell_p), value_vector(tran), value_vector(tran_thermal))
 
         # Create numpy arrays wrapped around mesh data (no copying, this will severely slow down the process!)
-        np.array(self.mesh.poro, copy=False)[:] = self.poro
-        np.array(self.mesh.rock_cond, copy=False)[:] = self.rcond
-        np.array(self.mesh.heat_capacity, copy=False)[:] = self.hcap
-        np.array(self.mesh.op_num, copy=False)[:] = self.op_num
-        np.array(self.mesh.depth, copy=False)[:] = self.discretizer.depth_all_cells
-        np.array(self.mesh.volume, copy=False)[:] = self.discretizer.volume_all_cells
+        np.array(mesh.poro, copy=False)[:] = self.poro
+        np.array(mesh.rock_cond, copy=False)[:] = self.rcond
+        np.array(mesh.heat_capacity, copy=False)[:] = self.hcap
+        np.array(mesh.op_num, copy=False)[:] = self.op_num
+        np.array(mesh.depth, copy=False)[:] = self.discretizer.depth_all_cells
+        np.array(mesh.volume, copy=False)[:] = self.discretizer.volume_all_cells
 
-        return
+        return mesh
 
     def set_boundary_volume(self, boundary_volumes: dict):
         # Set-up dictionary with data for boundary cells:

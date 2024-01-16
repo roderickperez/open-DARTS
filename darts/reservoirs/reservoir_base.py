@@ -19,6 +19,7 @@ class ReservoirBase:
         # Initialize timer for initialization and caching
         self.timer = timer.node["initialization"]
         self.cache = cache
+        self.wells = []
 
         # is used on destruction to save cache data
         if self.cache:
@@ -31,18 +32,19 @@ class ReservoirBase:
 
         It calls discretize() to generate mesh object and adds the wells with perforations to the mesh.
         """
-        self.discretize()
+        self.mesh = self.discretize(verbose)
         return
 
     @abc.abstractmethod
-    def discretize(self, verbose: bool = False):
+    def discretize(self, verbose: bool = False) -> conn_mesh:
         """
         Function to generate discretized mesh
 
         This function is virtual, needs to be overloaded in derived Reservoir classes
 
-        :param cache: Option to cache mesh discretization
-        :type cache: bool
+        :param verbose: Switch for verbose
+        :type verbose: bool
+        :rtype: conn_mesh
         """
         pass
 
