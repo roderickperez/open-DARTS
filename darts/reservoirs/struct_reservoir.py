@@ -75,6 +75,7 @@ class StructReservoir(ReservoirBase):
                                  'xz_minus': None, 'xz_plus': None}
         self.connected_well_segments = {}
         self.wells = []
+        self.mesh = conn_mesh()
 
     def discretize(self, verbose: bool = False):
         self.discretizer = StructDiscretizer(nx=self.nx, ny=self.ny, nz=self.nz, global_data=self.global_data,
