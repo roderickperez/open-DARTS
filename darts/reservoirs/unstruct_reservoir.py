@@ -190,7 +190,10 @@ class UnstructReservoir(ReservoirBase):
         """
         well = self.get_well(well_name)
 
-        if cell_index in well.perforations:
+        perf_indices = np.array(well.perforations, dtype=int)
+        # cell_index has index=1 in perforation element: (well_block, cell_index, well_index, well_indexD)
+        perf_indices = perf_indices[:, 1] if len(well.perforations) > 1 else []
+        if cell_index in perf_indices:
             print('There are at least 2 wells locating in the same grid block!!! The mesh file should be modified!')
             exit()
 
