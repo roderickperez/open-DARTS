@@ -150,7 +150,7 @@ class DeadOilPoromechanics(PhysicsBase):
         """
         for w in wells:
             assert isinstance(w, ms_well)
-            w.init_rate_parameters(self.n_components, self.rate_phases, self.rate_itor)
+            w.init_rate_parameters(self.n_components, self.n_ops, self.rate_phases, self.rate_itor)
 
     def set_uniform_initial_conditions(self, mesh, uniform_pressure, uniform_composition: list,
                                        uniform_displacements: list):
