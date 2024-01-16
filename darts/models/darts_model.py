@@ -2,9 +2,7 @@ from math import fabs
 import pickle
 import os
 import numpy as np
-from copy import copy
 
-from darts.engines import conn_mesh, engine_base
 from darts.reservoirs.reservoir_base import ReservoirBase
 from darts.physics.physics_base import PhysicsBase
 
@@ -27,7 +25,6 @@ class DartsModel:
     """
     reservoir: ReservoirBase
     physics: PhysicsBase
-    engine: engine_base
 
     def __init__(self):
         """"
@@ -72,7 +69,7 @@ class DartsModel:
 
         # Initialize physics and Engine object
         assert self.reservoir is not None, "Physics object has not been defined"
-        self.engine = self.physics.init_physics(discr_type=discr_type, platform=platform, verbose=verbose)
+        self.physics.init_physics(discr_type=discr_type, platform=platform, verbose=verbose)
         if platform == 'gpu':
             self.params.linear_type = sim_params.gpu_gmres_cpr_amgx_ilu
 
@@ -89,10 +86,16 @@ class DartsModel:
         """
         Function to initialize the engine by calling 'engine.init()' method.
         """
-        self.engine.init(self.reservoir.mesh, ms_well_vector(self.reservoir.wells), op_vector(self.op_list),
+        self.physics.engine.init(self.reservoir.mesh, ms_well_vector(self.reservoir.wells), op_vector(self.op_list),
                          self.params, self.timer.node["simulation"])
 
     def set_wells(self, verbose: bool = False):
+        """
+        Function to define wells. The default method of DartsModel.set_wells() calls Reservoir.set_wells().
+
+        :param verbose: Switch for verbose
+        :type verbose: bool
+        """
         self.reservoir.set_wells()
         return
 
@@ -222,7 +225,7 @@ class DartsModel:
         days = days if days is not None else self.runtime
 
         # get current engine time
-        t = self.engine.t
+        t = self.physics.engine.t
         stop_time = t + days
 
         # same logic as in engine.run
@@ -243,7 +246,7 @@ class DartsModel:
                 ts += 1
                 if verbose:
                     print("# %d \tT = %3g\tDT = %2g\tNI = %d\tLI=%d"
-                          % (ts, t, dt, self.engine.n_newton_last_dt, self.engine.n_linear_last_dt))
+                          % (ts, t, dt, self.physics.engine.n_newton_last_dt, self.physics.engine.n_linear_last_dt))
 
                 dt = min(dt * self.params.mult_ts, self.params.max_ts)
 
@@ -259,13 +262,13 @@ class DartsModel:
                 if dt < self.params.min_ts:
                     break
         # update current engine time
-        self.engine.t = stop_time
+        self.physics.engine.t = stop_time
 
         if verbose:
             print("TS = %d(%d), NI = %d(%d), LI = %d(%d)"
-                  % (self.engine.stat.n_timesteps_total, self.engine.stat.n_timesteps_wasted,
-                     self.engine.stat.n_newton_total, self.engine.stat.n_newton_wasted,
-                     self.engine.stat.n_linear_total, self.engine.stat.n_linear_wasted))
+                  % (self.physics.engine.stat.n_timesteps_total, self.physics.engine.stat.n_timesteps_wasted,
+                     self.physics.engine.stat.n_newton_total, self.physics.engine.stat.n_newton_wasted,
+                     self.physics.engine.stat.n_linear_total, self.physics.engine.stat.n_linear_wasted))
 
     def run_timestep(self, dt: float, t: float, verbose: bool = True):
         """
@@ -280,15 +283,15 @@ class DartsModel:
         """
         max_newt = self.params.max_i_newton
         max_residual = np.zeros(max_newt + 1)
-        self.engine.n_linear_last_dt = 0
+        self.physics.engine.n_linear_last_dt = 0
         self.timer.node['simulation'].start()
         for i in range(max_newt+1):
-            # self.engine.run_single_newton_iteration(dt)
-            self.engine.assemble_linear_system(dt)  # assemble Jacobian and residual of reservoir and well blocks
+            # self.physics.engine.run_single_newton_iteration(dt)
+            self.physics.engine.assemble_linear_system(dt)  # assemble Jacobian and residual of reservoir and well blocks
             self.apply_rhs_flux(dt, t)  # apply RHS flux
-            self.engine.newton_residual_last_dt = self.engine.calc_newton_residual()  # calc norm of residual
+            self.physics.engine.newton_residual_last_dt = self.physics.engine.calc_newton_residual()  # calc norm of residual
 
-            max_residual[i] = self.engine.newton_residual_last_dt
+            max_residual[i] = self.physics.engine.newton_residual_last_dt
             counter = 0
             for j in range(i):
                 if abs(max_residual[i] - max_residual[j])/max_residual[i] < self.params.stationary_point_tolerance:
@@ -298,20 +301,20 @@ class DartsModel:
                     print("Stationary point detected!")
                 break
 
-            self.engine.well_residual_last_dt = self.engine.calc_well_residual()
-            self.engine.n_newton_last_dt = i
+            self.physics.engine.well_residual_last_dt = self.physics.engine.calc_well_residual()
+            self.physics.engine.n_newton_last_dt = i
             #  check tolerance if it converges
-            if ((self.engine.newton_residual_last_dt < self.params.tolerance_newton and
-                 self.engine.well_residual_last_dt < self.params.well_tolerance_coefficient * self.params.tolerance_newton) or
-                    self.engine.n_newton_last_dt == self.params.max_i_newton):
+            if ((self.physics.engine.newton_residual_last_dt < self.params.tolerance_newton and
+                 self.physics.engine.well_residual_last_dt < self.params.well_tolerance_coefficient * self.params.tolerance_newton) or
+                    self.physics.engine.n_newton_last_dt == self.params.max_i_newton):
                 if i > 0:  # min_i_newton
                     break
-            r_code = self.engine.solve_linear_equation()
+            r_code = self.physics.engine.solve_linear_equation()
             self.timer.node["newton update"].start()
-            self.engine.apply_newton_update(dt)
+            self.physics.engine.apply_newton_update(dt)
             self.timer.node["newton update"].stop()
         # End of newton loop
-        converged = self.engine.post_newtonloop(dt, t)
+        converged = self.physics.engine.post_newtonloop(dt, t)
         self.timer.node['simulation'].stop()
         return converged
 
@@ -342,7 +345,7 @@ class DartsModel:
         if type(self).set_rhs_flux is DartsModel.set_rhs_flux:
             # If the function has not been overloaded, pass
             return
-        rhs = np.array(self.engine.RHS, copy=False)
+        rhs = np.array(self.physics.engine.RHS, copy=False)
         n_res = self.reservoir.mesh.n_res_blocks * self.physics.n_vars
         rhs[:n_res] += self.set_rhs_flux(t) * dt
         return
@@ -364,7 +367,7 @@ class DartsModel:
 
         # Obtain primary variables from engine
         for j in range(n_vars):
-            property_array[j, :] = self.engine.X[j:nb * n_vars:n_vars]
+            property_array[j, :] = self.physics.engine.X[j:nb * n_vars:n_vars]
 
         # If it has been defined, interpolate secondary variables in property_itor,
         for i in range(nb):
@@ -395,10 +398,10 @@ class DartsModel:
         :type export_grid_data: bool
         """
         # get current engine time
-        t = self.engine.t
+        t = self.physics.engine.t
         nb = self.reservoir.mesh.n_res_blocks
         nv = self.physics.n_vars
-        X = np.array(self.engine.X, copy=False)
+        X = np.array(self.physics.engine.X, copy=False)
 
         for v in range(nv):
             local_cell_data[self.physics.vars[v]] = X[v:nb * nv:nv].astype(vars_data_dtype)
@@ -415,10 +418,10 @@ class DartsModel:
             with open(filename, "rb") as fp:
                 data = pickle.load(fp)
                 days, X, arr_n = data
-                self.engine.t = days
-                self.engine.X = value_vector(X)
-                self.engine.Xn = value_vector(X)
-                self.engine.op_vals_arr_n = value_vector(arr_n)
+                self.physics.engine.t = days
+                self.physics.engine.X = value_vector(X)
+                self.physics.engine.Xn = value_vector(X)
+                self.physics.engine.op_vals_arr_n = value_vector(arr_n)
 
     def save_restart_data(self, filename: str = 'restart.pkl'):
         """
@@ -426,9 +429,9 @@ class DartsModel:
         :param filename: Name of the file where restart_data stores.
         :type filename: str
         """
-        t = np.copy(self.engine.t)
-        X = np.copy(self.engine.X)
-        arr_n = np.copy(self.engine.op_vals_arr_n)
+        t = np.copy(self.physics.engine.t)
+        X = np.copy(self.physics.engine.X)
+        arr_n = np.copy(self.physics.engine.op_vals_arr_n)
         data = [t, X, arr_n]
         with open(filename, "wb") as fp:
             pickle.dump(data, fp, 4)
@@ -444,7 +447,7 @@ class DartsModel:
         """
         Function to print the statistics information, including total timesteps, Newton iteration, linear iteration, etc..
         """
-        self.engine.print_stat()
+        self.physics.engine.print_stat()
 
     # destructor to force to destroy all created C objects and free memory
     def __del__(self):

@@ -201,7 +201,7 @@ class Model(CICDModel):
         arr - list of numpy arrays to save, size=nactive
         arr_names - list of array names (keyword)
         '''
-        Xn = np.array(self.engine.X, copy=False)
+        Xn = np.array(self.physics.engine.X, copy=False)
         P = Xn[0:self.reservoir.mesh.n_res_blocks * 2:2]
 
         try:

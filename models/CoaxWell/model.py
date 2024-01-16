@@ -107,7 +107,7 @@ class Model(CICDModel):
         return temp
 
     def export_pro_vtk(self, file_name='Results'):
-        X = np.array(self.engine.X, copy=False)
+        X = np.array(self.physics.engine.X, copy=False)
         nb = self.reservoir.mesh.n_res_blocks
         temp = _Backward1_T_Ph_vec(X[0:2 * nb:2] / 10, X[1:2 * nb:2] / 18.015)
         local_cell_data = {'Temperature': temp,

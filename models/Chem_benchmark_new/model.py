@@ -288,7 +288,7 @@ class Model(CICDModel):
         density = np.zeros((nb, 3))
         density_m = np.zeros((nb, 3))
 
-        Xn = np.array(self.engine.X, copy=True)
+        Xn = np.array(self.physics.engine.X, copy=True)
 
         P = Xn[0:nb * nc:nc]
         z_caco3 = 1 - (Xn[1:nb * nc:nc] + Xn[2:nb * nc:nc] + Xn[3:nb * nc:nc])

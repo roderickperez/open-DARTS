@@ -57,15 +57,15 @@ def run(discr_type : str, gridfile : str, propfile : str, sch_fname : str,
             m.export_vtk(vtk_filename)
 
         #m.save_cubes(os.path.join(model_dir, 'res_' + str(ti+1)))
-        m.engine.report()
+        m.physics.engine.report()
 
     m.save_cubes(os.path.join(model_dir, 'res_last'))
     m.print_timers()
     m.print_stat()
 
-    time_data = pd.DataFrame.from_dict(m.engine.time_data)
+    time_data = pd.DataFrame.from_dict(m.physics.engine.time_data)
     time_data.to_pickle(os.path.join(model_dir, 'time_data_' + discr_type + '.pkl'))
-    time_data_report = pd.DataFrame.from_dict(m.engine.time_data_report)
+    time_data_report = pd.DataFrame.from_dict(m.physics.engine.time_data_report)
 
     if False: # write xls
         # filter data and write to xlsx

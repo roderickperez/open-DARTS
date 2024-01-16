@@ -130,7 +130,7 @@ class Model(CICDModel, OptModuleSettings):
                                                                          platform='cpu', algorithm='multilinear',
                                                                          mode='adaptive', precision='d',
                                                                          timer_name='customized component interpolation')
-            self.engine.customize_operator = self.customize_new_operator
+            self.physics.engine.customize_operator = self.customize_new_operator
 
             self.op_list = [self.physics.acc_flux_itor[0], customized_component_itor]
 
@@ -138,8 +138,8 @@ class Model(CICDModel, OptModuleSettings):
             idx_in_op_list = 1
             op_num_new = np.array(self.reservoir.mesh.op_num, copy=True)
             op_num_new[:] = idx_in_op_list  # set the second interpolator (i.e. "customized_component_itor") from "self.op_list" to all blocks
-            self.engine.idx_customized_operator = idx_in_op_list
-            self.engine.customize_op_num = index_vector(op_num_new)
+            self.physics.engine.idx_customized_operator = idx_in_op_list
+            self.physics.engine.customize_op_num = index_vector(op_num_new)
         else:
             # self.op_list = [self.physics.acc_flux_itor]
 
@@ -180,7 +180,7 @@ class Model(CICDModel, OptModuleSettings):
                     w.control = self.physics.new_bhp_prod(50)
 
             CICDModel.run(self, ts)
-            self.engine.report()
+            self.physics.engine.report()
             if export_to_vtk:
                 self.export_vtk(file_name)
 

@@ -56,14 +56,14 @@ def run_darts(mode):
         n.print_timers()
         n.print_stat()
 
-        time_data = pd.DataFrame.from_dict(n.engine.time_data)
+        time_data = pd.DataFrame.from_dict(n.physics.engine.time_data)
         time_data.to_pickle("darts_time_data.pkl")
         n.save_restart_data()
         writer = pd.ExcelWriter('time_data.xlsx')
         time_data.to_excel(writer, 'Sheet1')
         writer.close()
 
-        Xn = np.array(n.engine.X, copy=False)
+        Xn = np.array(n.physics.engine.X, copy=False)
         np.save(mode + '.npy', Xn)
     else:
         Xn_rhs = np.load('rhs.npy')

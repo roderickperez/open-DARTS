@@ -18,6 +18,8 @@ class PhysicsBase:
     a :class:`RateOperators` and a :class:`PropertyOperators` object.
     For each set of operators (evaluators, etor), an interpolator (itor) object is created for use in the :class:`engine`.
 
+    :ivar engine: Engine object
+    :type engine: :class:`engine_base`
     :ivar property_containers: Set of :class:`PropertyContainer` objects for each of the regions for evaluation of reservoir cell properties
     :type property_containers: dict
     :ivar reservoir_operators: Set of :class:`ReservoirOperators` objects for each of the regions for evaluation of reservoir cell states
@@ -31,6 +33,8 @@ class PhysicsBase:
     :ivar regions: List of property regions
     :type regions: list
     """
+    engine: engine_base
+
     property_containers = {}
 
     reservoir_operators = {}
@@ -108,10 +112,10 @@ class PhysicsBase:
         """
         # Define operators, set engine, set interpolators and define well controls
         self.set_operators()
-        engine = self.set_engine(discr_type, platform)
+        self.engine = self.set_engine(discr_type, platform)
         self.set_interpolators(platform, itor_type, itor_mode, itor_precision)
         self.define_well_controls()
-        return engine
+        return
 
     def add_property_region(self, property_container, region: int = 0):
         """
