@@ -163,4 +163,4 @@ class Compositional(PhysicsBase):
         """
         for w in wells:
             assert isinstance(w, ms_well)
-            w.init_rate_parameters(self.n_vars, self.phases, self.rate_itor, self.thermal)
+            w.init_rate_parameters(self.n_vars, self.n_ops, self.phases, self.rate_itor, self.thermal)

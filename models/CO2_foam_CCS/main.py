@@ -11,7 +11,7 @@ n.init()
 time = 10
 n.run(time)
 
-Xn = np.array(n.engine.X, copy=False)
+Xn = np.array(n.physics.engine.X, copy=False)
 P = Xn[0::2]
 z_co2 = Xn[1::2]
 
@@ -28,7 +28,7 @@ n.reservoir.unstr_discr.write_to_vtk('results', property_array, n.cell_property,
 
 n.print_timers()
 n.print_stat()
-time_data = pd.DataFrame.from_dict(n.engine.time_data)
+time_data = pd.DataFrame.from_dict(n.physics.engine.time_data)
 time_data.to_pickle("darts_time_data.pkl")
 n.save_restart_data()
 

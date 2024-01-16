@@ -3,6 +3,8 @@
 - Well rates in SuperEngine ("Compositional") are defined in reservoir conditions now
 - Breaking changes:
     - The function of darts_model run_python() renamed to run()
+	- No need to call super().set_physics(physics), super().set_reservoir() and super().set_physics() in user's model
+	- Moved engine object to Physics (as before, in version 1.0.4) to be consistent with Reservoir and Mesh
 
 **1.0.5 [20-11-2023]**
 - Adjoints with MPFA (C++ discretizer for the unstructured grid)

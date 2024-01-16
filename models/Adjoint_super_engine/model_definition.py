@@ -32,7 +32,7 @@ class Model(CICDModel, OptModuleSettings):
         self.global_data = {'well location': 0}  # will be updated later in "run"
 
         self.set_reservoir(perm, poro)
-        self.set_wells(Peaceman_WI)
+        self.Peaceman_WI = Peaceman_WI
         self.set_physics()
 
         self.set_sim_params(first_ts=0.001, mult_ts=2, max_ts=1, runtime=1000,
@@ -53,12 +53,12 @@ class Model(CICDModel, OptModuleSettings):
         nz = 2
 
         # reservoir geometry： for realistic case, one just needs to load the data and input it
-        reservoir = StructReservoir(self.timer, nx=nx, ny=ny, nz=nz, dx=30, dy=30, dz=12,
-                                    permx=perm, permy=perm, permz=perm, poro=poro, depth=2000)
+        self.reservoir = StructReservoir(self.timer, nx=nx, ny=ny, nz=nz, dx=30, dy=30, dz=12,
+                                         permx=perm, permy=perm, permz=perm, poro=poro, depth=2000)
 
-        return super().set_reservoir(reservoir)
+        return
 
-    def set_wells(self, Peaceman_WI):
+    def set_wells(self):
         self.inj_list = [[5, 5]]
         self.prod_list = [[15, 3], [15, 8]]
 
@@ -66,7 +66,7 @@ class Model(CICDModel, OptModuleSettings):
         # self.prod_list = [[1, 2], [3, 2]]
 
         # well index setting
-        if Peaceman_WI:
+        if self.Peaceman_WI:
             WI = -1  # use Peaceman function; check the function "add_perforation" for more details
         else:
             WI = 200
@@ -85,8 +85,6 @@ class Model(CICDModel, OptModuleSettings):
             for k in range(n_perf):
                 self.reservoir.add_perforation('P' + str(p + 1), cell_index=(prod[0], prod[1], k + 1),
                                                well_radius=0.1, well_index=WI)
-
-        return super().set_wells()
 
     def set_physics(self):
         """Physical properties"""
@@ -112,11 +110,11 @@ class Model(CICDModel, OptModuleSettings):
                                                ('oil', PhaseRelPerm("oil"))])
 
         """ Activate physics """
-        physics = Compositional(components, phases, self.timer,
-                                n_points=200, min_p=1, max_p=300, min_z=zero/10, max_z=1-zero/10)
-        physics.add_property_region(property_container)
+        self.physics = Compositional(components, phases, self.timer,
+                                     n_points=200, min_p=1, max_p=300, min_z=zero/10, max_z=1-zero/10)
+        self.physics.add_property_region(property_container)
 
-        return super().set_physics(physics)
+        return
 
     def set_well_controls(self):
         for i, w in enumerate(self.reservoir.wells):
@@ -132,7 +130,7 @@ class Model(CICDModel, OptModuleSettings):
                                                                          platform='cpu', algorithm='multilinear',
                                                                          mode='adaptive', precision='d',
                                                                          timer_name='customized component interpolation')
-            self.engine.customize_operator = self.customize_new_operator
+            self.physics.engine.customize_operator = self.customize_new_operator
 
             self.op_list = [self.physics.acc_flux_itor[0], customized_component_itor]
 
@@ -140,8 +138,8 @@ class Model(CICDModel, OptModuleSettings):
             idx_in_op_list = 1
             op_num_new = np.array(self.reservoir.mesh.op_num, copy=True)
             op_num_new[:] = idx_in_op_list  # set the second interpolator (i.e. "customized_component_itor") from "self.op_list" to all blocks
-            self.engine.idx_customized_operator = idx_in_op_list
-            self.engine.customize_op_num = index_vector(op_num_new)
+            self.physics.engine.idx_customized_operator = idx_in_op_list
+            self.physics.engine.customize_op_num = index_vector(op_num_new)
         else:
             # self.op_list = [self.physics.acc_flux_itor]
 
@@ -182,7 +180,7 @@ class Model(CICDModel, OptModuleSettings):
                     w.control = self.physics.new_bhp_prod(50)
 
             CICDModel.run(self, ts)
-            self.engine.report()
+            self.physics.engine.report()
             if export_to_vtk:
                 self.export_vtk(file_name)
 

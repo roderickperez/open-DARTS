@@ -60,7 +60,7 @@ if __name__ == '__main__':
         # n.run(300, restart_dt=1e-3)
         n.print_timers()
         n.print_stat()
-        time_data = pd.DataFrame.from_dict(n.engine.time_data)
+        time_data = pd.DataFrame.from_dict(n.physics.engine.time_data)
         time_data.to_pickle("darts_time_data.pkl")
         n.save_restart_data()
         writer = pd.ExcelWriter('time_data.xlsx')
@@ -71,7 +71,7 @@ if __name__ == '__main__':
         time_data = pd.read_pickle("darts_time_data.pkl")
 
     if True:
-        Xn = np.array(n.engine.X, copy=False)
+        Xn = np.array(n.physics.engine.X, copy=False)
         nc = n.physics.nc + n.physics.thermal
         nb = n.reservoir.mesh.n_res_blocks
 

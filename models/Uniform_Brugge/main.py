@@ -14,7 +14,7 @@ if __name__ == '__main__':
         n.run(2000)
         n.print_timers()
         n.print_stat()
-        time_data = pd.DataFrame.from_dict(n.engine.time_data)
+        time_data = pd.DataFrame.from_dict(n.physics.engine.time_data)
         time_data.to_pickle("darts_time_data.pkl")
         n.save_restart_data()
         writer = pd.ExcelWriter('time_data.xlsx')
@@ -24,7 +24,7 @@ if __name__ == '__main__':
         n.load_restart_data()
         time_data = pd.read_pickle("darts_time_data.pkl")
 
-    time_data1 = pd.DataFrame.from_dict(n.engine.time_data)
+    time_data1 = pd.DataFrame.from_dict(n.physics.engine.time_data)
     from darts.tools.plot_darts import *
     writer = pd.ExcelWriter('time_data.xlsx')
     time_data.to_excel(writer, 'Sheet1')
@@ -35,7 +35,7 @@ if __name__ == '__main__':
 
     plt.savefig('out.png')
 
-    Xn = np.array(n.engine.X, copy=False)
+    Xn = np.array(n.physics.engine.X, copy=False)
     nc = n.physics.nc
     nb = n.reservoir.mesh.n_res_blocks
     # Allocate and store the properties in an array:

@@ -18,7 +18,6 @@ class Model(CICDModel):
         self.timer.node["initialization"].start()
 
         self.set_reservoir()
-        self.set_wells()
         self.set_physics()
 
         self.set_sim_params(first_ts=1e-6, mult_ts=2, max_ts=10, runtime=100, tol_newton=1e-3, tol_linear=1e-7,
@@ -42,17 +41,15 @@ class Model(CICDModel):
         dx = 3000 / nx
         dy = 3000 / ny
 
-        reservoir = StructReservoir(self.timer, nx=nx, ny=ny, nz=nz, dx=dx, dy=dy, dz=dz,
+        self.reservoir = StructReservoir(self.timer, nx=nx, ny=ny, nz=nz, dx=dx, dy=dy, dz=dz,
                                          permx=kx, permy=ky, permz=kz, poro=0.3, depth=depth)
-        return super().set_reservoir(reservoir)
+        return
 
     def set_wells(self):
         self.reservoir.add_well("I1")
         self.reservoir.add_perforation("I1", cell_index=(1, 1, 1))
         self.reservoir.add_well("P1")
         self.reservoir.add_perforation("P1", cell_index=(10, 10, 3))
-
-        return super().set_wells()
 
     def set_physics(self):
         """Physical properties"""
@@ -84,11 +81,11 @@ class Model(CICDModel):
         property_container.rock_compress_ev = RockCompactionEvaluator(pvt)
 
         """ Activate physics """
-        physics = Compositional(components, phases, self.timer,
-                                n_points=5000, min_p=1, max_p=450, min_z=zero/10, max_z=1-zero/10)
-        physics.add_property_region(property_container)
+        self.physics = Compositional(components, phases, self.timer,
+                                     n_points=5000, min_p=1, max_p=450, min_z=zero/10, max_z=1-zero/10)
+        self.physics.add_property_region(property_container)
 
-        return super().set_physics(physics)
+        return
 
     def set_well_controls(self):
         for i, w in enumerate(self.reservoir.wells):

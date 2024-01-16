@@ -74,10 +74,8 @@ class StructReservoir(ReservoirBase):
                                  'yz_minus': None, 'yz_plus': None,
                                  'xz_minus': None, 'xz_plus': None}
         self.connected_well_segments = {}
-        self.wells = []
-        self.mesh = conn_mesh()
 
-    def discretize(self, verbose: bool = False):
+    def discretize(self, cache: bool = False, verbose: bool = False) -> conn_mesh:
         self.discretizer = StructDiscretizer(nx=self.nx, ny=self.ny, nz=self.nz, global_data=self.global_data,
                                              global_to_local=self.global_to_local, coord=self.coord, zcorn=self.zcorn,
                                              is_cpg=self.is_cpg)
@@ -105,21 +103,21 @@ class StructReservoir(ReservoirBase):
         self.set_layer_properties()
 
         # Initialize mesh using built connection list
-        self.mesh = conn_mesh()
-        self.mesh.init(index_vector(self.cell_m), index_vector(self.cell_p), value_vector(tran), value_vector(tran_thermal))
+        mesh = conn_mesh()
+        mesh.init(index_vector(self.cell_m), index_vector(self.cell_p), value_vector(tran), value_vector(tran_thermal))
 
         # Create numpy arrays wrapped around mesh data (no copying)
-        np.array(self.mesh.poro, copy=False)[:] = poro
-        np.array(self.mesh.rock_cond, copy=False)[:] = rcond
-        np.array(self.mesh.heat_capacity, copy=False)[:] = hcap
-        np.array(self.mesh.depth, copy=False)[:] = depth
-        self.volume = np.array(self.mesh.volume, copy=False)
+        np.array(mesh.poro, copy=False)[:] = poro
+        np.array(mesh.rock_cond, copy=False)[:] = rcond
+        np.array(mesh.heat_capacity, copy=False)[:] = hcap
+        np.array(mesh.depth, copy=False)[:] = depth
+        self.volume = np.array(mesh.volume, copy=False)
         self.volume[:] = volume
-        np.array(self.mesh.op_num, copy=False)[:] = op_num
+        np.array(mesh.op_num, copy=False)[:] = op_num
 
         self.set_boundary_volume(self.boundary_volumes)
 
-        return
+        return mesh
 
     def set_boundary_volume(self, boundary_volumes: dict):
         # apply changes
@@ -217,25 +215,6 @@ class StructReservoir(ReservoirBase):
                 min_dis = dis
                 idx = j
         return idx
-
-    def init_wells(self, verbose: bool = False) -> ms_well_vector:
-        for w in self.wells:
-            assert (len(w.perforations) > 0), "Well %s does not perforate any active reservoir blocks" % w.name
-        self.mesh.add_wells(ms_well_vector(self.wells))
-
-        # connect perforations of wells (for example, for closed loop geothermal)
-        # dictionary: key is a pair of 2 well names; value is a list of well perforation indices to connect
-        # example {(well_1.name, well_2.name): [(w1_perf_1, w2_perf_1),(w1_perf_2, w2_perf_2)]}
-        for well_pair in self.connected_well_segments.keys():
-            well_1 = self.get_well(well_pair[0])
-            well_2 = self.get_well(well_pair[1])
-            for perf_pair in self.connected_well_segments[well_pair]:
-                self.mesh.connect_segments(well_1, well_2, perf_pair[0], perf_pair[1], 1)
-
-        self.mesh.reverse_and_sort()
-        self.mesh.init_grav_coef()
-
-        return self.wells
 
     def get_cell_cpg_widths(self):
         assert self.discretizer.is_cpg

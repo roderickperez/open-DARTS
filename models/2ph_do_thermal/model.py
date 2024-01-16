@@ -20,7 +20,6 @@ class Model(CICDModel):
         self.timer.node["initialization"].start()
 
         self.set_reservoir()
-        self.set_wells()
         self.set_physics()
 
         self.set_sim_params(first_ts=0.0001, mult_ts=2, max_ts=5, runtime=1000, tol_newton=1e-3, tol_linear=1e-6)
@@ -34,16 +33,15 @@ class Model(CICDModel):
 
     def set_reservoir(self):
         nx = 1000
-        reservoir = StructReservoir(self.timer, nx=nx, ny=1, nz=1, dx=10.0, dy=10.0, dz=1,
-                                    permx=300, permy=300, permz=300, hcap=2200, rcond=181.44, poro=0.2, depth=100)
-        return super().set_reservoir(reservoir)
+        self.reservoir = StructReservoir(self.timer, nx=nx, ny=1, nz=1, dx=10.0, dy=10.0, dz=1,
+                                         permx=300, permy=300, permz=300, hcap=2200, rcond=181.44, poro=0.2, depth=100)
+        return
 
     def set_wells(self):
         self.reservoir.add_well("I1")
         self.reservoir.add_perforation("I1", cell_index=(1, 1, 1))
         self.reservoir.add_well("P1")
         self.reservoir.add_perforation("P1", cell_index=(self.reservoir.nx, 1, 1))
-        return super().set_wells()
 
     def set_physics(self):
         """Physical properties"""
@@ -72,12 +70,12 @@ class Model(CICDModel):
 
         # create physics
         thermal = True
-        physics = Compositional(components, phases, self.timer,
-                                n_points=400, min_p=0, max_p=1000, min_z=zero, max_z=1-zero,
-                                min_t=273.15 + 20, max_t=273.15 + 200, thermal=thermal)
-        physics.add_property_region(property_container)
+        self.physics = Compositional(components, phases, self.timer,
+                                     n_points=400, min_p=0, max_p=1000, min_z=zero, max_z=1-zero,
+                                     min_t=273.15 + 20, max_t=273.15 + 200, thermal=thermal)
+        self.physics.add_property_region(property_container)
 
-        return super().set_physics(physics)
+        return
 
     def set_well_controls(self):
         for i, w in enumerate(self.reservoir.wells):

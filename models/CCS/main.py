@@ -52,7 +52,7 @@ print_props = list(range(nv)) + [nv, nv + 2, nv + 3]
 
 for t in range(2):
     m.run(200)
-    time_data = pd.DataFrame.from_dict(m.engine.time_data)
+    time_data = pd.DataFrame.from_dict(m.physics.engine.time_data)
     m.print_timers()
     m.print_stat()
 
@@ -69,7 +69,7 @@ for t in range(2):
 
     plt.savefig('step' + str(t+1) + '.png', format='png')
 
-td = pd.DataFrame.from_dict(m.engine.time_data)
+td = pd.DataFrame.from_dict(m.physics.engine.time_data)
 td.to_pickle("darts_time_data.pkl")
 writer = pd.ExcelWriter('time_data.xlsx')
 td.to_excel(writer, 'Sheet1')
