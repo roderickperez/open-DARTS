@@ -14,7 +14,8 @@ for res in [1]:
     n.print_timers()
     n.print_stat()
 
-    if grid_1D:
-        n.print_and_plot_1D()
-    else:
-        n.print_and_plot_2D()
+    # do not plot in pipelines. Do it only when debug it locally 
+    #if grid_1D:
+    #    n.print_and_plot_1D()
+    #else:
+    #    n.print_and_plot_2D()
