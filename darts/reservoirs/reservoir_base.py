@@ -19,6 +19,7 @@ class ReservoirBase:
         # Initialize timer for initialization and caching
         self.timer = timer.node["initialization"]
         self.cache = cache
+        self.wells = []
 
         # is used on destruction to save cache data
         if self.cache:
@@ -31,18 +32,20 @@ class ReservoirBase:
 
         It calls discretize() to generate mesh object and adds the wells with perforations to the mesh.
         """
-        self.discretize()
+        if not hasattr(self, 'mesh'):  # to avoid double execution when call init_reservoir explicitly in model and DARTSModel.init()
+            self.mesh = self.discretize(verbose)
         return
 
     @abc.abstractmethod
-    def discretize(self, verbose: bool = False):
+    def discretize(self, verbose: bool = False) -> conn_mesh:
         """
         Function to generate discretized mesh
 
         This function is virtual, needs to be overloaded in derived Reservoir classes
 
-        :param cache: Option to cache mesh discretization
-        :type cache: bool
+        :param verbose: Switch for verbose
+        :type verbose: bool
+        :rtype: conn_mesh
         """
         pass
 
@@ -135,7 +138,7 @@ class ReservoirBase:
             if w.name == well_name:
                 return w
 
-    def init_wells(self, verbose: bool = False) -> ms_well_vector:
+    def init_wells(self, verbose: bool = False):
         """
         Function to initialize wells.
 
@@ -148,10 +151,20 @@ class ReservoirBase:
         for w in self.wells:
             assert (len(w.perforations) > 0), "Well %s does not perforate any active reservoir blocks" % w.name
         self.mesh.add_wells(ms_well_vector(self.wells))
-
+        
+        # connect perforations of wells (for example, for closed loop geothermal)
+        # dictionary: key is a pair of 2 well names; value is a list of well perforation indices to connect
+        # example {(well_1.name, well_2.name): [(w1_perf_1, w2_perf_1),(w1_perf_2, w2_perf_2)]}
+        if hasattr (self, 'connected_well_segments'):
+            for well_pair in self.connected_well_segments.keys():
+                well_1 = self.get_well(well_pair[0])
+                well_2 = self.get_well(well_pair[1])
+                for perf_pair in self.connected_well_segments[well_pair]:
+                    self.mesh.connect_segments(well_1, well_2, perf_pair[0], perf_pair[1], 1)
+        
+        # allocate mesh arrays
         self.mesh.reverse_and_sort()
         self.mesh.init_grav_coef()
-        return self.wells
 
     @abc.abstractmethod
     def output_to_vtk(self, output_directory, output_filename, property_data, ith_step):

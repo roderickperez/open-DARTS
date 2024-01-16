@@ -21,7 +21,7 @@ class Model(CICDModel):
         self.mode = mode
         self.well_rate = well_rate
         self.set_reservoir()
-        self.set_wells(mode)
+        self.wells_mode = mode
         self.set_physics()
 
         self.set_sim_params(first_ts=0.0001, mult_ts=2, max_ts=5, runtime=1, tol_newton=1e-3, tol_linear=1e-6)
@@ -41,16 +41,15 @@ class Model(CICDModel):
         """Reservoir construction"""
         # reservoir geometry： for realistic case, one just needs to load the data and input it
         nx = 100
-        reservoir = StructReservoir(self.timer, nx=nx, ny=1, nz=1, dx=10.0, dy=10.0, dz=1, permx=5, permy=5, permz=5,
-                                    poro=0.2, hcap=2200, rcond=181.44, depth=100)
+        self.reservoir = StructReservoir(self.timer, nx=nx, ny=1, nz=1, dx=10.0, dy=10.0, dz=1,
+                                         permx=5, permy=5, permz=5, poro=0.2, hcap=2200, rcond=181.44, depth=100)
 
-        return super().set_reservoir(reservoir)
+        return
 
-    def set_wells(self, mode: str):
-        if mode == 'wells':
+    def set_wells(self):
+        if self.wells_mode == 'wells':
             self.reservoir.add_well("P1")
             self.reservoir.add_perforation("P1", cell_index=(self.reservoir.nx//2, 1, 1), multi_segment=False)
-        return super().set_wells()
 
     def set_physics(self):
         """Physical properties"""
@@ -77,12 +76,12 @@ class Model(CICDModel):
 
         # create physics
         thermal = True
-        physics = Compositional(components, phases, self.timer,
-                                n_points=400, min_p=0, max_p=1000, min_z=zero, max_z=1-zero,
-                                min_t=273.15 + 20, max_t=273.15 + 200, thermal=thermal)
-        physics.add_property_region(property_container)
+        self.physics = Compositional(components, phases, self.timer,
+                                     n_points=400, min_p=0, max_p=1000, min_z=zero, max_z=1-zero,
+                                     min_t=273.15 + 20, max_t=273.15 + 200, thermal=thermal)
+        self.physics.add_property_region(property_container)
 
-        return super().set_physics(physics)
+        return
 
     def set_well_controls(self):
         for i, w in enumerate(self.reservoir.wells):

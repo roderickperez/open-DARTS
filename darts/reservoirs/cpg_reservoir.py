@@ -47,9 +47,6 @@ class CPG_Reservoir(ReservoirBase):
         self.arrays = arrays
         self.faultfile = faultfile
 
-        # create list of wells
-        self.wells = []
-
         self.snap_counter = 0
 
         self.vtk_z = 0
@@ -82,7 +79,7 @@ class CPG_Reservoir(ReservoirBase):
         self.permy_cpp = value_vector_discr(self.permy)
         self.permz_cpp = value_vector_discr(self.permz)
 
-    def discretize(self, verbose: bool = False) -> None:
+    def discretize(self, verbose: bool = False) -> conn_mesh:
         # Create mesh object (C++ object used by DARTS for all mesh related quantities):
         self.mesh = conn_mesh()
         # discretizer's mesh object - for computing transmissibility and create connectivity graph
@@ -127,7 +124,7 @@ class CPG_Reservoir(ReservoirBase):
         # rock thermal properties
         self.hcap = np.array(self.mesh.heat_capacity, copy=False)
         self.conduction = np.array(self.mesh.rock_cond, copy=False)
-        return
+        return self.mesh
 
     def discretize_cpg(self):
         '''
