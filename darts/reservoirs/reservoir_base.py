@@ -32,7 +32,8 @@ class ReservoirBase:
 
         It calls discretize() to generate mesh object and adds the wells with perforations to the mesh.
         """
-        self.mesh = self.discretize(verbose)
+        if not hasattr(self, 'mesh'):  # to avoid double execution when call init_reservoir explicitly in model and DARTSModel.init()
+            self.mesh = self.discretize(verbose)
         return
 
     @abc.abstractmethod
