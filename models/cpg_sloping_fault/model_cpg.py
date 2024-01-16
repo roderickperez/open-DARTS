@@ -35,11 +35,9 @@ class Model(CICDModel):
         arrays = read_arrays(self.gridfile, self.propfile)
 
         if discr_type == 'cpp':
-            super().set_reservoir(CPG_Reservoir(self.timer, arrays))
+            self.reservoir = CPG_Reservoir(self.timer, arrays)
         elif discr_type == 'python':
             self.set_reservoir()
-
-        self.set_wells()
 
         self.set_physics()
 
@@ -99,13 +97,13 @@ class Model(CICDModel):
         #self.poro = np.array(self.reservoir.mesh.poro, copy=False)
         #self.poro[self.poro == 0.0] = 1.E-4
 
-        reservoir = StructReservoir(self.timer, nx=dims[0], ny=dims[1], nz=dims[2], dx=dx, dy=dy, dz=dz,
-                                    permx=permx, permy=permy, permz=permz, poro=poro,
-                                    depth=depth, actnum=actnum, coord=coord, zcorn=zcorn, is_cpg=True)
-        return super().set_reservoir(reservoir)
+        self.reservoir = StructReservoir(self.timer, nx=dims[0], ny=dims[1], nz=dims[2], dx=dx, dy=dy, dz=dz,
+                                         permx=permx, permy=permy, permz=permz, poro=poro, hcap=2200, rcond=181.44,
+                                         depth=depth, actnum=actnum, coord=coord, zcorn=zcorn, is_cpg=True)
+        return
 
     def set_wells(self):
-        return super().set_wells()
+        return
         # add wells
         if True:
             self.read_and_add_perforations(self.reservoir, sch_fname=self.sch_fname, verbose=True)
@@ -133,44 +131,38 @@ class Model(CICDModel):
                                                ('oil', PhaseRelPerm("oil", 0.1, 0.1))])
 
         # create physics
-        physics = Compositional(components, phases, self.timer,
-                                n_points=400, min_p=0, max_p=1000, min_z=zero, max_z=1 - zero)
-        physics.add_property_region(property_container)
+        self.physics = Compositional(components, phases, self.timer,
+                                     n_points=400, min_p=0, max_p=1000, min_z=zero, max_z=1 - zero)
+        self.physics.add_property_region(property_container)
 
         self.initial_values = {'pressure': 200,
                                'w': 0.001,
                                }
 
-        return super().set_physics(physics)
+        return
 
     def set_physics(self):
         '''
         set Geothermal physics
         :return:
         '''
-        # set rock thermal properties: heat capacity and rock conduction
-        self.hcap = np.array(self.reservoir.mesh.heat_capacity, copy=False)
-        self.conduction = np.array(self.reservoir.mesh.rock_cond, copy=False)
-        self.hcap.fill(2200)  # [kJ/m3/K]
-        self.conduction.fill(181.44)  # [kJ/m/day/K]
-
         # initialize physics for Geothermal
         property_container = PropertyContainerGeothermal()
-        physics = Geothermal(timer=self.timer,
+        self.physics = Geothermal(timer=self.timer,
                                   n_points=101,        # number of OBL points
                                   min_p=1, max_p=600,       # pressure range
                                   min_e=1, max_e=55000,  # enthalpy range
                                   cache=False
         )
-        physics.add_property_region(property_container)
+        self.physics.add_property_region(property_container)
 
         T_init = 350.
         state_init = value_vector([200., 0.])
-        enth_init = physics.property_containers[0].enthalpy_ev['total'](T_init).evaluate(state_init)
-        self.initial_values = {physics.vars[0]: state_init[0],
-                               physics.vars[1]: enth_init
+        enth_init = self.physics.property_containers[0].enthalpy_ev['total'](T_init).evaluate(state_init)
+        self.initial_values = {self.physics.vars[0]: state_init[0],
+                               self.physics.vars[1]: enth_init
                                }
-        return super().set_physics(physics)
+        return
 
     def set_initial_pressure_from_file(self, fname):
         # set initial pressure

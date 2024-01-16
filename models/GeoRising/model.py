@@ -17,7 +17,6 @@ class Model(CICDModel):
         self.timer.node["initialization"].start()
 
         self.set_reservoir()
-        self.set_wells()
         self.set_physics(n_points)
 
         self.set_sim_params(first_ts=1e-3, mult_ts=8, max_ts=365, runtime=3650, tol_newton=1e-2, tol_linear=1e-6,
@@ -46,15 +45,15 @@ class Model(CICDModel):
         dz = np.ones(nb) * 30
 
         # discretize structured reservoir
-        reservoir = StructReservoir(self.timer, nx=nx, ny=ny, nz=nz, dx=dx, dy=dy, dz=dz,
-                                    permx=perm, permy=perm, permz=perm * 0.1, poro=poro, depth=2000,
-                                    hcap=2200, rcond=500)
-        reservoir.boundary_volumes['yz_minus'] = 1e8
-        reservoir.boundary_volumes['yz_plus'] = 1e8
-        reservoir.boundary_volumes['xz_minus'] = 1e8
-        reservoir.boundary_volumes['xz_plus'] = 1e8
+        self.reservoir = StructReservoir(self.timer, nx=nx, ny=ny, nz=nz, dx=dx, dy=dy, dz=dz,
+                                         permx=perm, permy=perm, permz=perm * 0.1, poro=poro, depth=2000,
+                                         hcap=2200, rcond=500)
+        self.reservoir.boundary_volumes['yz_minus'] = 1e8
+        self.reservoir.boundary_volumes['yz_plus'] = 1e8
+        self.reservoir.boundary_volumes['xz_minus'] = 1e8
+        self.reservoir.boundary_volumes['xz_plus'] = 1e8
 
-        return super().set_reservoir(reservoir)
+        return
 
     def set_wells(self):
         # add well's locations
@@ -76,10 +75,10 @@ class Model(CICDModel):
     def set_physics(self, n_points):
         # create pre-defined physics for geothermal
         property_container = PropertyContainer()
-        physics = Geothermal(self.timer, n_points=n_points, min_p=1, max_p=351, min_e=1000, max_e=10000, cache=False)
-        physics.add_property_region(property_container)
+        self.physics = Geothermal(self.timer, n_points=n_points, min_p=1, max_p=351, min_e=1000, max_e=10000, cache=False)
+        self.physics.add_property_region(property_container)
 
-        return super().set_physics(physics)
+        return
 
     def set_well_controls(self):
         for i, w in enumerate(self.reservoir.wells):

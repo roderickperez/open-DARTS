@@ -19,7 +19,6 @@ class Model(CICDModel):
         self.timer.node["initialization"].start()
 
         self.set_reservoir()
-        self.set_wells()
         self.set_physics()
 
         self.set_sim_params(first_ts=0.001, mult_ts=2, max_ts=1, runtime=100, tol_newton=1e-2, tol_linear=1e-3,
@@ -35,10 +34,10 @@ class Model(CICDModel):
 
     def set_reservoir(self):
         nx = 1000
-        reservoir = StructReservoir(self.timer, nx=nx, ny=1, nz=1, dx=1, dy=10, dz=10, permx=100, permy=100,
+        self.reservoir = StructReservoir(self.timer, nx=nx, ny=1, nz=1, dx=1, dy=10, dz=10, permx=100, permy=100,
                                          permz=10, poro=0.3, depth=1000)
 
-        return super().set_reservoir(reservoir)
+        return
 
     def set_wells(self):
         self.reservoir.add_well("I1")
@@ -73,11 +72,11 @@ class Model(CICDModel):
                                                ('wat', PhaseRelPerm("wat"))])
 
         """ Activate physics """
-        physics = Compositional(components, phases, self.timer,
-                                n_points=200, min_p=1, max_p=300, min_z=zero/10, max_z=1-zero/10)
-        physics.add_property_region(property_container)
+        self.physics = Compositional(components, phases, self.timer,
+                                     n_points=200, min_p=1, max_p=300, min_z=zero/10, max_z=1-zero/10)
+        self.physics.add_property_region(property_container)
 
-        return super().set_physics(physics)
+        return
 
     def set_well_controls(self):
         for i, w in enumerate(self.reservoir.wells):

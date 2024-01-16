@@ -52,7 +52,6 @@ class Model(CICDModel):
 
         solid_init = 0.7
         self.set_reservoir(grid_1D, res, solid_init)
-        self.set_wells(grid_1D)
         self.set_physics(grid_1D, solid_init, custom_physics)
 
         self.set_sim_params(first_ts=0.001, mult_ts=2, max_ts=0.1, runtime=50, tol_newton=1e-3, tol_linear=1e-5,
@@ -64,13 +63,13 @@ class Model(CICDModel):
         """Reservoir"""
         trans_exp = 3
         self.params.trans_mult_exp = trans_exp
-        if grid_1D:
+        if self.grid_1D:
             self.dx = 1
             self.dy = 1
             perm = 100 / (1 - solid_init) ** trans_exp
             (self.nx, self.ny) = (1000, 1)
-            reservoir = StructReservoir(self.timer, nx=self.nx, ny=1, nz=1, dx=self.dx, dy=self.dy, dz=1,
-                                        permx=perm, permy=perm, permz=perm / 10, poro=1, depth=1000)
+            self.reservoir = StructReservoir(self.timer, nx=self.nx, ny=1, nz=1, dx=self.dx, dy=self.dy, dz=1,
+                                             permx=perm, permy=perm, permz=perm / 10, poro=1, depth=1000)
 
             self.map = []
 
@@ -89,13 +88,13 @@ class Model(CICDModel):
             for j in range(self.ny):
                 self.depth[j * self.nx:(j + 1) * self.nx] += j * self.dy
 
-            reservoir = StructReservoir(self.timer, nx=self.nx, ny=1, nz=self.ny, dx=self.dx, dy=10, dz=self.dy,
-                                        permx=perm, permy=perm, permz=perm, poro=1, depth=self.depth)
+            self.reservoir = StructReservoir(self.timer, nx=self.nx, ny=1, nz=self.ny, dx=self.dx, dy=10, dz=self.dy,
+                                             permx=perm, permy=perm, permz=perm, poro=1, depth=self.depth)
 
-        return super().set_reservoir(reservoir)
+        return
 
-    def set_wells(self, grid_1D):
-        if grid_1D:
+    def set_wells(self):
+        if self.grid_1D:
             """well location"""
             self.reservoir.add_well("INJ_GAS")
             self.reservoir.add_perforation("INJ_GAS", cell_index=(1, 1, 1))
@@ -191,15 +190,15 @@ class Model(CICDModel):
         delta_volume = self.dx * self.dy * 10
         num_well_blocks = int(self.ny / 2)
         if custom_physics:  # custom_physics inherits operators and physics for regions with source term
-            physics = CustomPhysics(components, phases, self.timer,
-                                    n_points=401, min_p=1, max_p=1000, min_z=self.zero/10, max_z=1-self.zero/10,
-                                    cache=0, volume=delta_volume, num_wells=num_well_blocks)
+            self.physics = CustomPhysics(components, phases, self.timer,
+                                         n_points=401, min_p=1, max_p=1000, min_z=self.zero/10, max_z=1-self.zero/10,
+                                         cache=0, volume=delta_volume, num_wells=num_well_blocks)
         else:  # default physics adds mass source term to kinetic operator in regions with source term
             mass_sources = [None,
                             MassSource(0, 1000, delta_volume, num_well_blocks),
                             MassSource(2, 200, delta_volume, num_well_blocks)]
-            physics = Compositional(components, phases, self.timer,
-                                    n_points=401, min_p=1, max_p=1000, min_z=self.zero/10, max_z=1-self.zero/10, cache=0)
+            self.physics = Compositional(components, phases, self.timer,
+                                         n_points=401, min_p=1, max_p=1000, min_z=self.zero/10, max_z=1-self.zero/10, cache=0)
 
         for i in range(3):
             property_container = ModelProperties(phases_name=phases, components_name=components, Mw=Mw,
@@ -216,8 +215,9 @@ class Model(CICDModel):
                 if mass_sources[i] is not None:
                     property_container.kinetic_rate_ev[1] = mass_sources[i]
 
-            physics.add_property_region(property_container, i)
+            self.physics.add_property_region(property_container, i)
 
+        physics = self.physics
         physics.property_containers[0].output_props = {"sat_gas": lambda: physics.property_containers[0].sat[0],
                                                        # "sat_wat": lambda: physics.property_containers[0].sat[1],
                                                        "y_CO2": lambda: physics.property_containers[0].x[0, 0],
@@ -228,7 +228,7 @@ class Model(CICDModel):
                                                        "x_H2O": lambda: physics.property_containers[0].x[1, 2],
                                                        }
 
-        return super().set_physics(physics=physics)
+        return
 
     # Initialize reservoir and set boundary conditions:
     def set_initial_conditions(self):

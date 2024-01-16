@@ -32,7 +32,7 @@ class Model(CICDModel, OptModuleSettings):
         self.global_data = {'well location': 0}  # will be updated later in "run"
 
         self.set_reservoir(perm, poro)
-        self.set_wells(Peaceman_WI)
+        self.Peaceman_WI = Peaceman_WI
         self.set_physics()
 
         self.set_sim_params(first_ts=0.001, mult_ts=2, max_ts=1, runtime=1000,
@@ -53,12 +53,12 @@ class Model(CICDModel, OptModuleSettings):
         nz = 2
 
         # reservoir geometry： for realistic case, one just needs to load the data and input it
-        reservoir = StructReservoir(self.timer, nx=nx, ny=ny, nz=nz, dx=30, dy=30, dz=12,
-                                    permx=perm, permy=perm, permz=perm, poro=poro, depth=2000)
+        self.reservoir = StructReservoir(self.timer, nx=nx, ny=ny, nz=nz, dx=30, dy=30, dz=12,
+                                         permx=perm, permy=perm, permz=perm, poro=poro, depth=2000)
 
-        return super().set_reservoir(reservoir)
+        return
 
-    def set_wells(self, Peaceman_WI):
+    def set_wells(self):
         self.inj_list = [[5, 5]]
         self.prod_list = [[15, 3], [15, 8]]
 
@@ -66,7 +66,7 @@ class Model(CICDModel, OptModuleSettings):
         # self.prod_list = [[1, 2], [3, 2]]
 
         # well index setting
-        if Peaceman_WI:
+        if self.Peaceman_WI:
             WI = -1  # use Peaceman function; check the function "add_perforation" for more details
         else:
             WI = 200
@@ -110,11 +110,11 @@ class Model(CICDModel, OptModuleSettings):
                                                ('oil', PhaseRelPerm("oil"))])
 
         """ Activate physics """
-        physics = Compositional(components, phases, self.timer,
-                                n_points=200, min_p=1, max_p=300, min_z=zero/10, max_z=1-zero/10)
-        physics.add_property_region(property_container)
+        self.physics = Compositional(components, phases, self.timer,
+                                     n_points=200, min_p=1, max_p=300, min_z=zero/10, max_z=1-zero/10)
+        self.physics.add_property_region(property_container)
 
-        return super().set_physics(physics)
+        return
 
     def set_well_controls(self):
         for i, w in enumerate(self.reservoir.wells):

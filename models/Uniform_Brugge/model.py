@@ -20,7 +20,6 @@ class Model(CICDModel):
         self.timer.node["initialization"].start()
 
         self.set_reservoir()
-        self.set_wells()
         self.set_physics()
 
         self.set_sim_params(first_ts=0.0001, mult_ts=2, max_ts=2, runtime=2000,
@@ -64,10 +63,10 @@ class Model(CICDModel):
         # the class and constructs the object. In the process, the mesh is loaded, mesh information is calculated and
         # the discretization is executed. Besides that, also the boundary conditions of the simulations are
         # defined in this class --> in this case constant pressure/rate at the left (x==x_min) and right (x==x_max) side
-        reservoir = UnstructReservoir(timer=self.timer, mesh_file=mesh_file, permx=permx, permy=permy, permz=permz,
-                                      poro=poro, frac_aper=frac_aper)
+        self.reservoir = UnstructReservoir(timer=self.timer, mesh_file=mesh_file, permx=permx, permy=permy, permz=permz,
+                                           poro=poro, frac_aper=frac_aper)
 
-        return super().set_reservoir(reservoir)
+        return
 
     def set_wells(self):
         well_coord = np.genfromtxt('Brugge_struct/well_coord_Brugge.txt')
@@ -125,11 +124,11 @@ class Model(CICDModel):
         property_container.rock_compress_ev = RockCompactionEvaluator(pvt)
 
         """ Activate physics """
-        physics = Compositional(components, phases, self.timer,
-                                n_points=500, min_p=1, max_p=200, min_z=zero / 10, max_z=1 - zero / 10)
-        physics.add_property_region(property_container)
+        self.physics = Compositional(components, phases, self.timer,
+                                     n_points=500, min_p=1, max_p=200, min_z=zero / 10, max_z=1 - zero / 10)
+        self.physics.add_property_region(property_container)
 
-        return super().set_physics(physics)
+        return
 
     def set_well_controls(self):
         for i, w in enumerate(self.reservoir.wells):

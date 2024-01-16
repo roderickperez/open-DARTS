@@ -31,10 +31,10 @@ class Model(DartsModel):
         self.x_axes = np.logspace(-0.3, 2, nx)
         dx = np.tile(self.x_axes, nz)
 
-        reservoir = StructReservoir(self.timer, nx, ny, nz, dx=dx, dy=10, dz=dz,
-                                    permx=100, permy=100, permz=10, hcap=2200, rcond=100, poro=0.2, depth=depth)
+        self.reservoir = StructReservoir(self.timer, nx, ny, nz, dx=dx, dy=10, dz=dz,
+                                         permx=100, permy=100, permz=10, hcap=2200, rcond=100, poro=0.2, depth=depth)
 
-        return super().set_reservoir(reservoir)
+        return
 
     def set_wells(self):
         self.reservoir.add_well("I1")
@@ -98,11 +98,11 @@ class Model(DartsModel):
                                            "yH2O": lambda: property_container.x[1, 0]
                                            }
 
-        physics = Compositional(components, phases, self.timer, n_points, min_p=1, max_p=400, min_z=zero/10,
-                                max_z=1-zero/10, min_t=273.15, max_t=373.15, thermal=thermal, cache=False)
-        physics.add_property_region(property_container)
+        self.physics = Compositional(components, phases, self.timer, n_points, min_p=1, max_p=400, min_z=zero/10,
+                                     max_z=1-zero/10, min_t=273.15, max_t=373.15, thermal=thermal, cache=False)
+        self.physics.add_property_region(property_container)
 
-        return super().set_physics(physics)
+        return
 
     def set_well_controls(self):
         # define all wells as closed
