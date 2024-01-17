@@ -68,7 +68,7 @@ class DartsModel:
         self.reservoir.init_wells()
 
         # Initialize physics and Engine object
-        assert self.reservoir is not None, "Physics object has not been defined"
+        assert self.physics is not None, "Physics object has not been defined"
         self.physics.init_physics(discr_type=discr_type, platform=platform, verbose=verbose)
         if platform == 'gpu':
             self.params.linear_type = sim_params.gpu_gmres_cpr_amgx_ilu
@@ -87,7 +87,7 @@ class DartsModel:
         Function to initialize the engine by calling 'engine.init()' method.
         """
         self.physics.engine.init(self.reservoir.mesh, ms_well_vector(self.reservoir.wells), op_vector(self.op_list),
-                         self.params, self.timer.node["simulation"])
+                                 self.params, self.timer.node["simulation"])
 
     def set_wells(self, verbose: bool = False):
         """
@@ -96,7 +96,7 @@ class DartsModel:
         :param verbose: Switch for verbose
         :type verbose: bool
         """
-        self.reservoir.set_wells()
+        self.reservoir.set_wells(verbose)
         return
 
     def set_initial_conditions(self, initial_values: dict = None, gradient: dict = None):
@@ -366,7 +366,7 @@ class DartsModel:
         property_array = np.zeros((tot_props, nb))
 
         # Obtain primary variables from engine
-        for j in range(n_vars):
+        for j, variable in enumerate(self.physics.vars):
             property_array[j, :] = self.physics.engine.X[j:nb * n_vars:n_vars]
 
         # If it has been defined, interpolate secondary variables in property_itor,
