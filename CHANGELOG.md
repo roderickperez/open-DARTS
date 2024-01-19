@@ -1,10 +1,36 @@
 **1.0.6 [2024]**
-- Migrated to cmake build system. We kept the old Visual Studio project, but it will be removed later.
-- Well rates in SuperEngine ("Compositional") are defined in reservoir conditions now
+- Migrated to cmake build system. We kept the old Visual Studio projects, but they will be removed later.
+- Well rates in SuperEngine ("Compositional") are defined in reservoir conditions now, the units are Kmol/day
 - Breaking changes:
     - The function of darts_model run_python() renamed to run()
 	- No need to call super().set_physics(physics), super().set_reservoir() and super().set_physics() in user's model
-	- Moved engine object to Physics (as before, in version 1.0.4) to be consistent with Reservoir and Mesh
+	    - Before:	reservoir = UnstructReservoir(...)
+					super().set_reservoir(reservoir)
+        - Now:		self.reservoir = UnstructReservoir(...)
+	- Discretization moved from the reservoir constructor to init_reservoir() method, which is called in the DartsModel.init().
+	Thus, reservoir.mesh is not available right after the self.reservoir initialization. If it is needed, one can call self.reservoir.init_reservoir(). For example:
+		self.reservoir = StrucReservoir(...)
+        self.reservoir.init_reservoir()
+		volume = np.array(reservoir.mesh.volume, copy=False)
+		# set boundary volume
+		m.init()
+	- Adding additional properties to the report changed. Examples:
+		- Before:	from darts.physics.super.operator_evaluator import PropertyOperators
+					props = [('Brine saturation', 'sat', 1), ('Gas saturation', 'sat', 0)]
+					physics.add_property_operators(PropertyOperators(props, property_container))
+		- Now:		property_container.output_props = {'Brine saturation': lambda: property_container.sat[1], 'Gas saturation': lambda: property_container.sat[0]}
+	- property_container and property_container are now dictionaries with a key=region index. Examples:			  
+		- Before:	sat = self.physics.property_operators.property_container.compute_saturation_full(state)
+					properties = self.physics.vars + self.physics.property_operators.props_name
+		- Now:		sat = self.physics.property_containers[0].compute_saturation_full(state)  # 0 - is a region index
+					properties = self.physics.vars + self.physics.property_operators[0].props_name
+	- The engine object moved to physics (as before, in version 1.0.4)
+	    - Before: m.engine
+        - Now:    m.physics.engine
+	- Wells object moved to Reservoir 
+	    - Before: m.wells
+        - Now:    m.reservoir.wells
+
 
 **1.0.5 [20-11-2023]**
 - Adjoints with MPFA (C++ discretizer for the unstructured grid)
