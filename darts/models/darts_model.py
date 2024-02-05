@@ -27,7 +27,7 @@ class DartsModel:
     physics: PhysicsBase
 
     def __init__(self):
-        """"
+        """
         Initialize DartsModel class.
 
         :ivar timer: Timer object
@@ -65,7 +65,6 @@ class DartsModel:
         assert self.reservoir is not None, "Reservoir object has not been defined"
         self.reservoir.init_reservoir(verbose)
         self.set_wells()
-        self.reservoir.init_wells()
 
         # Initialize physics and Engine object
         assert self.reservoir is not None, "Physics object has not been defined"
@@ -74,6 +73,7 @@ class DartsModel:
             self.params.linear_type = sim_params.gpu_gmres_cpr_amgx_ilu
 
         # Initialize well objects
+        self.reservoir.init_wells()
         self.physics.init_wells(self.reservoir.wells)
 
         self.set_boundary_conditions()
