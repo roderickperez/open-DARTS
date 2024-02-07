@@ -50,14 +50,14 @@ bibliography: paper.bib
 
 > Describe the high-level functionality and purpose of the software for a diverse, non-specialist audience.
 
-Open Delft Advanced Reserach Terra Simulator [@openDARTS_2023] is a simulation framework for forward and inverse modelling and uncertainty quantification of multi-physics processes in geo-engineering applications such as geothermal, CO2 sequestration, water pumping, and hydrogen storage. DARTS has a hybrid design combining C++ and Python code. It utilizes advanced numerical methods such as fully implicit thermo-hydro-mechanical-chemical formulation, highly flexible finite-volume spatial approximation, operator-based linearization for nonlinear and physics-based preconditioning for linear solutions. 
+Open Delft Advanced Reserach Terra Simulator [@openDARTS_2023] is a simulation framework for forward and inverse modelling and uncertainty quantification of multi-physics processes in geo-engineering applications such as geothermal, CO2 sequestration, water pumping, and hydrogen storage. OpenDARTS has a hybrid design combining C++ and Python code. It utilizes advanced numerical methods such as fully implicit thermo-hydro-mechanical-chemical formulation, highly flexible finite-volume spatial approximation, operator-based linearization for nonlinear and physics-based preconditioning for linear solutions. 
 
 
 # Statement of need
 
 > Illustrates the research purpose of the software and places it in the context of related work (other software packages doing similar simulations with references and how is DARTS special. Also list here other software packages that are pertinent to DARTS, for example dependencies, darts-flash?).
 
-The openDARTS framework is fully validated and benchmarked for geothermal applications, CO2 sequestration, gas storage, hydrocarbon production and induced seismicity applications. The framework design and parallel implementations for CPU and GPU architectures provides an exceptional level of flexibility and performance: up to two orders of magnitude faster than the best academic and commercial software analogues. Advanced inverse capabilities based on adjoint gradients allowed to effectively address data assimilation, risk analisys and uncertainty quantification for energy transition applications.
+The openDARTS framework is fully validated and benchmarked for geothermal, CO2 sequestration, gas storage, hydrocarbon production and induced seismicity applications. The framework design and parallel implementations for CPU and GPU architectures provides an exceptional level of flexibility and performance: up to two orders of magnitude faster than the best academic and commercial software analogues. Advanced inverse capabilities based on adjoint gradients allowed to effectively address data assimilation, risk analisys and uncertainty quantification for energy transition applications.
 
 # Key features
 
