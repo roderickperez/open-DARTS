@@ -63,7 +63,7 @@ def gen_cpg_grid(nx : int, ny : int, nz : int,
         else:
             nz2 = nz
         specgrid = [nx, ny, nz2, '1', 'F']
-        actnum = np.ones(nx * ny * nz2)
+        actnum = np.ones(nx * ny * nz2, dtype=np.int32)
         keys = ['SPECGRID', 'COORD', 'ZCORN', 'ACTNUM']
         data = [specgrid, coord, zcorn, actnum]
         save_few_keywords(gridname, keys, data)
