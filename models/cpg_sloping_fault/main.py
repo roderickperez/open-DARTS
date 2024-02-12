@@ -145,6 +145,9 @@ def get_case_files(case):
     gridfile = prefix + r'/grid.grdecl'
     propfile = prefix + r'/reservoir.in'
     sch_file = prefix + r'/SCH.INC'
+    assert os.path.exists(gridfile)
+    assert os.path.exists(propfile)
+    assert os.path.exists(sch_file)
     return gridfile, propfile, sch_file
 
 
