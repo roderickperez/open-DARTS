@@ -1,9 +1,10 @@
 import numpy as np
+from keyword_file_tools import save_few_keywords
 
 def gen_cpg_grid(nx : int, ny : int, nz : int, 
                  dx : float, dy : float, dz : float,
                  permx : float, permy : float, permz : float, poro : float,
-                 filename=None, burden_dz=None,
+                 gridname=None, propname=None, burden_dz=None,
                  start_x : float=0, start_y : float =0, start_z : float =2300):
     '''
     Generate a regular grid in corner point geometry format (COORD, ZCORN) and optionally output it to the file
@@ -56,34 +57,24 @@ def gen_cpg_grid(nx : int, ny : int, nz : int,
             )
 
     # write to file
-    if filename is not None:
-        with open(filename, 'w') as grdecl:
-            grdecl.write("SPECGRID\n")
-            if burden_dz is not None:
-                grdecl.write(f"{nx} {ny} {nz+2*len(burden_dz)} 1 F\n")
-                grdecl.write('/\n\nACTNUM\n')
-                np.savetxt(grdecl, np.ones(nx * ny * (nz+2*len(burden_dz))).reshape(-1, 12), fmt='%d', delimiter=' ', newline='\n')
-            else:
-                grdecl.write(f"{nx} {ny} {nz} 1 F\n")
-                grdecl.write('/\n\nACTNUM\n')
-                np.savetxt(grdecl, np.ones(nx * ny * nz), fmt='%d',
-                           delimiter=' ', newline='\n')
+    if gridname is not None:
+        if burden_dz is not None:
+            nz2 = nz+2*len(burden_dz)
+        else:
+            nz2 = nz
+        specgrid = [nx, ny, nz2, '1', 'F']
+        actnum = np.ones(nx * ny * nz2)
+        keys = ['SPECGRID', 'COORD', 'ZCORN', 'ACTNUM']
+        data = [specgrid, coord, zcorn, actnum]
+        save_few_keywords(gridname, keys, data)
 
-            grdecl.write("/\n\nCOORD\n")
-            np.savetxt(grdecl, coord.reshape(-1, 6), delimiter=' ', newline='\n')
-
-            grdecl.write('/\n\nZCORN\n')
-            np.savetxt(grdecl, zcorn.reshape(-1, 8), delimiter=' ', newline='\n')
-
-            # write uniform properties
-            n = nx * ny * nz
-            arr = np.zeros(n)
-            for value, arr_name in [(permx, 'PERMX'), (permy, 'PERMY'), (permz, 'PERMZ'), (poro, 'PORO')]:
-                arr.fill(value)
-                grdecl.write('/\n\n' + arr_name + '\n')
-                np.savetxt(grdecl, arr, delimiter=' ', newline='\n')
-
-            grdecl.write('/')
+        n = nx * ny * nz
+        data = []
+        keys = []
+        for value, arr_name in [(permx, 'PERMX'), (permy, 'PERMY'), (permz, 'PERMZ'), (poro, 'PORO')]:
+            data.append(np.zeros(n) + value)
+            keys.append(arr_name)
+        save_few_keywords(propname, keys, data)
 
     return coord, zcorn
 
@@ -94,4 +85,4 @@ if __name__ =='__main__':
     nz = 100
     gen_cpg_grid(nx=nx, ny=ny, nz=nz, dx=50, dy=50, dz=10,
                  permx=10, permy=10, permz=10, poro=0.2,
-                 filename=str(nx)+'x'+str(ny)+'x'+str(nz)+'.grdecl')
+                 gridname='grid.grdecl', propname='reservoir.in')
