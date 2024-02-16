@@ -11,9 +11,9 @@ build-linux-3.11:
         - if: $TEST_ALL == "1" 
     extends: .build-linux-dockcross
     variables:
-        PY_VER: '3.11'       # for python image selection in .build-linux
+        PY_VER: '3.11'        # for python image selection in .build-linux
         PY_SUF: 'cp311-cp311' # for python path selection in .build-linux-dockcross
-        ODLS: '0'
+        ODLS: '-a'
 
 build-linux-3.10:
     rules: 
@@ -21,9 +21,9 @@ build-linux-3.10:
         - if: $TEST_ALL == "1"
     extends: .build-linux-dockcross
     variables:
-        PY_VER: '3.10'       # for python image selection in .build-linux
+        PY_VER: '3.10'        # for python image selection in .build-linux
         PY_SUF: 'cp310-cp310' # for python path selection in .build-linux-dockcross
-        ODLS: '0'
+        ODLS: '-a'
         
 build-linux-3.9: 
     rules:
@@ -36,7 +36,7 @@ build-linux-3.9:
     variables:
         PY_VER: '3.9'       # for python image selection in .build-linux
         PY_SUF: 'cp39-cp39' # for python path selection in .build-linux-dockcross
-        ODLS: '0'
+        ODLS: '-a'
         
 build-linux-3.8:
     rules: 
@@ -46,7 +46,7 @@ build-linux-3.8:
     variables:
         PY_VER: '3.8'       # for python image selection in .build-linux
         PY_SUF: 'cp38-cp38' # for python path selection in .build-linux-dockcross
-        ODLS: '0'
+        ODLS: '-a'
         
 build-linux-3.7:
     rules: 
@@ -56,7 +56,7 @@ build-linux-3.7:
     variables:
         PY_VER: '3.7'        # for python image selection in .build-linux
         PY_SUF: 'cp37-cp37m' # for python path selection in .build-linux-dockcross
-        ODLS: '0'
+        ODLS: '-a'
         
 ###################################################################################
 
@@ -66,9 +66,9 @@ build-linux-3.11-ODLS:
         - if: $TEST_ALL == "1"
     extends: .build-linux-dockcross
     variables:
-        PY_VER: '3.11'       # for python image selection in .build-linux
+        PY_VER: '3.11'        # for python image selection in .build-linux
         PY_SUF: 'cp311-cp311' # for python path selection in .build-linux-dockcross
-        ODLS: '1'        # build with open-darts linear solvers
+        ODLS: ''              # build with open-darts linear solvers
         
 build-linux-3.10-ODLS:
     rules: 
@@ -76,9 +76,9 @@ build-linux-3.10-ODLS:
         - if: $TEST_ALL == "1"
     extends: .build-linux-dockcross
     variables:
-        PY_VER: '3.10'       # for python image selection in .build-linux
+        PY_VER: '3.10'        # for python image selection in .build-linux
         PY_SUF: 'cp310-cp310' # for python path selection in .build-linux-dockcross
-        ODLS: '1'        # build with open-darts linear solvers
+        ODLS: ''              # build with open-darts linear solvers
         
 build-linux-3.9-ODLS:
     rules:
@@ -89,9 +89,9 @@ build-linux-3.9-ODLS:
         - if: $TEST_ALL == "1"
     extends: .build-linux-dockcross
     variables:
-        PY_VER: '3.9'       # for python image selection in .build-linux
-        PY_SUF: 'cp39-cp39' # for python path selection in .build-linux-dockcross
-        ODLS: '1'        # build with open-darts linear solvers
+        PY_VER: '3.9'        # for python image selection in .build-linux
+        PY_SUF: 'cp39-cp39'  # for python path selection in .build-linux-dockcross
+        ODLS: ''             # build with open-darts linear solvers
         
 build-linux-3.8-ODLS:
     rules: 
@@ -101,7 +101,7 @@ build-linux-3.8-ODLS:
     variables:
         PY_VER: '3.8'       # for python image selection in .build-linux
         PY_SUF: 'cp38-cp38' # for python path selection in .build-linux-dockcross
-        ODLS: '1'        # build with open-darts linear solvers
+        ODLS: ''            # build with open-darts linear solvers
         
 build-linux-3.7-ODLS:
     rules: 
@@ -111,7 +111,7 @@ build-linux-3.7-ODLS:
     variables:
         PY_VER: '3.7'        # for python image selection in .build-linux
         PY_SUF: 'cp37-cp37m' # for python path selection in .build-linux-dockcross
-        ODLS: '1'         # build with open-darts linear solvers
+        ODLS: ''             # build with open-darts linear solvers
         
 ###################################################################################
 
@@ -123,7 +123,7 @@ build-windows-3.11:
     variables:
         PY_VER: '3.11'
         PYTHONPATH: 'D:\Python311'        
-        ODLS: '0' 
+        ODLS: '-a' 
 
 build-windows-3.10:
     rules: 
@@ -133,7 +133,7 @@ build-windows-3.10:
     variables:
         PY_VER: '3.10'
         PYTHONPATH: 'D:\Python310'        
-        ODLS: '0' 
+        ODLS: '-a' 
  
 build-windows-3.9:
     rules:
@@ -146,7 +146,7 @@ build-windows-3.9:
     variables:
         PY_VER: '3.9'
         PYTHONPATH: 'D:\Python39'        
-        ODLS: '0'
+        ODLS: '-a'
         
 build-windows-3.8:
     rules: 
@@ -156,7 +156,7 @@ build-windows-3.8:
     variables:
         PY_VER: '3.8'
         PYTHONPATH: 'D:\Python38'
-        ODLS: '0'
+        ODLS: '-a'
         
 build-windows-3.7:
     rules: 
@@ -166,7 +166,7 @@ build-windows-3.7:
     variables:
         PY_VER: '3.7'
         PYTHONPATH: 'D:\Python374'
-        ODLS: '0'
+        ODLS: '-a'
         
 ###################################################################################
 
@@ -178,7 +178,7 @@ build-windows-3.11-ODLS:
     variables:
         PY_VER: '3.11'
         PYTHONPATH: 'D:\Python311'        
-        ODLS: '1'         # build with open-darts linear solvers
+        ODLS: ''         # build with open-darts linear solvers
                 
 build-windows-3.10-ODLS:
     rules: 
@@ -188,7 +188,7 @@ build-windows-3.10-ODLS:
     variables:
         PY_VER: '3.10'
         PYTHONPATH: 'D:\Python310'        
-        ODLS: '1'         # build with open-darts linear solvers
+        ODLS: ''         # build with open-darts linear solvers
                 
  
 build-windows-3.9-ODLS:
@@ -202,7 +202,7 @@ build-windows-3.9-ODLS:
     variables:
         PY_VER: '3.9'
         PYTHONPATH: 'D:\Python39'        
-        ODLS: '1'         # build with open-darts linear solvers
+        ODLS: ''         # build with open-darts linear solvers
         
 build-windows-3.8-ODLS:
     rules: 
@@ -212,7 +212,7 @@ build-windows-3.8-ODLS:
     variables:
         PY_VER: '3.8'
         PYTHONPATH: 'D:\Python38'
-        ODLS: '1'         # build with open-darts linear solvers
+        ODLS: ''         # build with open-darts linear solvers
         
 build-windows-3.7-ODLS:
     rules: 
@@ -222,7 +222,7 @@ build-windows-3.7-ODLS:
     variables:
         PY_VER: '3.7'
         PYTHONPATH: 'D:\Python374'
-        ODLS: '1'         # build with open-darts linear solvers
+        ODLS: ''         # build with open-darts linear solvers
         
 ###################################################################################
 
@@ -247,14 +247,14 @@ build-windows-3.7-ODLS:
         - echo 'before build-linux'
         - apt-get update -qq && apt-get install -y -qq smbclient
         - export PY_SUFFIX=`python -c "import importlib.machinery; print(importlib.machinery.EXTENSION_SUFFIXES[0])"`
-        - pip install wheel        
+        - pip install wheel
     script:
-        - echo "build *.pyd on linux started with ODLS=$ODLS"
-        - ./build_darts.sh "$ODLS"
+        - echo "build *.so on linux started with ODLS=$ODLS"
+        - ./helper_scripts/build_darts_cmake.sh -w -t -m -j 8 $ODLS
     artifacts:
       paths:
         - './dist/*.whl'
-      expire_in: 1 months
+      expire_in: 1 week
       
 ###################################################################################
 
@@ -277,11 +277,11 @@ build-windows-3.7-ODLS:
         - copy $env:VCToolsRedistDir\x64\Microsoft.VC143.OpenMP\vcomp140.dll .\darts
         - echo "ODLS:" $env:ODLS
         # compile and make the wheel
-        - .\build_darts.bat $env:ODLS release
+        - .\helper_scripts\build_darts_cmake.bat $env:ODLS -w -t -j 8
     artifacts:
       paths:
         - '.\dist\*.whl'
-      expire_in: 1 months
+      expire_in: 1 week
 
 ###################################################################################
 
@@ -291,9 +291,9 @@ test-linux-3.11-ODLS:
         - if: $TEST_ALL == "1"
     extends: .test-linux
     variables:
-        PY_VER: '3.11'       # for python image selection in .test-linux
+        PY_VER: '3.11'        # for python image selection in .test-linux
         PY_SUF: 'cp311-cp311' # for python path selection in .test-linux
-        ODLS: '1'           # test with open-darts linear solvers
+        ODLS: ''              # test with open-darts linear solvers
     dependencies:
         - build-linux-3.11-ODLS
 
@@ -303,9 +303,9 @@ test-linux-3.10-ODLS:
         - if: $TEST_ALL == "1"
     extends: .test-linux
     variables:
-        PY_VER: '3.10'       # for python image selection in .test-linux
+        PY_VER: '3.10'        # for python image selection in .test-linux
         PY_SUF: 'cp310-cp310' # for python path selection in .test-linux
-        ODLS: '1'           # test with open-darts linear solvers
+        ODLS: ''              # test with open-darts linear solvers
     dependencies:
         - build-linux-3.10-ODLS
 
@@ -320,7 +320,7 @@ test-linux-3.9-ODLS:
     variables:
         PY_VER: '3.9'       # for python image selection in .test-linux
         PY_SUF: 'cp39-cp39' # for python path selection in .test-linux
-        ODLS: '1'           # test with open-darts linear solvers
+        ODLS: ''            # test with open-darts linear solvers
     dependencies:
         - build-linux-3.9-ODLS
         
@@ -332,7 +332,7 @@ test-linux-3.8-ODLS:
     variables:
         PY_VER: '3.8'       # for python image selection in .test-linux
         PY_SUF: 'cp38-cp38' # for python path selection in .test-linux
-        ODLS: '1'        # test with open-darts linear solvers
+        ODLS: ''            # test with open-darts linear solvers
     dependencies:
         - build-linux-3.8-ODLS
         
@@ -344,7 +344,7 @@ test-linux-3.7-ODLS:
     variables:
         PY_VER: '3.7'        # for python image selection in .test-linux
         PY_SUF: 'cp37-cp37m' # for python path selection in .test-linux
-        ODLS: '1'        # test with open-darts linear solvers
+        ODLS: ''             # test with open-darts linear solvers
     dependencies:
         - build-linux-3.7-ODLS
 
@@ -356,9 +356,9 @@ test-linux-3.11:
         - if: $TEST_ALL == "1"
     extends: .test-linux
     variables:
-        PY_VER: '3.11'       # for python image selection in .test-linux
+        PY_VER: '3.11'        # for python image selection in .test-linux
         PY_SUF: 'cp311-cp311' # for python path selection in .test-linux
-        ODLS: '0'
+        ODLS: '-a'
     dependencies:
         - build-linux-3.11
 
@@ -368,9 +368,9 @@ test-linux-3.10:
         - if: $TEST_ALL == "1"
     extends: .test-linux
     variables:
-        PY_VER: '3.10'       # for python image selection in .test-linux
+        PY_VER: '3.10'        # for python image selection in .test-linux
         PY_SUF: 'cp310-cp310' # for python path selection in .test-linux
-        ODLS: '0'
+        ODLS: '-a'
     dependencies:
         - build-linux-3.10
 
@@ -385,7 +385,7 @@ test-linux-3.9:
     variables:
         PY_VER: '3.9'       # for python image selection in .test-linux
         PY_SUF: 'cp39-cp39' # for python path selection in .test-linux
-        ODLS: '0'
+        ODLS: '-a'
     dependencies:
         - build-linux-3.9
         
@@ -397,7 +397,7 @@ test-linux-3.8:
     variables:
         PY_VER: '3.8'       # for python image selection in .test-linux
         PY_SUF: 'cp38-cp38' # for python path selection in .test-linux
-        ODLS: '0'
+        ODLS: '-a'
     dependencies:
         - build-linux-3.8
         
@@ -409,7 +409,7 @@ test-linux-3.7:
     variables:
         PY_VER: '3.7'        # for python image selection in .test-linux
         PY_SUF: 'cp37-cp37m' # for python path selection in .test-linux
-        ODLS: '0'
+        ODLS: '-a'
     dependencies:
         - build-linux-3.7
 
@@ -423,7 +423,7 @@ test-windows-3.11:
     variables:
         PY_VER: '3.11'
         PYTHONPATH: 'D:\Python311' 
-        ODLS: '0'
+        ODLS: '-a'
     dependencies:
         - build-windows-3.11
      
@@ -435,7 +435,7 @@ test-windows-3.10:
     variables:
         PY_VER: '3.10'
         PYTHONPATH: 'D:\Python310' 
-        ODLS: '0'
+        ODLS: '-a'
     dependencies:
         - build-windows-3.10
 
@@ -450,7 +450,7 @@ test-windows-3.9:
     variables:
         PY_VER: '3.9'
         PYTHONPATH: 'D:\Python39' 
-        ODLS: '0'
+        ODLS: '-a'
     dependencies:
         - build-windows-3.9
         
@@ -462,7 +462,7 @@ test-windows-3.8:
     variables:
         PY_VER: '3.8'
         PYTHONPATH: 'D:\Python38'
-        ODLS: '0'
+        ODLS: '-a'
     dependencies:
         - build-windows-3.8
         
@@ -474,7 +474,7 @@ test-windows-3.7:
     variables:
         PY_VER: '3.7'
         PYTHONPATH: 'D:\Python374'
-        ODLS: '0'
+        ODLS: '-a'
     dependencies:
         - build-windows-3.7
 
@@ -488,7 +488,7 @@ test-windows-3.11-ODLS:
     variables:
         PY_VER: '3.11'
         PYTHONPATH: 'D:\Python311'
-        ODLS: '1'
+        ODLS: ''
     dependencies:
         - build-windows-3.11-ODLS
      
@@ -500,7 +500,7 @@ test-windows-3.10-ODLS:
     variables:
         PY_VER: '3.10'
         PYTHONPATH: 'D:\Python310'
-        ODLS: '1'
+        ODLS: ''
     dependencies:
         - build-windows-3.10-ODLS
 
@@ -515,7 +515,7 @@ test-windows-3.9-ODLS:
     variables:
         PY_VER: '3.9'
         PYTHONPATH: 'D:\Python39'
-        ODLS: '1'
+        ODLS: ''
     dependencies:
         - build-windows-3.9-ODLS
         
@@ -527,7 +527,7 @@ test-windows-3.8-ODLS:
     variables:
         PY_VER: '3.8'
         PYTHONPATH: 'D:\Python38'
-        ODLS: '1'
+        ODLS: ''
     dependencies:
         - build-windows-3.8-ODLS
         
@@ -539,7 +539,7 @@ test-windows-3.7-ODLS:
     variables:
         PY_VER: '3.7'
         PYTHONPATH: 'D:\Python374'
-        ODLS: '1'
+        ODLS: ''
     dependencies:
         - build-windows-3.7-ODLS
        
@@ -558,7 +558,7 @@ test-windows-3.7-ODLS:
         - apt-get update -qq && apt-get install -y -qq libxinerama1     # for gmsh
         - export PYTHONUNBUFFERED=1
         # complex command to create fake wheel and figure out the proper name for current python and platform
-        - export WHEEL_NAME=`python -c "from setuptools.dist import Distribution;from distutils.core import  Extension;dist = Distribution({'name':'open_darts', 'version':'1.0.4', 'ext_modules':[Extension('mylib', ['mysrc.pyx', 'native.c'])]});bdist_wheel_cmd = dist.get_command_obj('bdist_wheel');print(bdist_wheel_cmd.wheel_dist_name + '-' + '-'.join(bdist_wheel_cmd.get_tag())+ '.whl');"`
+        - export WHEEL_NAME=`python -c "from setuptools.dist import Distribution;from distutils.core import  Extension;dist = Distribution({'name':'open_darts', 'version':'1.1.0', 'ext_modules':[Extension('mylib', ['mysrc.pyx', 'native.c'])]});bdist_wheel_cmd = dist.get_command_obj('bdist_wheel');print(bdist_wheel_cmd.wheel_dist_name + '-' + '-'.join(bdist_wheel_cmd.get_tag())+ '.whl');"`
         # upgrade pip package first
         - python -m pip install --upgrade pip
         - ls ./dist/*
@@ -567,6 +567,7 @@ test-windows-3.7-ODLS:
         - pip install --force-reinstall --no-deps ./dist/$WHEEL_NAME
         # force-reinstall of dependencies takes too much time, lets only upgrade (eagerly!) them
         - pip install --upgrade --upgrade-strategy eager ./dist/$WHEEL_NAME
+        - pip install opmcpg
     script:
         # run simulation fot test models set
         - cd models
@@ -581,7 +582,7 @@ test-windows-3.7-ODLS:
         - './models/_logs/*.log'
         - './models/pkl_lin.tar.gz'
       when: always
-      expire_in: 1 year
+      expire_in: 1 week
 
 ###################################################################################
 
@@ -596,7 +597,7 @@ test-windows-3.7-ODLS:
         - $env:PYTHONUNBUFFERED = 1
         - $env:PYTHONLEGACYWINDOWSSTDIO = 1
         # complex command to create fake wheel and figure out the proper name for current python and platform
-        - $env:WHEEL_NAME=python.exe -c "from setuptools.dist import Distribution;from distutils.core import  Extension;dist = Distribution({'name':'open_darts', 'version':'1.0.4', 'ext_modules':[Extension('mylib', ['mysrc.pyx', 'native.c'])]});bdist_wheel_cmd = dist.get_command_obj('bdist_wheel');print(bdist_wheel_cmd.wheel_dist_name + '-' + '-'.join(bdist_wheel_cmd.get_tag())+ '.whl');"
+        - $env:WHEEL_NAME=python.exe -c "from setuptools.dist import Distribution;from distutils.core import  Extension;dist = Distribution({'name':'open_darts', 'version':'1.1.0', 'ext_modules':[Extension('mylib', ['mysrc.pyx', 'native.c'])]});bdist_wheel_cmd = dist.get_command_obj('bdist_wheel');print(bdist_wheel_cmd.wheel_dist_name + '-' + '-'.join(bdist_wheel_cmd.get_tag())+ '.whl');"
         # upgrade pip package first
         - python -m pip install --upgrade pip
         # force reinstall of darts wheel only (need to force because darts wheel version is not incremented)
@@ -615,7 +616,7 @@ test-windows-3.7-ODLS:
         - '.\models\_logs\*.log'
         - '.\models\pkl_win.zip'
       when: always
-      expire_in: 1 year
+      expire_in: 1 week
 
 ###################################################################################
 
@@ -626,7 +627,9 @@ deploy-pypi:
         - if: $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .deploy-pypi
     variables:
-        PYPI: 'pypi'
+        REPO: 'pypi'
+        REPOUSER: $PYPIUSER
+        REPOPWD: $PYPIPWD
 
 deploy-testpypi:
     # Test publishing the release
@@ -636,7 +639,9 @@ deploy-testpypi:
             - $UPLOAD_TEST_PYPI == "1"
     extends: .deploy-pypi
     variables:
-        PYPI: 'testpypi'
+        REPO: 'testpypi'
+        REPOUSER: $TESTPYPIUSER
+        REPOPWD: $TESTPYPIPWD
 
 # pick all whl ODLS-artifacts (windows/linux, different python versions) and upload to test pipy
 # TODO auto-increment package version (in setup.py and .gitlab-ci.yml) and add git tag; now it is done manually
@@ -655,7 +660,7 @@ deploy-testpypi:
         # upload to test-pypi or pypi depending on $PYPI var
         - ./rename_whls.sh # rename linux whls to make uploadable to test-pypi 
         - ls ./dist/*
-        - twine upload -u $TESTPYPIUSER -p $TESTPYPIPWD --repository $PYPI dist/*
+        - twine upload -u $REPOUSER -p $REPOPWD --repository $REPO --verbose dist/*
     dependencies:
         - build-linux-3.7-ODLS
         - build-linux-3.8-ODLS
@@ -688,3 +693,26 @@ deploy-zenodo:
         - git archive --format zip --output ${CI_COMMIT_TAG#v}.zip ${CI_COMMIT_TAG}
         # command that publishes to zenodo
         - g2z-send -m .zenodo.json ${CI_COMMIT_TAG#v}.zip
+
+pages:
+    stage: deploy
+    rules:
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+    tags:
+        - linux
+    image: python:3.9
+    script:
+        # re-install open-darts with the dependencies for building the documentation
+        - pip install .[docs,cpg]
+        # use the wheel generated in build to install open-darts
+        - pip install --force-reinstall --no-deps ./dist/*cp39-linux_x86_64.whl
+        - cd docs
+        # command to build the documentation to a folder called public
+        - sphinx-build -b html . public
+        # move the folder public to the root of the project to be able to save it as artifact
+        - mv public ../
+    artifacts:
+        paths:
+        - public
+    dependencies:
+        - build-linux-3.9-ODLS

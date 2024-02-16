@@ -2,7 +2,8 @@ import numpy as np
 from darts.engines import *
 from darts.physics.physics_base import PhysicsBase
 
-from darts.physics.super.operator_evaluator import *
+from darts.physics.operators_base import PropertyOperators
+from darts.physics.super.operator_evaluator import ReservoirOperators, WellOperators, RateOperators
 
 
 class Compositional(PhysicsBase):
@@ -64,32 +65,22 @@ class Compositional(PhysicsBase):
         super().__init__(variables=variables, nc=nc, phases=phases, n_ops=n_ops,
                          axes_min=axes_min, axes_max=axes_max, n_points=n_points, timer=timer, cache=cache)
 
-    def set_operators(self, regions, output_properties=None):
+    def set_operators(self):
         """
         Function to set operator objects: :class:`ReservoirOperators` for each of the reservoir regions,
         :class:`WellOperators` for the well cells, :class:`RateOperators` for evaluation of rates
         and a :class:`PropertyOperator` for the evaluation of properties.
-
-        :param regions: List of regions. It contains the keys of the `property_containers` and `reservoir_operators` dict
-        :type regions: list
-        :param output_properties: Output property operators object, default is None
         """
+        for region in self.regions:
+            self.reservoir_operators[region] = ReservoirOperators(self.property_containers[region], self.thermal)
+            self.property_operators[region] = PropertyOperators(self.property_containers[region], self.thermal)
+
         if self.thermal:
-            for region, prop_container in self.property_containers.items():
-                self.reservoir_operators[region] = ReservoirThermalOperators(prop_container)
-            self.wellbore_operators = ReservoirThermalOperators(self.property_containers[regions[0]])
+            self.wellbore_operators = ReservoirOperators(self.property_containers[self.regions[0]], self.thermal)
         else:
-            for region, prop_container in self.property_containers.items():
-                self.reservoir_operators[region] = ReservoirOperators(prop_container)
-            self.wellbore_operators = WellOperators(self.property_containers[regions[0]])
+            self.wellbore_operators = WellOperators(self.property_containers[self.regions[0]], self.thermal)
 
-        self.rate_operators = RateOperators(self.property_containers[regions[0]])
-
-        # Create property evaluator
-        if output_properties is not None:
-            self.property_operators = output_properties
-        if output_properties is not None:
-            self.property_operators = output_properties
+        self.rate_operators = RateOperators(self.property_containers[self.regions[0]])
 
         return
 
@@ -104,34 +95,27 @@ class Compositional(PhysicsBase):
         """
         if discr_type == 'mpfa':
             if self.thermal:
-                self.engine = eval("engine_super_mp_%s%d_%d_t" % (platform, self.nc, self.nph))()
+                return eval("engine_super_mp_%s%d_%d_t" % (platform, self.nc, self.nph))()
             else:
-                self.engine = eval("engine_super_mp_%s%d_%d" % (platform, self.nc, self.nph))()
+                return eval("engine_super_mp_%s%d_%d" % (platform, self.nc, self.nph))()
         else:
             if self.thermal:
-                self.engine = eval("engine_super_%s%d_%d_t" % (platform, self.nc, self.nph))()
+                return eval("engine_super_%s%d_%d_t" % (platform, self.nc, self.nph))()
             else:
-                self.engine = eval("engine_super_%s%d_%d" % (platform, self.nc, self.nph))()
+                return eval("engine_super_%s%d_%d" % (platform, self.nc, self.nph))()
 
-    def set_well_controls(self):
+    def define_well_controls(self):
         # define well control factories
         # Injection wells (upwind method requires both bhp and inj_stream for bhp controlled injection wells):
         self.new_bhp_inj = lambda bhp, inj_stream: bhp_inj_well_control(bhp, value_vector(inj_stream))
         self.new_rate_inj = lambda rate, inj_stream, iph: rate_inj_well_control(self.phases, iph, self.n_vars,
-                                                                               self.n_vars, rate,
-                                                                               value_vector(inj_stream), self.rate_itor)
+                                                                                self.n_vars, rate, value_vector(inj_stream),
+                                                                                self.rate_itor)
         # Production wells:
         self.new_bhp_prod = lambda bhp: bhp_prod_well_control(bhp)
         self.new_rate_prod = lambda rate, iph: rate_prod_well_control(self.phases, iph, self.n_vars,
-                                                                      self.n_vars,
-                                                                     rate, self.rate_itor)
+                                                                      self.n_vars, rate, self.rate_itor)
         return
-
-    # Define some class methods:
-    def init_wells(self, wells):
-        for w in wells:
-            assert isinstance(w, ms_well)
-            w.init_rate_parameters(self.n_vars, self.phases, self.rate_itor)
 
     def set_uniform_initial_conditions(self, mesh: conn_mesh,
                                        uniform_pressure: float, uniform_composition: list, uniform_temp: float = None):
@@ -171,14 +155,12 @@ class Compositional(PhysicsBase):
             for c in range(self.nc - 1):  # Denis
                 composition[c::(self.nc - 1)] = uniform_composition[c]
 
-    def set_boundary_conditions(self, mesh: conn_mesh, uniform_pressure: float, uniform_composition: list):
-        assert isinstance(mesh, conn_mesh)
+    def init_wells(self, wells):
+        """
+        Function to initialize the well rates for each well.
 
-        # Class methods which can create constant pressure and composition boundary condition:
-        pressure = np.array(mesh.pressure, copy=False)
-        pressure.fill(uniform_pressure)
-
-        mesh.composition.resize(mesh.n_blocks * (self.nc - 1))
-        composition = np.array(mesh.composition, copy=False)
-        for c in range(self.nc - 1):
-            composition[c::(self.nc - 1)] = uniform_composition[c]
+        :param wells: List of :class:`ms_well` objects
+        """
+        for w in wells:
+            assert isinstance(w, ms_well)
+            w.init_rate_parameters(self.n_vars, self.n_ops, self.phases, self.rate_itor, self.thermal)

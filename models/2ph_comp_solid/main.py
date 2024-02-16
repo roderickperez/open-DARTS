@@ -6,7 +6,7 @@ import sys, os
 from model import Model
 from darts.engines import value_vector, redirect_darts_output
 import matplotlib.pyplot as plt
-from darts.physics.super.operator_evaluator import PropertyOperators as props
+from darts.physics.operators_base import PropertyOperators as props
 
 
 def plot_sol(n):
@@ -49,11 +49,11 @@ def plot_sol(n):
 if __name__ == '__main__':
     redirect_darts_output('run.log')
     n = Model()
-    n.params.linear_type = n.params.linear_solver_t.cpu_superlu
+    # n.params.linear_type = n.params.linear_solver_t.cpu_superlu
     n.init()
 
-    if 1:
-        n.run_python()
+    if True:
+        n.run(1000)
         # n.reservoir.wells[0].control = n.physics.new_bhp_inj(100, 3*[n.zero])
         # n.run_python(300, restart_dt=1e-3)
         n.print_timers()
@@ -63,21 +63,21 @@ if __name__ == '__main__':
         n.save_restart_data()
         writer = pd.ExcelWriter('time_data.xlsx')
         time_data.to_excel(writer, 'Sheet1')
-        writer.save()
+        writer.close()
     else:
         n.load_restart_data()
         time_data = pd.read_pickle("darts_time_data.pkl")
 
 
-    if 1:
+    if True:
         Xn = np.array(n.physics.engine.X, copy=False)
         nc = n.physics.nc + n.physics.thermal
 
         plt.figure(num=1, figsize=(12, 8), dpi=100)
         for i in range(nc if nc < 3 else 3):
             plt.subplot(330 + (i + 1))
-            plt.plot(Xn[i:n.reservoir.nb*nc:nc])
-        plt.show()
+            plt.plot(Xn[i:n.reservoir.mesh.n_res_blocks*nc:nc])
+            plt.savefig(str(i) + '.png')
     else:
         #plot_sol(n)
         n.print_and_plot('sim_data')

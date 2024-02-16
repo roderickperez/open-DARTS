@@ -3,6 +3,9 @@ import pickle
 import os
 import numpy as np
 
+from darts.reservoirs.reservoir_base import ReservoirBase
+from darts.physics.physics_base import PhysicsBase
+
 from darts.engines import timer_node, sim_params, value_vector, index_vector, op_vector, ms_well_vector
 from darts.engines import print_build_info as engines_pbi
 from darts.discretizer import print_build_info as discretizer_pbi
@@ -12,7 +15,7 @@ from darts.print_build_info import print_build_info as package_pbi
 class DartsModel:
     """
     This is a base class for creating a model in DARTS.
-    A model is composed of a :class:`darts.models.Reservoir` object and a `darts.physics.Physics` object.
+    A model is composed of a :class:`Reservoir` object and a :class:`Physics` object.
     Initialization and communication between these two objects takes place through the Model object
 
     :ivar reservoir: Reservoir object
@@ -20,9 +23,11 @@ class DartsModel:
     :ivar physics: Physics object
     :type physics: :class:`PhysicsBase`
     """
+    reservoir: ReservoirBase
+    physics: PhysicsBase
 
     def __init__(self):
-        """"
+        """
         Initialize DartsModel class.
 
         :ivar timer: Timer object
@@ -46,7 +51,7 @@ class DartsModel:
 
         self.timer.node["initialization"].stop()  # Stop recording "initialization" time
 
-    def init(self):
+    def init(self, discr_type: str = 'tpfa', platform: str = 'cpu', verbose: bool = False):
         """
         Function to initialize the model, which includes:
         - initialize well (perforation) position
@@ -56,50 +61,103 @@ class DartsModel:
         - define list of operator interpolators for accumulation-flux regions and wells
         - initialize engine
         """
+        # Initialize reservoir and Mesh object
+        assert self.reservoir is not None, "Reservoir object has not been defined"
+        self.reservoir.init_reservoir(verbose)
+        self.set_wells()
+
+        # Initialize physics and Engine object
+        assert self.physics is not None, "Physics object has not been defined"
+        self.physics.init_physics(discr_type=discr_type, platform=platform, verbose=verbose)
+        if platform == 'gpu':
+            self.params.linear_type = sim_params.gpu_gmres_cpr_amgx_ilu
+
+        # Initialize well objects
         self.reservoir.init_wells()
         self.physics.init_wells(self.reservoir.wells)
-        self.set_initial_conditions()
+
         self.set_boundary_conditions()
+        self.set_initial_conditions()
+        self.set_well_controls()
         self.set_op_list()
         self.reset()
 
     def reset(self):
         """
-        Function to initialize the engine by calling 'physics.engine.init()' method.
+        Function to initialize the engine by calling 'engine.init()' method.
         """
-        self.physics.engine.init(self.reservoir.mesh, ms_well_vector(self.reservoir.wells),
-                                 op_vector(self.op_list),
+        self.physics.engine.init(self.reservoir.mesh, ms_well_vector(self.reservoir.wells), op_vector(self.op_list),
                                  self.params, self.timer.node["simulation"])
 
-    def set_physics(self):
+    def set_wells(self, verbose: bool = False):
         """
-        Function to define properties and regions and initialize :class:`Physics` object.
+        Function to define wells. The default method of DartsModel.set_wells() calls Reservoir.set_wells().
 
-        This function is virtual in DartsModel, needs to be defined in child Model.
+        :param verbose: Switch for verbose
+        :type verbose: bool
         """
-        pass
+        self.reservoir.set_wells(verbose)
+        return
 
-    def set_wells(self):
+    def set_initial_conditions(self, initial_values: dict = None, gradient: dict = None):
         """
-        Function to define wells and initialize :class:`Reservoir` object.
+        Function to set initial conditions. Passes initial conditions to :class:`Mesh` object.
 
-        This function is virtual in DartsModel, needs to be defined in child Model.
+        :param initial_values: Map of scalars/arrays of initial values for each primary variable, keys are the variables
+        :type initial_values: dict
+        :param gradient: Map of scalars of gradients for initial values
+        :type gradient: dict
         """
-        pass
+        initial_values = initial_values if initial_values is not None else self.initial_values
+        gradient = gradient if gradient is not None else (self.gradient if hasattr(self, 'gradient') else None)
 
-    def set_initial_conditions(self):
-        """
-        Function to set initial conditions. Passes initial conditions to :class:`Physics` object.
+        for i, variable in enumerate(self.physics.vars):
+            # Check if variable exists in initial values dictionary
+            if variable not in initial_values.keys():
+                raise RuntimeError("Primary variable {} was not assigned initial values.".format(variable))
 
-        This function is virtual in DartsModel, needs to be defined in child Model.
-        """
-        pass
+            self.reservoir.mesh.composition.resize(self.reservoir.mesh.n_blocks * (self.physics.nc - 1))
+            if variable == 'pressure':
+                values = np.array(self.reservoir.mesh.pressure, copy=False)
+            elif variable == 'temperature':
+                values = np.array(self.reservoir.mesh.temperature, copy=False)
+            elif variable == 'enthalpy':
+                values = np.array(self.reservoir.mesh.enthalpy, copy=False)
+            else:
+                values = np.array(self.reservoir.mesh.composition, copy=False)
+
+            # values = np.array(self.reservoir.mesh.values[i], copy=False)
+            initial_value = initial_values[variable]
+
+            if variable not in ['pressure', 'temperature', 'enthalpy']:
+                c = i - 1
+                values[c::(self.physics.nc - 1)] = initial_value
+            elif isinstance(initial_values[variable], (list, np.ndarray)):
+                # If initial value is an array, assign array
+                values[:] = initial_value
+            elif gradient is not None and variable in gradient.keys():
+                # If gradient has been defined, calculate distribution over depth and assign to array
+                for ith_cell in range(self.reservoir.mesh.n_res_blocks):
+                    values[ith_cell] = initial_value + self.reservoir.mesh.depth[ith_cell] * gradient[variable]
+            else:
+                # Else, assign constant value to each cell in array
+                values.fill(initial_value)
+
+        return
 
     def set_boundary_conditions(self):
         """
         Function to set boundary conditions. Passes boundary conditions to :class:`Physics` object and wells.
 
-        This function is virtual in DartsModel, needs to be defined in child Model.
+        This function is empty in DartsModel, needs to be overloaded in child Model.
+        """
+        pass
+
+    def set_well_controls(self):
+        """
+        Function to set well controls. Passes well controls to :class:`Physics` object and wells.
+
+        This function is empty in DartsModel, needs to be overloaded in child Model.
         """
         pass
 
@@ -109,13 +167,9 @@ class DartsModel:
 
         Operator list is in order [acc_flux_itor[0], ..., acc_flux_itor[n-1], acc_flux_w_itor]
         """
-        if type(self.physics.acc_flux_itor) == dict:
-            self.op_list = [acc_flux_itor for acc_flux_itor in self.physics.acc_flux_itor.values()] + [self.physics.acc_flux_w_itor]
-            self.op_num = np.array(self.reservoir.mesh.op_num, copy=False)
-            # self.op_num[self.reservoir.nb:] = len(self.op_list) - 1
-            self.op_num[self.reservoir.mesh.n_res_blocks:] = len(self.op_list) - 1
-        else: # for backward compatibility
-            self.op_list = [self.physics.acc_flux_itor]
+        self.op_list = [self.physics.acc_flux_itor[region] for region in self.physics.regions] + [self.physics.acc_flux_w_itor]
+        self.op_num = np.array(self.reservoir.mesh.op_num, copy=False)
+        self.op_num[self.reservoir.mesh.n_res_blocks:] = len(self.op_list) - 1
 
     def set_sim_params(self, first_ts: float = None, mult_ts: float = None, max_ts: float = None, runtime: float = 1000,
                        tol_newton: float = None, tol_linear: float = None, it_newton: int = None, it_linear: int = None,
@@ -145,6 +199,7 @@ class DartsModel:
         self.params.first_ts = first_ts if first_ts is not None else self.params.first_ts
         self.params.mult_ts = mult_ts if mult_ts is not None else self.params.mult_ts
         self.params.max_ts = max_ts if max_ts is not None else self.params.max_ts
+        self.prev_ts = first_ts if first_ts is not None else self.params.first_ts
         self.runtime = runtime
 
         # Newton tolerance is relatively high because of L2-norm for residual and well segments
@@ -156,110 +211,144 @@ class DartsModel:
         self.params.newton_type = newton_type if newton_type is not None else self.params.newton_type
         self.params.newton_params = newton_params if newton_params is not None else self.params.newton_params
 
-    def run(self, days: float = None):
-        runtime = days if days is not None else self.runtime
+    def run(self, days: float = None, restart_dt: float = 0., verbose: bool = True):
+        """
+        Method to run simulation for specified time. Optional argument to specify dt to restart simulation with.
 
-        self.physics.engine.run(runtime)
-
-    def run_python(self, days: float, restart_dt: float = 0, timestep_python: bool = False):
-        mult_dt = self.params.mult_ts
-        max_dt = self.params.max_ts
-        self.e = self.physics.engine
+        :param days: Time increment [days]
+        :type days: float
+        :param restart_dt: Restart value for timestep size [days, optional]
+        :type restart_dt: float
+        :param verbose: Switch for verbose, default is True
+        :type verbose: bool
+        """
+        days = days if days is not None else self.runtime
 
         # get current engine time
-        t = self.e.t
+        t = self.physics.engine.t
+        stop_time = t + days
 
         # same logic as in engine.run
         if fabs(t) < 1e-15:
             dt = self.params.first_ts
-        elif restart_dt > 0:
+        elif restart_dt > 0.:
             dt = restart_dt
         else:
-            dt = self.params.max_ts
+            dt = min(self.prev_ts * self.params.mult_ts, self.params.max_ts)
 
-        # evaluate end time
-        runtime = t + days
         ts = 0
 
-        while t < runtime:
-            if timestep_python:
-                 converged = self.e.run_timestep(dt, t)
-            else:
-                 converged = self.run_timestep_python(dt, t)
+        while t < stop_time:
+            converged = self.run_timestep(dt, t, verbose)
 
             if converged:
                 t += dt
-                ts = ts + 1
-                print("# %d \tT = %3g\tDT = %2g\tNI = %d\tLI=%d"
-                      % (ts, t, dt, self.e.n_newton_last_dt, self.e.n_linear_last_dt))
+                ts += 1
+                if verbose:
+                    print("# %d \tT = %3g\tDT = %2g\tNI = %d\tLI=%d"
+                          % (ts, t, dt, self.physics.engine.n_newton_last_dt, self.physics.engine.n_linear_last_dt))
 
-                dt *= mult_dt
-                if dt > max_dt:
-                    dt = max_dt
+                dt = min(dt * self.params.mult_ts, self.params.max_ts)
 
-                if t + dt > runtime:
-                    dt = runtime - t
+                if t + dt > stop_time:
+                    dt = stop_time - t
+                else:
+                    self.prev_ts = dt
 
             else:
-                dt /= mult_dt
-                print("Cut timestep to %2.3f" % dt)
-                if dt < 1e-8:
+                dt /= self.params.mult_ts
+                if verbose:
+                    print("Cut timestep to %2.3f" % dt)
+                if dt < self.params.min_ts:
                     break
         # update current engine time
-        self.e.t = runtime
+        self.physics.engine.t = stop_time
 
-        print("TS = %d(%d), NI = %d(%d), LI = %d(%d)" % (self.e.stat.n_timesteps_total, self.e.stat.n_timesteps_wasted,
-                                                         self.e.stat.n_newton_total, self.e.stat.n_newton_wasted,
-                                                         self.e.stat.n_linear_total, self.e.stat.n_linear_wasted))
+        if verbose:
+            print("TS = %d(%d), NI = %d(%d), LI = %d(%d)"
+                  % (self.physics.engine.stat.n_timesteps_total, self.physics.engine.stat.n_timesteps_wasted,
+                     self.physics.engine.stat.n_newton_total, self.physics.engine.stat.n_newton_wasted,
+                     self.physics.engine.stat.n_linear_total, self.physics.engine.stat.n_linear_wasted))
 
-    def apply_rhs_flux(self, dt: float):
-        '''
-        if self.rhs_flux is defined and it is not None, add its values to rhs
+    def run_timestep(self, dt: float, t: float, verbose: bool = True):
+        """
+        Method to solve Newton loop for specified timestep
+
+        :param dt: Timestep size [days]
+        :type dt: float
+        :param t: Current time [days]
+        :type t: float
+        :param verbose: Switch for verbose, default is True
+        :type verbose: bool
+        """
+        max_newt = self.params.max_i_newton
+        max_residual = np.zeros(max_newt + 1)
+        self.physics.engine.n_linear_last_dt = 0
+        self.timer.node['simulation'].start()
+        for i in range(max_newt+1):
+            # self.physics.engine.run_single_newton_iteration(dt)
+            self.physics.engine.assemble_linear_system(dt)  # assemble Jacobian and residual of reservoir and well blocks
+            self.apply_rhs_flux(dt, t)  # apply RHS flux
+            self.physics.engine.newton_residual_last_dt = self.physics.engine.calc_newton_residual()  # calc norm of residual
+
+            max_residual[i] = self.physics.engine.newton_residual_last_dt
+            counter = 0
+            for j in range(i):
+                if abs(max_residual[i] - max_residual[j])/max_residual[i] < self.params.stationary_point_tolerance:
+                    counter += 1
+            if counter > 2:
+                if verbose:
+                    print("Stationary point detected!")
+                break
+
+            self.physics.engine.well_residual_last_dt = self.physics.engine.calc_well_residual()
+            self.physics.engine.n_newton_last_dt = i
+            #  check tolerance if it converges
+            if ((self.physics.engine.newton_residual_last_dt < self.params.tolerance_newton and
+                 self.physics.engine.well_residual_last_dt < self.params.well_tolerance_coefficient * self.params.tolerance_newton) or
+                    self.physics.engine.n_newton_last_dt == self.params.max_i_newton):
+                if i > 0:  # min_i_newton
+                    break
+            r_code = self.physics.engine.solve_linear_equation()
+            self.timer.node["newton update"].start()
+            self.physics.engine.apply_newton_update(dt)
+            self.timer.node["newton update"].stop()
+        # End of newton loop
+        converged = self.physics.engine.post_newtonloop(dt, t)
+        self.timer.node['simulation'].stop()
+        return converged
+
+    def set_rhs_flux(self, t: float = None) -> np.ndarray:
+        """
+        Function to specify modifications to RHS vector. User can implement his own boundary conditions here.
+
+        This function is empty in DartsModel, needs to be overloaded in child Model.
+
+        :param t: current time [days]
+        :type t: float
+        :return: Vector of modification to RHS vector
+        :rtype: np.ndarray
+        """
+        pass
+
+    def apply_rhs_flux(self, dt: float, t: float):
+        """
+        Function to apply modifications to RHS vector.
+
+        If self.set_rhs_flux() is defined in Model, this function will add its values to rhs
+
         :param dt: timestep [days]
-        '''
-        if not hasattr(self, 'rhs_flux') or self.rhs_flux is None:
+        :type dt: float
+        :param t: current time [days]
+        :type t: float
+        """
+        if type(self).set_rhs_flux is DartsModel.set_rhs_flux:
+            # If the function has not been overloaded, pass
             return
         rhs = np.array(self.physics.engine.RHS, copy=False)
         n_res = self.reservoir.mesh.n_res_blocks * self.physics.n_vars
-        rhs[:n_res] += self.rhs_flux * dt
-
-
-    def run_timestep_python(self, dt, t):
-        max_newt = self.params.max_i_newton
-        max_residual = np.zeros(max_newt + 1)
-        self.e.n_linear_last_dt = 0
-        well_tolerance_coefficient = 1e2
-        self.timer.node['simulation'].start()
-        for i in range(max_newt+1):
-            self.e.run_single_newton_iteration(dt)
-            self.apply_rhs_flux(dt)
-            self.e.newton_residual_last_dt = self.e.calc_newton_residual()
-
-            max_residual[i] = self.e.newton_residual_last_dt
-            counter = 0
-            for j in range(i):
-                if abs(max_residual[i] - max_residual[j])/max_residual[i] < 1e-3:
-                    counter += 1
-            if counter > 2:
-                print("Stationary point detected!")
-                break
-
-            self.e.well_residual_last_dt = self.e.calc_well_residual()
-            self.e.n_newton_last_dt = i
-            #  check tolerance if it converges
-            if ((self.e.newton_residual_last_dt < self.params.tolerance_newton and
-                 self.e.well_residual_last_dt < well_tolerance_coefficient * self.params.tolerance_newton) or
-                    self.e.n_newton_last_dt == self.params.max_i_newton):
-                if i > 0:  # min_i_newton
-                    break
-            r_code = self.e.solve_linear_equation()
-            self.timer.node["newton update"].start()
-            self.e.apply_newton_update(dt)
-            self.timer.node["newton update"].stop()
-        # End of newton loop
-        converged = self.e.post_newtonloop(dt, t)
-        self.timer.node['simulation'].stop()
-        return converged
+        rhs[:n_res] += self.set_rhs_flux(t) * dt
+        return
 
     def output_properties(self):
         """
@@ -271,56 +360,54 @@ class DartsModel:
         """
         # Initialize property_array
         n_vars = self.physics.n_vars
-        n_props = self.physics.n_props
+        n_props = self.physics.property_operators[0].n_ops
         tot_props = n_vars + n_props
-        property_array = np.zeros((self.reservoir.nb, tot_props))
+        nb = self.reservoir.mesh.n_res_blocks
+        property_array = np.zeros((tot_props, nb))
 
         # Obtain primary variables from engine
-        for j in range(n_vars):
-            property_array[:, j] = self.physics.engine.X[j:self.reservoir.nb * n_vars:n_vars]
+        X = np.array(self.physics.engine.X, copy=False)
+        for j, variable in enumerate(self.physics.vars):
+            property_array[j, :] = X[j:nb * n_vars:n_vars]
 
         # If it has been defined, interpolate secondary variables in property_itor,
-        if self.physics.property_operators is not None:
-            values = value_vector(np.zeros(self.physics.n_ops))
-
-            for i in range(self.reservoir.nb):
-                state = []
-                for j in range(n_vars):
-                    state.append(property_array[i, j])
-                state = value_vector(np.asarray(state))
-                self.physics.property_itor.evaluate(state, values)
+        for i in range(nb):
+            if self.physics.property_operators[self.op_num[i]].n_ops:
+                values = value_vector(np.zeros(self.physics.n_ops))
+                state = value_vector(property_array[0:n_vars, i])
+                self.physics.property_itor[self.op_num[i]].evaluate(state, values)
 
                 for j in range(n_props):
-                    property_array[i, j + n_vars] = values[j]
+                    property_array[j + n_vars, i] = values[j]
 
         return property_array
 
-    def export_vtk(self, file_name: str = 'data', local_cell_data: dict = {}, global_cell_data: dict = {},
-                   vars_data_dtype: type = np.float32, export_grid_data: bool = True):
+    def output_to_vtk(self, ith_step: int, output_directory: str, output_properties: list = None):
         """
         Function to export results at timestamp t into `.vtk` format.
 
-        :param file_name: Name to save .vtk file
-        :type file_name: str
-        :param local_cell_data: Local cell data (active cells)
-        :type local_cell_data: dict
-        :param global_cell_data: Global cell data (all cells including actnum)
-        :type global_cell_data: dict
-        :param vars_data_dtype:
-        :type vars_data_dtype: type
-        :param export_grid_data:
-        :type export_grid_data: bool
+        :param ith_step: i'th reporting step
+        :type ith_step: int
+        :param output_directory: Name to save .vtk file
+        :type output_directory: str
+        :param output_properties: List of properties to include in .vtk file, default is None which will pass all
+        :type output_properties: list
         """
-        # get current engine time
+        # Find index of properties to output
+        tot_props = self.physics.vars + self.physics.property_operators[0].props_name
+        if output_properties is None:
+            # If None, all variables and properties from property_operators will be passed
+            prop_idxs = {prop: i for i, prop in enumerate(tot_props)}
+        else:
+            # Else, it finds the indices of output_properties in the output data
+            prop_idxs = {prop: tot_props.index(prop) for prop in output_properties}
+
+        # get current time and property data from engine
         t = self.physics.engine.t
-        nb = self.reservoir.mesh.n_res_blocks
-        nv = self.physics.n_vars
-        X = np.array(self.physics.engine.X, copy=False)
+        output_data = self.output_properties()
 
-        for v in range(nv):
-            local_cell_data[self.physics.vars[v]] = X[v:nb * nv:nv].astype(vars_data_dtype)
-
-        self.reservoir.export_vtk(file_name, t, local_cell_data, global_cell_data, export_grid_data)
+        # Pass to Reservoir.output_to_vtk() method
+        self.reservoir.output_to_vtk(ith_step, t, output_directory, prop_idxs, output_data)
 
     def load_restart_data(self, filename: str = 'restart.pkl'):
         """

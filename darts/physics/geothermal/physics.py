@@ -1,6 +1,7 @@
 from darts.engines import *
 from darts.physics.properties.iapws.iapws_property import *
 from darts.physics.physics_base import PhysicsBase
+from darts.physics.operators_base import PropertyOperators
 from darts.physics.geothermal.operator_evaluator import *
 
 import numpy as np
@@ -39,7 +40,6 @@ class Geothermal(PhysicsBase):
         """
         # Set nc=1, thermal=True
         nc = 1
-        self.thermal = True
 
         # Define phases and variables
         self.mass_rate = mass_rate
@@ -60,29 +60,23 @@ class Geothermal(PhysicsBase):
         super().__init__(variables=variables, nc=nc, phases=phases, n_ops=n_ops,
                          axes_min=axes_min, axes_max=axes_max, n_points=n_points, timer=timer, cache=cache)
 
-    def set_operators(self, regions, output_properties=None):
+    def set_operators(self):
         """
         Function to set operator objects: :class:`acc_flux_gravity_evaluator` for each of the reservoir regions,
         :class:`acc_flux_gravity_evaluator_python_well` for the well cells
         and :class:`geothermal_rate_custom_evaluator_python` for evaluation of rates.
-
-        :param regions: List of regions. It contains the keys of the `property_containers` and `reservoir_operators` dict
-        :type regions: list
-        :param output_properties: Output property operators object, default is None
         """
-        for region, prop_container in self.property_containers.items():
-            self.reservoir_operators[region] = acc_flux_gravity_evaluator_python(prop_container)
-        self.wellbore_operators = acc_flux_gravity_evaluator_python_well(self.property_containers[regions[0]])
+        for region in self.regions:
+            self.reservoir_operators[region] = acc_flux_gravity_evaluator_python(self.property_containers[region])
+            self.property_operators[region] = PropertyOperators(self.property_containers[region], thermal=True)
+        self.wellbore_operators = acc_flux_gravity_evaluator_python_well(self.property_containers[self.regions[0]])
 
         # create rate operators evaluator
         if self.mass_rate:
-            self.rate_operators = geothermal_mass_rate_custom_evaluator_python(self.property_containers[regions[0]])
+            self.rate_operators = geothermal_mass_rate_custom_evaluator_python(self.property_containers[self.regions[0]])
         else:
-            self.rate_operators = geothermal_rate_custom_evaluator_python(self.property_containers[regions[0]])
+            self.rate_operators = geothermal_rate_custom_evaluator_python(self.property_containers[self.regions[0]])
 
-        # Create property evaluator
-        if output_properties is not None:
-            self.property_operators = output_properties
         return
 
     def set_engine(self, discr_type: str = 'tpfa', platform: str = 'cpu'):
@@ -94,10 +88,9 @@ class Geothermal(PhysicsBase):
         :param platform: Switch for CPU/GPU engine, 'cpu' (default) or 'gpu'
         :type platform: str
         """
-        self.engine = eval("engine_nce_g_%s%d_%d" % (platform, self.nc, self.nph - 2))()
-        return
+        return eval("engine_nce_g_%s%d_%d" % (platform, self.nc, self.nph - 2))()
 
-    def set_well_controls(self):
+    def define_well_controls(self):
         # create well controls
         # water stream
         # pure water injection at constant temperature
@@ -126,23 +119,13 @@ class Geothermal(PhysicsBase):
                                                                                     rate, self.rate_itor)
         return
 
-    def init_wells(self, wells):
-        """""
-        Function to initialize the well rates for each well
-        Arguments:
-            -wells: well_object array
-        """
-        for w in wells:
-            assert isinstance(w, ms_well)
-            w.init_rate_parameters(self.nc + 1, self.phases, self.rate_itor)
-
     def set_uniform_initial_conditions(self, mesh, uniform_pressure, uniform_temperature):
         """""
         Function to set uniform initial reservoir condition
-        Arguments:
-            -mesh: mesh object
-            -uniform_pressure: uniform pressure setting
-            -uniform_temperature: uniform temperature setting
+
+        :param mesh: :class:`Mesh` object
+        :param uniform_pressure: Uniform pressure setting
+        :param uniform_temperature: Uniform temperature setting
         """
         assert isinstance(mesh, conn_mesh)
         # nb = mesh.n_blocks
@@ -152,29 +135,29 @@ class Geothermal(PhysicsBase):
         pressure.fill(uniform_pressure)
 
         state = value_vector([uniform_pressure, 0])
-        E = self.property_containers[0].total_enthalpy(uniform_temperature)
+        E = self.property_containers[0].enthalpy_ev['total'](uniform_temperature)
         enth = E.evaluate(state)
 
         enthalpy = np.array(mesh.enthalpy, copy=False)
         enthalpy.fill(enth)
 
     def set_nonuniform_initial_conditions(self, mesh, pressure_grad, temperature_grad):
-        """""
-        Function to set uniform initial reservoir condition
-        Arguments:
-            -mesh: mesh object
-            -pressure_grad, default unit [1/km]
-            -temperature_grad, default unit [1/km]
+        """
+        Function to set nonuniform initial reservoir condition
+
+        :param mesh: :class:`Mesh` object
+        :param pressure_grad: Pressure gradient, calculates pressure based on depth [1/km]
+        :param temperature_grad: Temperature gradient, calculates temperature based on depth [1/km]
         """
         assert isinstance(mesh, conn_mesh)
 
         depth = np.array(mesh.depth, copy=True)
         # set initial pressure
         pressure = np.array(mesh.pressure, copy=False)
-        pressure[:] = depth / 1000 * pressure_grad + 1
+        pressure[:] = depth[:pressure.size] / 1000 * pressure_grad + 1
 
         enthalpy = np.array(mesh.enthalpy, copy=False)
-        temperature = depth / 1000 * temperature_grad + 293.15
+        temperature = depth[:pressure.size] / 1000 * temperature_grad + 293.15
 
         for j in range(mesh.n_blocks):
             state = value_vector([pressure[j], 0])

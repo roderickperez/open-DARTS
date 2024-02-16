@@ -1,9 +1,11 @@
 import numpy as np
+from darts.engines import value_vector
+from darts.physics.property_base import PropertyBase
 from darts.physics.properties.flash import Flash
-from darts.physics.properties.basic import CapillaryPressure, Diffusion, RockCompactionEvaluator, RockEnergyEvaluator
+from darts.physics.properties.basic import ConstFunc, Diffusion, RockCompactionEvaluator, RockEnergyEvaluator
 
 
-class PropertyContainer:
+class PropertyContainer(PropertyBase):
     def __init__(self, phases_name, components_name, Mw, min_z=1e-11,
                  diff_coef=0., rock_comp=1e-6, solid_dens=None, rate_ann_mat=None, temperature=None):
 
@@ -45,7 +47,7 @@ class PropertyContainer:
         self.rel_well_perm_ev = []
         self.rock_energy_ev = RockEnergyEvaluator()
         self.rock_compr_ev = RockCompactionEvaluator(compres=rock_comp)
-        self.capillary_pressure_ev = CapillaryPressure(self.nph)
+        self.capillary_pressure_ev = ConstFunc(np.zeros(self.nph))
         self.diffusion_ev = Diffusion(diff_coeff=diff_coef)
         self.kinetic_rate_ev = {}
         self.energy_source_ev = []
@@ -62,8 +64,11 @@ class PropertyContainer:
         self.pc = np.zeros(self.nph)
         self.enthalpy = np.zeros(self.nph)
         self.kappa = np.zeros(self.nph)
+        self.dX = []
 
         self.phase_props = [self.dens, self.dens_m, self.sat, self.nu, self.mu, self.kr, self.pc, self.enthalpy, self.kappa]
+
+        self.output_props = {"sat0": lambda: self.sat[0]}
 
     def get_state(self, state):
         """
@@ -75,7 +80,7 @@ class PropertyContainer:
         pressure = vec_state_as_np[0]
 
         zc = np.append(vec_state_as_np[1:self.nc], 1 - np.sum(vec_state_as_np[1:self.nc]))
-        if zc[-1] < 0:
+        if zc[-1] < self.min_z:
             zc = self.comp_out_of_bounds(zc)
 
         if self.thermal:
@@ -91,22 +96,22 @@ class PropertyContainer:
         count_corr = 0
         check_vec = np.zeros((len(vec_composition),))
 
-        for ith_comp in range(len(vec_composition)):
-            if vec_composition[ith_comp] < self.min_z:
+        for ith_comp, zi in enumerate(vec_composition):
+            if zi < self.min_z:
                 #print(vec_composition)
                 vec_composition[ith_comp] = self.min_z
                 count_corr += 1
                 check_vec[ith_comp] = 1
-            elif vec_composition[ith_comp] > 1 - self.min_z:
+            elif zi > 1 - self.min_z:
                 #print(vec_composition)
                 vec_composition[ith_comp] = 1 - self.min_z
                 temp_sum += vec_composition[ith_comp]
             else:
                 temp_sum += vec_composition[ith_comp]
 
-        for ith_comp in range(len(vec_composition)):
+        for ith_comp, zi in enumerate(vec_composition):
             if check_vec[ith_comp] != 1:
-                vec_composition[ith_comp] = vec_composition[ith_comp] / temp_sum * (1 - count_corr * self.min_z)
+                vec_composition[ith_comp] = zi / temp_sum * (1 - count_corr * self.min_z)
         return vec_composition
 
     def clean_arrays(self):
@@ -125,6 +130,19 @@ class PropertyContainer:
             self.sat[j] = (self.nu[j] / self.dens_m[j]) / Vtot
 
         return
+        
+    def compute_saturation_full(self, state):
+        pressure, temperature, zc = self.get_state(state)
+        self.clean_arrays()
+        self.ph = self.run_flash(pressure, temperature, zc)
+
+        for j in self.ph:
+            M = np.sum(self.Mw * self.x[j][:])
+            self.dens_m[j] = self.density_ev[self.phases_name[j]].evaluate(pressure, temperature, self.x[j, :]) / M
+
+        self.compute_saturation(self.ph)
+
+        return self.sat[0]
 
     def run_flash(self, pressure, temperature, zc):
         # Evaluates flash, then uses getter for nu and x - for compatibility with DARTS-flash
@@ -143,17 +161,23 @@ class PropertyContainer:
         return ph
 
     def evaluate_mass_source(self, pressure, temperature, zc):
+        self.dX = np.zeros(len(self.kinetic_rate_ev))
         mass_source = np.zeros(self.nc)
+
         for j, reaction in self.kinetic_rate_ev.items():
-            # mass_source += reaction.evaluate(pressure, temperature, self.x, zc[-1])
-            mass_source += reaction.evaluate(pressure, temperature, self.x, self.sat[-1])
+            # dm, self.dX[j] += reaction.evaluate(pressure, temperature, self.x, zc[-1])
+            dm, self.dX[j] = reaction.evaluate(pressure, temperature, self.x, self.sat)
+            mass_source += dm
+
         return mass_source
 
-    def evaluate(self, state):
+    def evaluate(self, state: value_vector):
         """
         Class methods which evaluates the state operators for the element based physics
+
         :param state: state variables [pres, comp_0, ..., comp_N-1, temperature (optional)]
-        :param values: values of the operators (used for storing the operator values)
+        :type state: value_vector
+
         :return: updated value for operators, stored in values
         """
         # Composition vector and pressure from state:

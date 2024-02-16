@@ -23,15 +23,24 @@ class Flash:
         return self.x
 
 
+class SinglePhase(Flash):
+    def __init__(self, nc):
+        super().__init__(nph=1, nc=nc)
+
+    def evaluate(self, pressure, temperature, zc):
+        self.nu, self.x = np.array([1.]), np.array([zc])
+        return 0
+
+
 class ConstantK(Flash):
-    def __init__(self, nc, ki, min_z=1e-11):
+    def __init__(self, nc, ki, eps=1e-11):
         super().__init__(nph=2, nc=nc)
 
-        self.min_z = min_z
+        self.rr_eps = eps
         self.K_values = np.array(ki)
 
     def evaluate(self, pressure, temperature, zc):
-        self.nu, self.x = RR2(self.K_values, zc, self.min_z)
+        self.nu, self.x = RR2(self.K_values, zc, self.rr_eps)
         return 0
 
 
@@ -100,3 +109,6 @@ class SolidFlash(Flash):
         self.x = X
 
         return error_output
+
+    def fugacity(self, pressure, temperature, x, eos_name):
+        return self.flash.fugacity(pressure, temperature, x, eos_name)

@@ -14,7 +14,7 @@ import time
 
 import os
 
-from darts.models.reservoirs.cpg_reservoir import save_array, make_full_cube
+from darts.reservoirs.cpg_reservoir import save_array, make_full_cube
 def run(discr_type : str, gridfile : str, propfile : str, sch_fname : str,
         dt : float, n_time_steps : int,
         export_vtk=False):
@@ -31,16 +31,16 @@ def run(discr_type : str, gridfile : str, propfile : str, sch_fname : str,
     #    nnc_fname = os.path.join(model_dir, 'nnc.txt')
     #    m.reservoir.discr.write_tran_cube(tran_fname, nnc_fname)
 
-    # add wells
-    if True:
-        m.add_wells(mode='read', sch_fname=sch_fname, verbose=True)#, well_index=1000) # add only perforations
-        m.set_wells() # set well controls - for dap (case_201) only
-    else:
-        m.add_wells(mode='generate', sch_fname=sch_fname)
+    # # add wells
+    # if True:
+    #     m.add_wells(mode='read', sch_fname=sch_fname, verbose=True)#, well_index=1000) # add only perforations
+    #     m.set_well_controls() # set well controls - for dap (case_201) only
+    # else:
+    #     m.add_wells(mode='generate', sch_fname=sch_fname)
 
     m.init()
     if export_vtk:
-        m.export_vtk(vtk_filename)
+        m.output_to_vtk(ith_step=0, output_directory='results')
     m.params.max_ts = dt
     m.save_cubes(os.path.join(model_dir, 'res_init'))
 
@@ -48,13 +48,13 @@ def run(discr_type : str, gridfile : str, propfile : str, sch_fname : str,
     #print_range(m, t)
 
     for ti in range(n_time_steps):
-        m.run_python(dt)
+        m.run(dt)
 
         #print_range(m, t)
         t += dt
 
         if export_vtk:
-            m.export_vtk(vtk_filename)
+            m.output_to_vtk(ith_step=ti+1, output_directory='results')
 
         #m.save_cubes(os.path.join(model_dir, 'res_' + str(ti+1)))
         m.physics.engine.report()
@@ -145,6 +145,9 @@ def get_case_files(case):
     gridfile = prefix + r'/grid.grdecl'
     propfile = prefix + r'/reservoir.in'
     sch_file = prefix + r'/SCH.INC'
+    assert os.path.exists(gridfile)
+    assert os.path.exists(propfile)
+    assert os.path.exists(sch_file)
     return gridfile, propfile, sch_file
 
 
@@ -162,7 +165,7 @@ def test(case, overwrite='0'):
     dt = 30
     n_time_steps = 12
 
-    export_vtk = False#True
+    export_vtk = True
 
     #discr_types_list = ['cpp'] #cpg
     #discr_types_list = ['python'] #struct

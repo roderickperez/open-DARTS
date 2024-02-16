@@ -9,12 +9,13 @@ for res in [1]:
     n.init()
     n.params.max_ts = 1e-0
 
-    n.run_python(50)
+    n.run(50)
     n.save_restart_data()
     n.print_timers()
     n.print_stat()
 
-    if grid_1D:
-        n.print_and_plot_1D()
-    else:
-        n.print_and_plot_2D()
+    # do not plot in pipelines. Do it only when debug it locally 
+    #if grid_1D:
+    #    n.print_and_plot_1D()
+    #else:
+    #    n.print_and_plot_2D()

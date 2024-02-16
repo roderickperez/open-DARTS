@@ -129,7 +129,7 @@ class Poromechanics(PhysicsBase):
         for w in wells:
             assert isinstance(w, ms_well)
             # w.init_rate_parameters(self.n_components, self.rate_phases, self.rate_itor)
-            w.init_mech_rate_parameters(self.engine.N_VARS, self.engine.P_VAR, self.n_components, self.rate_phases,
+            w.init_mech_rate_parameters(self.engine.N_VARS, self.n_ops, self.engine.P_VAR, self.n_components, self.rate_phases,
                                         self.rate_itor)
 
     def set_uniform_initial_conditions(self, mesh, uniform_pressure, uniform_displacement: list):

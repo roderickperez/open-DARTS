@@ -3,7 +3,7 @@ include conf_nvcc.mk
 
 TARGET      = ../darts/engines.so
 IFLAGS      = -I./src -I./src/interpolation -I../thirdparty/eigen -I./src/pybind11 -I./src/mech
-IFLAGS      += -I$(LINEAR_SOLVERS_DIR)/include -I../thirdparty/pybind11 $(shell python3-config --includes)
+IFLAGS      += -I$(LINEAR_SOLVERS_DIR)/include -I../thirdparty/pybind11/include $(shell python3-config --includes)
 IFLAGS_GPU  = $(IFLAGS) -I/usr/local/cuda/include
 
 # solvers library, linked to engines, is build inside manylinux2010, where D_GLIBCXX_USE_CXX11_ABI is locked to 0 
@@ -13,7 +13,7 @@ DFLAGS_GPU	= $(DFLAGS) -DWITH_GPU
 LFLAGS_BASE	+= -L$(LINEAR_SOLVERS_DIR)/lib $(PYTHON_LFLAGS) 
 LFLAGS_MT  	= $(LFLAGS_BASE) -ldarts_linear_solvers_mt
 # using origin enable library search in the same folder as binary 
-LFLAGS_GPU 	= $(LFLAGS_BASE) -ldarts_linear_solvers_gpu -lcusparse -lcublas -lcusolver -lamgxsh -L../darts-linear-solvers/lib/AMGX/build -Xlinker "-rpath=\$$ORIGIN" 
+LFLAGS_GPU 	= $(LFLAGS_BASE) -ldarts_linear_solvers_gpu -lcusparse -lcublas -lcusolver -lamgxsh -lgomp -L../darts-linear-solvers/lib/AMGX/build -Xlinker "-rpath=\$$ORIGIN" 
 #LFLAGS_GPU 	= $(LFLAGS_BASE) -ldarts_linear_solvers_gpu -lcusparse -lcublas -lgomp
 LFLAGS      = $(LFLAGS_BASE) -ldarts_linear_solvers
 
@@ -46,7 +46,6 @@ OBJ =  conn_mesh.o \
     globals.o \
     ms_well.o \
     well_controls.o \
-    stream.o \
     pybind11/py_engine_base.o \
     pybind11/py_engine_nc_cg_cpu.o \
     pybind11/py_engine_nc_nonnewton_cpu.o \

@@ -83,7 +83,7 @@ public:
     GPU_AMGX,
     GPU_GMRES_CPR_NF,
     GPU_BICGSTAB_CPR_AMGX,
-	GPU_CUSOLVER
+    GPU_CUSOLVER
   };
 
   enum nonlinear_norm_t
@@ -99,12 +99,15 @@ public:
     first_ts = 1;
     max_ts = 10;
     mult_ts = 2;
+    min_ts = 1e-12;
 
     max_i_linear = 50;
     tolerance_linear = 1e-5;
     max_i_newton = 20;
     min_i_newton = 0;
     tolerance_newton = 1e-3;
+    well_tolerance_coefficient = 1e2;
+    stationary_point_tolerance = 1e-3;
     newton_type = NEWTON_LOCAL_CHOP;
     newton_params.push_back(0.1);
 
@@ -127,12 +130,15 @@ public:
   value_t first_ts; // first time step length (days)
   value_t max_ts;   // maximum time step length (days)
   value_t mult_ts;  // multiplication ts factor
+  value_t min_ts;   // minimum time step length (days)
 
   index_t max_i_newton;     // maximum number of newton iterations
   index_t min_i_newton;     // minimum number of newton iterations
   index_t max_i_linear;     // maximum number of linear iterations
   value_t tolerance_newton; // tolerance for newton solver
   value_t tolerance_linear; // tolerance for linear solver
+  value_t well_tolerance_coefficient; // tolerance multiplier for well newton tolerance
+  value_t stationary_point_tolerance; // stationary point tolerance
 
   //Added for debugging purposes:
   index_t tot_newt_count;      // total number of newton iterations (wasted + non-wasted)
@@ -154,6 +160,25 @@ public:
 
   // Global chop: 0 - solution increment/value (dX/X) ratio threshold (default 1)
   // Local chop:  1 - composition increment is limited by max_dx (default 0.1)
+};
+
+class linear_solver_params
+{
+public:
+  sim_params::linear_solver_t linear_type;          // Linear solver type
+  index_t max_i_linear;                 // maximum number of linear iterations
+  value_t tolerance_linear;             // tolerance for linear solver
+
+  linear_solver_params()
+  {
+#ifdef OPENDARTS_LINEAR_SOLVERS
+    linear_type = sim_params::CPU_SUPERLU;
+#else
+    linear_type = sim_params::CPU_GMRES_CPR_AMG;
+#endif
+    max_i_linear = 50;
+    tolerance_linear = 1e-5;
+  };
 };
 
 /// Main simulation statistics with active and wasted counts

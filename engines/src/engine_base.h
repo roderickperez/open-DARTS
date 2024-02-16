@@ -147,29 +147,14 @@ public:
 	// It is correct from architectural point of view - X should be changed by engine, not inside interpolator
 	virtual void apply_obl_axis_local_correction(std::vector<value_t> &X, std::vector<value_t> &dX);
 
-	// main loop
-
-	double evaluate_next_dt();
-
 	// output routines
 
 	virtual int print_timestep(value_t time, value_t deltat);
 
 	int print_header();
 
-	/** @defgroup Engine_methods
-	   *  Methods of base engine class exposed to Python
-	   *  @{
-	   */
-
-	/// @brief runs simulation for the number of days using internal time management
-	virtual int run(value_t n_days);
-
-	/// @brief runs simulation for one timestep starting from particular time
-	virtual int run_timestep(value_t deltat, value_t time);
-
 	/// @brief report for one newton iteration
-	virtual int run_single_newton_iteration(value_t deltat);
+	virtual int assemble_linear_system(value_t deltat);
 	virtual int solve_linear_equation();
 	virtual int post_newtonloop(value_t deltat, value_t time);
 
@@ -536,7 +521,7 @@ int engine_base::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_list_,
 			linear_solver->set_prec(cpr);
 			break;
 		}
-#ifndef __linux__
+#ifdef _WIN32
 #if 0 // can be enabled if amgdll.dll is available \
 	  // since we compile PIC code, we cannot link existing static library, which was compiled withouf fPIC flag.
 		case sim_params::CPU_GMRES_CPR_AMG1R5:
@@ -547,8 +532,8 @@ int engine_base::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_list_,
 			linear_solver->set_prec(cpr);
 			break;
 		}
-#endif
-#endif
+#endif 
+#endif //_WIN32
 		case sim_params::CPU_GMRES_ILU0:
 		{
 			linear_solver = new linsolv_bos_gmres<N_VARS>;
@@ -674,6 +659,12 @@ int engine_base::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_list_,
 			break;
 		}
 #endif
+		default:
+		{
+		    std::cerr << "Linear solver type " << params->linear_type << " is not supproted for " << engine_name << std::endl << std::flush;
+		    exit(1);
+		}
+		
 		}
 	}
 
