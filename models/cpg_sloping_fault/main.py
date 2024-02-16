@@ -40,7 +40,7 @@ def run(discr_type : str, gridfile : str, propfile : str, sch_fname : str,
 
     m.init()
     if export_vtk:
-        m.export_vtk(vtk_filename)
+        m.output_to_vtk(ith_step=0, output_directory='results')
     m.params.max_ts = dt
     m.save_cubes(os.path.join(model_dir, 'res_init'))
 
@@ -54,7 +54,7 @@ def run(discr_type : str, gridfile : str, propfile : str, sch_fname : str,
         t += dt
 
         if export_vtk:
-            m.export_vtk(vtk_filename)
+            m.output_to_vtk(ith_step=ti+1, output_directory='results')
 
         #m.save_cubes(os.path.join(model_dir, 'res_' + str(ti+1)))
         m.physics.engine.report()
@@ -145,6 +145,9 @@ def get_case_files(case):
     gridfile = prefix + r'/grid.grdecl'
     propfile = prefix + r'/reservoir.in'
     sch_file = prefix + r'/SCH.INC'
+    assert os.path.exists(gridfile)
+    assert os.path.exists(propfile)
+    assert os.path.exists(sch_file)
     return gridfile, propfile, sch_file
 
 
@@ -162,7 +165,7 @@ def test(case, overwrite='0'):
     dt = 30
     n_time_steps = 12
 
-    export_vtk = False#True
+    export_vtk = True
 
     #discr_types_list = ['cpp'] #cpg
     #discr_types_list = ['python'] #struct

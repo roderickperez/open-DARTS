@@ -27,7 +27,7 @@ class DartsModel:
     physics: PhysicsBase
 
     def __init__(self):
-        """"
+        """
         Initialize DartsModel class.
 
         :ivar timer: Timer object
@@ -65,7 +65,6 @@ class DartsModel:
         assert self.reservoir is not None, "Reservoir object has not been defined"
         self.reservoir.init_reservoir(verbose)
         self.set_wells()
-        self.reservoir.init_wells()
 
         # Initialize physics and Engine object
         assert self.physics is not None, "Physics object has not been defined"
@@ -74,6 +73,7 @@ class DartsModel:
             self.params.linear_type = sim_params.gpu_gmres_cpr_amgx_ilu
 
         # Initialize well objects
+        self.reservoir.init_wells()
         self.physics.init_wells(self.reservoir.wells)
 
         self.set_boundary_conditions()
@@ -366,8 +366,9 @@ class DartsModel:
         property_array = np.zeros((tot_props, nb))
 
         # Obtain primary variables from engine
+        X = np.array(self.physics.engine.X, copy=False)
         for j, variable in enumerate(self.physics.vars):
-            property_array[j, :] = self.physics.engine.X[j:nb * n_vars:n_vars]
+            property_array[j, :] = X[j:nb * n_vars:n_vars]
 
         # If it has been defined, interpolate secondary variables in property_itor,
         for i in range(nb):
@@ -381,32 +382,32 @@ class DartsModel:
 
         return property_array
 
-    def export_vtk(self, file_name: str = 'data', local_cell_data: dict = {}, global_cell_data: dict = {},
-                   vars_data_dtype: type = np.float32, export_grid_data: bool = True):
+    def output_to_vtk(self, ith_step: int, output_directory: str, output_properties: list = None):
         """
         Function to export results at timestamp t into `.vtk` format.
 
-        :param file_name: Name to save .vtk file
-        :type file_name: str
-        :param local_cell_data: Local cell data (active cells)
-        :type local_cell_data: dict
-        :param global_cell_data: Global cell data (all cells including actnum)
-        :type global_cell_data: dict
-        :param vars_data_dtype:
-        :type vars_data_dtype: type
-        :param export_grid_data:
-        :type export_grid_data: bool
+        :param ith_step: i'th reporting step
+        :type ith_step: int
+        :param output_directory: Name to save .vtk file
+        :type output_directory: str
+        :param output_properties: List of properties to include in .vtk file, default is None which will pass all
+        :type output_properties: list
         """
-        # get current engine time
+        # Find index of properties to output
+        tot_props = self.physics.vars + self.physics.property_operators[0].props_name
+        if output_properties is None:
+            # If None, all variables and properties from property_operators will be passed
+            prop_idxs = {prop: i for i, prop in enumerate(tot_props)}
+        else:
+            # Else, it finds the indices of output_properties in the output data
+            prop_idxs = {prop: tot_props.index(prop) for prop in output_properties}
+
+        # get current time and property data from engine
         t = self.physics.engine.t
-        nb = self.reservoir.mesh.n_res_blocks
-        nv = self.physics.n_vars
-        X = np.array(self.physics.engine.X, copy=False)
+        output_data = self.output_properties()
 
-        for v in range(nv):
-            local_cell_data[self.physics.vars[v]] = X[v:nb * nv:nv].astype(vars_data_dtype)
-
-        self.reservoir.output_to_vtk(file_name, t, local_cell_data, global_cell_data, export_grid_data)
+        # Pass to Reservoir.output_to_vtk() method
+        self.reservoir.output_to_vtk(ith_step, t, output_directory, prop_idxs, output_data)
 
     def load_restart_data(self, filename: str = 'restart.pkl'):
         """

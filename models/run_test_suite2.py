@@ -98,8 +98,11 @@ if __name__ == '__main__':
     n_failed = n_total = 0
 
     # run tests accepted_dirs/model.py with comparison of pkl files
-    n_failed = for_each_model(model_dir, check_performance, accepted_dirs)
-    n_total = len(accepted_dirs)
+    n_failed_m = n_total_m = 0
+    n_failed_m = for_each_model(model_dir, check_performance, accepted_dirs)
+    n_total_m = len(accepted_dirs)
+    n_failed += n_failed_m
+    n_total += n_total_m
 
     # check main.py files runs, without comparison of pkl files
     n_failed_mainpy = n_total_mainpy = 0
@@ -125,6 +128,12 @@ if __name__ == '__main__':
     n_failed += n_failed_discr
     n_total += n_total_discr
 
+    # fracture network tests
+    n_total_dfn = n_failed_dfn = 0
+    n_total_dfn, n_failed_dfn = run_tests(model_dir, test_dirs=['fracture_network'], test_args=[[['case_1']]], overwrite=overwrite)
+    n_failed += n_failed_dfn
+    n_total += n_total_dfn
+
     # poromechanic tests
     n_total_mech = n_failed_mech = 0
     # n_total_mech, n_failed_mech = run_tests(model_dir, test_dirs, test_args, overwrite)
@@ -147,7 +156,13 @@ if __name__ == '__main__':
     # test for adjoint ------------------end---------------------------------
 
     n_passed = n_total - n_failed
-    print("Passed", n_passed, "of", n_total, "models. ")
+    print("Passed", n_passed, "of", n_total, "tests ")
+    print('n_failed_model=', n_failed_m)
+    print('n_failed_mainpy=', n_failed_mainpy)
+    print('n_failed_discr=', n_failed_discr)
+    print('n_failed_dfn=', n_failed_dfn)
+    print('n_failed_mech=', n_failed_mech)
+    print('n_failed_adj=', n_failed_adj)
     
     if len(sys.argv) == 1:
         input("Press Enter to continue...") # pause the screen
