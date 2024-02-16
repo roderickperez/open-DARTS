@@ -65,6 +65,12 @@ class Model(DartsModel):
                                       hcap=input_data['hcap'],
                                       frac_aper=frac_aper)
 
+        # parameters for fracture aperture computation depending on principal stresses
+        self.reservoir.sh_max = input_data['Sh_max']
+        self.reservoir.sh_min = input_data['Sh_min']
+        self.reservoir.sh_max_azimuth = input_data['SHmax_azimuth']
+        self.reservoir.sigma_c = input_data['sigma_c']
+
         # case_1
         n_fractures = 4
         # whitby

@@ -69,6 +69,7 @@ def input_data_default():
     input_data['Sh_max'] = 90
     input_data['Sv'] = 120
     input_data['SHmax_azimuth'] = 0  #° from X, counter-clockwize
+    input_data['sigma_c'] = 100
 
     # initial pressure and temperature
     input_data['initial_uniform'] = False
