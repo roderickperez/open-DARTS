@@ -43,6 +43,12 @@ class UnstructReservoir(ReservoirBase):
         self.hcap = hcap
         self.op_num = op_num
 
+        # parameters for optional fracture aperture computation depending on principal stresses
+        self.sh_max = None
+        self.sh_min = None
+        self.sh_max_azimuth = None
+        self.sigma_c = None
+
     def discretize(self, verbose: bool = False) -> conn_mesh:
         # Construct instance of Unstructured Discretization class:
         self.discretizer = UnstructDiscretizer(mesh_file=self.mesh_file, physical_tags=self.physical_tags,
@@ -51,6 +57,10 @@ class UnstructReservoir(ReservoirBase):
         # Use class method load_mesh to load the GMSH file specified above:
         self.discretizer.load_mesh(permx=self.permx, permy=self.permy, permz=self.permz, frac_aper=self.frac_aper,
                                    cache=False)
+
+        if self.frac_aper is not None and self.sh_max is not None:
+            self.discretizer.calc_frac_aper_by_stress(self.frac_aper, self.sh_max, self.sh_min, self.sh_max_azimuth,
+                                                      self.sigma_c)
 
         # Store volumes and depth to single numpy arrays:
         self.discretizer.store_volume_all_cells()
