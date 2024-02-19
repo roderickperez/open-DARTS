@@ -1,8 +1,19 @@
-# 1.0.6 [2024]
+# 1.1.0 [16-02-2024]
 - Migrated to cmake build system [(See details)](https://gitlab.com/open-darts/open-darts/-/merge_requests/58). We kept the old Visual Studio projects, but they will be removed later.
 - Well rates in SuperEngine ("Compositional") are defined in reservoir conditions now, the units are Kmol/day
+- VTK output unified for all the reservoir classes [(See details)](https://gitlab.com/open-darts/open-darts/-/merge_requests/79)
+- Discrete Fracture mesh generation tool and model added [(See details)](https://gitlab.com/open-darts/open-darts/-/merge_requests/79)
+- Windows build script supports optional arguments  [(See details)](https://gitlab.com/open-darts/open-darts/-/merge_requests/82)
+- Removed python exposures [(See details)](https://gitlab.com/open-darts/open-darts/-/merge_requests/74)
 - Breaking changes:
     - The function `darts_model run_python()` is renamed to `run()`.
+	- Changes in unstructured mesh processing. It is required to specify tags in mesh file for all control elements now  (matrix, fractures and optionally boundary faces). 
+	- Changes in vtk output:\
+	    {- Before: input properties were saved to the first timestep vtk file -}\
+        {+ Now: input properties saved to the separate "mesh.vtk" file +}\
+		{- Struct/CPG: DartsModel.export_vtk(file_name, local_cell_data, global_cell_data, vars_data_dtype, export_grid_data) -}\
+		{- Unstruct: UnstructReservoir.output_to_vtk(output_directory, output_filename, property_data, ith_step) -}\
+        {+ DartsModel.output_to_vtk(ith_step, output_directory, output_properties) +}
 	- No need to call `super().set_physics(physics)`, `super().set_reservoir()` and `super().set_physics()` in user's model: \
 	    {- reservoir = UnstructReservoir(...) -}\
 		{- super().set_reservoir(reservoir)-}\

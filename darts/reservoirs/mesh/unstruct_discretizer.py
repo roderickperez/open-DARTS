@@ -2875,3 +2875,79 @@ class UnstructDiscretizer:
         conduction_rad = 0.28 * np.sqrt(dx ** 2 + dy ** 2) / 2.
         well_indexD = 2 * np.pi * dz / (np.log(conduction_rad / well_radius) + skin)
         return well_index, well_indexD 
+        
+    def calc_frac_aper_by_stress(self, initial_frac_aper: float, sh_max: float, sh_min: float, sh_max_azimuth: float,
+                                 sigma_c: float) -> np.array:
+        '''
+        :param initial_frac_aper: a value of initial fracture aperture, in uncompressed conditions? #TODO
+        :param Sh_max: horizontal maximal principal stress, MPa
+        :param Sh_min: horizontal minimal principal stress, MPa
+        :param SHmax_azimuth: direction of Sh_max, from X-axis, counter-clockwize, degrees
+        :param sigma_c: #TODO ? [MPa] typically for sandstone is ?, for Dinantian rock is 70-250 MPa
+        :return:  an array of computed apertures for all fractures
+        '''
+        print('calc_frac_aper_by_stress:', 'initial_frac_aper=', initial_frac_aper, ' sh_max=', sh_max,
+              ' sh_min=', sh_min, ' sh_max_azimuth=', sh_max_azimuth, ' sigma_c=', sigma_c)
+
+        num_frac = len(self.frac_cell_info_dict)  # number of fractures
+        if num_frac == 0:
+            return None
+
+        act_frac_sys = np.zeros((num_frac, 4))  # create an array to store the fracture system
+        for ii in range(num_frac):  # loop over the fractures
+            ith_line = self.frac_cell_info_dict[ii].coord_nodes_to_cell
+            act_frac_sys[ii, :2] = ith_line[0, :2]
+            act_frac_sys[ii, 2:] = ith_line[1, :2]
+
+        def calc_aperture(sigma_n, sigma_c, e_0_in=None):  # function to calculate the aperture
+            # BARTON-BANDIS MODEL parameters
+            JRC = 7.225
+            JCS = 17.5
+            if e_0_in is None:
+                e_0 = JRC * (0.2 * sigma_c / JCS - 0.1) / 5.
+            else:
+                e_0 = e_0_in
+            # https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2015JB012657
+            v_m = -0.1032 - 0.0074 * JRC + 1.135 * (JCS / e_0) ** -0.251
+            K_ni = -7.15 + 1.75 * JRC + 0.02 * JCS / e_0
+            aper = e_0 - 1. / (1 / v_m + K_ni / sigma_n)
+            return aper  # return the final aperture in mm.
+
+        def get_normal_stress_on_fault(x0, y0, x1, y1, frac_angle):
+            stress_tensor_orig = np.zeros((2, 2))
+            stress_tensor_orig[0, 0] = sh_max
+            stress_tensor_orig[1, 1] = sh_min
+
+            # rotate principal stress tensor to fracture coordinate system (SHmax || frac)
+            a = (sh_max_azimuth - frac_angle) / 180 * np.pi
+            rot_1 = np.array([[np.cos(a), np.sin(a)], [-np.sin(a), np.cos(a)]])
+            rot_2 = np.array([[np.cos(a), -np.sin(a)], [np.sin(a), np.cos(a)]])
+            stress_tensor = rot_1 @ stress_tensor_orig @ rot_2
+
+            stress_n = stress_tensor[0, 0]  # Sh_min new is normal to the fault
+            return stress_n
+
+        epsilon = 1e-4  # small number to avoid division by zero
+        dx = act_frac_sys[:, 0] - act_frac_sys[:, 2] + epsilon * np.random.rand(
+            num_frac)  # calculate the x and y components of the fracture
+        dy = act_frac_sys[:, 1] - act_frac_sys[:, 3] + epsilon * np.random.rand(num_frac)
+        # calculate the angle of the fracture
+        frac_angles = np.arctan(dy / dx) * 180 / np.pi + epsilon * np.random.rand(num_frac)
+        sigma_n = []
+        for fi in range(frac_angles.size):
+            sigma_n.append(
+                get_normal_stress_on_fault(act_frac_sys[:, 0], act_frac_sys[:, 1], act_frac_sys[:, 2], act_frac_sys[:, 3],
+                                           frac_angles[fi]))
+        sigma_n = np.array(sigma_n)
+        factor_aper = 1  # factor to increase the aperture, if needed to compensate for unknowns in the model
+        fracture_aper = calc_aperture(sigma_n, sigma_c, initial_frac_aper) * 1e-3 * factor_aper  # calculate the aperture, convert to [m]
+        fracture_aper[fracture_aper < 1e-6] = 1e-6  # set the minimum aperture
+        fracture_aper[fracture_aper > 1e-2] = 1e-2  # set the maximum aperture
+
+        fracture_aper = np.array(fracture_aper)
+
+        # for debugging/plotting
+        # np.save('frac_tips.npy', act_frac_sys, allow_pickle=True)
+        # np.save('frac_aper.npy', [frac_angles, sigma_n, fracture_aper], allow_pickle=True)
+
+        return fracture_aper        
