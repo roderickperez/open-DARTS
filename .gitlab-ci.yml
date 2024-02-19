@@ -658,7 +658,7 @@ deploy-testpypi:
         - pip install twine
     script:
         # upload to test-pypi or pypi depending on $PYPI var
-        - ./rename_whls.sh # rename linux whls to make uploadable to test-pypi 
+        - ./helper_scripts/rename_whls.sh # rename linux whls to make uploadable to test-pypi
         - ls ./dist/*
         - twine upload -u $REPOUSER -p $REPOPWD --repository $REPO --verbose dist/*
     dependencies:
