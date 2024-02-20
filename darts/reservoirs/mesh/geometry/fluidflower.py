@@ -255,6 +255,9 @@ class FluidFlower(Shape):
 
         self.physical_volumes = {}
 
+    def convert_to_spe11b(self):
+        return
+
     def plot_shape_2D(self):
         """
         Function to plot FluidFlower with extra
