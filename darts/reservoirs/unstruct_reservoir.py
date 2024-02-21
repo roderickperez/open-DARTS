@@ -190,12 +190,12 @@ class UnstructReservoir(ReservoirBase):
                             }
             frac_props = {'frac_aper': self.frac_aper}
 
-            # Create empty lists for each geometry type - | operator merges dictionaries
+            # Create empty lists for each geometry type - {**{}} operator merges dictionaries
             output_nodes = self.discretizer.vtk_output_nodes_to_cells['matrix'] if not self.discretizer.frac_cells_tot \
-                else self.discretizer.vtk_output_nodes_to_cells['fracture'] | self.discretizer.vtk_output_nodes_to_cells['matrix']
+                else {**self.discretizer.vtk_output_nodes_to_cells['fracture'], **self.discretizer.vtk_output_nodes_to_cells['matrix']}
             output_idxs = self.discretizer.vtk_output_cell_idxs
-            geometries = (output_idxs['fracture'] | output_idxs['matrix']).keys()
-            props = (matrix_props | frac_props).keys() if self.discretizer.frac_cells_tot else matrix_props.keys()
+            geometries = output_nodes.keys()
+            props = {**matrix_props, **frac_props}.keys() if self.discretizer.frac_cells_tot else matrix_props.keys()
             cell_data = {key: [[] for geometry in geometries] for key in props}
 
             # Loop over matrix cell properties
@@ -267,12 +267,12 @@ class UnstructReservoir(ReservoirBase):
         if not self.vtk_initialized:
             self.init_vtk(output_directory, export_grid_data=True)
 
-        # Create empty lists for each geometry type - | operator merges dictionaries
+        # Create empty lists for each geometry type - {**{}} operator merges dictionaries
         output_nodes = self.discretizer.vtk_output_nodes_to_cells['matrix'] if not self.discretizer.frac_cells_tot \
-            else self.discretizer.vtk_output_nodes_to_cells['fracture'] | self.discretizer.vtk_output_nodes_to_cells['matrix']
+            else {**self.discretizer.vtk_output_nodes_to_cells['fracture'], **self.discretizer.vtk_output_nodes_to_cells['matrix']}
         output_idxs = self.discretizer.vtk_output_cell_idxs['matrix'] if not self.discretizer.frac_cells_tot \
-            else self.discretizer.vtk_output_cell_idxs['fracture'] | self.discretizer.vtk_output_cell_idxs['matrix']
-        geometries = output_idxs.keys()
+            else {**self.discretizer.vtk_output_cell_idxs['fracture'], **self.discretizer.vtk_output_cell_idxs['matrix']}
+        geometries = output_nodes.keys()
         cell_data = {key: [[] for geometry in geometries] for key in prop_idxs.keys()}
 
         # Loop over output properties
