@@ -256,6 +256,22 @@ class FluidFlower(Shape):
         self.physical_volumes = {}
 
     def convert_to_spe11b(self):
+        """
+        Function to convert spe11a lab-scale geometry to spe11b field-scale geometry
+        """
+        lab_x_scale = 0
+        lab_y_scale = 0
+        for point in self.points:
+            if point.xyz[0] > lab_x_scale:
+                lab_x_scale = point.xyz[0]
+            if point.xyz[2] > lab_y_scale:
+                lab_y_scale = point.xyz[2]
+        scale_factor_x = 8400.0 / lab_x_scale
+        scale_factor_y = 1200.0 / lab_y_scale
+
+        for point in self.points:
+            point.xyz[0] *= scale_factor_x
+            point.xyz[2] *= scale_factor_y
         return
 
     def plot_shape_2D(self):
