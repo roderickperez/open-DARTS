@@ -301,15 +301,13 @@ class Model(DartsModel):
         """
         self.calc_well_loc()
 
-        well_depth = self.reservoir.discretizer.centroid_all_cells[self.well_perf_loc[0][:], 2].min()
-
         for i in range(len(self.well_perf_loc[0])):
-            self.reservoir.add_well(f'I{i + 1}', well_depth)
+            self.reservoir.add_well(f'I{i + 1}')
             self.reservoir.add_perforation(self.reservoir.wells[-1].name, cell_index=self.well_perf_loc[0][i],
                                  well_indexD=0, verbose=True)
 
         for i in range(len(self.well_perf_loc[1])):
-            self.reservoir.add_well(f'P{i + 1}', well_depth)
+            self.reservoir.add_well(f'P{i + 1}')
             self.reservoir.add_perforation(self.reservoir.wells[-1].name, cell_index=self.well_perf_loc[1][i],
                                  well_indexD=0, verbose=True)
 

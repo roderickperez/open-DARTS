@@ -417,12 +417,15 @@ class CPG_Reservoir(ReservoirBase):
 
         # add completion only if target block is active
         if res_block_local > -1:
-            if len(well.perforations) == 0:
+            if len(well.perforations) == 0:  # if adding the first perforation
                 well.well_head_depth = self.depth_all_cells[res_block_local]
                 well.well_body_depth = well.well_head_depth
                 dx, dy, dz = self.discr_mesh.calc_cell_sizes(i - 1, j - 1, k - 1)
                 well.segment_depth_increment = dz
                 well.segment_volume *= well.segment_depth_increment
+            else:  # update well depth
+                well.well_head_depth = min(well.well_head_depth, self.depth_all_cells[res_block_local])
+                well.well_body_depth = well.well_head_depth
             for p in well.perforations:
                 if p[0] == well_block and p[1] == res_block_local:
                     print('Neglected duplicate perforation for well %s to block [%d, %d, %d]' % (well.name, i, j, k))
