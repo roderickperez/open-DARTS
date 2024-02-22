@@ -223,7 +223,7 @@ class UnstructDiscretizer:
 
                 print('Total number of matrix cells found: {:d}'.format(self.mat_cells_tot))
                 print('Total number of fracture cells found: {:d}'.format(self.frac_cells_tot))
-                print('Totraise ValueError("Unsupported physical tag found", type)al number of boundary faces found: {:d}'.format(self.bound_faces_tot))
+                print('Total number of boundary faces found: {:d}'.format(self.bound_faces_tot))
                 print('Total number of fracture boundary faces found: {:d}'.format(self.frac_bound_faces_tot))
                 print('Total number of output faces found: {:d}'.format(self.output_faces_tot))
 
