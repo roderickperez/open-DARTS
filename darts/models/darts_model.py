@@ -258,7 +258,7 @@ class DartsModel:
             else:
                 dt /= self.params.mult_ts
                 if verbose:
-                    print("Cut timestep to %2.3f" % dt)
+                    print("Cut timestep to %2.10f" % dt)
                 if dt < self.params.min_ts:
                     break
         # update current engine time
