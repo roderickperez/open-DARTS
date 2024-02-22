@@ -126,8 +126,11 @@ class UnstructReservoir(ReservoirBase):
             print('There are at least 2 wells locating in the same grid block!!! The mesh file should be modified!')
             exit()
 
-        # well.well_head_depth = np.array(self.mesh.depth, copy=False)[cell_index]
-        # well.well_body_depth = well.well_head_depth
+        #  update well depth
+        perf_indices.append(cell_index)  #  add current cell to previous perforation list
+        # set well depth to the top perforation depth 
+        well.well_head_depth = np.array(self.mesh.depth, copy=False)[perf_indices].min()  
+        well.well_body_depth = well.well_head_depth
 
         if well_index is None or well_indexD is None:
             # calculate well index and get local index of reservoir block

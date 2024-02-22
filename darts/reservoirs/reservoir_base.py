@@ -93,7 +93,7 @@ class ReservoirBase:
         # first put only area here, to be multiplied by segment length later
         well.segment_volume = pi * wellbore_diameter ** 2 / 4
 
-        # also to be filled up when the first perforation is made
+        # will be updated  in add_perforation
         well.well_head_depth = 0
         well.well_body_depth = 0
         well.segment_depth_increment = 0
