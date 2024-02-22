@@ -4,11 +4,12 @@ from darts.engines import value_vector, sim_params
 #from darts.models.physics.dead_oil import DeadOil
 from darts.physics.geothermal.physics import Geothermal
 from darts.models.darts_model import DartsModel
-import os
-import numpy as np
 from darts.physics.properties.iapws.iapws_property_vec import _Backward1_T_Ph_vec
 from darts.physics.properties.iapws.iapws_property import iapws_total_enthalpy_evalutor
 from darts.reservoirs.unstruct_reservoir import UnstructReservoir
+import os
+import numpy as np
+import meshio
 
 def fmt(x):
     return '{:.3}'.format(x)
@@ -71,10 +72,12 @@ class Model(DartsModel):
         self.reservoir.sh_max_azimuth = input_data['SHmax_azimuth']
         self.reservoir.sigma_c = input_data['sigma_c']
 
-        # case_1
-        n_fractures = 4
-        # whitby
-        #n_fractures = 941
+        # read mesh to get the number of fractures for tags specification
+        # assume mesh is extruded and fractures have a quad shape
+        # fracture tags start from 90000 according to .geo file generation code
+        msh = meshio.read(mesh_file)
+        c = msh.cell_data_dict['gmsh:physical']
+        n_fractures = (np.unique(c['quad']) >= 90000).sum()
 
         # 9991 - rsv, 9992 - overburden, 9993 - underburden, 9994 - overburden2, 9995 - underburden2
         self.reservoir.physical_tags['matrix'] = [9991 + i for i in range(5)]

@@ -3,11 +3,10 @@ from multiprocessing import freeze_support
 from darts.tools.fracture_network.preprocessing_code import frac_preprocessing
 import os
 from datetime import datetime
-from set_case import set_input_data
 
 
-def generate_mesh(case: str):
-    input_data = set_input_data(case)
+
+def generate_mesh(input_data):
     print('case', input_data['case_name'])
     output_dir = 'meshes_' + input_data['case_name']
     if not 'balmatt' in input_data['case_name']: # simple test case
@@ -74,7 +73,8 @@ if __name__ == "__main__":
     t1 = datetime.now()
     print(t1)
 
-    generate_mesh()
+    input_data = set_input_data('case_1')
+    generate_mesh(input_data)
 
     t2 = datetime.now()
     print((t2-t1).total_seconds())

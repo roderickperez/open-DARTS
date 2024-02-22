@@ -9,9 +9,8 @@ import shutil
 from datetime import datetime
 from darts.tools.plot_darts import plot_temp_darts
 import pickle
-from set_case import set_input_data
-def run_simulation(case: str):
-    input_data = set_input_data(case)
+
+def run_simulation(input_data):
     print('Running simulation for case', input_data['case_name'])
 
     # resolve the issue "Length of fracture data not equal to number of fracture cells"
@@ -132,7 +131,8 @@ if __name__ == "__main__":
     t1 = datetime.now()
     print(t1)
 
-    run_simulation('case_1')
+    input_data = set_input_data('case_1')
+    run_simulation(input_data)
 
     t2 = datetime.now()
     print((t2 - t1).total_seconds())
