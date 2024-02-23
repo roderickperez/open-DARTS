@@ -33,6 +33,9 @@ def input_data_case_1():
     # extrusion - number of layers by Z axis
     input_data['rsv_layers'] = 3
 
+    input_data['z_top'] = 2000  # [m]
+    input_data['height_res'] = 50  # [m]
+
     return input_data
 
 

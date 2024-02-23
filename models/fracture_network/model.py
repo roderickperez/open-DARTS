@@ -17,7 +17,7 @@ def fmt(x):
 # Here the Model class is defined (child-class from DartsModel) in which most of the data and properties for the
 # simulation are defined, e.g. for the reservoir/physics/sim_parameters/etc.
 class Model(DartsModel):
-    def __init__(self, input_data, n_points=128):
+    def __init__(self, input_data, n_points=1000):
         """
         Class constructor of Model class
         :param n_points: number of discretization points for the parameter space
@@ -105,16 +105,17 @@ class Model(DartsModel):
 
         from darts.physics.geothermal.property_container import PropertyContainer
         property_container = PropertyContainer()
-        self.physics = Geothermal(timer=self.timer, n_points=n_points, min_p=0, max_p=500,
-                                  min_e=0, max_e=50000, cache=False)
+        property_container.output_props = {'T,degrees': lambda: property_container.temperature - 273.15}
+        self.physics = Geothermal(timer=self.timer, n_points=n_points, min_p=100, max_p=500,
+                                  min_e=1000, max_e=25000, cache=False)
         self.physics.add_property_region(property_container)
 
         # Some tuning parameters:
         self.params.first_ts = 1e-6  # Size of the first time-step [days]
         self.params.mult_ts = 1.5  # Time-step multiplier if newton is converged (i.e. dt_new = dt_old * mult_ts)
         self.params.max_ts = 2 #20  # Max size of the time-step [days]
-        self.params.tolerance_newton = 1e-2  # Tolerance of newton residual norm ||residual||<tol_newt
-        self.params.tolerance_linear = 1e-4  # Tolerance for linear solver ||Ax - b||<tol_linslv
+        self.params.tolerance_newton = 1e-4  # Tolerance of newton residual norm ||residual||<tol_newt
+        self.params.tolerance_linear = 1e-5  # Tolerance for linear solver ||Ax - b||<tol_linslv
         self.params.newton_type = sim_params.newton_local_chop  # Type of newton method (related to chopping strategy?)
         self.params.newton_params = value_vector([0.2])  # Probably chop-criteria(?)
 
@@ -129,7 +130,7 @@ class Model(DartsModel):
         suf = '(M)'  # matrix cells
         if full:
             suf = '(M+F)'  # matrix+fracture cells
-        print('Time', fmt(time), ' years; ',
+        print('Time', fmt(time), ' years; ', time, 'days, '
               'P_range:', fmt(P.min()), '-', fmt(P.max()), 'bars; ',
               'T_range:', fmt(T.min()), '-', fmt(T.max()), 'degrees', suf)
 
@@ -154,7 +155,7 @@ class Model(DartsModel):
                       293.15  # convert to K
 
         self.pressure_initial_mean = pressure.mean()
-        self.temperature_initial_mean = pressure.mean()
+        self.temperature_initial_mean = init_temperature.mean()
 
         for j in range(mesh.n_blocks):
             state = value_vector([pressure[j], 0])
@@ -201,7 +202,8 @@ class Model(DartsModel):
                 else:
                     w.control = self.physics.new_rate_water_prod(self.rate_prod)
                     # TODO add constrain
-            print(w.name, w.control)
+            print(w.name, w.control, w.well_head_depth, w.control.target_pressure,
+                  w.control.target_temperature if 'I' in w.name else '')
         return 0
 
 

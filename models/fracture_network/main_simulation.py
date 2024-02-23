@@ -75,6 +75,7 @@ def run_simulation(input_data):
 
     sim_year = 0.
     m.print_range(sim_year)
+    m.print_range(sim_year, full=1)
 
     # Run over all reporting time-steps:
     for ith_step in range(num_report_steps):
