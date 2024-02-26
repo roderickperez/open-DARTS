@@ -1,13 +1,5 @@
 import os
 
-# add path to import
-import os, sys, inspect
-current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parent_dir = os.path.dirname(current_dir)  # 1 level up
-parent_dir_2 = os.path.dirname(parent_dir)  # 2 levels up
-balmatt_dir = os.path.join(os.path.join(parent_dir_2, 'darts_DFN'), 'examples')
-sys.path.insert(0, balmatt_dir)
-
 from .input_default import *
 
 input_data['case_name'] = 'whitby'
