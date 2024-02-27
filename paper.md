@@ -87,6 +87,8 @@ DARTS can be installed as a python module and it has a python-based interface. T
 - The timestep loop is written in Python, so one can adjust it for needs
 This makes DARTS attractive for teaching and for users who don't know C++ language.
 
+DARTS is designed to use Python as its user interface. Python has several advantages, including being open-source and widely used in educational and research institutions for both introductory and advanced programming. Additionally, Python provides the hosting platform Python Package Index (PyPI), which allows for easy installation of third-party modules such as DARTS. Furthermore, the use of Python in DARTS distinguishes it as one of the few reservoir simulators with advanced capabilities that is not reliant on proprietary software. This significantly reduces the entry barrier for researchers and students interested in energy transition applications for the subsurface.
+
 # Acknowledgements
 
 The authors would like to acknowledge the Netherlands eScience Center for the funding provided under grant number NLESC.OEC.2021.026.
