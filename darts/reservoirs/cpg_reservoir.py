@@ -496,14 +496,19 @@ class CPG_Reservoir(ReservoirBase):
                     elif type(data) is float:
                         cell_data[key] = data * np.ones(self.nodes_tot, dtype=mesh_geom_dtype)
                 else:
-                    cell_data[key] = np.array(data)# * np.ones(self.discretizer.nodes_tot, dtype=mesh_geom_dtype)
+                    cell_data[key] = np.array(data)
             mesh_filename = output_directory + '/mesh'
 
             if self.vtk_grid_type == 0:
                 vtk_file_name = gridToVTK(mesh_filename, self.vtk_x, self.vtk_y, self.vtk_z, cellData=cell_data)
             else:
+                g_to_l = np.array(self.discr_mesh.global_to_local, copy=False)
                 for key, value in cell_data.items():
-                    self.vtkobj.AppendScalarData(key, cell_data[key][self.global_data['actnum'] == 1])
+                    if cell_data[key].size == g_to_l.size:
+                        a = cell_data[key][g_to_l >= 0]
+                    else:
+                        a = cell_data[key]
+                    self.vtkobj.AppendScalarData(key, a)
 
                 vtk_file_name = self.vtkobj.Write2VTU(mesh_filename)
                 if len(self.vtk_filenames_and_times) == 0:
@@ -526,14 +531,22 @@ class CPG_Reservoir(ReservoirBase):
         for prop, idx in prop_idxs.items():
             local_data = data[idx, :]
             global_array = np.ones(self.nodes_tot, dtype=local_data.dtype) * np.nan
-            global_array[self.local_to_global] = local_data
+            dummy_zeros = np.zeros(self.discr_mesh.n_cells - self.mesh.n_res_blocks) # workaround for the issue in case of cells without active neighbours
+            v = np.append(local_data[:self.mesh.n_res_blocks], dummy_zeros)
+            global_array[self.discr_mesh.local_to_global] = v[:]
             cell_data[prop] = global_array
 
         if self.vtk_grid_type == 0:
             vtk_file_name = gridToVTK(vtk_file_name, self.vtk_x, self.vtk_y, self.vtk_z, cellData=cell_data)
         else:
             for key, value in cell_data.items():
-                self.vtkobj.AppendScalarData(key, cell_data[key][self.global_data['actnum'] == 1])
+
+                g_to_l = np.array(self.discr_mesh.global_to_local, copy=False)
+                if cell_data[key].size == g_to_l.size:
+                    a = cell_data[key][g_to_l >= 0]
+                else:
+                    a = cell_data[key]
+                self.vtkobj.AppendScalarData(key, a)
 
             vtk_file_name = self.vtkobj.Write2VTU(vtk_file_name)
             if len(self.vtk_filenames_and_times) == 0:

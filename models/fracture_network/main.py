@@ -35,6 +35,7 @@ if __name__ == "__main__":
     #cases_list = ['case_1']
     #cases_list = ['case_1_burden']
     #cases_list = ['case_1_burden_2']
+    #cases_list = ['whitby']
     cases_list = ['case_1', 'case_1_burden', 'case_1_burden_2']
     for case in cases_list:
         test(case)

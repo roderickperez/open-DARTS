@@ -43,7 +43,6 @@ def run_simulation(input_data):
     m.init(verbose=True)
 
     # Specify some other time-related properties (NOTE: all time parameters are in [days])
-    m.params.max_ts = 20  # Adjust the maximum time-step as desired (this is overwriting the max_ts specified in model.py)
     size_report_step = 30  # Size of the reporting step (when output is writen to .vtk format)
     num_report_steps = 12*50   # Number of reporting steps (see above)
     start_time = 0  # Starting time of the simulation

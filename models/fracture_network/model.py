@@ -84,20 +84,20 @@ class Model(DartsModel):
         # multiplied by 3 because physical surfaces for fracture are also in underburden and overburden
         self.reservoir.physical_tags['fracture'] = [90000 + i for i in range(n_fractures * 3)]
 
-        self.reservoir.physical_tags['boundary'] = [1, 2, 3, 4, 5, 6]  # order: Z- (top); Z+ (bottom) ; Y-; X+; Y+; X-
+        self.reservoir.physical_tags['boundary'] = [2, 1, 3, 4, 5, 6]  # order: Z- (bottom); Z+ (top) ; Y-; X+; Y+; X-
 
         '''     matrix_tag   surface_tag                             fracture_tag    test_case
-                ----------      5     overburden2 top                                     }
+                ----------      2     overburden2 top                                     }
                 | 9994                    overburden2                                     }
-                ----------      3     overburden top       ------------- 90003        }   }
+                ----------      2     overburden top       ------------- 90003        }   }
                 | 9992                    overburden       | FRACTURE  |              }   }case_1_burden_2
-                ----------      1     reservoir top        |-----------| 90001    }   }case_1_burden
+                ----------      2     reservoir top        |-----------| 90001    }   }case_1_burden
                 | 9991                    RESERVOIR        | FRACTURE  | 90000    }case_1 }
-                ----------      2     reservoir bottom     |-----------| 90002    }   }   }
+                ----------      1     reservoir bottom     |-----------| 90002    }   }   }
                 | 9993                    underburden      | FRACTURE  |              }   }
-                ----------      4     underburden bottom   ------------- 90004        }   }
+                ----------      1     underburden bottom   ------------- 90004        }   }
                 | 9995                    underburden2                                    }
-                ----------      6     underburden2 bottom                                 }
+                ----------      1     underburden2 bottom                                 }
         '''
 
         # initialize physics
@@ -112,13 +112,13 @@ class Model(DartsModel):
 
         # Some tuning parameters:
         self.params.first_ts = 1e-6  # Size of the first time-step [days]
-        self.params.mult_ts = 1.5  # Time-step multiplier if newton is converged (i.e. dt_new = dt_old * mult_ts)
-        self.params.max_ts = 2 #20  # Max size of the time-step [days]
+        self.params.mult_ts = 1.1  # Time-step multiplier if newton is converged (i.e. dt_new = dt_old * mult_ts)
+        self.params.max_ts = 10  # Max size of the time-step [days]
         self.params.tolerance_newton = 1e-4  # Tolerance of newton residual norm ||residual||<tol_newt
         self.params.tolerance_linear = 1e-5  # Tolerance for linear solver ||Ax - b||<tol_linslv
         self.params.newton_type = sim_params.newton_local_chop  # Type of newton method (related to chopping strategy?)
         self.params.newton_params = value_vector([0.2])  # Probably chop-criteria(?)
-
+        self.params.linear_type = self.params.linear_solver_t.cpu_superlu
         self.runtime = 2000  # Total simulations time [days], this parameters is overwritten in main.py!
 
         # End timer for model initialization:

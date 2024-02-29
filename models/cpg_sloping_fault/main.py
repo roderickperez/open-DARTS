@@ -39,6 +39,7 @@ def run(discr_type : str, gridfile : str, propfile : str, sch_fname : str,
     #     m.add_wells(mode='generate', sch_fname=sch_fname)
 
     m.init()
+    m.set_well_controls()
     if export_vtk:
         m.output_to_vtk(ith_step=0, output_directory='results')
     m.params.max_ts = dt
@@ -140,8 +141,8 @@ def plot(prefix, time_data_1, time_data_2, plot_names, opm_csv_fname=None):
         print('File', png_fname, 'saved')
 
 #####################################################
-def get_case_files(case):
-    prefix = r'meshes/case_' + str(case)
+def get_case_files(case: str):
+    prefix = r'meshes/case_' + case
     gridfile = prefix + r'/grid.grdecl'
     propfile = prefix + r'/reservoir.in'
     sch_file = prefix + r'/SCH.INC'
@@ -160,7 +161,7 @@ def run_test(args: list = []):
         print('Not enough arguments provided')
         return 1, 0.0
 
-def test(case, overwrite='0'):
+def test(case: str, overwrite='0'):
     # 3 years by 1 month
     dt = 30
     n_time_steps = 12
@@ -191,7 +192,7 @@ def test(case, overwrite='0'):
     results = dict()
 
     gridfile, propfile, sch_fname = get_case_files(case)
-    prefix = r'./meshes/case_' + str(case)
+    prefix = r'./meshes/case_' + case
     if mode == 'run':
         for discr_type in discr_types_list:
             start = time.perf_counter()
@@ -217,6 +218,6 @@ def test(case, overwrite='0'):
     return 0, 0.0
 
 if __name__ == '__main__':
-    cases_list = [40, 43]
+    cases_list = ['40', '43', '40_actnum']
     for case in cases_list:
         test(case)
