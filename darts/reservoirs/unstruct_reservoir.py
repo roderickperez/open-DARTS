@@ -126,8 +126,11 @@ class UnstructReservoir(ReservoirBase):
             print('There are at least 2 wells locating in the same grid block!!! The mesh file should be modified!')
             exit()
 
-        # well.well_head_depth = np.array(self.mesh.depth, copy=False)[cell_index]
-        # well.well_body_depth = well.well_head_depth
+        #  update well depth
+        perf_indices.append(cell_index)  #  add current cell to previous perforation list
+        # set well depth to the top perforation depth 
+        well.well_head_depth = np.array(self.mesh.depth, copy=False)[perf_indices].min()  
+        well.well_body_depth = well.well_head_depth
 
         if well_index is None or well_indexD is None:
             # calculate well index and get local index of reservoir block
@@ -190,12 +193,12 @@ class UnstructReservoir(ReservoirBase):
                             }
             frac_props = {'frac_aper': self.frac_aper}
 
-            # Create empty lists for each geometry type - | operator merges dictionaries
+            # Create empty lists for each geometry type - {**{}} operator merges dictionaries
             output_nodes = self.discretizer.vtk_output_nodes_to_cells['matrix'] if not self.discretizer.frac_cells_tot \
-                else self.discretizer.vtk_output_nodes_to_cells['fracture'] | self.discretizer.vtk_output_nodes_to_cells['matrix']
+                else {**self.discretizer.vtk_output_nodes_to_cells['fracture'], **self.discretizer.vtk_output_nodes_to_cells['matrix']}
             output_idxs = self.discretizer.vtk_output_cell_idxs
-            geometries = (output_idxs['fracture'] | output_idxs['matrix']).keys()
-            props = (matrix_props | frac_props).keys() if self.discretizer.frac_cells_tot else matrix_props.keys()
+            geometries = output_nodes.keys()
+            props = {**matrix_props, **frac_props}.keys() if self.discretizer.frac_cells_tot else matrix_props.keys()
             cell_data = {key: [[] for geometry in geometries] for key in props}
 
             # Loop over matrix cell properties
@@ -267,12 +270,12 @@ class UnstructReservoir(ReservoirBase):
         if not self.vtk_initialized:
             self.init_vtk(output_directory, export_grid_data=True)
 
-        # Create empty lists for each geometry type - | operator merges dictionaries
+        # Create empty lists for each geometry type - {**{}} operator merges dictionaries
         output_nodes = self.discretizer.vtk_output_nodes_to_cells['matrix'] if not self.discretizer.frac_cells_tot \
-            else self.discretizer.vtk_output_nodes_to_cells['fracture'] | self.discretizer.vtk_output_nodes_to_cells['matrix']
+            else {**self.discretizer.vtk_output_nodes_to_cells['fracture'], **self.discretizer.vtk_output_nodes_to_cells['matrix']}
         output_idxs = self.discretizer.vtk_output_cell_idxs['matrix'] if not self.discretizer.frac_cells_tot \
-            else self.discretizer.vtk_output_cell_idxs['fracture'] | self.discretizer.vtk_output_cell_idxs['matrix']
-        geometries = output_idxs.keys()
+            else {**self.discretizer.vtk_output_cell_idxs['fracture'], **self.discretizer.vtk_output_cell_idxs['matrix']}
+        geometries = output_nodes.keys()
         cell_data = {key: [[] for geometry in geometries] for key in prop_idxs.keys()}
 
         # Loop over output properties

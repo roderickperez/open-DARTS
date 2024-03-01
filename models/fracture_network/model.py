@@ -4,11 +4,12 @@ from darts.engines import value_vector, sim_params
 #from darts.models.physics.dead_oil import DeadOil
 from darts.physics.geothermal.physics import Geothermal
 from darts.models.darts_model import DartsModel
-import os
-import numpy as np
 from darts.physics.properties.iapws.iapws_property_vec import _Backward1_T_Ph_vec
 from darts.physics.properties.iapws.iapws_property import iapws_total_enthalpy_evalutor
 from darts.reservoirs.unstruct_reservoir import UnstructReservoir
+import os
+import numpy as np
+import meshio
 
 def fmt(x):
     return '{:.3}'.format(x)
@@ -16,7 +17,7 @@ def fmt(x):
 # Here the Model class is defined (child-class from DartsModel) in which most of the data and properties for the
 # simulation are defined, e.g. for the reservoir/physics/sim_parameters/etc.
 class Model(DartsModel):
-    def __init__(self, input_data, n_points=128):
+    def __init__(self, input_data, n_points=1000):
         """
         Class constructor of Model class
         :param n_points: number of discretization points for the parameter space
@@ -71,30 +72,32 @@ class Model(DartsModel):
         self.reservoir.sh_max_azimuth = input_data['SHmax_azimuth']
         self.reservoir.sigma_c = input_data['sigma_c']
 
-        # case_1
-        n_fractures = 4
-        # whitby
-        #n_fractures = 941
+        # read mesh to get the number of fractures for tags specification
+        # assume mesh is extruded and fractures have a quad shape
+        # fracture tags start from 90000 according to .geo file generation code
+        msh = meshio.read(mesh_file)
+        c = msh.cell_data_dict['gmsh:physical']
+        n_fractures = (np.unique(c['quad']) >= 90000).sum()
 
         # 9991 - rsv, 9992 - overburden, 9993 - underburden, 9994 - overburden2, 9995 - underburden2
         self.reservoir.physical_tags['matrix'] = [9991 + i for i in range(5)]
         # multiplied by 3 because physical surfaces for fracture are also in underburden and overburden
         self.reservoir.physical_tags['fracture'] = [90000 + i for i in range(n_fractures * 3)]
 
-        self.reservoir.physical_tags['boundary'] = [1, 2, 3, 4, 5, 6]  # order: Z- (top); Z+ (bottom) ; Y-; X+; Y+; X-
+        self.reservoir.physical_tags['boundary'] = [2, 1, 3, 4, 5, 6]  # order: Z- (bottom); Z+ (top) ; Y-; X+; Y+; X-
 
         '''     matrix_tag   surface_tag                             fracture_tag    test_case
-                ----------      5     overburden2 top                                     }
+                ----------      2     overburden2 top                                     }
                 | 9994                    overburden2                                     }
-                ----------      3     overburden top       ------------- 90003        }   }
+                ----------      2     overburden top       ------------- 90003        }   }
                 | 9992                    overburden       | FRACTURE  |              }   }case_1_burden_2
-                ----------      1     reservoir top        |-----------| 90001    }   }case_1_burden
+                ----------      2     reservoir top        |-----------| 90001    }   }case_1_burden
                 | 9991                    RESERVOIR        | FRACTURE  | 90000    }case_1 }
-                ----------      2     reservoir bottom     |-----------| 90002    }   }   }
+                ----------      1     reservoir bottom     |-----------| 90002    }   }   }
                 | 9993                    underburden      | FRACTURE  |              }   }
-                ----------      4     underburden bottom   ------------- 90004        }   }
+                ----------      1     underburden bottom   ------------- 90004        }   }
                 | 9995                    underburden2                                    }
-                ----------      6     underburden2 bottom                                 }
+                ----------      1     underburden2 bottom                                 }
         '''
 
         # initialize physics
@@ -102,19 +105,20 @@ class Model(DartsModel):
 
         from darts.physics.geothermal.property_container import PropertyContainer
         property_container = PropertyContainer()
-        self.physics = Geothermal(timer=self.timer, n_points=n_points, min_p=0, max_p=500,
-                                  min_e=0, max_e=50000, cache=False)
+        property_container.output_props = {'T,degrees': lambda: property_container.temperature - 273.15}
+        self.physics = Geothermal(timer=self.timer, n_points=n_points, min_p=100, max_p=500,
+                                  min_e=1000, max_e=25000, cache=False)
         self.physics.add_property_region(property_container)
 
         # Some tuning parameters:
         self.params.first_ts = 1e-6  # Size of the first time-step [days]
-        self.params.mult_ts = 1.5  # Time-step multiplier if newton is converged (i.e. dt_new = dt_old * mult_ts)
-        self.params.max_ts = 2 #20  # Max size of the time-step [days]
-        self.params.tolerance_newton = 1e-2  # Tolerance of newton residual norm ||residual||<tol_newt
-        self.params.tolerance_linear = 1e-4  # Tolerance for linear solver ||Ax - b||<tol_linslv
+        self.params.mult_ts = 1.1  # Time-step multiplier if newton is converged (i.e. dt_new = dt_old * mult_ts)
+        self.params.max_ts = 10  # Max size of the time-step [days]
+        self.params.tolerance_newton = 1e-4  # Tolerance of newton residual norm ||residual||<tol_newt
+        self.params.tolerance_linear = 1e-5  # Tolerance for linear solver ||Ax - b||<tol_linslv
         self.params.newton_type = sim_params.newton_local_chop  # Type of newton method (related to chopping strategy?)
         self.params.newton_params = value_vector([0.2])  # Probably chop-criteria(?)
-
+        self.params.linear_type = self.params.linear_solver_t.cpu_superlu
         self.runtime = 2000  # Total simulations time [days], this parameters is overwritten in main.py!
 
         # End timer for model initialization:
@@ -126,7 +130,7 @@ class Model(DartsModel):
         suf = '(M)'  # matrix cells
         if full:
             suf = '(M+F)'  # matrix+fracture cells
-        print('Time', fmt(time), ' years; ',
+        print('Time', fmt(time), ' years; ', time, 'days, '
               'P_range:', fmt(P.min()), '-', fmt(P.max()), 'bars; ',
               'T_range:', fmt(T.min()), '-', fmt(T.max()), 'degrees', suf)
 
@@ -151,7 +155,7 @@ class Model(DartsModel):
                       293.15  # convert to K
 
         self.pressure_initial_mean = pressure.mean()
-        self.temperature_initial_mean = pressure.mean()
+        self.temperature_initial_mean = init_temperature.mean()
 
         for j in range(mesh.n_blocks):
             state = value_vector([pressure[j], 0])
@@ -198,7 +202,8 @@ class Model(DartsModel):
                 else:
                     w.control = self.physics.new_rate_water_prod(self.rate_prod)
                     # TODO add constrain
-            print(w.name, w.control)
+            print(w.name, w.control, w.well_head_depth, w.control.target_pressure,
+                  w.control.target_temperature if 'I' in w.name else '')
         return 0
 
 
@@ -298,15 +303,13 @@ class Model(DartsModel):
         """
         self.calc_well_loc()
 
-        well_depth = self.reservoir.discretizer.centroid_all_cells[self.well_perf_loc[0][:], 2].min()
-
         for i in range(len(self.well_perf_loc[0])):
-            self.reservoir.add_well(f'I{i + 1}', well_depth)
+            self.reservoir.add_well(f'I{i + 1}')
             self.reservoir.add_perforation(self.reservoir.wells[-1].name, cell_index=self.well_perf_loc[0][i],
                                  well_indexD=0, verbose=True)
 
         for i in range(len(self.well_perf_loc[1])):
-            self.reservoir.add_well(f'P{i + 1}', well_depth)
+            self.reservoir.add_well(f'P{i + 1}')
             self.reservoir.add_perforation(self.reservoir.wells[-1].name, cell_index=self.well_perf_loc[1][i],
                                  well_indexD=0, verbose=True)
 

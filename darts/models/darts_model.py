@@ -199,7 +199,6 @@ class DartsModel:
         self.params.first_ts = first_ts if first_ts is not None else self.params.first_ts
         self.params.mult_ts = mult_ts if mult_ts is not None else self.params.mult_ts
         self.params.max_ts = max_ts if max_ts is not None else self.params.max_ts
-        self.prev_ts = first_ts if first_ts is not None else self.params.first_ts
         self.runtime = runtime
 
         # Newton tolerance is relatively high because of L2-norm for residual and well segments
@@ -234,7 +233,8 @@ class DartsModel:
         elif restart_dt > 0.:
             dt = restart_dt
         else:
-            dt = min(self.prev_ts * self.params.mult_ts, self.params.max_ts)
+            dt = min(self.prev_dt * self.params.mult_ts, self.params.max_ts)
+        self.prev_dt = dt
 
         ts = 0
 
@@ -253,12 +253,12 @@ class DartsModel:
                 if t + dt > stop_time:
                     dt = stop_time - t
                 else:
-                    self.prev_ts = dt
+                    self.prev_dt = dt
 
             else:
                 dt /= self.params.mult_ts
                 if verbose:
-                    print("Cut timestep to %2.3f" % dt)
+                    print("Cut timestep to %2.10f" % dt)
                 if dt < self.params.min_ts:
                     break
         # update current engine time
