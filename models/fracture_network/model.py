@@ -118,7 +118,7 @@ class Model(DartsModel):
         self.params.tolerance_linear = 1e-5  # Tolerance for linear solver ||Ax - b||<tol_linslv
         self.params.newton_type = sim_params.newton_local_chop  # Type of newton method (related to chopping strategy?)
         self.params.newton_params = value_vector([0.2])  # Probably chop-criteria(?)
-        self.params.linear_type = self.params.linear_solver_t.cpu_superlu
+
         self.runtime = 2000  # Total simulations time [days], this parameters is overwritten in main.py!
 
         # End timer for model initialization:
