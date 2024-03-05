@@ -72,9 +72,9 @@ def run_simulation(input_data):
 
     property_array = np.empty((m.get_pressure(0).size,tot_properties))
 
-    sim_year = 0.
-    m.print_range(sim_year)
-    m.print_range(sim_year, full=1)
+    sim_time = 0.
+    m.print_range(sim_time)
+    m.print_range(sim_time, full=1)
 
     # Run over all reporting time-steps:
     for ith_step in range(num_report_steps):
@@ -93,9 +93,9 @@ def run_simulation(input_data):
         if ith_step % 20 == 0:
             m.output_to_vtk(ith_step=ith_step+1, output_directory=output_directory)
 
-        sim_year += size_report_step / 365.
-        m.print_range(sim_year)
-        m.print_range(sim_year, full=1)
+        sim_time += size_report_step
+        m.print_range(sim_time)
+        m.print_range(sim_time, full=1)
 
     # After the simulation, print some of the simulation timers and statistics,
     # newton iters, etc., how much time spent where:
@@ -105,9 +105,9 @@ def run_simulation(input_data):
     time_data = pd.DataFrame.from_dict(m.physics.engine.time_data)
     time_data['Time (years)'] = time_data['time']/365.
 
-    xls_fname = 'time_data.xlsx'
+    xls_fname = os.path.join(output_directory, 'time_data.xlsx')
     if os.path.exists(xls_fname):
-        ren_fname = os.path.basename(xls_fname) + '_prev.xlsx'
+        ren_fname = 'prev_' + os.path.basename(xls_fname)
         if os.path.exists(ren_fname):
             os.remove(ren_fname)
         os.renames(xls_fname, ren_fname)
@@ -118,13 +118,13 @@ def run_simulation(input_data):
     ax2 = plot_temp_darts(w.name, time_data)
     #plt.show()
 
-    pkl_fname = 'time_data.pkl'
+    pkl_fname = os.path.join(output_directory, 'time_data.pkl')
     if os.path.exists(pkl_fname):
-        ren_fname = os.path.basename(pkl_fname) + '_prev.pkl'
+        ren_fname = 'prev_' + os.path.basename(pkl_fname)
         if os.path.exists(ren_fname):
             os.remove(ren_fname)
-        os.renames(pkl_fname, os.path.basename(pkl_fname) + '_prev.pkl')
-    pickle.dump(time_data, open('time_data.pkl', 'wb'))
+        os.renames(pkl_fname, ren_fname)
+    pickle.dump(time_data, open(pkl_fname, 'wb'))
 
 if __name__ == "__main__":
 

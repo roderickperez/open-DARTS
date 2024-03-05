@@ -67,10 +67,11 @@ class Model(DartsModel):
                                       frac_aper=frac_aper)
 
         # parameters for fracture aperture computation depending on principal stresses
-        self.reservoir.sh_max = input_data['Sh_max']
-        self.reservoir.sh_min = input_data['Sh_min']
-        self.reservoir.sh_max_azimuth = input_data['SHmax_azimuth']
-        self.reservoir.sigma_c = input_data['sigma_c']
+        if 'Sh_max' in input_data:
+            self.reservoir.sh_max = input_data['Sh_max']
+            self.reservoir.sh_min = input_data['Sh_min']
+            self.reservoir.sh_max_azimuth = input_data['SHmax_azimuth']
+            self.reservoir.sigma_c = input_data['sigma_c']
 
         # read mesh to get the number of fractures for tags specification
         # assume mesh is extruded and fractures have a quad shape
@@ -125,12 +126,19 @@ class Model(DartsModel):
         self.timer.node["initialization"].stop()
 
     def print_range(self, time, full=0):
+        depth = np.array(self.reservoir.mesh.depth, copy=True)
+        if not full:
+            nb = self.reservoir.mesh.n_res_blocks
+            D = depth[:nb]
+        else:
+            D = depth
         P = self.get_pressure(full=full)
         T = self.get_temperature(full=full)
         suf = '(M)'  # matrix cells
         if full:
             suf = '(M+F)'  # matrix+fracture cells
-        print('Time', fmt(time), ' years; ', time, 'days, '
+        print('Time', fmt(time/365), ' years; ', time, 'days, '
+              'D_range:', D.min(), '-', D.max(), 'm; ',
               'P_range:', fmt(P.min()), '-', fmt(P.max()), 'bars; ',
               'T_range:', fmt(T.min()), '-', fmt(T.max()), 'degrees', suf)
 
@@ -143,7 +151,7 @@ class Model(DartsModel):
         """
 
         depth = np.array(mesh.depth, copy=True)
-        print('depth:', fmt(depth.min()), '-', fmt(depth.max()), 'm.')
+        print('depth:', depth.min(), '-', depth.max(), 'm.')
         # set initial pressure
         pressure = np.array(mesh.pressure, copy=False)
         pressure[:] = (depth - self.input_data['reference_depth_for_pressure']) * self.input_data['pressure_gradient'] + \
