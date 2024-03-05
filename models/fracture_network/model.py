@@ -268,6 +268,8 @@ class Model(DartsModel):
             offset = 0
             left_int = 0
             right_int = self.num_frac + self.num_mat
+        else:
+            raise('error: wrong self.bound_cond')
 
         # Find closest control volume to dummy_well point:
         self.injection_wells = []
