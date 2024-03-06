@@ -2850,7 +2850,7 @@ class UnstructDiscretizer:
                 continue
             if k != 'wedge' and k != 'quad':
                 raise('Error: only wedge cells are supported in calc_equivalent_well_index', k)
-        node_cell = self.mat_cell_info_dict[res_block].coord_nodes_to_cell
+        node_cell = self.mat_cell_info_dict[res_block - self.frac_cells_tot].coord_nodes_to_cell
         coord_top_triangle = node_cell[:3,:]
         coord_bot_triangle = node_cell[3:,:]
         # in counter-clockwise direction
