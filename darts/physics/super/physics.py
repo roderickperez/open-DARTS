@@ -117,43 +117,76 @@ class Compositional(PhysicsBase):
                                                                       self.n_vars, rate, self.rate_itor)
         return
 
-    def set_uniform_initial_conditions(self, mesh: conn_mesh,
-                                       uniform_pressure: float, uniform_composition: list, uniform_temp: float = None):
+    def set_initial_conditions(self, mesh: conn_mesh, states: dict, depths: list = None):
         """
         Function to set uniform initial conditions.
 
         :param mesh: Mesh object
         :type mesh:
-        :param uniform_pressure: Uniform pressure setting
-        :type uniform_pressure: float
-        :param uniform_composition: Uniform composition setting
-        :type uniform_composition: list
-        :param uniform_temp: Uniform temperature setting, default is None for isothermal
-        :type uniform_temp: float
+        :param states: Initial states, dictionary with values/arrays for each primary variable
+        :type states: dict
+        :param depths: Depths corresponding to values in initial states
+        :type depths: list
         """
         assert isinstance(mesh, conn_mesh)
-
         nb = mesh.n_blocks
-        """ Uniform Initial conditions """
+
         # set initial pressure
-        pressure = np.array(mesh.pressure, copy=False)
-        pressure.fill(uniform_pressure)
+        p = np.array(mesh.pressure, copy=False)
+        pressure = states['pressure']
+        if not hasattr(pressure, "__len__"):
+            p.fill(pressure)
+        elif len(pressure) == nb:
+            p[:] = pressure
+        else:
+            # INTERPOLATE STATES
+            assert depths is not None, "Depths for interpolation have not been specified"
+            dz_inv = 1/(depths[1]-depths[0])
+            for ith_cell, ith_depth in enumerate(mesh.depth):
+                idx = np.floor(np.abs(ith_depth - depths[0]) * dz_inv) if ith_depth > depths[0] else 0
+                dP = pressure[idx + 1] - pressure[idx]
+                p[ith_cell] = pressure[idx] + dP * (ith_depth - depths[idx]) * dz_inv
 
         # if thermal, set initial temperature
-        if uniform_temp is not None:
-            temperature = np.array(mesh.temperature, copy=False)
-            temperature.fill(uniform_temp)
+        if self.thermal:
+            assert 'temperature' in states.keys(), "Temperature has not been specified"
+            T = np.array(mesh.temperature, copy=False)
+            temperature = states['temperature']
+            if not hasattr(temperature, "__len__"):
+                T.fill(temperature)
+            elif len(temperature) == nb:
+                T[:] = temperature
+            else:
+                # INTERPOLATE STATES
+                dz_inv = 1 / (depths[1] - depths[0])
+                for ith_cell, ith_depth in enumerate(mesh.depth):
+                    idx = np.floor(np.abs(ith_depth - depths[0]) * dz_inv) if ith_depth > depths[0] else 0
+                    dT = temperature[idx + 1] - temperature[idx]
+                    T[ith_cell] = temperature[idx] + dT * (ith_depth - depths[idx]) * dz_inv
 
-         # set initial composition
+        # set initial composition
         mesh.composition.resize(nb * (self.nc - 1))
-        composition = np.array(mesh.composition, copy=False)
-        # composition[:] = np.array(uniform_composition)
-        if self.nc == 2:
-            for c in range(self.nc - 1):
-                composition[c::(self.nc - 1)] = uniform_composition[:]
-        else:
-            for c in range(self.nc - 1):  # Denis
-                composition[c::(self.nc - 1)] = uniform_composition[c]
+        comp = np.array(mesh.composition, copy=False)
+        for c in range(self.nc - 1):
+            zc = states[self.vars[c+1]]
+            zc = zc if isinstance(zc, (list, np.ndarray)) else np.ones(nb) * zc
+            comp[c::(self.nc - 1)] = zc
+
+    def set_nonuniform_initial_conditions(self, mesh: conn_mesh, depths: list, initialize, primary_specs: dict,
+                                          secondary_specs: dict, boundary_state: dict, bc_idx: int, Z0: dict):
+        """
+        Function to initialize domain at equilibrium state
+        """
+        ini = initialize(self, depths)
+        ini.set_bc(boundary_state, bc_idx=bc_idx)
+
+        ini.set_specs(primary_specs, secondary_specs)
+        X0 = ini.set_initial_guess(Z0=Z0)
+        X = ini.solve(X0)
+
+        # Interpolate depths in mesh with X to obtain states
+        states = {var: X[i::self.n_vars] for i, var in enumerate(self.vars)}
+        self.set_initial_conditions(mesh, states, depths)
 
     def init_wells(self, wells):
         """
