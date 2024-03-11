@@ -94,7 +94,7 @@ class Initialize:
             X0[idx * self.nv + self.nv - 1] = self.T(idx)
 
             # Set zj of block i
-            for j, var in self.vars[1:-1]:
+            for j, var in enumerate(self.vars[1:-1]):
                 X0[idx * self.nv + j + 1] = Z0[var][idx]
 
         return X0
@@ -105,8 +105,8 @@ class Initialize:
             idx0, idx1 = i, i + 1
             dh = self.depths[idx1] - self.depths[idx0]
         else:
-            idx0, idx1 = self.nb - i - 1, self.nb - i
-            dh = self.depths[idx0] - self.depths[idx1]
+            idx0, idx1 = self.nb - i - 1, self.nb - i - 2
+            dh = self.depths[idx1] - self.depths[idx0]
         values0, derivs0 = self.evaluate(X, idx0)
         values1, derivs1 = self.evaluate(X, idx1)
 
