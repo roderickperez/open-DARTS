@@ -5,17 +5,19 @@ from darts.physics.operators_base import PropertyOperators
 
 
 class Initialize:
-    def __init__(self, physics: Compositional, depth: list):
+    props: dict = {}
+
+    def __init__(self, physics: Compositional, depths: list):
         self.physics = physics
         self.vars = physics.vars
         self.var_idxs = {var: i for i, var in enumerate(physics.vars)}
         self.nv = len(self.vars)
 
-        self.depth = depth
-        self.nb = len(depth)
+        self.depths = depths
+        self.nb = len(depths)
         self.ne = self.nv * self.nb
 
-        self.props = {'s' + str(j): lambda: physics.property_containers[0].sat[j] for j in range(physics.nph)}
+        self.props = {'s' + ph: lambda j=j: physics.property_containers[0].sat[j] for j, ph in enumerate(physics.phases)}
         self.props['rhoT'] = lambda: np.sum(physics.property_containers[0].sat * physics.property_containers[0].dens)
         self.props_idxs = {prop: i for i, prop in enumerate(self.props.keys())}
         self.primary_specs = {}
@@ -44,7 +46,7 @@ class Initialize:
 
     def set_bc(self, boundary_state: dict, dTdh: float = 0.03, bc_idx: int = 0):
         self.top_bc = True if bc_idx == 0 else False
-        self.T = lambda i: boundary_state['temperature'] + (self.depth[i] - self.depth[bc_idx]) * dTdh
+        self.T = lambda i: boundary_state['temperature'] + (self.depths[i] - self.depths[bc_idx]) * dTdh
 
         self.P0 = boundary_state['pressure']
         self.Z0 = boundary_state['composition'] if 'composition' in boundary_state.keys() else {}
@@ -80,13 +82,13 @@ class Initialize:
             if self.top_bc:
                 idx = i
                 values, _ = self.evaluate(X0, idx - 1)
-                gh = 9.81 * (self.depth[idx] - self.depth[idx - 1]) * 1e-5
-                X0[idx * self.nv] = X0[(idx - 1) * self.nv] + values[0] * gh
+                gh = 9.81 * (self.depths[idx] - self.depths[idx - 1]) * 1e-5
+                X0[idx * self.nv] = X0[(idx - 1) * self.nv] + values[self.props_idxs['rhoT']] * gh
             else:
                 idx = self.nb - i - 1
                 values, _ = self.evaluate(X0, idx + 1)
-                gh = 9.81 * (self.depth[idx - 1] - self.depth[idx]) * 1e-5
-                X0[idx * self.nv] = X0[(idx + 1) * self.nv] - values[0] * gh
+                gh = 9.81 * (self.depths[idx - 1] - self.depths[idx]) * 1e-5
+                X0[idx * self.nv] = X0[(idx + 1) * self.nv] - values[self.props_idxs['rhoT']] * gh
 
             # Set temperature of block i
             X0[idx * self.nv + self.nv - 1] = self.T(idx)
@@ -101,24 +103,25 @@ class Initialize:
         # Evaluate values and derivatives in blocks i and i+1
         if top:
             idx0, idx1 = i, i + 1
-            dh = self.depth[idx1] - self.depth[idx0]
+            dh = self.depths[idx1] - self.depths[idx0]
         else:
             idx0, idx1 = self.nb - i - 1, self.nb - i
-            dh = self.depth[idx0] - self.depth[idx1]
+            dh = self.depths[idx0] - self.depths[idx1]
         values0, derivs0 = self.evaluate(X, idx0)
         values1, derivs1 = self.evaluate(X, idx1)
 
         # P[i] + 1/2 * (rho[i+1] + rho[i]) * gh - P[i+1] = 0
+        rhoT_idx = self.props_idxs['rhoT']
         gh = 9.81 * dh * 1e-5
-        mgh = (values0[0] + values1[0]) * 0.5 * gh
+        mgh = (values0[rhoT_idx] + values1[rhoT_idx]) * 0.5 * gh
 
         # If top BC: P[0] = P_top; otherwise P[-1] = P_bottom
         res[idx1 * self.nv] = X[idx0 * self.nv] + mgh - X[idx1 * self.nv]
         Jac[idx1 * self.nv, idx0 * self.nv] += 1.
         Jac[idx1 * self.nv, idx1 * self.nv] -= 1.
         for j in range(self.nv):
-            Jac[idx1 * self.nv, idx0 * self.nv + j] += derivs0[j] * 0.5 * gh
-            Jac[idx1 * self.nv, idx1 * self.nv + j] += derivs1[j] * 0.5 * gh
+            Jac[idx1 * self.nv, idx0 * self.nv + j] += derivs0[rhoT_idx * self.nv + j] * 0.5 * gh
+            Jac[idx1 * self.nv, idx1 * self.nv + j] += derivs1[rhoT_idx * self.nv + j] * 0.5 * gh
 
         return res, Jac
 
@@ -176,32 +179,30 @@ class Initialize:
 
         return res, Jac
 
-    def solve(self, X0):
+    def solve(self, X0, tol: float = 1e-10, max_iter: int = 100):
         """
         :param X0: Initial guess of solution
         :return: Set of primary variables at solution
+        :param tol: Convergence criterion
+        :type tol: float
+        :param max_iter: Maximum number of iterations
+        :type max_iter: int
         """
-        # Solve
+        # Start from initial guess
         X = X0
-        tol = 1e-5
         it = 0
         while 1:
             it += 1
             res, Jac = self.assemble(X)
-            # print("res", res)
-            # print("Jac", Jac)
 
             # Solve Newton step
             dX = np.linalg.solve(Jac, res)
-            # print("dX", dX)
             X -= dX
             norm = np.linalg.norm(res)
-            # print("X", norm, X)
-            # print("==================")
 
-            if np.linalg.norm(norm) < tol or it == 100:
+            if np.linalg.norm(norm) < tol or it == max_iter:
+                if it == 100:
+                    raise ValueError('Initialization procedure did not converge')
                 break
-
-        # print("X", norm, X)
 
         return X
