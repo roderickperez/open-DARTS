@@ -51,43 +51,51 @@ bibliography: paper.bib
 
 > Describe the high-level functionality and purpose of the software for a diverse, non-specialist audience.
 
-Open Delft Advanced Reserach Terra Simulator [@openDARTS_2023] is a simulation framework for forward and inverse modelling and uncertainty quantification of multi-physics processes in geo-engineering applications such as geothermal, CO2 sequestration, water pumping, and hydrogen storage. OpenDARTS has a hybrid design combining C++ and Python code. It utilizes advanced numerical methods such as fully implicit thermo-hydro-mechanical-chemical formulation, highly flexible finite-volume spatial approximation, operator-based linearization for nonlinear and physics-based preconditioning for linear solutions. 
-
+Open Delft Advanced Research Terra Simulator [@openDARTS_2023] is a simulation framework for forward and inverse modelling and uncertainty quantification of multi-physics processes in geo-engineering applications such as geothermal, CO2 sequestration, water pumping, and hydrogen storage. OpenDARTS has a hybrid design combining C++ and Python code. It utilizes advanced numerical methods such as fully implicit thermo-hydro-mechanical-chemical formulation, highly flexible finite-volume spatial approximation, operator-based linearization for nonlinear and physics-based preconditioning for linear solutions.
 
 # Statement of need
 
 > Illustrates the research purpose of the software and places it in the context of related work (other software packages doing similar simulations with references and how is DARTS special. Also list here other software packages that are pertinent to DARTS, for example dependencies, darts-flash?).
 
-The openDARTS framework is fully validated and benchmarked for geothermal, CO2 sequestration, gas storage, hydrocarbon production and induced seismicity applications. The framework design and parallel implementations for CPU and GPU architectures provides an exceptional level of flexibility and performance: up to two orders of magnitude faster than the best academic and commercial software analogues. Advanced inverse capabilities based on adjoint gradients allowed to effectively address data assimilation, risk analisys and uncertainty quantification for energy transition applications.
+The openDARTS framework is fully validated and benchmarked for geothermal, CO2 sequestration, gas storage, hydrocarbon production and induced seismicity applications. The framework design and parallel implementations for CPU and GPU architectures provides an exceptional level of flexibility and performance: up to two orders of magnitude faster than the best academic and commercial software analogues.
+> @Luisa: Should we add some references here?
 
+Advanced inverse capabilities based on adjoint gradients allowed to effectively address data assimilation, risk analysis and uncertainty quantification for energy transition applications.
+
+openDARTS is designed to use Python as its user interface, which makes it widely used in educational and research institutions for both introductory and advanced programming. It is a reservoir simulators with advanced capabilities that is not reliant on proprietary software, reducing significantly the entry barrier for researchers and students interested in energy transition applications for the subsurface.
 
 # Key features
-[super-engine]
-DARTS has a generic PDE formulation for thermal compositional flow in porous media. This makes possible to adjust terms in PDE to account for various physical effects. 
 
-[OBL]
-One of computationally expensive parts is a computation of derivatives to construct the Jacobian. DARTS exploits Operator-Based Linearization (OBL), where PDE's term can be approximated through the interpolation in a primary variables space. Using adaptive parametrization, derivative computation is performed at nodes of the structured grid in primary variables space around the required point. The derivatives at this point are computed using multilinear interpolation using values at the nodes. Re-using computed values at nodal points can significantly reduce the Jacobian construction stage, especially in case of ensemble-based simulations. 
+## Super-engine
 
-[Discretization]
-Different grid types supported by DARTS are useful for different application: structured grid - for teaching, corner-point geometry - for industry-related applications, and unstructured grid - for flow modeling in discrete fracture networks and core scale Lab experiments modeling.
-DARTS uses Finite Volume Method for space and Fully Implicit Method for time discretization. 
-There are two-point and multi-point flux approximations implemented in DARTS.
+openDARTS has a generic PDE formulation for thermal compositional flow in porous media. This makes possible to adjust terms in PDE to account for various physical effects.
 
-[HPC]
-The most computationally expensive part of DARTS is written in C++. This allowed to use parallelization using openMP for multicore systems and GPU acceleration using nVIDIA CUDA.
+## OBL
+One of the most computationally expensive parts is a calculation of derivatives to construct the Jacobian. openDARTS exploits Operator-Based Linearization (OBL), where PDE's terms can be approximated through the interpolation in a primary variables space. Using adaptive parametrization, derivative computation is performed at nodes of the structured grid in the primary variables space around the required point. The derivatives at this point are computed via multi-linear interpolation using calculated values at the nodes. Re-using computed values at nodal points can significantly reduce the Jacobian construction stage, especially in case of ensemble-based simulations.
 
-[Python]
-DARTS can be installed as a python module and it has a python-based interface. There are several benefits of that compared to fully C++ code. 
-- Easy installation using PyPI
-- No need to install compilers to work with DARTS code
-- Easy data visualization, including internal arrays
-- Coupling with other Python-based numerical modeling software
-- Use popular python modules within DARTS and user's model for data processing and input/output
-- One might re-define relationships between variables using just Python code. 
-- The timestep loop is written in Python, so one can adjust it for needs
-This makes DARTS attractive for teaching and for users who don't know C++ language.
+## Discretization
 
-DARTS is designed to use Python as its user interface. Python has several advantages, including being open-source and widely used in educational and research institutions for both introductory and advanced programming. Additionally, Python provides the hosting platform Python Package Index (PyPI), which allows for easy installation of third-party modules such as DARTS. Furthermore, the use of Python in DARTS distinguishes it as one of the few reservoir simulators with advanced capabilities that is not reliant on proprietary software. This significantly reduces the entry barrier for researchers and students interested in energy transition applications for the subsurface.
+Different grid types supported by openDARTS are useful for different applications: structured grid - for teaching, corner-point geometry - for industry-related applications, and unstructured grid - for flow modeling in discrete fracture networks and core scale laboratory experiments modeling.
+openDARTS uses Finite Volume Method for space and Fully Implicit Method for time discretization.
+There are two-point and multi-point flux approximations implemented in openDARTS.
+
+## HPC
+
+The most computationally expensive part of openDARTS is written in C++. This allows the user to use parallelization using openMP for multi-core systems and GPU acceleration using NVIDIA CUDA.
+
+## Python
+
+openDARTS can be installed as a python module and it has a python-based interface. There are several benefits of that compared to a fully C++ code.
+
+- Easy installation via pip and PyPI.
+- No need to install compilers to work with openDARTS.
+- Easy data visualization, including internal arrays and vtk.
+- Coupling with other Python-based numerical modeling software.
+- Use popular python modules within openDARTS and user's model for data processing and input/output.
+- One might re-define relationships between variables using exclusively Python code.
+- The time-step loop is written in Python, so one can adjust it fto specific needs.
+
+This makes openDARTS attractive for teaching and for users unfamiliar with C++ language.
 
 # Acknowledgements
 
