@@ -49,7 +49,7 @@ class Initialize:
         self.T = lambda i: boundary_state['temperature'] + (self.depths[i] - self.depths[bc_idx]) * dTdh
 
         self.P0 = boundary_state['pressure']
-        self.Z0 = boundary_state['composition'] if 'composition' in boundary_state.keys() else {}
+        self.Z0 = {var: boundary_state[var] for var in self.vars[1:-1]}
 
     def set_specs(self, primary_specs: dict = None, secondary_specs: dict = None):
         for spec, values in primary_specs.items():
@@ -94,8 +94,8 @@ class Initialize:
             X0[idx * self.nv + self.nv - 1] = self.T(idx)
 
             # Set zj of block i
-            for j, z0 in enumerate(Z0.values()):
-                X0[idx * self.nv + j + 1] = z0[idx]
+            for j, var in self.vars[1:-1]:
+                X0[idx * self.nv + j + 1] = Z0[var][idx]
 
         return X0
 
@@ -129,17 +129,15 @@ class Initialize:
         values, derivs = self.evaluate(X, i)
 
         # Specification of primary variables (P,T are not specified here)
-        j1 = 0
         for j1, (var, spec) in enumerate(self.primary_specs.items()):
             var_idx = self.var_idxs[var]
             res_idx = i * self.nv + j1 + 1
             res[res_idx] = X[i * self.nv + var_idx] - spec[i]
             Jac[res_idx, :] = 0.
             Jac[res_idx, i * self.nv + var_idx] = 1.
-        j1 += 1
+        j1 = len(self.primary_specs)
 
         # Specification of secondary variables
-        j2 = 0
         for j2, (var, spec) in enumerate(self.secondary_specs.items()):
             prop_idx = self.props_idxs[var]
             res_idx = i * self.nv + j1 + j2 + 1
@@ -147,7 +145,7 @@ class Initialize:
 
             for jj in range(self.nv):
                 Jac[res_idx, i * self.nv + jj] = derivs[prop_idx * self.nv + jj]
-        j2 += 1
+        j2 = len(self.secondary_specs)
 
         assert j1 + j2 + 2 == self.nv
         return res, Jac
