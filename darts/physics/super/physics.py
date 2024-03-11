@@ -143,7 +143,8 @@ class Compositional(PhysicsBase):
             assert depths is not None, "Depths for interpolation have not been specified"
             dz_inv = 1/(depths[1]-depths[0])
             for ith_cell, ith_depth in enumerate(mesh.depth):
-                idx = np.floor(np.abs(ith_depth - depths[0]) * dz_inv) if ith_depth > depths[0] else 0
+                idx = int(np.floor(np.abs(ith_depth - depths[0]) * dz_inv)) if depths[-1] > ith_depth > depths[0] \
+                    else (0 if depths[0] > ith_depth else len(depths) - 2)
                 dP = pressure[idx + 1] - pressure[idx]
                 p[ith_cell] = pressure[idx] + dP * (ith_depth - depths[idx]) * dz_inv
 
@@ -158,9 +159,11 @@ class Compositional(PhysicsBase):
                 T[:] = temperature
             else:
                 # INTERPOLATE STATES
+                assert depths is not None, "Depths for interpolation have not been specified"
                 dz_inv = 1 / (depths[1] - depths[0])
                 for ith_cell, ith_depth in enumerate(mesh.depth):
-                    idx = np.floor(np.abs(ith_depth - depths[0]) * dz_inv) if ith_depth > depths[0] else 0
+                    idx = int(np.floor(np.abs(ith_depth - depths[0]) * dz_inv)) if depths[-1] > ith_depth > depths[0] \
+                        else (0 if depths[0] > ith_depth else len(depths) - 2)
                     dT = temperature[idx + 1] - temperature[idx]
                     T[ith_cell] = temperature[idx] + dT * (ith_depth - depths[idx]) * dz_inv
 
@@ -169,8 +172,17 @@ class Compositional(PhysicsBase):
         comp = np.array(mesh.composition, copy=False)
         for c in range(self.nc - 1):
             zc = states[self.vars[c+1]]
-            zc = zc if isinstance(zc, (list, np.ndarray)) else np.ones(nb) * zc
-            comp[c::(self.nc - 1)] = zc
+            if not hasattr(zc, "__len__") or len(zc) == nb:
+                comp[c::(self.nc - 1)] = zc
+            else:
+                # INTERPOLATE STATES
+                assert depths is not None, "Depths for interpolation have not been specified"
+                dz_inv = 1 / (depths[1] - depths[0])
+                for ith_cell, ith_depth in enumerate(mesh.depth):
+                    idx = int(np.floor(np.abs(ith_depth - depths[0]) * dz_inv)) if depths[-1] > ith_depth > depths[0] \
+                        else (0 if depths[0] > ith_depth else len(depths) - 2)
+                    dzc = zc[idx + 1] - zc[idx]
+                    comp[(self.nc-1) * ith_cell + c] = zc[idx] + dzc * (ith_depth - depths[idx]) * dz_inv
 
     def set_nonuniform_initial_conditions(self, mesh: conn_mesh, depths: list, initialize, primary_specs: dict,
                                           secondary_specs: dict, boundary_state: dict, bc_idx: int, Z0: dict):
