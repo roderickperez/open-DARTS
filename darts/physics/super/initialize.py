@@ -17,8 +17,13 @@ class Initialize:
         self.nb = len(depths)
         self.ne = self.nv * self.nb
 
-        self.props = {'s' + ph: lambda j=j: physics.property_containers[0].sat[j] for j, ph in enumerate(physics.phases)}
-        self.props['rhoT'] = lambda: np.sum(physics.property_containers[0].sat * physics.property_containers[0].dens)
+        # Add evaluators of phase saturations, rhoT and df (if kinetic reactions are defined)
+        property_container = physics.property_containers[0]
+        self.props.update({'s' + ph: lambda j=j: property_container.sat[j] for j, ph in enumerate(physics.phases)})
+        self.props.update({'rhoT': lambda: np.sum(property_container.sat * property_container.dens)})
+        self.props.update({'dQ' + str(k): lambda k=k: property_container.dQ[k]
+                           for k, kr in enumerate(property_container.kinetic_rate_ev)})
+
         self.props_idxs = {prop: i for i, prop in enumerate(self.props.keys())}
         self.primary_specs = {}
         self.secondary_specs = {}
@@ -46,10 +51,8 @@ class Initialize:
 
     def set_bc(self, boundary_state: dict, dTdh: float = 0.03, bc_idx: int = 0):
         self.top_bc = True if bc_idx == 0 else False
+        self.boundary_state = boundary_state
         self.T = lambda i: boundary_state['temperature'] + (self.depths[i] - self.depths[bc_idx]) * dTdh
-
-        self.P0 = boundary_state['pressure']
-        self.Z0 = {var: boundary_state[var] for var in self.vars[1:-1]}
 
     def set_specs(self, primary_specs: dict = None, secondary_specs: dict = None):
         for spec, values in primary_specs.items():
@@ -61,20 +64,20 @@ class Initialize:
         assert len(self.primary_specs) + len(self.secondary_specs) >= self.nv - 2, \
             "Not enough variables specified for well-defined system of equations"
 
-    def set_initial_guess(self, Z0: dict):
-        for j, z0 in Z0.items():
-            Z0[j] = z0 if isinstance(z0, (list, np.ndarray)) else [z0] * self.nb
+    def set_initial_guess(self, state0: dict):
+        for j, z0 in state0.items():
+            state0[j] = z0 if isinstance(z0, (list, np.ndarray)) else [z0] * self.nb
         X0 = np.zeros(self.ne)
 
         # X of boundary cell
         idx = 0 if self.top_bc else self.nb - 1
-        X0[idx * self.nv] = self.P0
+        X0[idx * self.nv] = self.boundary_state['pressure']
         X0[idx * self.nv + self.nv - 1] = self.T(idx)
-        for j in range(self.nv - 2):
-            if j in self.Z0.keys():
-                X0[idx * self.nv + j + 1] = self.Z0[j]
+        for j, var in enumerate(self.vars[1:-1]):
+            if var in self.boundary_state.keys():
+                X0[idx * self.nv + j + 1] = self.boundary_state[var]
             else:
-                X0[idx * self.nv + j + 1] = Z0[self.vars[j + 1]][idx]
+                X0[idx * self.nv + j + 1] = state0[var][idx]
 
         # X of other blocks
         for i in range(1, self.nb):
@@ -95,7 +98,7 @@ class Initialize:
 
             # Set zj of block i
             for j, var in enumerate(self.vars[1:-1]):
-                X0[idx * self.nv + j + 1] = Z0[var][idx]
+                X0[idx * self.nv + j + 1] = state0[var][idx]
 
         return X0
 

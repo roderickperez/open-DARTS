@@ -64,7 +64,7 @@ class PropertyContainer(PropertyBase):
         self.pc = np.zeros(self.nph)
         self.enthalpy = np.zeros(self.nph)
         self.kappa = np.zeros(self.nph)
-        self.dX = []
+        self.dQ = []
 
         self.phase_props = [self.dens, self.dens_m, self.sat, self.nu, self.mu, self.kr, self.pc, self.enthalpy, self.kappa]
 
@@ -161,12 +161,12 @@ class PropertyContainer(PropertyBase):
         return ph
 
     def evaluate_mass_source(self, pressure, temperature, zc):
-        self.dX = np.zeros(len(self.kinetic_rate_ev))
+        self.dQ = np.zeros(len(self.kinetic_rate_ev))
         mass_source = np.zeros(self.nc)
 
         for j, reaction in self.kinetic_rate_ev.items():
-            # dm, self.dX[j] += reaction.evaluate(pressure, temperature, self.x, zc[-1])
-            dm, self.dX[j] = reaction.evaluate(pressure, temperature, self.x, self.sat)
+            # dm, self.dQ[j] += reaction.evaluate(pressure, temperature, self.x, zc[-1])
+            dm, self.dQ[j] = reaction.evaluate(pressure, temperature, self.x, self.sat)
             mass_source += dm
 
         return mass_source
