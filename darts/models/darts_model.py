@@ -101,7 +101,7 @@ class DartsModel:
 
     def set_initial_conditions(self):
         depths = self.depths if hasattr(self, 'depths') else None
-        self.physics.set_initial_conditions(self.reservoir.mesh, self.states, depths)
+        self.physics.set_initial_conditions(self.reservoir.mesh, self.initial_values, depths)
 
     def set_boundary_conditions(self):
         """
