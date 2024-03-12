@@ -27,7 +27,9 @@ authors:
     orcid: 0009-0001-0089-8629 
     affiliation: 1
   - name: Xiaoming Tian
-    affiliation: 1
+    affiliation: "5, 1"
+    orcid: 0000-0003-0642-6064
+    equal-contrib: true
   - name: Luisa Orozco
     orcid: 0000-0002-9153-650X
     affiliation: 3
@@ -44,6 +46,8 @@ affiliations:
    index: 3
  - name: Delft Institute of Applied Mathematics, Delft University of Technology
    index: 4
+ - name: Guangzhou Institute of Energy Conversion, Chinese Academy of Sciences, Guangzhou, China
+   index: 5
 date: 1 April 2024
 bibliography: paper.bib
 ---
@@ -99,7 +103,7 @@ openDARTS can be installed as a python module and it has a python-based interfac
 This makes openDARTS attractive for teaching and for users unfamiliar with C++ language.
 
 ## Inverse modelling
-
+Inverse modeling can be notably time-consuming, particularly when employing gradient-based methods. The implementation of the adjoint method in openDARTS significantly enhances its efficiency in computing the required gradients for inverse modeling or history matching processes. Moreover, the inverse modeling module of openDARTS accommodates various types of observation data. These observations includes well rates, well temperatures, BHP, time-lapse temperature distributions, and any custom outputs definable in the form of operators within openDARTS.
 
 # Acknowledgements
 
