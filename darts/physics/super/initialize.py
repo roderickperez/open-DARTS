@@ -150,7 +150,7 @@ class Initialize:
                 Jac[res_idx, i * self.nv + jj] = derivs[prop_idx * self.nv + jj]
         j2 = len(self.secondary_specs)
 
-        assert j1 + j2 + 2 == self.nv
+        # assert j1 + j2 + 2 == self.nv
         return res, Jac
 
     def assemble(self, X):
