@@ -15,9 +15,9 @@ authors:
     equal-contrib: true # (This is how you can denote equal contributions between multiple authors)
     affiliation: 1
   - name: Stephan de Hoop
-    corresponding: true # (This is how to denote the corresponding author)
     affiliation: 1
   - name: Mark Khait
+    equal-contrib: true
     affiliation: 1
   - name: Aleks Novikov
     affiliation: 1
@@ -31,6 +31,7 @@ authors:
   - name: Luisa Orozco
     orcid: 0000-0002-9153-650X
     affiliation: 3
+    corresponding: true # (This is how to denote the corresponding author)
   - name: Artur Palha
     orcid: 0000-0002-3217-0747
     affiliation: 4
@@ -43,7 +44,7 @@ affiliations:
    index: 3
  - name: Delft Institute of Applied Mathematics, Delft University of Technology
    index: 4
-date: 1 February 2024
+date: 1 April 2024
 bibliography: paper.bib
 ---
 > Hard maximum for entire paper: 1000 words
@@ -51,7 +52,7 @@ bibliography: paper.bib
 
 > Describe the high-level functionality and purpose of the software for a diverse, non-specialist audience.
 
-Open Delft Advanced Research Terra Simulator [@openDARTS_2023] is a simulation framework for forward and inverse modelling and uncertainty quantification of multi-physics processes in geo-engineering applications such as geothermal, CO2 sequestration, water pumping, and hydrogen storage. OpenDARTS has a hybrid design combining C++ and Python code. It utilizes advanced numerical methods such as fully implicit thermo-hydro-mechanical-chemical formulation, highly flexible finite-volume spatial approximation, operator-based linearization for nonlinear and physics-based preconditioning for linear solutions.
+Open Delft Advanced Research Terra Simulator [@openDARTS_2023] is a simulation framework for forward and inverse modelling and uncertainty quantification of multi-physics processes in geo-engineering applications such as geothermal, CO2 sequestration, water pumping, and hydrogen storage. openDARTS has a hybrid design combining C++ and Python code. It utilizes advanced numerical methods such as fully implicit thermo-hydro-mechanical-chemical formulation, highly flexible finite-volume spatial approximation, operator-based linearization for nonlinear and physics-based preconditioning for linear solutions.
 
 # Statement of need
 
@@ -96,6 +97,9 @@ openDARTS can be installed as a python module and it has a python-based interfac
 - The time-step loop is written in Python, so one can adjust it fto specific needs.
 
 This makes openDARTS attractive for teaching and for users unfamiliar with C++ language.
+
+## Inverse modelling
+
 
 # Acknowledgements
 
