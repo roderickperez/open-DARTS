@@ -23,6 +23,8 @@ authors:
     affiliation: 1
   - name: Michiel Wapperom
     affiliation: 1
+    orcid: 0000-0003-3432-4233
+    equal-contrib: true
   - name: Ilshat Saifullin
     orcid: 0009-0001-0089-8629 
     affiliation: 1
@@ -56,54 +58,76 @@ bibliography: paper.bib
 
 > Describe the high-level functionality and purpose of the software for a diverse, non-specialist audience.
 
-Open Delft Advanced Research Terra Simulator [@openDARTS_2023] is a simulation framework for forward and inverse modelling and uncertainty quantification of multi-physics processes in geo-engineering applications such as geothermal, CO2 sequestration, water pumping, and hydrogen storage. openDARTS has a hybrid design combining C++ and Python code. It utilizes advanced numerical methods such as fully implicit thermo-hydro-mechanical-chemical formulation, highly flexible finite-volume spatial approximation, operator-based linearization for nonlinear and physics-based preconditioning for linear solutions.
+Open Delft Advanced Research Terra Simulator [@openDARTS_2023] is a simulation framework for forward and inverse modelling and 
+uncertainty quantification of multi-physics processes in geo-engineering applications such as geothermal, CO2 sequestration, 
+water pumping, and hydrogen storage. openDARTS has a hybrid design combining C++ and Python code. 
+It utilizes advanced numerical methods such as fully implicit thermo-hydro-mechanical-chemical formulation, 
+highly flexible finite-volume spatial approximation, operator-based linearization for nonlinear and physics-based preconditioning for linear solutions.
 
 # Statement of need
 
 > Illustrates the research purpose of the software and places it in the context of related work (other software packages doing similar simulations with references and how is DARTS special. Also list here other software packages that are pertinent to DARTS, for example dependencies, darts-flash?).
 
-The openDARTS framework is fully validated and benchmarked for geothermal, CO2 sequestration, gas storage, hydrocarbon production and induced seismicity applications. The framework design and parallel implementations for CPU and GPU architectures provides an exceptional level of flexibility and performance: up to two orders of magnitude faster than the best academic and commercial software analogues.
+The openDARTS framework is fully validated and benchmarked for geothermal, CO2 sequestration, gas storage, hydrocarbon production and induced seismicity applications. 
+The framework design and parallel implementations for CPU and GPU architectures provides an exceptional level of flexibility and performance: 
+up to two orders of magnitude faster than the best academic and commercial software analogues.
 > @Luisa: Should we add some references here?
 
 Advanced inverse capabilities based on adjoint gradients allowed to effectively address data assimilation, risk analysis and uncertainty quantification for energy transition applications.
 
-openDARTS is designed to use Python as its user interface, which makes it widely used in educational and research institutions for both introductory and advanced programming. It is a reservoir simulators with advanced capabilities that is not reliant on proprietary software, reducing significantly the entry barrier for researchers and students interested in energy transition applications for the subsurface.
+openDARTS is designed to use Python as its user interface, which makes it widely used in educational and research institutions for both introductory and advanced programming. 
+It is a reservoir simulators with advanced capabilities that is not reliant on proprietary software, 
+reducing significantly the entry barrier for researchers and students interested in energy transition applications for the subsurface.
 
 # Key features
 
-## Super-engine
+## Unified thermal-compositional PDE formulation
 
-openDARTS has a generic PDE formulation for thermal compositional flow in porous media. This makes possible to adjust terms in PDE to account for various physical effects.
+openDARTS has a generic PDE formulation for thermal compositional flow in porous media. 
+This makes possible to adjust terms in PDE to account for various physical effects.
 
-## OBL
-One of the most computationally expensive parts is a calculation of derivatives to construct the Jacobian. openDARTS exploits Operator-Based Linearization (OBL), where PDE's terms can be approximated through the interpolation in a primary variables space. Using adaptive parametrization, derivative computation is performed at nodes of the structured grid in the primary variables space around the required point. The derivatives at this point are computed via multi-linear interpolation using calculated values at the nodes. Re-using computed values at nodal points can significantly reduce the Jacobian construction stage, especially in case of ensemble-based simulations.
+## Operator-Based Linearization
+One of the most computationally expensive parts is a calculation of derivatives to construct the Jacobian. 
+openDARTS exploits Operator-Based Linearization (OBL), where PDE's terms can be approximated through the interpolation in a primary variables space.
+Using adaptive parametrization, derivative computation is performed at nodes of the structured grid in the primary variables space around the required point. 
+The derivatives at this point are computed via multi-linear interpolation using calculated values at the nodes. 
+Re-using computed values at nodal points can significantly reduce the Jacobian construction stage, especially in case of ensemble-based simulations.
 
 ## Discretization
 
-Different grid types supported by openDARTS are useful for different applications: structured grid - for teaching, corner-point geometry - for industry-related applications, and unstructured grid - for flow modeling in discrete fracture networks and core scale laboratory experiments modeling.
+Different grid types supported by openDARTS are useful for different applications: 
+- structured grid - for teaching
+- corner-point geometry - for industry-related applications
+- unstructured grid - for modelling of flow with complex geometries, discrete fracture networks and core scale laboratory experiments
+
 openDARTS uses Finite Volume Method for space and Fully Implicit Method for time discretization.
 There are two-point and multi-point flux approximations implemented in openDARTS.
 
 ## HPC
 
-The most computationally expensive part of openDARTS is written in C++. This allows the user to use parallelization using openMP for multi-core systems and GPU acceleration using NVIDIA CUDA.
+The most computationally expensive part of openDARTS is written in C++. 
+This allows the user to use parallelization using openMP for multi-core systems and GPU acceleration using NVIDIA CUDA.
 
 ## Python
 
-openDARTS can be installed as a python module and it has a python-based interface. There are several benefits of that compared to a fully C++ code.
+openDARTS can be installed as a Python module and it has a Python-based interface. 
+There are several benefits of that compared to a fully C++ code.
 
 - Easy installation via pip and PyPI.
 - No need to install compilers to work with openDARTS.
+- Flexible implementation of simulation framework, physical modelling and grids.
 - Easy data visualization, including internal arrays and vtk.
-- Coupling with other Python-based numerical modeling software.
 - Use popular python modules within openDARTS and user's model for data processing and input/output.
-- One might re-define relationships between variables using exclusively Python code.
-- The time-step loop is written in Python, so one can adjust it fto specific needs.
+- Coupling with other Python-based numerical modeling software.
+- The time-step loop is written in Python, so one can adjust it to specific needs.
 
 This makes openDARTS attractive for teaching and for users unfamiliar with C++ language.
 
 ## Inverse modelling
-Inverse modeling can be notably time-consuming, particularly when employing gradient-based methods. The implementation of the adjoint method in openDARTS significantly enhances its efficiency in computing the required gradients for inverse modeling or history matching processes. Moreover, the inverse modeling module of openDARTS accommodates various types of observation data. These observations includes well rates, well temperatures, BHP, time-lapse temperature distributions, and any custom outputs definable in the form of operators within openDARTS.
+Inverse modeling can be notably time-consuming, particularly when employing gradient-based methods. 
+The implementation of the adjoint method in openDARTS significantly enhances its efficiency in computing the required gradients for inverse modeling or history matching processes. 
+Moreover, the inverse modeling module of openDARTS accommodates various types of observation data. 
+These observations includes well rates, well temperatures, BHP, time-lapse temperature distributions, and any custom outputs definable in the form of operators within openDARTS.
 
 # Acknowledgements
 
