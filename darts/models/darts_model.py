@@ -210,7 +210,7 @@ class DartsModel:
         self.params.newton_type = newton_type if newton_type is not None else self.params.newton_type
         self.params.newton_params = newton_params if newton_params is not None else self.params.newton_params
 
-    def run_simple(self, phsyics, days, dt_max):
+    def run_simple(self, physics, params, days):
         """
         Method to run simulation for specified time. Optional argument to specify dt to restart simulation with.
 
@@ -221,14 +221,23 @@ class DartsModel:
         :param verbose: Switch for verbose, default is True
         :type verbose: bool
         """
+        days = days if days is not None else self.runtime
+        self.physics = physics
+        self.params = params
+        verbose = False
 
         # get current engine time
-        t = physics.engine.t
+        t = self.physics.engine.t
         stop_time = t + days
 
         # same logic as in engine.run
         if fabs(t) < 1e-15:
-            dt = 1e-6
+            dt = self.params.first_ts
+        elif restart_dt > 0.:
+            dt = restart_dt
+        else:
+            dt = min(self.prev_dt * self.params.mult_ts, self.params.max_ts)
+        self.prev_dt = dt
 
         ts = 0
 
@@ -242,27 +251,28 @@ class DartsModel:
                     print("# %d \tT = %3g\tDT = %2g\tNI = %d\tLI=%d"
                           % (ts, t, dt, self.physics.engine.n_newton_last_dt, self.physics.engine.n_linear_last_dt))
 
-                dt = min(2 * dt, dt_max)
+                dt = min(dt * self.params.mult_ts, self.params.max_ts)
 
                 if t + dt > stop_time:
                     dt = stop_time - t
                 else:
-                    prev_dt = dt
+                    self.prev_dt = dt
 
             else:
-                dt /= 2
+                dt /= self.params.mult_ts
                 if verbose:
                     print("Cut timestep to %2.10f" % dt)
-                if dt < 1e-12:
+                if dt < self.params.min_ts:
                     break
         # update current engine time
         self.physics.engine.t = stop_time
 
         if verbose:
             print("TS = %d(%d), NI = %d(%d), LI = %d(%d)"
-                  % (physics.engine.stat.n_timesteps_total, physics.engine.stat.n_timesteps_wasted,
-                     physics.engine.stat.n_newton_total, physics.engine.stat.n_newton_wasted,
-                     physics.engine.stat.n_linear_total, physics.engine.stat.n_linear_wasted))
+                  % (self.physics.engine.stat.n_timesteps_total, self.physics.engine.stat.n_timesteps_wasted,
+                     self.physics.engine.stat.n_newton_total, self.physics.engine.stat.n_newton_wasted,
+                     self.physics.engine.stat.n_linear_total, self.physics.engine.stat.n_linear_wasted))
+
 
     def run(self, days: float = None, restart_dt: float = 0., verbose: bool = True):
         """
