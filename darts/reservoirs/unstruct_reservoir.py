@@ -278,6 +278,16 @@ class UnstructReservoir(ReservoirBase):
         geometries = output_nodes.keys()
         cell_data = {key: [[] for geometry in geometries] for key in prop_idxs.keys()}
 
+        # Distinguish fracture cells from matrix cells
+        cell_data['matrix_cell_bool'] = [[] for geometry in geometries]
+        ith_geometry = 0
+        for geometry, cell_idxs in self.discretizer.vtk_output_cell_idxs['fracture'].items():
+            cell_data['matrix_cell_bool'][ith_geometry] += np.zeros(len(cell_idxs)).tolist()  # fill fracture cells with zeros
+            ith_geometry += 1
+        for geometry, cell_idxs in self.discretizer.vtk_output_cell_idxs['matrix'].items():
+            cell_data['matrix_cell_bool'][ith_geometry] += np.ones(len(cell_idxs)).tolist()  # fill matrix cells with ones
+            ith_geometry += 1
+
         # Loop over output properties
         for prop, idx in prop_idxs.items():
             # Loop over fracture and matrix cells (in that order)
