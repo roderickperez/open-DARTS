@@ -7,7 +7,9 @@ import pickle
 import pandas as pd
 import matplotlib.pyplot as plt
 
-time_data = pickle.load(open('time_data.pkl', 'rb'))
+pkl_fname = 'time_data.pkl'
+
+time_data = pickle.load(open(pkl_fname, 'rb'))
 
 ##############################################################################
 
