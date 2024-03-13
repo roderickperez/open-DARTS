@@ -83,20 +83,30 @@ reducing significantly the entry barrier for researchers and students interested
 
 ## Unified thermal-compositional PDE formulation
 
-openDARTS has a generic PDE formulation for thermal compositional flow in porous media. 
+openDARTS has a generic PDE formulation for thermal compositional flow in porous media.
 This makes possible to adjust terms in PDE to account for various physical effects.
+Darcy flow, gravity and capillary effects give rise to convective fluxes and 
+diffusive/conductive fluxes are driven by thermodynamic potentials between grid cells.  ## (chemical potential/entropy)
+In addition, a source/sink term can account for chemistry and kinetic reactions.
+
+Observing how the conservation equations for mass and energy contain similar terms, 
+one can formulate the conservation of each quantity in a control volume in a uniformly integral way.
+The nonlinear equations are discretized using a Finite Volume Method in space and with a backward Euler approximation in time.
 
 ## Operator-Based Linearization
 One of the most computationally expensive parts is a calculation of derivatives to construct the Jacobian. 
-openDARTS exploits Operator-Based Linearization (OBL), where PDE's terms can be approximated through the interpolation in a primary variables space.
-Using adaptive parametrization, derivative computation is performed at nodes of the structured grid in the primary variables space around the required point. 
-The derivatives at this point are computed via multi-linear interpolation using calculated values at the nodes. 
+openDARTS exploits Operator-Based Linearization (OBL), where the terms in the PDEs are separated into space-dependent terms $\xi$ and thermodynamic state-dependent operators $\omega$.
+The $\omega$ operators can be parameterized with respect to the nonlinear unknowns in multidimensional tables under different resolutions.
+The values and derivatives required for assembly of the linear system can be approximated through multi-linear interpolation in the primary variables space using calculated values at the nodes.
+
+Using adaptive parametrization, derivative computation is performed at nodes of the structured grid in the primary variables space around the required point.
 Re-using computed values at nodal points can significantly reduce the Jacobian construction stage, especially in case of ensemble-based simulations.
 
 ## Discretization
 
 Different grid types supported by openDARTS are useful for different applications: 
 - structured grid - for teaching
+- radial grid?
 - corner-point geometry - for industry-related applications
 - unstructured grid - for modelling of flow with complex geometries, discrete fracture networks and core scale laboratory experiments
 
