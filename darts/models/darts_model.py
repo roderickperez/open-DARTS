@@ -210,6 +210,60 @@ class DartsModel:
         self.params.newton_type = newton_type if newton_type is not None else self.params.newton_type
         self.params.newton_params = newton_params if newton_params is not None else self.params.newton_params
 
+    def run_simple(self, phsyics, days, dt_max):
+        """
+        Method to run simulation for specified time. Optional argument to specify dt to restart simulation with.
+
+        :param days: Time increment [days]
+        :type days: float
+        :param restart_dt: Restart value for timestep size [days, optional]
+        :type restart_dt: float
+        :param verbose: Switch for verbose, default is True
+        :type verbose: bool
+        """
+
+        # get current engine time
+        t = physics.engine.t
+        stop_time = t + days
+
+        # same logic as in engine.run
+        if fabs(t) < 1e-15:
+            dt = 1e-6
+
+        ts = 0
+
+        while t < stop_time:
+            converged = self.run_timestep(dt, t, verbose)
+
+            if converged:
+                t += dt
+                ts += 1
+                if verbose:
+                    print("# %d \tT = %3g\tDT = %2g\tNI = %d\tLI=%d"
+                          % (ts, t, dt, self.physics.engine.n_newton_last_dt, self.physics.engine.n_linear_last_dt))
+
+                dt = min(2 * dt, dt_max)
+
+                if t + dt > stop_time:
+                    dt = stop_time - t
+                else:
+                    prev_dt = dt
+
+            else:
+                dt /= 2
+                if verbose:
+                    print("Cut timestep to %2.10f" % dt)
+                if dt < 1e-12:
+                    break
+        # update current engine time
+        self.physics.engine.t = stop_time
+
+        if verbose:
+            print("TS = %d(%d), NI = %d(%d), LI = %d(%d)"
+                  % (physics.engine.stat.n_timesteps_total, physics.engine.stat.n_timesteps_wasted,
+                     physics.engine.stat.n_newton_total, physics.engine.stat.n_newton_wasted,
+                     physics.engine.stat.n_linear_total, physics.engine.stat.n_linear_wasted))
+
     def run(self, days: float = None, restart_dt: float = 0., verbose: bool = True):
         """
         Method to run simulation for specified time. Optional argument to specify dt to restart simulation with.
