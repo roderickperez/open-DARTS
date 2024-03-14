@@ -223,7 +223,7 @@ class UnstructDiscretizer:
 
                 print('Total number of matrix cells found: {:d}'.format(self.mat_cells_tot))
                 print('Total number of fracture cells found: {:d}'.format(self.frac_cells_tot))
-                print('Totraise ValueError("Unsupported physical tag found", type)al number of boundary faces found: {:d}'.format(self.bound_faces_tot))
+                print('Total number of boundary faces found: {:d}'.format(self.bound_faces_tot))
                 print('Total number of fracture boundary faces found: {:d}'.format(self.frac_bound_faces_tot))
                 print('Total number of output faces found: {:d}'.format(self.output_faces_tot))
 
@@ -2837,25 +2837,22 @@ class UnstructDiscretizer:
         :param skin: skin
         :return: well_index, well_index_thermal
         '''
+        if res_block < self.frac_cells_tot:
+            well_index = well_indexD = 1e+3 # set big value for well perf in fracture
+            return well_index, well_indexD
         kx = self.perm_x_cell[res_block - self.frac_cells_tot] # perm array contains only cells data
         ky = self.perm_y_cell[res_block - self.frac_cells_tot] # perm array contains only cells data
         points = self.mesh_data.points
         cells = self.mesh_data.cells
         # check the mesh contains only wedges (quads are boundary faces, so they are allowed too)
         for k in self.mesh_data.cell_data_dict['gmsh:geometrical'].keys():
-            if k == 'triangle':
+            if k == 'triangle':  # boundary faces
                 continue
             if k != 'wedge' and k != 'quad':
                 raise('Error: only wedge cells are supported in calc_equivalent_well_index', k)
-        # find index i with wedges data
-        wedge_i = 0
-        while True:
-            if cells[wedge_i].type == 'wedge':
-                break
-            wedge_i += 1
-        node_cell = cells[wedge_i].data[res_block]
-        coord_top_triangle = points[node_cell[0:3]]
-        coord_bot_triangle = points[node_cell[3:6]]
+        node_cell = self.mat_cell_info_dict[res_block - self.frac_cells_tot].coord_nodes_to_cell
+        coord_top_triangle = node_cell[:3,:]
+        coord_bot_triangle = node_cell[3:,:]
         # in counter-clockwise direction
         x1 = coord_top_triangle[0][0]
         y1 = coord_top_triangle[0][1]

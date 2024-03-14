@@ -46,7 +46,7 @@ class PhysicsBase:
 
     def __init__(self, variables: list, nc: int, phases: list, n_ops: int,
                  axes_min: value_vector, axes_max: value_vector, n_points: int,
-                 timer: timer_node, cache: bool = True):
+                 timer: timer_node, cache: bool = False):
         """
         This is the constructor of the PhysicsBase class. It creates a `simulation` timer node and initializes caching.
 

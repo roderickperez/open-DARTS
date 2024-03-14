@@ -103,7 +103,6 @@ class Model(CICDModel):
         return
 
     def set_wells(self):
-        return
         # add wells
         if True:
             self.read_and_add_perforations(self.reservoir, sch_fname=self.sch_fname, verbose=True)
@@ -179,19 +178,10 @@ class Model(CICDModel):
         nb = self.reservoir.mesh.n_blocks
         p_mesh[:self.reservoir.mesh.n_res_blocks * 2] = p_file[actnum > 0]
 
-    '''
-    def set_boundary_conditions(self):
-        for i, w in enumerate(self.reservoir.wells):
-            if "INJ" in w.name:
-                w.control = self.physics.new_bhp_inj(250, self.inj)
-            else:
-                w.control = self.physics.new_bhp_prod(100)
-    '''
     def set_well_controls(self):
-        return
         for i, w in enumerate(self.reservoir.wells):
             if "INJ" in w.name:
-                w.control = self.physics.new_bhp_inj(250, value_vector([0.999]))
+                w.control = self.physics.new_bhp_water_inj(250, 300)
             else:
                 w.control = self.physics.new_bhp_prod(100)
 
@@ -203,12 +193,11 @@ class Model(CICDModel):
         '''
         Xn = np.array(self.physics.engine.X, copy=False)
         P = Xn[0:self.reservoir.mesh.n_res_blocks * 2:2]
+        print('P range:', P.min(), P.max())
 
-        try:
-            actnum = self.reservoir.global_data['actnum']  # Struct Reservoir
-            suffix = 'struct'
-        except:
-            actnum = np.array(self.reservoir.actnum, copy=False)  # CPG Reservoir doesn't have 'global_data' object
+        actnum = self.reservoir.global_data['actnum']
+        suffix = 'struct'
+        if type(self.reservoir) == CPG_Reservoir:
             suffix = 'cpg'
 
         fname_suf = fname + '_' + suffix + '.grdecl'

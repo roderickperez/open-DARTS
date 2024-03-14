@@ -9,9 +9,8 @@ import shutil
 from datetime import datetime
 from darts.tools.plot_darts import plot_temp_darts
 import pickle
-from set_case import set_input_data
-def run_simulation(case: str):
-    input_data = set_input_data(case)
+
+def run_simulation(input_data):
     print('Running simulation for case', input_data['case_name'])
 
     # resolve the issue "Length of fracture data not equal to number of fracture cells"
@@ -44,7 +43,6 @@ def run_simulation(case: str):
     m.init(verbose=True)
 
     # Specify some other time-related properties (NOTE: all time parameters are in [days])
-    m.params.max_ts = 20  # Adjust the maximum time-step as desired (this is overwriting the max_ts specified in model.py)
     size_report_step = 30  # Size of the reporting step (when output is writen to .vtk format)
     num_report_steps = 12*50   # Number of reporting steps (see above)
     start_time = 0  # Starting time of the simulation
@@ -74,8 +72,9 @@ def run_simulation(case: str):
 
     property_array = np.empty((m.get_pressure(0).size,tot_properties))
 
-    sim_year = 0.
-    m.print_range(sim_year)
+    sim_time = 0.
+    m.print_range(sim_time)
+    m.print_range(sim_time, full=1)
 
     # Run over all reporting time-steps:
     for ith_step in range(num_report_steps):
@@ -94,9 +93,9 @@ def run_simulation(case: str):
         if ith_step % 20 == 0:
             m.output_to_vtk(ith_step=ith_step+1, output_directory=output_directory)
 
-        sim_year += size_report_step / 365.
-        m.print_range(sim_year)
-        m.print_range(sim_year, full=1)
+        sim_time += size_report_step
+        m.print_range(sim_time)
+        m.print_range(sim_time, full=1)
 
     # After the simulation, print some of the simulation timers and statistics,
     # newton iters, etc., how much time spent where:
@@ -106,9 +105,9 @@ def run_simulation(case: str):
     time_data = pd.DataFrame.from_dict(m.physics.engine.time_data)
     time_data['Time (years)'] = time_data['time']/365.
 
-    xls_fname = 'time_data.xlsx'
+    xls_fname = os.path.join(output_directory, 'time_data.xlsx')
     if os.path.exists(xls_fname):
-        ren_fname = os.path.basename(xls_fname) + '_prev.xlsx'
+        ren_fname = 'prev_' + os.path.basename(xls_fname)
         if os.path.exists(ren_fname):
             os.remove(ren_fname)
         os.renames(xls_fname, ren_fname)
@@ -119,20 +118,21 @@ def run_simulation(case: str):
     ax2 = plot_temp_darts(w.name, time_data)
     #plt.show()
 
-    pkl_fname = 'time_data.pkl'
+    pkl_fname = os.path.join(output_directory, 'time_data.pkl')
     if os.path.exists(pkl_fname):
-        ren_fname = os.path.basename(pkl_fname) + '_prev.pkl'
+        ren_fname = 'prev_' + os.path.basename(pkl_fname)
         if os.path.exists(ren_fname):
             os.remove(ren_fname)
-        os.renames(pkl_fname, os.path.basename(pkl_fname) + '_prev.pkl')
-    pickle.dump(time_data, open('time_data.pkl', 'wb'))
+        os.renames(pkl_fname, ren_fname)
+    pickle.dump(time_data, open(pkl_fname, 'wb'))
 
 if __name__ == "__main__":
 
     t1 = datetime.now()
     print(t1)
 
-    run_simulation('case_1')
+    input_data = set_input_data('case_1')
+    run_simulation(input_data)
 
     t2 = datetime.now()
     print((t2 - t1).total_seconds())

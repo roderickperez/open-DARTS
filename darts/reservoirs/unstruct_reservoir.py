@@ -126,8 +126,11 @@ class UnstructReservoir(ReservoirBase):
             print('There are at least 2 wells locating in the same grid block!!! The mesh file should be modified!')
             exit()
 
-        # well.well_head_depth = np.array(self.mesh.depth, copy=False)[cell_index]
-        # well.well_body_depth = well.well_head_depth
+        #  update well depth
+        perf_indices.append(cell_index)  #  add current cell to previous perforation list
+        # set well depth to the top perforation depth 
+        well.well_head_depth = np.array(self.mesh.depth, copy=False)[perf_indices].min()  
+        well.well_body_depth = well.well_head_depth
 
         if well_index is None or well_indexD is None:
             # calculate well index and get local index of reservoir block
@@ -274,6 +277,16 @@ class UnstructReservoir(ReservoirBase):
             else {**self.discretizer.vtk_output_cell_idxs['fracture'], **self.discretizer.vtk_output_cell_idxs['matrix']}
         geometries = output_nodes.keys()
         cell_data = {key: [[] for geometry in geometries] for key in prop_idxs.keys()}
+
+        # Distinguish fracture cells from matrix cells
+        cell_data['matrix_cell_bool'] = [[] for geometry in geometries]
+        ith_geometry = 0
+        for geometry, cell_idxs in self.discretizer.vtk_output_cell_idxs['fracture'].items():
+            cell_data['matrix_cell_bool'][ith_geometry] += np.zeros(len(cell_idxs)).tolist()  # fill fracture cells with zeros
+            ith_geometry += 1
+        for geometry, cell_idxs in self.discretizer.vtk_output_cell_idxs['matrix'].items():
+            cell_data['matrix_cell_bool'][ith_geometry] += np.ones(len(cell_idxs)).tolist()  # fill matrix cells with ones
+            ith_geometry += 1
 
         # Loop over output properties
         for prop, idx in prop_idxs.items():

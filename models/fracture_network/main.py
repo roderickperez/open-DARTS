@@ -2,6 +2,7 @@ from multiprocessing import freeze_support
 from datetime import datetime
 from main_gen_mesh import generate_mesh
 from main_simulation import run_simulation
+from set_case import set_input_data
 
 def run_test(args: list = []):
     if len(args) > 1:
@@ -13,14 +14,20 @@ def run_test(args: list = []):
 def test(case, overwrite='0'):
     freeze_support()
 
+    input_data = set_input_data(case)
+
     t1 = datetime.now()
-    print(t1)
-
-    generate_mesh(case=case)
-    run_simulation(case=case)
-
+    generate_mesh(input_data)
     t2 = datetime.now()
-    print((t2-t1).total_seconds())
+    mesh_gen_timer = (t2 - t1).total_seconds()
+
+    t1 = datetime.now()
+    run_simulation(input_data)
+    t2 = datetime.now()
+    sim_timer = (t2 - t1).total_seconds()
+
+    print('Mesh generation time:', mesh_gen_timer, 'sec.')
+    print('Simulation time:', sim_timer, 'sec.')
 
     return 0, 0.0
 
@@ -28,6 +35,7 @@ if __name__ == "__main__":
     #cases_list = ['case_1']
     #cases_list = ['case_1_burden']
     #cases_list = ['case_1_burden_2']
+    #cases_list = ['whitby']
     cases_list = ['case_1', 'case_1_burden', 'case_1_burden_2']
     for case in cases_list:
         test(case)
