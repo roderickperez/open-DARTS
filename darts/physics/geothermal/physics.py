@@ -19,7 +19,7 @@ class Geothermal(PhysicsBase):
     """
 
     def __init__(self, timer: timer_node, n_points: int, min_p: float, max_p: float, min_e: float, max_e: float,
-                 mass_rate: bool = False, cache: bool = True):
+                 mass_rate: bool = False, cache: bool = False):
         """
         This is the constructor of the Geothermal Physics class.
 
