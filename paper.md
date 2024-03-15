@@ -69,14 +69,10 @@ highly flexible finite-volume spatial approximation, operator-based linearizatio
 > Illustrates the research purpose of the software and places it in the context of related work (other software packages doing similar simulations with references and how is DARTS special. Also list here other software packages that are pertinent to DARTS, for example dependencies, darts-flash?).
 
 The openDARTS framework is fully validated and benchmarked for geothermal, CO2 sequestration, gas storage, hydrocarbon production and induced seismicity applications. 
-The framework design and parallel implementations for CPU and GPU architectures provides an exceptional level of flexibility and performance: 
-up to two orders of magnitude faster than the best academic and commercial software analogues.
-> @Luisa: Should we add some references here?
-
-Advanced inverse capabilities based on adjoint gradients allowed to effectively address data assimilation, risk analysis and uncertainty quantification for energy transition applications.
+The framework design and parallel implementations for CPU and GPU architectures provides an exceptional level of flexibility and performance. Furthermore, advanced inverse capabilities based on adjoint gradients allowed to effectively address data assimilation, risk analysis and uncertainty quantification for energy transition applications.
 
 openDARTS is designed to use Python as its user interface, which makes it widely used in educational and research institutions for both introductory and advanced programming. 
-It is a reservoir simulators with advanced capabilities that is not reliant on proprietary software, 
+It is a reservoir simulator with advanced capabilities that is not reliant on proprietary software, 
 reducing significantly the entry barrier for researchers and students interested in energy transition applications for the subsurface.
 
 # Key features
@@ -115,7 +111,7 @@ There are two-point and multi-point flux approximations implemented in openDARTS
 
 ## HPC
 
-The most computationally expensive part of openDARTS is written in C++. 
+The most computationally expensive part of openDARTS is written in C++.
 This allows the user to use parallelization using openMP for multi-core systems and GPU acceleration using NVIDIA CUDA.
 
 ## Python
@@ -138,6 +134,9 @@ Inverse modeling can be notably time-consuming, particularly when employing grad
 The implementation of the adjoint method in openDARTS significantly enhances its efficiency in computing the required gradients for inverse modeling or history matching processes. 
 Moreover, the inverse modeling module of openDARTS accommodates various types of observation data. 
 These observations includes well rates, well temperatures, BHP, time-lapse temperature distributions, and any custom outputs definable in the form of operators within openDARTS.
+
+# Contributions ?
+
 
 # Acknowledgements
 
