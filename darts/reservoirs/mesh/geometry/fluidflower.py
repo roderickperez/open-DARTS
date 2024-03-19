@@ -932,57 +932,6 @@ class FluidFlower(Shape):
                          ]
 
 
-        # spe11a point surfaces
-        # Facies 7 - 1-2
-        # Facies 5 - 3-7
-        # Facies 1 - 8-11
-        # Facies 4 - 12-18
-        # Facies 3 - 19-24
-        # Facies 6 - 25-27
-        # Facies 2 - 28-32
-        # self.surfaces = [Surface(1,
-        #                          points=[251, 252, 258, 202, 203, 204, 205, 150, 151, 240, 241, 242, 243, 244, 245, 246,
-        #                                  247, 248, 249, 250, 251]),
-        #                  Surface(2,
-        #                          points=[257, 276, 265, 35, 36, 266, 112, 17, 108, 271, 270, 94, 264, 16, 13, 65, 263,
-        #                                  15, 74, 82, 14, 262, 275, 93, 257]),
-        #                  Surface(3,
-        #                          points=[239, 259, 252, 251, 250, 249, 248, 247, 246, 245, 244, 243, 242, 241, 240, 151,
-        #                                  164, 272, 273, 163, 172, 162, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229,
-        #                                  230, 231, 232, 234, 235, 236, 237, 238, 239]),
-        #                  Surface(4, points=[150, 173, 149, 201, 200, 199, 202, 203, 204, 205, 150]),
-        #                  Surface(5, points=[]),
-        #                  Surface(6, points=[]),
-        #                  Surface(7, points=[]),
-        #                  Surface(8, points=[]),
-        #                  Surface(9, points=[]),
-        #                  Surface(10, points=[]),
-        #                  Surface(11, points=[]),
-        #                  Surface(12, points=[]),
-        #                  Surface(13, points=[]),
-        #                  Surface(14, points=[]),
-        #                  Surface(15, points=[]),
-        #                  Surface(16, points=[]),
-        #                  Surface(17, points=[]),
-        #                  Surface(18, points=[]),
-        #                  Surface(19, points=[]),
-        #                  Surface(20, points=[]),
-        #                  Surface(21, points=[]),
-        #                  Surface(22, points=[]),
-        #                  Surface(23, points=[]),
-        #                  Surface(24, points=[]),
-        #                  Surface(25, points=[]),
-        #                  Surface(26, points=[]),
-        #                  Surface(27, points=[]),
-        #                  Surface(28, points=[]),
-        #                  Surface(29, points=[]),
-        #                  Surface(30, points=[]),
-        #                  Surface(31, points=[]),
-        #                  Surface(32, points=[]),
-
-
-
-
         self.connect_points()
 
         self.volumes = []
