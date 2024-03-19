@@ -111,7 +111,7 @@ class UnstructReservoir(ReservoirBase):
         self.volume[self.right_boundary_cells] = self.volume[self.right_boundary_cells] * 1e8
         return
 
-    def add_perforation(self, well_name: str, cell_index: Union[int, tuple], well_radius: float = 0.1524,
+    def add_perforation(self, well_name: str, cell_index: int, well_radius: float = 0.1524,
                         well_index: float = None, well_indexD: float = None, segment_direction: str = 'z_axis',
                         skin: float = 0, multi_segment: bool = False, verbose: bool = False):
         """
@@ -127,7 +127,7 @@ class UnstructReservoir(ReservoirBase):
             exit()
 
         #  update well depth
-        perf_indices.append(cell_index)  #  add current cell to previous perforation list
+        perf_indices = np.append(perf_indices, cell_index).astype(int)  # add current cell to previous perforation list
         # set well depth to the top perforation depth 
         well.well_head_depth = np.array(self.mesh.depth, copy=False)[perf_indices].min()  
         well.well_body_depth = well.well_head_depth
