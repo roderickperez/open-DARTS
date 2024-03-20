@@ -1,5 +1,5 @@
 import numpy as np
-from keyword_file_tools import save_few_keywords
+from darts.tools.keyword_file_tools import save_few_keywords
 
 def gen_cpg_grid(nx : int, ny : int, nz : int, 
                  dx : float, dy : float, dz : float,
@@ -18,7 +18,8 @@ def gen_cpg_grid(nx : int, ny : int, nz : int,
     :param permy: permeability of the reservoir blocks in the y-direction (scalar) [mD]
     :param permz: permeability of the reservoir blocks in the z-direction (scalar) [mD]
     :param poro: porosity of the reservoir blocks (scalar)
-    :param filename: filename to write text output in GRDECL format 
+    :param gridname: filename to write text output in GRDECL format containing coordinate information
+    :param propname: filename to write text output in GRDECL format containing static reservoir properties
     :param burden_dz: array of thickness for over and under burden layers. If None - do not add burden layers
     :param start_x: mesh lower bound coordinate by X [m]
     :param start_y: mesh lower bound coordinate by Y [m]
