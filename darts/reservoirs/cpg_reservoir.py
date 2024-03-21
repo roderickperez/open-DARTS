@@ -195,6 +195,13 @@ class CPG_Reservoir(ReservoirBase):
         bnd_faces_num = res[0]
         #self.discr_mesh.print_elems_nodes()
 
+        # store min max coordinates
+        nodes_3d = np.array(ugrid.node_coordinates, copy=False)
+        nodes_3d = nodes_3d.reshape(number_of_nodes, 3)
+        self.x_min, self.x_max = nodes_3d[:, 0].min(), nodes_3d[:, 0].max()
+        self.y_min, self.y_max = nodes_3d[:, 1].min(), nodes_3d[:, 1].max()
+        self.z_min, self.z_max = nodes_3d[:, 2].min(), nodes_3d[:, 2].max()
+
         self.discr_mesh.construct_local_global(global_cell)
 
         self.discr_mesh.cpg_cell_props(number_of_nodes, number_of_cells, number_of_faces,

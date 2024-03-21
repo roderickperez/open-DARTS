@@ -111,7 +111,7 @@ class UnstructReservoir(ReservoirBase):
         self.volume[self.right_boundary_cells] = self.volume[self.right_boundary_cells] * 1e8
         return
 
-    def add_perforation(self, well_name: str, cell_index: Union[int, tuple], well_radius: float = 0.1524,
+    def add_perforation(self, well_name: str, cell_index: int, well_radius: float = 0.1524,
                         well_index: float = None, well_indexD: float = None, segment_direction: str = 'z_axis',
                         skin: float = 0, multi_segment: bool = False, verbose: bool = False):
         """
@@ -127,7 +127,7 @@ class UnstructReservoir(ReservoirBase):
             exit()
 
         #  update well depth
-        perf_indices.append(cell_index)  #  add current cell to previous perforation list
+        perf_indices = np.append(perf_indices, cell_index).astype(int)  # add current cell to previous perforation list
         # set well depth to the top perforation depth 
         well.well_head_depth = np.array(self.mesh.depth, copy=False)[perf_indices].min()  
         well.well_body_depth = well.well_head_depth
@@ -189,9 +189,17 @@ class UnstructReservoir(ReservoirBase):
             mesh_geom_dtype = np.float32
             matrix_props = {'poro': self.poro, 'permx': self.permx, 'permy': self.permy, 'permz': self.permz,
                             'hcap': self.hcap, 'rcond': self.rcond, 'op_num': self.op_num,
-                            # 'depth': self.depth, 'volume': self.volume
                             }
+            # order of values in volume_all_cells: FRACTURE MATRIX
+            matrix_props['volume'] = self.discretizer.volume_all_cells[self.discretizer.frac_cells_tot:]
+            # order of values in depth_all_cells: FRACTURE MATRIX BOUNDARY
+            matrix_props['depth']  = self.discretizer.depth_all_cells[self.discretizer.frac_cells_tot:self.discretizer.frac_cells_tot+self.discretizer.mat_cells_tot]
+            matrix_props['center_x'] = self.discretizer.centroid_all_cells[self.discretizer.frac_cells_tot:][:,0]
+            matrix_props['center_y'] = self.discretizer.centroid_all_cells[self.discretizer.frac_cells_tot:][:, 1]
+            matrix_props['center_z'] = self.discretizer.centroid_all_cells[self.discretizer.frac_cells_tot:][:, 2]
             frac_props = {'frac_aper': self.frac_aper}
+            #frac_props['volume'] = self.discretizer.volume_all_cells[:self.discretizer.frac_cells_tot]
+            #frac_props['depth']  = self.discretizer.depth_all_cells[:self.discretizer.frac_cells_tot]
 
             # Create empty lists for each geometry type - {**{}} operator merges dictionaries
             output_nodes = self.discretizer.vtk_output_nodes_to_cells['matrix'] if not self.discretizer.frac_cells_tot \
