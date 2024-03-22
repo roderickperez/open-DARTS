@@ -109,6 +109,10 @@ Different grid types supported by openDARTS are useful for different application
 openDARTS uses Finite Volume Method for space and Fully Implicit Method for time discretization.
 There are two-point and multi-point flux approximations implemented in openDARTS.
 
+## Geomechanics
+
+openDARTS has a hydro-mechanical coupling feature for geomechanical modelling. The discretization scheme is based on a Finite Volume Method using a single collocated grid for both physics types. openDARTS provides poroelastic displacements and stresses evaluation in order to address problems related to induced seismicity. The multi-point approximation used for both flux and stresses allows to accurately compute them on complicated meshes. There are examples of openDARTS applications to hydro-mechanical problems in both field and core scales (for Lab experiment modelling).
+
 ## HPC
 
 The most computationally expensive part of openDARTS is written in C++.
