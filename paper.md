@@ -60,16 +60,15 @@ bibliography: paper.bib
 
 Open Delft Advanced Research Terra Simulator [@openDARTS_2023] is a simulation framework for forward and inverse modelling and 
 uncertainty quantification of multi-physics processes in geo-engineering applications such as geothermal, CO2 sequestration, 
-water pumping, and hydrogen storage. openDARTS has a hybrid design combining C++ and Python code. 
-It utilizes advanced numerical methods such as fully implicit thermo-hydro-mechanical-chemical formulation, 
-highly flexible finite-volume spatial approximation, operator-based linearization for nonlinear and physics-based preconditioning for linear solutions.
+water pumping, and hydrogen storage. To efficiently achieve high levels of accuracy on complex geometries, it utilizes advanced numerical methods such as fully implicit thermo-hydro-mechanical-chemical formulation, a highly flexible finite-volume spatial approximation, operator-based linearization for nonlinear terms, and efficient physics-based preconditioners. openDARTS goals are computational efficiency, expandability, and easiness of use. For this reason, openDARTS is based on a hybrid design with an efficient core C++ implementation wrapped around a highly customisable and easy to use Python code. 
+
 
 # Statement of need
 
 > Illustrates the research purpose of the software and places it in the context of related work (other software packages doing similar simulations with references and how is DARTS special. Also list here other software packages that are pertinent to DARTS, for example dependencies, darts-flash?).
 
 The openDARTS framework is fully validated and benchmarked for geothermal, CO2 sequestration, gas storage, hydrocarbon production and induced seismicity applications. 
-The framework design and parallel implementations for CPU and GPU architectures provides an exceptional level of flexibility and performance. Furthermore, advanced inverse capabilities based on adjoint gradients allowed to effectively address data assimilation, risk analysis and uncertainty quantification for energy transition applications.
+The framework design and parallel implementations for CPU and GPU architectures provides an exceptional level of flexibility and performance. Furthermore, advanced inverse capabilities based on adjoint gradients allows openDARTS to effectively address data assimilation, risk analysis and uncertainty quantification for energy transition applications.
 
 openDARTS is designed to use Python as its user interface, which makes it widely used in educational and research institutions for both introductory and advanced programming. 
 It is a reservoir simulator with advanced capabilities that is not reliant on proprietary software, 
