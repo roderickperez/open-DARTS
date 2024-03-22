@@ -9,29 +9,27 @@ tags:
 authors:
   - name: Denis Voskov
     orcid: 0000-0002-5399-1755
-    equal-contrib: true
     affiliation: "1, 2" # (Multiple affiliations must be quoted)
   - name: Xiaocong Lyu
-    equal-contrib: true # (This is how you can denote equal contributions between multiple authors)
     affiliation: 1
   - name: Stephan de Hoop
     affiliation: 1
   - name: Mark Khait
-    equal-contrib: true
     affiliation: 1
   - name: Aleks Novikov
     affiliation: 1
   - name: Michiel Wapperom
     affiliation: 1
     orcid: 0000-0003-3432-4233
-    equal-contrib: true
   - name: Ilshat Saifullin
     orcid: 0009-0001-0089-8629 
     affiliation: 1
   - name: Xiaoming Tian
     affiliation: "5, 1"
     orcid: 0000-0003-0642-6064
-    equal-contrib: true
+  - name: Gabriel Serrão Seabra
+    orcid: 0009-0002-0558-8117
+    affiliation: "1, 6"
   - name: Luisa Orozco
     orcid: 0000-0002-9153-650X
     affiliation: 3
@@ -50,6 +48,8 @@ affiliations:
    index: 4
  - name: Guangzhou Institute of Energy Conversion, Chinese Academy of Sciences, Guangzhou, China
    index: 5
+ - name: Petrobras, Petr\'oleo Brasileiro S.A., Rio de Janeiro, Brazil
+   index: 6
 date: 1 April 2024
 bibliography: paper.bib
 ---
@@ -89,6 +89,7 @@ one can formulate the conservation of each quantity in a control volume in a uni
 The nonlinear equations are discretized using a Finite Volume Method in space and with a backward Euler approximation in time.
 
 ## Operator-Based Linearization
+
 One of the most computationally expensive parts is a calculation of derivatives to construct the Jacobian. 
 openDARTS exploits Operator-Based Linearization (OBL), where the terms in the PDEs are separated into space-dependent terms $\xi$ and thermodynamic state-dependent operators $\omega$.
 The $\omega$ operators can be parameterized with respect to the nonlinear unknowns in multidimensional tables under different resolutions.
@@ -101,9 +102,9 @@ Re-using computed values at nodal points can significantly reduce the Jacobian c
 
 Different grid types supported by openDARTS are useful for different applications: 
 - structured grid - for teaching
-- radial grid?
+- radial grid
 - corner-point geometry - for industry-related applications
-- unstructured grid - for modelling of flow with complex geometries, discrete fracture networks and core scale laboratory experiments
+- unstructured grid - for modelling of flow with complex geometries, discrete fracture networks and core scale laboratory experiments.
 
 openDARTS uses Finite Volume Method for space and Fully Implicit Method for time discretization.
 There are two-point and multi-point flux approximations implemented in openDARTS.
@@ -126,16 +127,14 @@ There are several benefits of that compared to a fully C++ code.
 - Coupling with other Python-based numerical modeling software.
 - The time-step loop is written in Python, so one can adjust it to specific needs.
 
-This makes openDARTS attractive for teaching and for users unfamiliar with C++ language.
+This makes openDARTS suitable for teaching and for users unfamiliar with C++ language.
 
-## Inverse modelling
-Inverse modeling can be notably time-consuming, particularly when employing gradient-based methods. 
-The implementation of the adjoint method in openDARTS significantly enhances its efficiency in computing the required gradients for inverse modeling or history matching processes. 
-Moreover, the inverse modeling module of openDARTS accommodates various types of observation data. 
-These observations includes well rates, well temperatures, BHP, time-lapse temperature distributions, and any custom outputs definable in the form of operators within openDARTS.
+## Inverse modeling
 
-# Contributions ?
-
+Inverse modeling methods necessitate a substantial number of simulations to accurately calibrate model parameters against observed data. Such algorithms are highly computationally intensive, particularly when employing gradient-based methods.
+The implementation of the adjoint method in openDARTS significantly enhances its efficiency in computing the required gradients for inverse modeling or history matching processes.
+Moreover, the flexibility of openDARTS's Python interface, significantly simplifies the coupling process with various data assimilation algorithms.
+The inverse modeling module of openDARTS accommodates various types of observation data such us: well rates, well temperatures, BHP, time-lapse temperature distributions, and any custom outputs definable in the form of operators within openDARTS.
 
 # Acknowledgements
 
