@@ -112,9 +112,12 @@ class Model(DartsModel):
         for bnd_tag in [1, 2, 3, 4, 5, 6]:
             boundary_cells += self.reservoir.discretizer.find_cells(bnd_tag, 'face')
         boundary_cells = np.array(boundary_cells) + self.reservoir.discretizer.frac_cells_tot
-        bnd_vol = 1e+8
-        self.reservoir.discretizer.volume_all_cells[boundary_cells] = bnd_vol  # for vtk output
-        np.array(self.reservoir.mesh.volume, copy=False)[boundary_cells] = bnd_vol
+        #bnd_vol = 1e+8
+        bnd_vol_mult = 5
+        # for vtk output
+        self.reservoir.discretizer.volume_all_cells[boundary_cells] *= bnd_vol_mult  # = bnd_vol
+        # for engines
+        np.array(self.reservoir.mesh.volume, copy=False)[boundary_cells] *= bnd_vol_mult # = bnd_vol
 
         # initialize physics
         self.cell_property = ['pressure', 'enthalpy', 'temperature']
