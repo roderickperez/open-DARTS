@@ -14,8 +14,9 @@ def input_data_case_whitby():
     input_data['char_len'] = 16  # near fractures (characteristic length for cleaning and mesh generation) [m]
     input_data['char_len_boundary'] = input_data['char_len']
 
-    # do not use cleaned mesh
+    # use cleaned mesh
     input_data['mesh_prefix'] = 'mergefac_0.86_clean_lc'
+    input_data['mesh_clean'] = True  # need gmsh installed and callable from command line in order to mesh
 
     # extrusion - number of layers by Z axis
     input_data['rsv_layers'] = 1
