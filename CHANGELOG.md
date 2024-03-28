@@ -1,6 +1,6 @@
-# 1.1.0 [16-02-2024]
+# 1.1.0 [21-02-2024]
 - Migrated to cmake build system [(See details)](https://gitlab.com/open-darts/open-darts/-/merge_requests/58). We kept the old Visual Studio projects, but they will be removed later.
-- Well rates in SuperEngine ("Compositional") are defined in reservoir conditions now, the units are Kmol/day
+- Well rates in SuperEngine ("Compositional") are defined in reservoir conditions now, the units are kmol/day
 - VTK output unified for all the reservoir classes [(See details)](https://gitlab.com/open-darts/open-darts/-/merge_requests/79)
 - Discrete Fracture mesh generation tool and model added [(See details)](https://gitlab.com/open-darts/open-darts/-/merge_requests/79)
 - Windows build script supports optional arguments  [(See details)](https://gitlab.com/open-darts/open-darts/-/merge_requests/82)

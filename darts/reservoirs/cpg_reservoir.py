@@ -195,6 +195,13 @@ class CPG_Reservoir(ReservoirBase):
         bnd_faces_num = res[0]
         #self.discr_mesh.print_elems_nodes()
 
+        # store min max coordinates
+        nodes_3d = np.array(ugrid.node_coordinates, copy=False)
+        nodes_3d = nodes_3d.reshape(number_of_nodes, 3)
+        self.x_min, self.x_max = nodes_3d[:, 0].min(), nodes_3d[:, 0].max()
+        self.y_min, self.y_max = nodes_3d[:, 1].min(), nodes_3d[:, 1].max()
+        self.z_min, self.z_max = nodes_3d[:, 2].min(), nodes_3d[:, 2].max()
+
         self.discr_mesh.construct_local_global(global_cell)
 
         self.discr_mesh.cpg_cell_props(number_of_nodes, number_of_cells, number_of_faces,
@@ -417,12 +424,15 @@ class CPG_Reservoir(ReservoirBase):
 
         # add completion only if target block is active
         if res_block_local > -1:
-            if len(well.perforations) == 0:
+            if len(well.perforations) == 0:  # if adding the first perforation
                 well.well_head_depth = self.depth_all_cells[res_block_local]
                 well.well_body_depth = well.well_head_depth
                 dx, dy, dz = self.discr_mesh.calc_cell_sizes(i - 1, j - 1, k - 1)
                 well.segment_depth_increment = dz
                 well.segment_volume *= well.segment_depth_increment
+            else:  # update well depth
+                well.well_head_depth = min(well.well_head_depth, self.depth_all_cells[res_block_local])
+                well.well_body_depth = well.well_head_depth
             for p in well.perforations:
                 if p[0] == well_block and p[1] == res_block_local:
                     print('Neglected duplicate perforation for well %s to block [%d, %d, %d]' % (well.name, i, j, k))
@@ -493,14 +503,19 @@ class CPG_Reservoir(ReservoirBase):
                     elif type(data) is float:
                         cell_data[key] = data * np.ones(self.nodes_tot, dtype=mesh_geom_dtype)
                 else:
-                    cell_data[key] = np.array(data)# * np.ones(self.discretizer.nodes_tot, dtype=mesh_geom_dtype)
+                    cell_data[key] = np.array(data)
             mesh_filename = output_directory + '/mesh'
 
             if self.vtk_grid_type == 0:
                 vtk_file_name = gridToVTK(mesh_filename, self.vtk_x, self.vtk_y, self.vtk_z, cellData=cell_data)
             else:
+                g_to_l = np.array(self.discr_mesh.global_to_local, copy=False)
                 for key, value in cell_data.items():
-                    self.vtkobj.AppendScalarData(key, cell_data[key][self.global_data['actnum'] == 1])
+                    if cell_data[key].size == g_to_l.size:
+                        a = cell_data[key][g_to_l >= 0]
+                    else:
+                        a = cell_data[key]
+                    self.vtkobj.AppendScalarData(key, a)
 
                 vtk_file_name = self.vtkobj.Write2VTU(mesh_filename)
                 if len(self.vtk_filenames_and_times) == 0:
@@ -523,14 +538,22 @@ class CPG_Reservoir(ReservoirBase):
         for prop, idx in prop_idxs.items():
             local_data = data[idx, :]
             global_array = np.ones(self.nodes_tot, dtype=local_data.dtype) * np.nan
-            global_array[self.local_to_global] = local_data
+            dummy_zeros = np.zeros(self.discr_mesh.n_cells - self.mesh.n_res_blocks) # workaround for the issue in case of cells without active neighbours
+            v = np.append(local_data[:self.mesh.n_res_blocks], dummy_zeros)
+            global_array[self.discr_mesh.local_to_global] = v[:]
             cell_data[prop] = global_array
 
         if self.vtk_grid_type == 0:
             vtk_file_name = gridToVTK(vtk_file_name, self.vtk_x, self.vtk_y, self.vtk_z, cellData=cell_data)
         else:
             for key, value in cell_data.items():
-                self.vtkobj.AppendScalarData(key, cell_data[key][self.global_data['actnum'] == 1])
+
+                g_to_l = np.array(self.discr_mesh.global_to_local, copy=False)
+                if cell_data[key].size == g_to_l.size:
+                    a = cell_data[key][g_to_l >= 0]
+                else:
+                    a = cell_data[key]
+                self.vtkobj.AppendScalarData(key, a)
 
             vtk_file_name = self.vtkobj.Write2VTU(vtk_file_name)
             if len(self.vtk_filenames_and_times) == 0:
