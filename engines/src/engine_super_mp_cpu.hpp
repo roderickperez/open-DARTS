@@ -110,7 +110,7 @@ public:
   int assemble_jacobian_array(value_t dt, std::vector<value_t> &X, csr_matrix_base *jacobian, std::vector<value_t> &RHS);
 
 
-  int run_single_newton_iteration(value_t deltat);
+  int assemble_linear_system(value_t deltat);
   //double calc_newton_residual();
 
 
