@@ -24,7 +24,6 @@ class Model(CICDModel):
 
         self.set_physics()
         self.set_reservoir(mesh_file)
-        self.set_wells()
 
         self.params.first_ts = 0.0001
         self.params.mult_ts = 2
