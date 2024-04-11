@@ -8,6 +8,7 @@ from examples.case_3 import input_data_case_3
 from examples.case_4 import input_data_case_4
 from examples.case_4 import input_data_case_4_no_conduction
 from examples.case_4 import input_data_case_4_small_capacity
+from examples.case_5 import input_data_case_5
 from examples.whitby import input_data_case_whitby
 
 def set_input_data(case: str):
@@ -35,6 +36,8 @@ def set_input_data(case: str):
         input_data = input_data_case_4_no_conduction()
     elif case == 'case_4_small_capacity':
         input_data = input_data_case_4_small_capacity()
+    elif case == 'case_5':
+        input_data = input_data_case_5()
     elif case == 'whitby':
         input_data = input_data_case_whitby()
     else:
