@@ -9,7 +9,7 @@ set -e
 Help_Info()
 {
   echo "$(basename "$0") [-h] [-c] [-t] [-w] [-m] [-r] [-a] [-b BOS_SOLVER_DIRECTORY] [-d INSTALL CONFIGURATION] [-j NUM THREADS] [-g g++-13]"
-  echo "   Script to install opendarts-linear_solvers on macOS."
+  echo "   Script to install opendarts on unix (linux and macOS)."
   echo "USAGE: "
   echo "   -h : displays this help menu."
   echo "   -c : cleans up build to prepare a new fresh build. Default: don't clean"
@@ -101,7 +101,7 @@ else
         # clean-up previous versions.
         rm -rf thirdparty/eigen thirdparty/pybind11
         git submodule sync --recursive
-        git submodule update --recursive --remote --init
+        git submodule update --recursive --init
         echo -e "\n- Update submodules: DONE! \n"
 
         # Install requirements

@@ -87,20 +87,26 @@ class CPG_Reservoir(ReservoirBase):
         self.set_arrays(self.arrays)
 
         self.discretize_cpg()
-        # self.discr.write_mpfa_results('conn.dat')
+        # self.discretizer.write_mpfa_results('conn.dat')
 
-        mpfa_tran = np.array(self.discr.flux_vals, copy=False)
-        mpfa_tranD = np.array(self.discr.flux_vals_thermal, copy=False)
-        ids = np.array(self.discr.get_one_way_tpfa_transmissibilities())
-        cell_m = np.array(self.discr.cell_m)[ids]
-        cell_p = np.array(self.discr.cell_p)[ids]
+        self.global_data = {}
+        self.global_data['volume'] = self.volume_all_cells[:self.discr_mesh.n_cells]
+        self.global_data['depth'] = self.depth_all_cells[:self.discr_mesh.n_cells]
+        self.global_data['global_to_local'] = self.discr_mesh.global_to_local
+        self.global_data['actnum'] = self.actnum
+
+        mpfa_tran = np.array(self.discretizer.flux_vals, copy=False)
+        mpfa_tranD = np.array(self.discretizer.flux_vals_thermal, copy=False)
+        ids = np.array(self.discretizer.get_one_way_tpfa_transmissibilities())
+        cell_m = np.array(self.discretizer.cell_m)[ids]
+        cell_p = np.array(self.discretizer.cell_p)[ids]
         tran = mpfa_tran[::2][ids]
         tranD = mpfa_tranD[1::2][ids]
 
-        # self.discr.write_tran_cube('tran_cpg.grdecl', 'nnc_cpg.txt')
+        # self.discretizer.write_tran_cube('tran_cpg.grdecl', 'nnc_cpg.txt')
         if self.faultfile is not None:
             self.apply_fault_mult(self.faultfile, cell_m, cell_p, mpfa_tran, ids)
-            # self.discr.write_tran_cube('tran_faultmult.grdecl', 'nnc_faultmult.txt')
+            # self.discretizer.write_tran_cube('tran_faultmult.grdecl', 'nnc_faultmult.txt')
 
         tran = np.fabs(tran)
         self.mesh.init(darts.engines.index_vector(cell_m), darts.engines.index_vector(cell_p),
@@ -189,6 +195,13 @@ class CPG_Reservoir(ReservoirBase):
         bnd_faces_num = res[0]
         #self.discr_mesh.print_elems_nodes()
 
+        # store min max coordinates
+        nodes_3d = np.array(ugrid.node_coordinates, copy=False)
+        nodes_3d = nodes_3d.reshape(number_of_nodes, 3)
+        self.x_min, self.x_max = nodes_3d[:, 0].min(), nodes_3d[:, 0].max()
+        self.y_min, self.y_max = nodes_3d[:, 1].min(), nodes_3d[:, 1].max()
+        self.z_min, self.z_max = nodes_3d[:, 2].min(), nodes_3d[:, 2].max()
+
         self.discr_mesh.construct_local_global(global_cell)
 
         self.discr_mesh.cpg_cell_props(number_of_nodes, number_of_cells, number_of_faces,
@@ -204,17 +217,17 @@ class CPG_Reservoir(ReservoirBase):
 
         self.discr_mesh.generate_adjacency_matrix()
 
-        self.discr = Discretizer()
+        self.discretizer = Discretizer()
         self.cpp_bc = self.set_boundary_conditions(displaced_tags)
-        self.discr.set_mesh(self.discr_mesh)
-        self.discr.init()
+        self.discretizer.set_mesh(self.discr_mesh)
+        self.discretizer.init()
 
         self.volume_all_cells = np.array(self.discr_mesh.volumes, copy=False)
         self.depth_all_cells = np.array(self.discr_mesh.depths, copy=False)
         self.actnum = np.array(self.discr_mesh.actnum, copy=False)
         # self.centroids = np.array(self.discr_mesh.centroids, copy=False)
 
-        self.discr.set_permeability(self.permx_cpp, self.permy_cpp, self.permz_cpp)
+        self.discretizer.set_permeability(self.permx_cpp, self.permy_cpp, self.permz_cpp)
 
         n_all = self.nx * self.ny * self.nz
         print("Number of all cells    = ", n_all)
@@ -222,12 +235,12 @@ class CPG_Reservoir(ReservoirBase):
 
         #poro could be modified here
         #self.poro[poro < 1e-2] = 1e-2
-        self.discr.set_porosity(self.discr_mesh.poro)
-        self.mesh.poro = darts.engines.value_vector(self.discr.poro)
+        self.discretizer.set_porosity(self.discr_mesh.poro)
+        self.mesh.poro = darts.engines.value_vector(self.discretizer.poro)
         self.poro = np.array(self.discr_mesh.poro, copy=False)
 
         # calculate transmissibilities
-        self.discr.calc_tpfa_transmissibilities(displaced_tags)
+        self.discretizer.calc_tpfa_transmissibilities(displaced_tags)
         return
 
     def calc_well_index(self, i, j, k, well_radius=0.1524, segment_direction='z_axis', skin=0):
@@ -411,12 +424,15 @@ class CPG_Reservoir(ReservoirBase):
 
         # add completion only if target block is active
         if res_block_local > -1:
-            if len(well.perforations) == 0:
+            if len(well.perforations) == 0:  # if adding the first perforation
                 well.well_head_depth = self.depth_all_cells[res_block_local]
                 well.well_body_depth = well.well_head_depth
                 dx, dy, dz = self.discr_mesh.calc_cell_sizes(i - 1, j - 1, k - 1)
                 well.segment_depth_increment = dz
                 well.segment_volume *= well.segment_depth_increment
+            else:  # update well depth
+                well.well_head_depth = min(well.well_head_depth, self.depth_all_cells[res_block_local])
+                well.well_body_depth = well.well_head_depth
             for p in well.perforations:
                 if p[0] == well_block and p[1] == res_block_local:
                     print('Neglected duplicate perforation for well %s to block [%d, %d, %d]' % (well.name, i, j, k))
@@ -431,18 +447,18 @@ class CPG_Reservoir(ReservoirBase):
         return
 
     def write_mpfa_conn_to_file(self, path = 'mpfa_conn.dat'):
-        stencil = np.array(self.discr.flux_stencil, copy=False)
-        trans = np.array(self.discr.flux_vals, copy=False)
+        stencil = np.array(self.discretizer.flux_stencil, copy=False)
+        trans = np.array(self.discretizer.flux_vals, copy=False)
 
 
         f = open(path, 'w')
-        f.write(str(len(self.discr.cell_m)) + '\n')
+        f.write(str(len(self.discretizer.cell_m)) + '\n')
 
-        for conn_id in range(len(self.discr.cell_m)):
-            cells = stencil[self.discr.flux_offset[conn_id]:self.discr.flux_offset[conn_id + 1]]
-            coefs= trans[self.discr.flux_offset[conn_id]:self.discr.flux_offset[conn_id + 1]]
-            #row = str(self.discr.cell_m[conn_id]) + '\t' + str(self.discr.cell_p[conn_id])
-            row = str(self.discr.cell_m[conn_id]) + '\t' + str(self.discr.cell_p[conn_id]) + '\t\t'
+        for conn_id in range(len(self.discretizer.cell_m)):
+            cells = stencil[self.discretizer.flux_offset[conn_id]:self.discretizer.flux_offset[conn_id + 1]]
+            coefs= trans[self.discretizer.flux_offset[conn_id]:self.discretizer.flux_offset[conn_id + 1]]
+            #row = str(self.discretizer.cell_m[conn_id]) + '\t' + str(self.discretizer.cell_p[conn_id])
+            row = str(self.discretizer.cell_m[conn_id]) + '\t' + str(self.discretizer.cell_p[conn_id]) + '\t\t'
             #row_cells = ''#str(cells)
             #row_vals = ''#str(coefs)
             for i in range(cells.size):
@@ -453,42 +469,95 @@ class CPG_Reservoir(ReservoirBase):
             f.write(row + '\n')# + row_cells + '\n' + row_vals + '\n')
         f.close()
 
-    def output_to_vtk(self, file_name, t, local_cell_data, global_cell_data, export_constant_data=True):
 
-        nb = self.nx * self.ny * self.nz
-        cell_data = global_cell_data.copy()
+    def init_vtk(self, output_directory: str, export_grid_data: bool = True):
+        """
+        Method to initialize objects required for output of structured reservoir into `.vtk` format.
+        This method can also export the mesh properties, e.g. porosity, permeability, etc.
 
+        :param output_directory: Path for output
+        :type output_directory: str
+        :param export_grid_data: Switch for mesh properties output, default is True
+        :type export_grid_data: bool
+        """
+        from pyevtk.hl import gridToVTK
+
+        self.vtk_initialized = True
+        self.vtk_z = 0
+        self.vtk_y = 0
+        self.vtk_x = 0
+        self.vtk_filenames_and_times = {}
+        self.vtkobj = 0
+
+        self.generate_cpg_vtk_grid()
+        self.nodes_tot = self.nx * self.ny * self.nz
+        self.local_to_global = np.array(self.discr_mesh.local_to_global, copy=False)
+
+        if export_grid_data:
+            cell_data = {}
+            mesh_geom_dtype = np.float32
+            for key, data in self.global_data.items():
+                if np.isscalar(data):
+                    if type(data) is int:
+                        cell_data[key] = data * np.ones(self.nodes_tot, dtype=int)
+                    elif type(data) is float:
+                        cell_data[key] = data * np.ones(self.nodes_tot, dtype=mesh_geom_dtype)
+                else:
+                    cell_data[key] = np.array(data)
+            mesh_filename = output_directory + '/mesh'
+
+            if self.vtk_grid_type == 0:
+                vtk_file_name = gridToVTK(mesh_filename, self.vtk_x, self.vtk_y, self.vtk_z, cellData=cell_data)
+            else:
+                g_to_l = np.array(self.discr_mesh.global_to_local, copy=False)
+                for key, value in cell_data.items():
+                    if cell_data[key].size == g_to_l.size:
+                        a = cell_data[key][g_to_l >= 0]
+                    else:
+                        a = cell_data[key]
+                    self.vtkobj.AppendScalarData(key, a)
+
+                vtk_file_name = self.vtkobj.Write2VTU(mesh_filename)
+                if len(self.vtk_filenames_and_times) == 0:
+                    for key, data in self.global_data.items():
+                        self.vtkobj.VTK_Grids.GetCellData().RemoveArray(key)
+                    self.vtkobj.VTK_Grids.GetCellData().RemoveArray('cellNormals')
+        return
+
+    def output_to_vtk(self, ith_step: int, t: float, output_directory: str, prop_idxs: dict, data: np.ndarray):
+        from pyevtk.hl import gridToVTK
+        from pyevtk.vtk import VtkGroup
         # only for the first export call
-        if len(self.vtk_filenames_and_times) == 0:
-            self.generate_cpg_vtk_grid()
-            self.vtk_path = './vtk_data/'
-            if len(self.vtk_filenames_and_times) == 0:
-                os.makedirs(self.vtk_path, exist_ok=True)
+        os.makedirs(output_directory, exist_ok=True)
+        if not self.vtk_initialized:
+            self.init_vtk(output_directory)
 
-            if export_constant_data:
-                global_data = {'permx': self.permx, 'permy': self.permy, 'permz': self.permz, 'poro': self.poro}
-                #mesh_geom_dtype = np.float32
-                for key, data in global_data.items():
-                    cell_data[key] = data
+        vtk_file_name = output_directory + '/solution_ts{}'.format(ith_step)
 
-        vtk_file_name = self.vtk_path + file_name + '_ts%d' % len(self.vtk_filenames_and_times)
-
-        for key, value in local_cell_data.items():
-            global_array = np.ones(nb, dtype=value.dtype) * np.nan
+        cell_data = {}
+        for prop, idx in prop_idxs.items():
+            local_data = data[idx, :]
+            global_array = np.ones(self.nodes_tot, dtype=local_data.dtype) * np.nan
             dummy_zeros = np.zeros(self.discr_mesh.n_cells - self.mesh.n_res_blocks) # workaround for the issue in case of cells without active neighbours
-            v = np.append(value[:self.mesh.n_res_blocks], dummy_zeros)
+            v = np.append(local_data[:self.mesh.n_res_blocks], dummy_zeros)
             global_array[self.discr_mesh.local_to_global] = v[:]
-            cell_data[key] = global_array
+            cell_data[prop] = global_array
 
         if self.vtk_grid_type == 0:
-            vtk_file_name = hl.gridToVTK(vtk_file_name, self.vtk_x, self.vtk_y, self.vtk_z, cellData=cell_data)
+            vtk_file_name = gridToVTK(vtk_file_name, self.vtk_x, self.vtk_y, self.vtk_z, cellData=cell_data)
         else:
             for key, value in cell_data.items():
-                self.vtkobj.AppendScalarData(key, cell_data[key][self.actnum == 1])
+
+                g_to_l = np.array(self.discr_mesh.global_to_local, copy=False)
+                if cell_data[key].size == g_to_l.size:
+                    a = cell_data[key][g_to_l >= 0]
+                else:
+                    a = cell_data[key]
+                self.vtkobj.AppendScalarData(key, a)
 
             vtk_file_name = self.vtkobj.Write2VTU(vtk_file_name)
-            if len(self.vtk_filenames_and_times) == 0 and export_constant_data:
-                for key, data in global_data.items():
+            if len(self.vtk_filenames_and_times) == 0:
+                for key, data in self.global_data.items():
                     self.vtkobj.VTK_Grids.GetCellData().RemoveArray(key)
                 self.vtkobj.VTK_Grids.GetCellData().RemoveArray('cellNormals')
 
@@ -498,11 +567,10 @@ class CPG_Reservoir(ReservoirBase):
         # group file every time
 
         self.vtk_filenames_and_times[vtk_file_name] = t
-
-        self.group = vtk.VtkGroup(file_name)
+        vtk_group = VtkGroup('solution')
         for fname, t in self.vtk_filenames_and_times.items():
-            self.group.addFile(fname, t)
-        self.group.save()
+            vtk_group.addFile(fname, t)
+        vtk_group.save()
 
     def generate_cpg_vtk_grid(self):
 

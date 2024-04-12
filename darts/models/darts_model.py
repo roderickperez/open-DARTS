@@ -27,7 +27,7 @@ class DartsModel:
     physics: PhysicsBase
 
     def __init__(self):
-        """"
+        """
         Initialize DartsModel class.
 
         :ivar timer: Timer object
@@ -65,15 +65,15 @@ class DartsModel:
         assert self.reservoir is not None, "Reservoir object has not been defined"
         self.reservoir.init_reservoir(verbose)
         self.set_wells()
-        self.reservoir.init_wells()
 
         # Initialize physics and Engine object
-        assert self.reservoir is not None, "Physics object has not been defined"
+        assert self.physics is not None, "Physics object has not been defined"
         self.physics.init_physics(discr_type=discr_type, platform=platform, verbose=verbose)
         if platform == 'gpu':
             self.params.linear_type = sim_params.gpu_gmres_cpr_amgx_ilu
 
         # Initialize well objects
+        self.reservoir.init_wells()
         self.physics.init_wells(self.reservoir.wells)
 
         self.set_boundary_conditions()
@@ -87,7 +87,7 @@ class DartsModel:
         Function to initialize the engine by calling 'engine.init()' method.
         """
         self.physics.engine.init(self.reservoir.mesh, ms_well_vector(self.reservoir.wells), op_vector(self.op_list),
-                         self.params, self.timer.node["simulation"])
+                                 self.params, self.timer.node["simulation"])
 
     def set_wells(self, verbose: bool = False):
         """
@@ -96,7 +96,7 @@ class DartsModel:
         :param verbose: Switch for verbose
         :type verbose: bool
         """
-        self.reservoir.set_wells()
+        self.reservoir.set_wells(verbose)
         return
 
     def set_initial_conditions(self, initial_values: dict = None, gradient: dict = None):
@@ -199,7 +199,6 @@ class DartsModel:
         self.params.first_ts = first_ts if first_ts is not None else self.params.first_ts
         self.params.mult_ts = mult_ts if mult_ts is not None else self.params.mult_ts
         self.params.max_ts = max_ts if max_ts is not None else self.params.max_ts
-        self.prev_ts = first_ts if first_ts is not None else self.params.first_ts
         self.runtime = runtime
 
         # Newton tolerance is relatively high because of L2-norm for residual and well segments
@@ -210,6 +209,70 @@ class DartsModel:
 
         self.params.newton_type = newton_type if newton_type is not None else self.params.newton_type
         self.params.newton_params = newton_params if newton_params is not None else self.params.newton_params
+
+    def run_simple(self, physics, params, days):
+        """
+        Method to run simulation for specified time. Optional argument to specify dt to restart simulation with.
+
+        :param days: Time increment [days]
+        :type days: float
+        :param restart_dt: Restart value for timestep size [days, optional]
+        :type restart_dt: float
+        :param verbose: Switch for verbose, default is True
+        :type verbose: bool
+        """
+        days = days if days is not None else self.runtime
+        self.physics = physics
+        self.params = params
+        verbose = False
+
+        # get current engine time
+        t = self.physics.engine.t
+        stop_time = t + days
+
+        # same logic as in engine.run
+        if fabs(t) < 1e-15:
+            dt = self.params.first_ts
+        elif restart_dt > 0.:
+            dt = restart_dt
+        else:
+            dt = min(self.prev_dt * self.params.mult_ts, self.params.max_ts)
+        self.prev_dt = dt
+
+        ts = 0
+
+        while t < stop_time:
+            converged = self.run_timestep(dt, t, verbose)
+
+            if converged:
+                t += dt
+                ts += 1
+                if verbose:
+                    print("# %d \tT = %3g\tDT = %2g\tNI = %d\tLI=%d"
+                          % (ts, t, dt, self.physics.engine.n_newton_last_dt, self.physics.engine.n_linear_last_dt))
+
+                dt = min(dt * self.params.mult_ts, self.params.max_ts)
+
+                if t + dt > stop_time:
+                    dt = stop_time - t
+                else:
+                    self.prev_dt = dt
+
+            else:
+                dt /= self.params.mult_ts
+                if verbose:
+                    print("Cut timestep to %2.10f" % dt)
+                if dt < self.params.min_ts:
+                    break
+        # update current engine time
+        self.physics.engine.t = stop_time
+
+        if verbose:
+            print("TS = %d(%d), NI = %d(%d), LI = %d(%d)"
+                  % (self.physics.engine.stat.n_timesteps_total, self.physics.engine.stat.n_timesteps_wasted,
+                     self.physics.engine.stat.n_newton_total, self.physics.engine.stat.n_newton_wasted,
+                     self.physics.engine.stat.n_linear_total, self.physics.engine.stat.n_linear_wasted))
+
 
     def run(self, days: float = None, restart_dt: float = 0., verbose: bool = True):
         """
@@ -234,7 +297,8 @@ class DartsModel:
         elif restart_dt > 0.:
             dt = restart_dt
         else:
-            dt = min(self.prev_ts * self.params.mult_ts, self.params.max_ts)
+            dt = min(self.prev_dt * self.params.mult_ts, self.params.max_ts)
+        self.prev_dt = dt
 
         ts = 0
 
@@ -253,12 +317,12 @@ class DartsModel:
                 if t + dt > stop_time:
                     dt = stop_time - t
                 else:
-                    self.prev_ts = dt
+                    self.prev_dt = dt
 
             else:
                 dt /= self.params.mult_ts
                 if verbose:
-                    print("Cut timestep to %2.3f" % dt)
+                    print("Cut timestep to %2.10f" % dt)
                 if dt < self.params.min_ts:
                     break
         # update current engine time
@@ -366,8 +430,9 @@ class DartsModel:
         property_array = np.zeros((tot_props, nb))
 
         # Obtain primary variables from engine
-        for j in range(n_vars):
-            property_array[j, :] = self.physics.engine.X[j:nb * n_vars:n_vars]
+        X = np.array(self.physics.engine.X, copy=False)
+        for j, variable in enumerate(self.physics.vars):
+            property_array[j, :] = X[j:nb * n_vars:n_vars]
 
         # If it has been defined, interpolate secondary variables in property_itor,
         for i in range(nb):
@@ -381,32 +446,32 @@ class DartsModel:
 
         return property_array
 
-    def export_vtk(self, file_name: str = 'data', local_cell_data: dict = {}, global_cell_data: dict = {},
-                   vars_data_dtype: type = np.float32, export_grid_data: bool = True):
+    def output_to_vtk(self, ith_step: int, output_directory: str, output_properties: list = None):
         """
         Function to export results at timestamp t into `.vtk` format.
 
-        :param file_name: Name to save .vtk file
-        :type file_name: str
-        :param local_cell_data: Local cell data (active cells)
-        :type local_cell_data: dict
-        :param global_cell_data: Global cell data (all cells including actnum)
-        :type global_cell_data: dict
-        :param vars_data_dtype:
-        :type vars_data_dtype: type
-        :param export_grid_data:
-        :type export_grid_data: bool
+        :param ith_step: i'th reporting step
+        :type ith_step: int
+        :param output_directory: Name to save .vtk file
+        :type output_directory: str
+        :param output_properties: List of properties to include in .vtk file, default is None which will pass all
+        :type output_properties: list
         """
-        # get current engine time
+        # Find index of properties to output
+        tot_props = self.physics.vars + self.physics.property_operators[0].props_name
+        if output_properties is None:
+            # If None, all variables and properties from property_operators will be passed
+            prop_idxs = {prop: i for i, prop in enumerate(tot_props)}
+        else:
+            # Else, it finds the indices of output_properties in the output data
+            prop_idxs = {prop: tot_props.index(prop) for prop in output_properties}
+
+        # get current time and property data from engine
         t = self.physics.engine.t
-        nb = self.reservoir.mesh.n_res_blocks
-        nv = self.physics.n_vars
-        X = np.array(self.physics.engine.X, copy=False)
+        output_data = self.output_properties()
 
-        for v in range(nv):
-            local_cell_data[self.physics.vars[v]] = X[v:nb * nv:nv].astype(vars_data_dtype)
-
-        self.reservoir.output_to_vtk(file_name, t, local_cell_data, global_cell_data, export_grid_data)
+        # Pass to Reservoir.output_to_vtk() method
+        self.reservoir.output_to_vtk(ith_step, t, output_directory, prop_idxs, output_data)
 
     def load_restart_data(self, filename: str = 'restart.pkl'):
         """
