@@ -63,7 +63,7 @@ class iapws_total_enthalpy_evalutor(property_evaluator_iface):
         elif (region == 2):
             h = _Region2(self.T, P)["h"] * 18.015
         else:
-            raise NotImplementedError('Variables out of bound: p=' + str(P) + 'h=' + str(h) + ' region=' + str(region))
+            raise NotImplementedError('Variables out of bound: p=' + str(P) + ' region=' + str(region))
         return h
 
 

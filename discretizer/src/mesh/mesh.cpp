@@ -127,7 +127,7 @@ void Mesh::gmsh_mesh_reading(string filename, const PhysicalTags& tags)
 				el.type = static_cast<ElemType>(block.element_type);
 				el.elem_id = counter++;
 				el.n_pts = Etype_PTS.at(el.type);
-				element_tags[el.elem_id] = block.entity_tag;
+				element_tags[el.elem_id] = block_tag;
 				el.pts_offset = offset;
 
 				offset += el.n_pts;

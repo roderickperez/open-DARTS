@@ -112,9 +112,12 @@ class Model(DartsModel):
         for bnd_tag in [1, 2, 3, 4, 5, 6]:
             boundary_cells += self.reservoir.discretizer.find_cells(bnd_tag, 'face')
         boundary_cells = np.array(boundary_cells) + self.reservoir.discretizer.frac_cells_tot
-        bnd_vol = 1e+8
-        self.reservoir.discretizer.volume_all_cells[boundary_cells] = bnd_vol  # for vtk output
-        np.array(self.reservoir.mesh.volume, copy=False)[boundary_cells] = bnd_vol
+        #bnd_vol = 1e+8
+        bnd_vol_mult = 5
+        # for vtk output
+        self.reservoir.discretizer.volume_all_cells[boundary_cells] *= bnd_vol_mult  # = bnd_vol
+        # for engines
+        np.array(self.reservoir.mesh.volume, copy=False)[boundary_cells] *= bnd_vol_mult # = bnd_vol
 
         # initialize physics
         self.cell_property = ['pressure', 'enthalpy', 'temperature']
@@ -134,8 +137,8 @@ class Model(DartsModel):
 
         # Some tuning parameters:
         self.params.first_ts = 1e-6  # Size of the first time-step [days]
-        self.params.mult_ts = 1.1  # Time-step multiplier if newton is converged (i.e. dt_new = dt_old * mult_ts)
-        self.params.max_ts = 10  # Max size of the time-step [days]
+        self.params.mult_ts = 1.5  # Time-step multiplier if newton is converged (i.e. dt_new = dt_old * mult_ts)
+        self.params.max_ts = 60  # Max size of the time-step [days]
         self.params.tolerance_newton = 1e-4  # Tolerance of newton residual norm ||residual||<tol_newt
         self.params.tolerance_linear = 1e-5  # Tolerance for linear solver ||Ax - b||<tol_linslv
         self.params.newton_type = sim_params.newton_local_chop  # Type of newton method (related to chopping strategy?)
@@ -162,7 +165,7 @@ class Model(DartsModel):
         if full:
             suf = '(M+F)'  # matrix+fracture cells
         print('Time', fmt(time/365), ' years; ', time, 'days, '
-              'D_range:', D.min(), '-', D.max(), 'm; ',
+              'D_range:', fmt(D.min()), '-', fmt(D.max()), 'm; ',
               'P_range:', fmt(P.min()), '-', fmt(P.max()), 'bars; ',
               'T_range:', fmt(T.min()), '-', fmt(T.max()), 'degrees', suf)
 
