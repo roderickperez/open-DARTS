@@ -288,7 +288,7 @@ class PhysicsBase:
             # if cache file exists, read it
             if os.path.exists(itor_cache_filename):
                 with open(itor_cache_filename, "rb") as fp:
-                    print("Reading cached point data for ", type(itor).__name__)
+                    print("Reading cached point data for ", type(itor).__name__, 'from', itor_cache_filename)
                     itor.point_data = pickle.load(fp)
                     print(len(itor.point_data.keys()), "points loaded")
                     cache_loaded = 1
@@ -343,7 +343,7 @@ class PhysicsBase:
                 if os.path.basename(fname) == fname: # could already have a folder in fname
                     filename = os.path.join(self.cache_dir, fname)
             with open(filename, "wb") as fp:
-                print("Writing point data for ", type(itor).__name__)
+                print("Writing point data for ", type(itor).__name__, 'to', filename)
                 pickle.dump(itor.point_data, fp, protocol=4)
 
     def __del__(self):
