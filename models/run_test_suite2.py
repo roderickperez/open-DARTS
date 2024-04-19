@@ -36,7 +36,7 @@ test_args = [
                 ['terzaghi_two_layers', 'non_stabilized', 'wedge']]
             ]
 
-accepted_dirs_adjoint = ['Adjoint_super_engine']  # for adjoint test
+accepted_dirs_adjoint = ['Adjoint_super_engine', 'Adjoint_mpfa']  # for adjoint test
 
 
 def check_performance(mod):
@@ -143,14 +143,8 @@ if __name__ == '__main__':
     # test for adjoint ------------------start---------------------------------
     n_failed_adj = n_total_adj = 0
     import time
-    starting_time = time.time()
     n_failed_adj = for_each_model_adjoint(model_dir, check_performance_adjoint, accepted_dirs_adjoint)
     n_total_adj = len(accepted_dirs_adjoint)
-    ending_time = time.time()
-    if not n_failed_adj:
-        print('OK, \t%.2f s' % (ending_time - starting_time))
-    else:
-        print('FAIL, \t%.2f s' % (ending_time - starting_time))
     n_failed += n_failed_adj
     n_total += n_total_adj
     # test for adjoint ------------------end---------------------------------
