@@ -283,7 +283,7 @@ model_modifier.modifiers[-1].norms = norm_tran
 # # Set optimization parameters ( Initial guess, bounds, observation data, objective function)
 x0_initial = model_modifier.get_x0(proxy_model)
 eps_bound = 1e-4
-np.random.seed(0)
+np.random.seed(1)
 noise = np.random.uniform(-0.001, 0.001, n_fm)
 
 
