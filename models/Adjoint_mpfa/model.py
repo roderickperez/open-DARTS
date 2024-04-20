@@ -38,7 +38,7 @@ class Model(DartsModel, OptModuleSettings):
         self.params.mult_ts = 2
         self.params.max_ts = 5
         self.params.tolerance_newton = 1e-3
-        self.params.tolerance_linear = 1e-4
+        self.params.tolerance_linear = 1e-6
         # self.params.newton_type = 2
         # self.params.newton_params = value_vector([0.2])
 

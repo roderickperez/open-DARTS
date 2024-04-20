@@ -493,6 +493,14 @@ if training_model:
 
         print("\r")
         print("\r")
-        print('The angle is %f' % (angle * 180 / math.pi))
 
-        print("\r")
+
+        # so far we compare the adjoint gradient with pkl file. This might be improved in the future
+        with open('perf_gradient.pkl', 'rb') as f:
+            perf_gradient = pickle.load(f)
+
+        c = dot(adjoint_gradient, perf_gradient) / norm(adjoint_gradient) / norm(perf_gradient)
+        angle = arccos(clip(c, -1, 1))
+
+        angle_grade = angle * 180 / math.pi
+        print('The angle is %f' % angle_grade)
