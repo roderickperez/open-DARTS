@@ -27,7 +27,8 @@ else()
   set(opendarts_BUILD_USERNAME $ENV{USER})
 endif()
 
-# Show build information 
+# Show build information
+message(STATUS "  Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "  username: ${opendarts_BUILD_USERNAME}")
 message(STATUS "  hostname: ${opendarts_BUILD_HOSTNAME}")
 
