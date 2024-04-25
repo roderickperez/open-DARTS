@@ -254,7 +254,9 @@ build-windows-3.7-ODLS:
     artifacts:
       paths:
         - './dist/*.whl'
+        - '*.log'
       expire_in: 1 week
+      when: always
       
 ###################################################################################
 
@@ -280,8 +282,10 @@ build-windows-3.7-ODLS:
         - .\helper_scripts\build_darts_cmake.bat $env:ODLS -w -t -j 8
     artifacts:
       paths:
+        - '*.log'
         - '.\dist\*.whl'
       expire_in: 1 week
+      when: always
 
 ###################################################################################
 
@@ -583,6 +587,7 @@ test-windows-3.7-ODLS:
         - './models/pkl_lin.tar.gz'
       when: always
       expire_in: 1 week
+      when: always
 
 ###################################################################################
 
@@ -617,6 +622,7 @@ test-windows-3.7-ODLS:
         - '.\models\pkl_win.zip'
       when: always
       expire_in: 1 week
+      when: always
 
 ###################################################################################
 
