@@ -7,6 +7,7 @@ from multiprocessing import Process, set_start_method, Value
 import importlib
 
 import signal
+import time
 
 original_stdout = os.dup(1)
 
@@ -119,11 +120,17 @@ def for_each_model_adjoint(root_path, model_procedure, accepted_paths=[], exclud
         for x in accepted_paths:
             # set as failed by default - if model run fails with exception,ret_value remains equal to 1
             ret_value = Value("i", 1, lock=False)
+            starting_time = time.time()
             p = Process(target=spawn_process_function_adjoint, args=(x, model_procedure, ret_value), )
             p.start()
             p.join(timeout=7200)
             p.terminate()
             n_fails += ret_value.value
+            ending_time = time.time()
+            if not ret_value.value:
+                print('OK, \t%.2f s' % (ending_time - starting_time))
+            else:
+                print('FAIL, \t%.2f s' % (ending_time - starting_time))
     else:
         for x in p.iterdir():
             if x.is_dir() and (str(x)[0] != '.'):

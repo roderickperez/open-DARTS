@@ -1492,7 +1492,7 @@ int engine_super_mp_cpu<NC, NP, THERMAL>::adjoint_gradient_assembly(value_t dt, 
 
 
 template <uint8_t NC, uint8_t NP, bool THERMAL>
-int engine_super_mp_cpu<NC, NP, THERMAL>::run_single_newton_iteration(value_t deltat)
+int engine_super_mp_cpu<NC, NP, THERMAL>::assemble_linear_system(value_t deltat)
 {
 	// switch constraints if needed
 	timer->node["jacobian assembly"].start();
@@ -1517,7 +1517,6 @@ int engine_super_mp_cpu<NC, NP, THERMAL>::run_single_newton_iteration(value_t de
 	// assemble jacobian
 	assemble_jacobian_array(deltat, X, Jacobian, RHS);
 
-	
 	if (opt_history_matching && is_mp)
 	{
 		Xop_mp = Xop;
