@@ -1,4 +1,5 @@
 from darts.models.cicd_model import CICDModel
+from darts.models.darts_model import DartsModel
 from darts.engines import value_vector
 import numpy as np
 
@@ -12,7 +13,7 @@ from darts.physics.properties.enthalpy import EnthalpyBasic
 from reservoir import UnstructReservoir
 
 class Model(CICDModel):
-    def __init__(self, discr_type, mesh_file):
+    def __init__(self, discr_type='mpfa', mesh_file='meshes/wedge.msh'):
         # call base class constructor
         super().__init__()
 
@@ -34,6 +35,9 @@ class Model(CICDModel):
         # self.params.newton_params = value_vector([0.2])
 
         self.timer.node["initialization"].stop()
+
+    def init(self):
+        DartsModel.init(self, discr_type=self.discr_type)
 
     def set_reservoir(self, mesh_file):
         self.reservoir = UnstructReservoir(self.discr_type, mesh_file, n_vars=self.physics.n_vars)

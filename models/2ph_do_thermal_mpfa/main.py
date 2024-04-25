@@ -5,8 +5,8 @@ import numpy as np
 import meshio
 from darts.engines import redirect_darts_output
 
-def run(discr_type, mesh_file):
-    redirect_darts_output('darts_log' + '.txt')
+def run(discr_type, mesh_file, test=False):
+    redirect_darts_output('run.log')
 
     m = Model(discr_type=discr_type, mesh_file=mesh_file)
 
@@ -14,7 +14,7 @@ def run(discr_type, mesh_file):
     # inherited (https://www.python-course.eu/python3_inheritance.php) from the parent class DartsModel (found in
     # darts/models/darts_model.py (NOTE: This is not the same as the__init__(self, **) method which each class (should)
     # have).
-    m.init(discr_type=discr_type)
+    m.init()
 
     # Specify some other time-related properties (NOTE: all time parameters are in [days])
     eps = 1e-6
@@ -31,10 +31,11 @@ def run(discr_type, mesh_file):
     output_directory = 'sol_cpp_' + discr_type + '_{:s}'.format(m.physics_type)
     m.output_directory = output_directory
     # Write to vtk using class methods of unstructured discretizer (uses within meshio write to vtk function):
-    if discr_type == 'mpfa':
-        m.reservoir.write_to_vtk(output_directory, m.cell_property + ['perm'], 0, m.physics)
-    else:
-        m.reservoir.write_to_vtk_old_discretizer(output_directory, m.cell_property, 0, m.physics)
+    if not test:
+        if discr_type == 'mpfa':
+            m.reservoir.write_to_vtk(output_directory, m.cell_property + ['perm'], 0, m.physics)
+        else:
+            m.reservoir.write_to_vtk_old_discretizer(output_directory, m.cell_property, 0, m.physics)
 
     # Run over all reporting time-steps:
     ith_step = 0
@@ -43,10 +44,11 @@ def run(discr_type, mesh_file):
 
         m.run(days=size_report_step)
 
-        if discr_type == 'mpfa':
-            m.reservoir.write_to_vtk(output_directory, m.cell_property, ith_step + 1, m.physics)
-        else:
-            m.reservoir.write_to_vtk_old_discretizer(output_directory, m.cell_property, ith_step + 1, m.physics)
+        if not test:
+            if discr_type == 'mpfa':
+                m.reservoir.write_to_vtk(output_directory, m.cell_property, ith_step + 1, m.physics)
+            else:
+                m.reservoir.write_to_vtk_old_discretizer(output_directory, m.cell_property, ith_step + 1, m.physics)
 
         ith_step += 1
 
@@ -55,8 +57,10 @@ def run(discr_type, mesh_file):
     m.print_timers()
     m.print_stat()
 
-# 'tpfa' - Python discretizer + tpfa super engine
-# 'mpfa' - C++ (new) discretizer + mpfa super engine
-# permeabilitties and heat conductivities are different between 'tpfa' and 'mpfa'
-# run(discr_type='tpfa', mesh_file='meshes/wedge.msh')
-run(discr_type='mpfa', mesh_file='meshes/wedge.msh')
+
+if __name__ == '__main__':
+    # 'tpfa' - Python discretizer + tpfa super engine
+    # 'mpfa' - C++ (new) discretizer + mpfa super engine
+    # permeabilitties and heat conductivities are different between 'tpfa' and 'mpfa'
+    # run(discr_type='tpfa', mesh_file='meshes/wedge.msh')
+    run(discr_type='mpfa', mesh_file='meshes/wedge.msh', test=True)
