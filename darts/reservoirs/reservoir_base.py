@@ -143,6 +143,17 @@ class ReservoirBase:
             if w.name == well_name:
                 return w
 
+    def init_wells_from_model(self, wells_info_from_model):
+        num_wells = len(wells_info_from_model)
+        well_names = list(wells_info_from_model.keys())
+        perforated_cell_indices_of_all_wells = list(wells_info_from_model.values())
+        for i in range(num_wells):
+            self.add_well(well_names[i])
+            perforated_cell_indices_of_the_well = perforated_cell_indices_of_all_wells[i]
+            num_perfs_of_the_well = len(perforated_cell_indices_of_the_well)
+            for j in range(num_perfs_of_the_well):
+                self.add_perforation(well_names[i], cell_index=perforated_cell_indices_of_the_well[j])
+
     def init_wells(self, verbose: bool = False):
         """
         Function to initialize wells.

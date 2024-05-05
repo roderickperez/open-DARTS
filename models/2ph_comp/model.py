@@ -20,6 +20,7 @@ class Model(CICDModel):
         self.timer.node["initialization"].start()
 
         self.set_reservoir()
+        self.set_wells()
         self.set_physics()
 
         self.set_sim_params(first_ts=0.001, mult_ts=2, max_ts=1, runtime=1000, tol_newton=1e-2, tol_linear=1e-3,
@@ -39,10 +40,8 @@ class Model(CICDModel):
         return
 
     def set_wells(self):
-        self.reservoir.add_well("I1")
-        self.reservoir.add_perforation("I1", cell_index=(1, 1, 1))
-        self.reservoir.add_well("P1")
-        self.reservoir.add_perforation("P1", cell_index=(self.reservoir.nx, 1, 1))
+        # keys are well names and values are a list of indices of perforated reservoir cells
+        self.wells_info_from_model = {'I1': [(1, 1, 1)], 'P1': [(self.reservoir.nx, 1, 1)]}
 
     def set_physics(self):
         """Physical properties"""
