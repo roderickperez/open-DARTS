@@ -64,7 +64,7 @@ class DartsModel:
         # Initialize reservoir and Mesh object
         assert self.reservoir is not None, "Reservoir object has not been defined"
         self.reservoir.init_reservoir(verbose)
-        self.reservoir.init_wells_from_model(self.wells_info_from_model)
+        self.set_wells()
 
         # Initialize physics and Engine object
         assert self.physics is not None, "Physics object has not been defined"
@@ -156,28 +156,10 @@ class DartsModel:
     def set_well_controls(self):
         """
         Function to set well controls. Passes well controls to :class:`Physics` object and wells.
+
+        This function is empty in DartsModel, needs to be overloaded in child Model.
         """
-        num_control_sets = len(self.wells_controls_from_model)
-        wells_info_from_reservoir = self.reservoir.wells
-        num_wells = len(wells_info_from_reservoir)
-        assert num_control_sets == num_wells, "Number of wells is not equal to the number of well control sets!"
-
-        wells_names_from_control_sets = list(self.wells_controls_from_model.keys())
-        wells_names_from_initial_wells_info = [well.name for well in wells_info_from_reservoir]
-        assert wells_names_from_control_sets == wells_names_from_initial_wells_info, 'Well names are not identical in initial well info and well controls!'
-
-        wells_controls = list(self.wells_controls_from_model.values())
-
-        for i in range(num_wells):
-            # If the first letter of the well name is either i or I, it is an injector
-            if wells_names_from_control_sets[i][0].lower() == 'i':
-                BHPinj = wells_controls[i][0]
-                inj_stream = wells_controls[i][1]
-                wells_info_from_reservoir[i].control = self.physics.new_bhp_inj(BHPinj, inj_stream)
-            # If the first letter of the well name is either p or P, it is a producer
-            elif wells_names_from_control_sets[i][0].lower() == 'p':
-                BHPprod = wells_controls[i][0]
-                wells_info_from_reservoir[i].control = self.physics.new_bhp_prod(BHPprod)
+        pass
 
     def set_op_list(self):
         """

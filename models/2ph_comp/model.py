@@ -20,9 +20,7 @@ class Model(CICDModel):
         self.timer.node["initialization"].start()
 
         self.set_reservoir()
-        self.set_wells()
         self.set_physics()
-        self.set_well_controls_in_model()
 
         self.set_sim_params(first_ts=0.001, mult_ts=2, max_ts=1, runtime=1000, tol_newton=1e-2, tol_linear=1e-3,
                             it_newton=10, it_linear=50, newton_type=sim_params.newton_local_chop)
@@ -39,6 +37,12 @@ class Model(CICDModel):
         self.reservoir = StructReservoir(self.timer, nx=nx, ny=1, nz=1, dx=1, dy=10, dz=10,
                                          permx=100, permy=100, permz=10, poro=0.3, depth=1000)
         return
+
+    def set_wells(self):
+        self.reservoir.add_well("I1")
+        self.reservoir.add_perforation("I1", cell_index=(1, 1, 1))
+        self.reservoir.add_well("P1")
+        self.reservoir.add_perforation("P1", cell_index=(self.reservoir.nx, 1, 1))
 
     def set_physics(self):
         """Physical properties"""
@@ -68,13 +72,12 @@ class Model(CICDModel):
 
         return
 
-    def set_wells(self):
-        # keys are well names and values are a list of indices of perforated reservoir cells
-        self.wells_info_from_model = {'I1': [(1, 1, 1)], 'P1': [(self.reservoir.nx, 1, 1)]}
-
-    def set_well_controls_in_model(self):
-        BHPinj = 140
+    def set_well_controls(self):
         zero = self.physics.axes_min[1]
-        inj_stream = [1.0 - 2 * zero * 10, zero * 10]
-        BHPprod = 50
-        self.wells_controls_from_model = {'I1': [BHPinj, inj_stream], 'P1': [BHPprod]}
+        inj_stream = [1.0 - 2 * zero*10, zero*10]
+        for i, w in enumerate(self.reservoir.wells):
+            if i == 0:
+                # w.control = self.physics.new_rate_gas_inj(20, self.inj_stream)
+                w.control = self.physics.new_bhp_inj(140, inj_stream)
+            else:
+                w.control = self.physics.new_bhp_prod(50)

@@ -130,11 +130,11 @@ class StructDiscretizer:
             self.volume = self.len_cell_xdir * self.len_cell_ydir * self.len_cell_zdir
 
             self.centroids_all_cells = []
-            z = -self.len_cell_zdir[0, 0, 0] * 0.5 + np.cumsum(self.len_cell_zdir)
+            z = self.len_cell_zdir[0, 0, 0] * 0.5 + np.cumsum(self.len_cell_zdir)
             for k in range(self.nz):
-                y = -self.len_cell_ydir[0, 0, 0] * 0.5 + np.cumsum(self.len_cell_ydir)
+                y = self.len_cell_ydir[0, 0, 0] * 0.5 + np.cumsum(self.len_cell_ydir)
                 for j in range(self.ny):
-                    x = -self.len_cell_xdir[0, 0, 0] * 0.5 + np.cumsum(self.len_cell_xdir)
+                    x = self.len_cell_xdir[0, 0, 0] * 0.5 + np.cumsum(self.len_cell_xdir)
                     for i in range(self.nx):
                         self.centroids_all_cells.append(np.array([x[i], y[j], z[k]]))
             self.centroids_all_cells = np.array(self.centroids_all_cells)
