@@ -37,7 +37,7 @@ sys.path.insert(0, os.path.join(parentdir2, 'python'))
 
 
 class CPG_Reservoir(ReservoirBase):
-    def __init__(self, timer: timer_node, arrays=None, faultfile=None, cache: bool = False):
+    def __init__(self, timer: timer_node, arrays=None, faultfile : str =None, minpv : float = 0., cache: bool = False):
         """
         Class constructor for UnstructReservoir class
         :param arrays: dictionary of numpy arrays with grid and props
@@ -46,6 +46,7 @@ class CPG_Reservoir(ReservoirBase):
 
         self.arrays = arrays
         self.faultfile = faultfile
+        self.minpv = minpv  # minimal pore volume threshold to make cells inactive, m3
 
         self.snap_counter = 0
 
@@ -148,41 +149,40 @@ class CPG_Reservoir(ReservoirBase):
         displaced_tags[elem_loc.FRACTURE_BOUNDARY] = set()
 
         result_fname = 'results.grdecl'
-        minpv = 0
 
         dims_cpp = index_vector_cpggrid(self.dims)
         coord_cpp = value_vector_cpggrid(self.coord)
         zcorn_cpp = value_vector_cpggrid(self.zcorn)
         actnum_cpp = index_vector_cpggrid(self.actnum)
-        ugrid = process_cpg_grid(dims_cpp, coord_cpp, zcorn_cpp, actnum_cpp, minpv, result_fname)
+        unstr_grid = process_cpg_grid(dims_cpp, coord_cpp, zcorn_cpp, actnum_cpp, self.minpv, result_fname)
 
         self.nx = self.discr_mesh.nx = self.dims[0]
         self.ny = self.discr_mesh.ny = self.dims[1]
         self.nz = self.discr_mesh.nz = self.dims[2]
         self.nb = self.mesh.n_res_blocks
-        self.discr_mesh.n_cells = ugrid.number_of_cells
+        self.discr_mesh.n_cells = unstr_grid.number_of_cells
         # cells + boundary_faces, approximate
         self.discr_mesh.num_of_elements = self.discr_mesh.n_cells + \
                                           2 * (self.nx * self.ny +
                                                self.ny * self.nz +
                                                self.nx * self.nz)
 
-        number_of_nodes = ugrid.number_of_nodes
-        number_of_cells = ugrid.number_of_cells
-        number_of_faces = ugrid.number_of_faces
-        node_coordinates = value_vector(np.array(ugrid.node_coordinates, copy=False))
-        face_nodes = index_vector(np.array(ugrid.face_nodes, copy=False))
-        face_nodepos = index_vector(np.array(ugrid.face_nodepos, copy=False))
-        face_cells = index_vector(np.array(ugrid.face_cells, copy=False))
-        cell_faces = index_vector(np.array(ugrid.cell_faces, copy=False))
-        cell_facetag = index_vector(np.array(ugrid.cell_facetag, copy=False))
-        global_cell = index_vector(np.array(ugrid.global_cell, copy=False))
-        cell_facepos = index_vector(np.array(ugrid.cell_facepos, copy=False))
-        cell_volumes = value_vector(np.array(ugrid.cell_volumes, copy=False))
-        cell_centroids = value_vector(np.array(ugrid.cell_centroids, copy=False))
-        face_normals = value_vector(np.array(ugrid.face_normals, copy=False))
-        face_areas = value_vector(np.array(ugrid.face_areas, copy=False))
-        face_centroids = value_vector(np.array(ugrid.face_centroids, copy=False))
+        number_of_nodes = unstr_grid.number_of_nodes
+        number_of_cells = unstr_grid.number_of_cells
+        number_of_faces = unstr_grid.number_of_faces
+        node_coordinates = value_vector(np.array(unstr_grid.node_coordinates, copy=False))
+        face_nodes = index_vector(np.array(unstr_grid.face_nodes, copy=False))
+        face_nodepos = index_vector(np.array(unstr_grid.face_nodepos, copy=False))
+        face_cells = index_vector(np.array(unstr_grid.face_cells, copy=False))
+        cell_faces = index_vector(np.array(unstr_grid.cell_faces, copy=False))
+        cell_facetag = index_vector(np.array(unstr_grid.cell_facetag, copy=False))
+        global_cell = index_vector(np.array(unstr_grid.global_cell, copy=False))
+        cell_facepos = index_vector(np.array(unstr_grid.cell_facepos, copy=False))
+        cell_volumes = value_vector(np.array(unstr_grid.cell_volumes, copy=False))
+        cell_centroids = value_vector(np.array(unstr_grid.cell_centroids, copy=False))
+        face_normals = value_vector(np.array(unstr_grid.face_normals, copy=False))
+        face_areas = value_vector(np.array(unstr_grid.face_areas, copy=False))
+        face_centroids = value_vector(np.array(unstr_grid.face_centroids, copy=False))
 
         face_order = index_vector()
 
@@ -196,7 +196,7 @@ class CPG_Reservoir(ReservoirBase):
         #self.discr_mesh.print_elems_nodes()
 
         # store min max coordinates
-        nodes_3d = np.array(ugrid.node_coordinates, copy=False)
+        nodes_3d = np.array(unstr_grid.node_coordinates, copy=False)
         nodes_3d = nodes_3d.reshape(number_of_nodes, 3)
         self.x_min, self.x_max = nodes_3d[:, 0].min(), nodes_3d[:, 0].max()
         self.y_min, self.y_max = nodes_3d[:, 1].min(), nodes_3d[:, 1].max()
@@ -243,7 +243,7 @@ class CPG_Reservoir(ReservoirBase):
         self.discretizer.calc_tpfa_transmissibilities(displaced_tags)
         return
 
-    def calc_well_index(self, i, j, k, well_radius=0.1524, segment_direction='z_axis', skin=0):
+    def calc_well_index(self, i, j, k, well_radius=0.0762, segment_direction='z_axis', skin=0):
         """
         Class method which construct the well index for each well segment/perforation
         :param i: "human" counting of x-location coordinate of perforation
