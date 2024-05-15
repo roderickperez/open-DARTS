@@ -5,7 +5,7 @@ def gen_cpg_grid(nx : int, ny : int, nz : int,
                  dx : float, dy : float, dz : float,
                  permx : float, permy : float, permz : float, poro : float,
                  gridname=None, propname=None, burden_dz=None,
-                 start_x : float=0, start_y : float =0, start_z : float =2300):
+                 start_x : float=0, start_y : float =0, start_z : float =2000):
     '''
     Generate a regular grid in corner point geometry format (COORD, ZCORN) and optionally output it to the file
     :param nx: number of reservoir blocks in the x-direction
@@ -57,27 +57,43 @@ def gen_cpg_grid(nx : int, ny : int, nz : int,
                  ]
             )
 
+    if burden_dz is not None:
+        nz2 = nz + 2 * len(burden_dz)
+    else:
+        nz2 = nz
+
+    specgrid = [nx, ny, nz2]
+    n = nx * ny * nz2
+    actnum = np.ones(n, dtype=np.int32)
+    poro_arr = np.zeros(n) + poro
+    permx_arr = np.zeros(n) + permx
+    permy_arr = np.zeros(n) + permy
+    permz_arr = np.zeros(n) + permz
+
     # write to file
     if gridname is not None:
-        if burden_dz is not None:
-            nz2 = nz+2*len(burden_dz)
-        else:
-            nz2 = nz
-        specgrid = [nx, ny, nz2, '1', 'F']
-        actnum = np.ones(nx * ny * nz2, dtype=np.int32)
+        specgrid_ = [nx, ny, nz2, '1', 'F']
         keys = ['SPECGRID', 'COORD', 'ZCORN', 'ACTNUM']
-        data = [specgrid, coord, zcorn, actnum]
+        data = [specgrid_, coord, zcorn, actnum]
         save_few_keywords(gridname, keys, data)
 
-        n = nx * ny * nz
         data = []
         keys = []
-        for value, arr_name in [(permx, 'PERMX'), (permy, 'PERMY'), (permz, 'PERMZ'), (poro, 'PORO')]:
-            data.append(np.zeros(n) + value)
+        for arr, arr_name in [(poro_arr, 'PORO'), (permx_arr, 'PERMX'), (permy_arr, 'PERMY'), (permz_arr, 'PERMZ')]:
+            data.append(arr)
             keys.append(arr_name)
         save_few_keywords(propname, keys, data)
 
-    return coord, zcorn
+    arrays = {}
+    arrays['SPECGRID'] = specgrid
+    arrays['COORD'] = coord
+    arrays['ZCORN'] = zcorn
+    arrays['ACTNUM'] = actnum
+    arrays['PORO'] = poro_arr
+    arrays['PERMX'] = permx_arr
+    arrays['PERMY'] = permy_arr
+    arrays['PERMZ'] = permz_arr
+    return arrays
 
 
 if __name__ =='__main__':
