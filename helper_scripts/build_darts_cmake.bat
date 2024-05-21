@@ -7,7 +7,7 @@ set testing=false
 set wheel=false
 set bos_solvers_artifact=false
 set bos_solvers_dir=""
-set MT=false
+set MT=true
 set skip_req=false
 set config=Release
 set NT=8
@@ -38,10 +38,14 @@ if %bos_solvers_artifact%==true (
   if %testing%==true (
     set testing=false
   )
+)
+REM ODLS version does not support OpenMP yet
+if %bos_solvers_artifact%==false (
   if %MT%==true (
     set MT=false
   )
 )
+
 echo - Report configuration of this script: START
 echo    bos_solvers_dir = %bos_solvers_dir%
 echo    fetch bos_solvers_artifact = %bos_solvers_artifact%
