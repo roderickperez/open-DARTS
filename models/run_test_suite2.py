@@ -18,26 +18,20 @@ accepted_dirs = ['2ph_comp', '2ph_comp_solid', '2ph_do', '2ph_do_thermal',
                  'CoaxWell'
                  ]
 
-test_dirs = ['1ph_1comp_poroelastic_analytics']
-test_args = [
-                [['terzaghi', 'non_stabilized', 'rect'],
-                ['terzaghi', 'non_stabilized', 'wedge'],
-                ['terzaghi', 'non_stabilized', 'hex'],
-                ['terzaghi', 'stabilized', 'rect'],
-                ['terzaghi', 'stabilized', 'wedge'],
-                ['terzaghi', 'stabilized', 'hex'],
-                ['mandel', 'non_stabilized', 'rect'],
-                ['mandel', 'non_stabilized', 'wedge'],
-                ['mandel', 'non_stabilized', 'hex'],
-                ['mandel', 'stabilized', 'rect'],
-                ['mandel', 'stabilized', 'wedge'],
-                ['mandel', 'stabilized', 'hex'],
-                ['terzaghi_two_layers', 'non_stabilized', 'rect'],
-                ['terzaghi_two_layers', 'non_stabilized', 'wedge']]
-            ]
+test_dirs = ['1ph_1comp_poroelastic_analytics', '1ph_1comp_poroelastic_convergence']
+
+test_args = []
+for case in ['terzaghi', 'mandel', 'terzaghi_two_layers', 'bai']:
+    for discr_name in ['mech_discretizer', 'pm_discretizer']:
+        if case == 'bai' and discr_name == 'pm_discretizer':
+            continue # is not supported by poroelastic as bai is thermoporoelasticity
+        for mesh in ['rect', 'wedge', 'hex']:
+            if case == 'terzaghi_two_layers' and mesh == 'hex':
+                continue
+            test_args.append([case, discr_name, mesh])
+test_args = [test_args, [['']]]
 
 accepted_dirs_adjoint = ['Adjoint_super_engine', 'Adjoint_mpfa']  # for adjoint test
-
 
 def check_performance(mod):
     pkl_suffix = ''
@@ -136,7 +130,7 @@ if __name__ == '__main__':
 
     # poromechanic tests
     n_total_mech = n_failed_mech = 0
-    # n_total_mech, n_failed_mech = run_tests(model_dir, test_dirs, test_args, overwrite)
+    n_total_mech, n_failed_mech = run_tests(model_dir, test_dirs, test_args, overwrite)
     n_failed += n_failed_mech
     n_total += n_total_mech
 
