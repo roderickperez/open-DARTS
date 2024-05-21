@@ -2,7 +2,7 @@ import numpy as np
 from darts.engines import value_vector
 from darts.physics.property_base import PropertyBase
 from darts.physics.properties.flash import Flash
-from darts.physics.properties.basic import ConstFunc, RockCompactionEvaluator, RockEnergyEvaluator
+from darts.physics.properties.basic import RockCompactionEvaluator, RockEnergyEvaluator, ConstFunc
 
 
 class PropertyContainer(PropertyBase):
@@ -45,6 +45,7 @@ class PropertyContainer(PropertyBase):
         self.rel_well_perm_ev = []
         self.rock_energy_ev = RockEnergyEvaluator()
         self.rock_compr_ev = RockCompactionEvaluator(compres=rock_comp)
+        self.rock_density_ev = ConstFunc(2650.0)
         self.capillary_pressure_ev = ConstFunc(np.zeros(self.nph))
         self.diffusion_ev = {ph: ConstFunc(np.zeros(self.nc)) for ph in phases_name}
         self.kinetic_rate_ev = {}

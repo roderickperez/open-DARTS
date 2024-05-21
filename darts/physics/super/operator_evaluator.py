@@ -157,6 +157,30 @@ class ReservoirOperators(OperatorsSuper):
         return 0
 
 
+class GeomechanicsReservoirOperators(ReservoirOperators):
+    def evaluate(self, state, values):
+        """
+        Class methods which evaluates the state operators for the element based physics
+        :param state: state variables [pres, comp_0, ..., comp_N-1]
+        :param values: values of the operators (used for storing the operator values)
+        :return: updated value for operators, stored in values
+        """
+        # Reservoir operators
+        super().evaluate(state, values)
+
+        # Rock density operator
+        # TODO: function of matrix pressure = I1 / 3 = (s_xx + s_yy + s_zz) / 3
+        values[self.PORO_OP + 1] = self.property.rock_density_ev.evaluate()
+
+        return 0
+
+    def print_operators(self, state, values):
+        """Method for printing operators, grouped"""
+        super().print_operators(state, values)
+        print("ROCK DENSITY", values[self.PORO_OP + 1])
+        return
+
+
 class WellOperators(OperatorsSuper):
     def evaluate(self, state: value_vector, values: value_vector):
         """
@@ -223,6 +247,22 @@ class WellOperators(OperatorsSuper):
 
     def evaluate_thermal(self, state: value_vector, values: value_vector):
         return
+
+
+class SinglePhaseGeomechanicsOperators(OperatorsBase):
+    def evaluate(self, state, values):
+        """
+        Class methods which evaluates the state operators for the element based physics
+        :param state: state variables [pres, comp_0, ..., comp_N-1]
+        :param values: values of the operators (used for storing the operator values)
+        :return: updated value for operators, stored in values
+        """
+
+        _, _, _, rho, _, self.mu, _, _, _ = self.property.evaluate(state)
+        values[0] = rho[0]
+        values[1] = rho[0] / self.mu[0]
+
+        return 0
 
 
 class RateOperators(operator_set_evaluator_iface):

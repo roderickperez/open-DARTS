@@ -133,7 +133,7 @@ class UnstructReservoir:
             self.discr = Discretizer()
             self.discr.grav_vec = matrix([0.0, 0.0, 0.0], 1, 3)  # 0.0??
             self.tags = np.array(self.discr_mesh.tags, copy=False)
-            self.cpp_bc = self.set_boundary_conditions(domain_tags)
+            self.cpp_bc_flow, self.cpp_bc_heat = self.set_boundary_conditions(domain_tags)
             self.discr.set_mesh(self.discr_mesh)
             self.discr.init()
 
@@ -181,8 +181,8 @@ class UnstructReservoir:
                 self.volume_all_cells[self.n_matrix + i] = volumes[cell_id]
 
             #self.discr.calc_tpfa_transmissibilities(domain_tags)
-            self.discr.reconstruct_pressure_temperature_gradients_per_cell(self.cpp_bc)
-            self.discr.calc_mpfa_transmissibilities(self.cpp_bc, True)
+            self.discr.reconstruct_pressure_temperature_gradients_per_cell(self.cpp_bc_flow, self.cpp_bc_heat)
+            self.discr.calc_mpfa_transmissibilities(True)
 
             # self.pz_bounds = np.zeros(self.n_vars * self.n_bounds)
             # self.pz_bounds[::self.n_vars] = self.p_init
@@ -225,7 +225,8 @@ class UnstructReservoir:
             self.unstr_discr.store_centroid_all_cells()
 
     def set_boundary_conditions(self, physical_tags):
-        bc = BoundaryCondition()
+        bc_flow = BoundaryCondition()
+        bc_heat = BoundaryCondition()
 
         boundary_range = self.discr_mesh.region_ranges[elem_loc.BOUNDARY]
         a = np.zeros(boundary_range[1] - boundary_range[0])
@@ -261,13 +262,12 @@ class UnstructReservoir:
         '''
 
         # a, b, r ??
-        bc.a_p = value_vector(a)
-        bc.b_p = value_vector(b)
-        bc.a_th = value_vector(a)
-        bc.b_th = value_vector(b)
+        bc_flow.a = value_vector(a)
+        bc_flow.b = value_vector(b)
+        bc_heat.a = value_vector(a)
+        bc_heat.b = value_vector(b)
 
-
-        return bc
+        return bc_flow, bc_heat
 
     def add_well(self, name, depth, wellbore_diameter=0.15):
         """
