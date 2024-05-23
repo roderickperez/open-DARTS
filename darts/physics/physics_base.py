@@ -34,15 +34,8 @@ class PhysicsBase:
     :type regions: list
     """
     engine: engine_base
-
-    property_containers = {}
-
-    reservoir_operators = {}
-    property_operators = {}
     wellbore_operators: operator_set_evaluator_iface
     rate_operators: operator_set_evaluator_iface
-
-    regions = []
 
     def __init__(self, variables: list, nc: int, phases: list, n_ops: int,
                  axes_min: value_vector, axes_max: value_vector, n_points: int,
@@ -90,6 +83,11 @@ class PhysicsBase:
         if self.cache:
             self.created_itors = []
             atexit.register(self.write_cache)
+
+        self.regions = []
+        self.property_containers = {}
+        self.reservoir_operators = {}
+        self.property_operators = {}
 
     def init_physics(self, discr_type: str = 'tpfa', platform: str = 'cpu',
                      itor_type: str = 'multilinear', itor_mode: str = 'adaptive', itor_precision: str = 'd',
@@ -288,7 +286,7 @@ class PhysicsBase:
             # if cache file exists, read it
             if os.path.exists(itor_cache_filename):
                 with open(itor_cache_filename, "rb") as fp:
-                    print("Reading cached point data for ", type(itor).__name__)
+                    print("Reading cached point data for ", type(itor).__name__, 'from', itor_cache_filename)
                     itor.point_data = pickle.load(fp)
                     print(len(itor.point_data.keys()), "points loaded")
                     cache_loaded = 1
@@ -343,7 +341,7 @@ class PhysicsBase:
                 if os.path.basename(fname) == fname: # could already have a folder in fname
                     filename = os.path.join(self.cache_dir, fname)
             with open(filename, "wb") as fp:
-                print("Writing point data for ", type(itor).__name__)
+                print("Writing point data for ", type(itor).__name__, 'to', filename)
                 pickle.dump(itor.point_data, fp, protocol=4)
 
     def __del__(self):

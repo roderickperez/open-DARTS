@@ -129,7 +129,7 @@ class StructReservoir(ReservoirBase):
         # apply actnum and assign to mesh.volume
         self.volume[:] = volume[self.discretizer.local_to_global]
 
-    def add_perforation(self, well_name: str, cell_index: Union[int, tuple], well_radius: float = 0.1524,
+    def add_perforation(self, well_name: str, cell_index: Union[int, tuple], well_radius: float = 0.0762,
                         well_index: float = None, well_indexD: float = None, segment_direction: str = 'z_axis',
                         skin: float = 0, multi_segment: bool = False, verbose: bool = False):
         """
