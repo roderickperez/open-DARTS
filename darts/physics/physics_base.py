@@ -34,15 +34,8 @@ class PhysicsBase:
     :type regions: list
     """
     engine: engine_base
-
-    property_containers = {}
-
-    reservoir_operators = {}
-    property_operators = {}
     wellbore_operators: operator_set_evaluator_iface
     rate_operators: operator_set_evaluator_iface
-
-    regions = []
 
     def __init__(self, variables: list, nc: int, phases: list, n_ops: int,
                  axes_min: value_vector, axes_max: value_vector, n_points: int,
@@ -90,6 +83,11 @@ class PhysicsBase:
         if self.cache:
             self.created_itors = []
             atexit.register(self.write_cache)
+
+        self.regions = []
+        self.property_containers = {}
+        self.reservoir_operators = {}
+        self.property_operators = {}
 
     def init_physics(self, discr_type: str = 'tpfa', platform: str = 'cpu',
                      itor_type: str = 'multilinear', itor_mode: str = 'adaptive', itor_precision: str = 'd',
@@ -283,10 +281,12 @@ class PhysicsBase:
             itor_cache_signature_hash = str(hashlib.md5(itor_cache_signature.encode()).hexdigest())
             itor_cache_filename = 'obl_point_data_' + itor_cache_signature_hash + '.pkl'
 
+            if hasattr(self, 'cache_dir'):
+                itor_cache_filename = os.path.join(self.cache_dir, itor_cache_filename)
             # if cache file exists, read it
             if os.path.exists(itor_cache_filename):
                 with open(itor_cache_filename, "rb") as fp:
-                    print("Reading cached point data for ", type(itor).__name__)
+                    print("Reading cached point data for ", type(itor).__name__, 'from', itor_cache_filename)
                     itor.point_data = pickle.load(fp)
                     print(len(itor.point_data.keys()), "points loaded")
                     cache_loaded = 1
@@ -335,9 +335,13 @@ class PhysicsBase:
         # In either case it should only be invoked by the earliest call (which can be 1 or 2 depending on situation)
         # Switch cache off to prevent the second call
         self.cache = False
-        for itor, filename in self.created_itors:
+        for itor, fname in self.created_itors:
+            filename = fname
+            if hasattr(self, 'cache_dir'):
+                if os.path.basename(fname) == fname: # could already have a folder in fname
+                    filename = os.path.join(self.cache_dir, fname)
             with open(filename, "wb") as fp:
-                print("Writing point data for ", type(itor).__name__, len(itor.point_data), 'points to', filename)
+                print("Writing point data for ", type(itor).__name__, 'to', filename)
                 pickle.dump(itor.point_data, fp, protocol=4)
 
     def __del__(self):

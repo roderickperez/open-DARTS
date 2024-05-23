@@ -33,3 +33,4 @@ darts/build_info.txt
 .vscode
 /.idea/*
 *x64*
+*.log
