@@ -2411,7 +2411,7 @@ int engine_base::test_assembly(int n_times, int kernel_number, int dump_jacobian
 
 	for (int i = 0; i < n_times; i++)
 	{
-		for (int r = 0; r < acc_flux_op_set_list.size(); r++)
+		for (auto r = 0; r < acc_flux_op_set_list.size(); r++)
 		{
 			int result = acc_flux_op_set_list[r]->evaluate_with_derivatives(X, block_idxs[r], op_vals_arr, op_ders_arr);
 			if (result < 0)
