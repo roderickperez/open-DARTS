@@ -73,6 +73,7 @@ void Discretizer::calc_tpfa_transmissibilities(const PhysicalTags& tags)
 
 	// allocate memory
 	flux_vals.reserve(2 * mesh->adj_matrix.size());
+	flux_vals_homo.reserve(2 * mesh->adj_matrix.size());
 	flux_vals_thermal.reserve(2 * mesh->adj_matrix.size());
 	flux_offset.reserve(mesh->adj_matrix.size() + 1);
 	flux_stencil.reserve(2 * mesh->adj_matrix.size());
@@ -202,9 +203,11 @@ void Discretizer::calc_tpfa_transmissibilities(const PhysicalTags& tags)
 
 			flux_vals.push_back(Transmissibility * DARCY_CONSTANT);
 			flux_vals.push_back(-1 * Transmissibility * DARCY_CONSTANT);
+			flux_rhs.push_back(Transmissibility* DARCY_CONSTANT* dot(grav_vec, (mesh->centroids[mesh->conns[i].elem_id2] - mesh->centroids[mesh->conns[i].elem_id1])));
+			flux_vals_thermal.push_back(Transmissibility_thermal);
+			flux_vals_thermal.push_back(-Transmissibility_thermal);
 			flux_offset.push_back(counter);
 			counter += static_cast<index_t>(half_trans[i].size());
-			flux_rhs.push_back(Transmissibility * DARCY_CONSTANT * dot(grav_vec, (mesh->centroids[mesh->conns[i].elem_id2] - mesh->centroids[mesh->conns[i].elem_id1]) ) );
 
 			cell_m.push_back(mesh->conns[i].elem_id2);
 			cell_p.push_back(mesh->conns[i].elem_id1);
@@ -213,14 +216,11 @@ void Discretizer::calc_tpfa_transmissibilities(const PhysicalTags& tags)
 
 			flux_vals.push_back(-1 * Transmissibility * DARCY_CONSTANT);
 			flux_vals.push_back(Transmissibility* DARCY_CONSTANT);
+			flux_rhs.push_back(-Transmissibility * DARCY_CONSTANT * dot(grav_vec, (mesh->centroids[mesh->conns[i].elem_id2] - mesh->centroids[mesh->conns[i].elem_id1])));
+			flux_vals_thermal.push_back(-Transmissibility_thermal);
+			flux_vals_thermal.push_back(Transmissibility_thermal);
 			flux_offset.push_back(counter);
 			counter += static_cast<index_t>(half_trans[i].size());
-			flux_rhs.push_back(-Transmissibility * DARCY_CONSTANT * dot(grav_vec, (mesh->centroids[mesh->conns[i].elem_id2] - mesh->centroids[mesh->conns[i].elem_id1])));
-
-			flux_vals_thermal.push_back(-1 * Transmissibility_thermal);
-			flux_vals_thermal.push_back(Transmissibility_thermal);
-			flux_vals_thermal.push_back(-1 * Transmissibility_thermal);
-			flux_vals_thermal.push_back(Transmissibility_thermal);
 #ifdef DEBUG_TRANS
 			cell_i_idx.push_back(mesh->conns[i].elem_id1);
 			cell_j_idx.push_back(mesh->conns[i].elem_id2);
@@ -240,6 +240,7 @@ void Discretizer::calc_tpfa_transmissibilities(const PhysicalTags& tags)
 		if (half_trans[i].size() == 1)
 		{
 			flux_vals.push_back(half_trans[i][0] * DARCY_CONSTANT);
+			flux_vals_thermal.push_back(half_trans_thermal[i][0]);
 			flux_offset.push_back(counter);
 			counter += static_cast<index_t>(half_trans[i].size());
 			cell_m.push_back(mesh->conns[i].elem_id1);
