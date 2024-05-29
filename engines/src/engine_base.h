@@ -682,7 +682,6 @@ int engine_base::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_list_,
 	}
 
 	std::cout << "Linear solver type is " << linear_solver_type_str << std::endl;
-	std::cout << "Engine is " << engine_name << std::endl << std::flush;
 
 	n_vars = get_n_vars();
 	n_ops = get_n_ops();
