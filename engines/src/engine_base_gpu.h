@@ -149,7 +149,8 @@ int engine_base_gpu::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_li
   {
     params->linear_type = sim_params::GPU_GMRES_CPR_AMGX_ILU;
   }
-
+  
+  std::string linear_solver_type_str;	
   if (!linear_solver)
   {
     switch (params->linear_type)
@@ -163,6 +164,7 @@ int engine_base_gpu::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_li
       ((linsolv_bos_cpr_gpu<N_VARS> *)cpr)->p_solver_requires_diag_first = 1;
       cpr->set_prec(new linsolv_bos_amg<1>);
       linear_solver->set_prec(cpr);
+	  linear_solver_type_str = "GPU_GMRES_CPR_AMG";
       break;
     }
 #ifdef WITH_AIPS
@@ -196,6 +198,7 @@ int engine_base_gpu::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_li
       }
       cpr->set_prec(new linsolv_aips<1>(n_terms, print_radius, aips_type, print_structure));
       linear_solver->set_prec(cpr);
+	  linear_solver_type_str = "GPU_GMRES_CPR_AIPS";
       break;
     }
 #endif //WITH_AIPS
@@ -212,7 +215,7 @@ int engine_base_gpu::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_li
       // set full system prec
       cpr->set_prec(new linsolv_cusparse_ilu<N_VARS>(matrix_free, 0));
       linear_solver->set_prec(cpr);
-
+	  linear_solver_type_str = "GPU_GMRES_CPR_AMGX_ILU";
       break;
     }
     case sim_params::GPU_GMRES_CPR_AMGX_ILU_SP:
@@ -228,7 +231,7 @@ int engine_base_gpu::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_li
       // set full system prec
       cpr->set_prec(new linsolv_cusparse_ilu<N_VARS>(matrix_free, 1));
       linear_solver->set_prec(cpr);
-
+	  linear_solver_type_str = "GPU_GMRES_CPR_AMGX_ILU_SP";
       break;
     }
     case sim_params::GPU_GMRES_CPR_AMGX_AMGX:
@@ -250,6 +253,7 @@ int engine_base_gpu::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_li
       // set full system prec
       cpr->set_prec(new linsolv_amgx<N_VARS>(device_num, convert_to_bs1));
       linear_solver->set_prec(cpr);
+	  linear_solver_type_str = "GPU_GMRES_CPR_AMGX_AMGX";
       break;
     }
     case sim_params::GPU_GMRES_AMGX:
@@ -261,6 +265,7 @@ int engine_base_gpu::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_li
       }
       linear_solver = new linsolv_bos_gmres<N_VARS>(1);
       linear_solver->set_prec(new linsolv_amgx<N_VARS>(device_num, convert_to_bs1));
+	  linear_solver_type_str = "GPU_GMRES_AMGX";
       break;
     }
     case sim_params::GPU_AMGX:
@@ -271,6 +276,7 @@ int engine_base_gpu::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_li
         convert_to_bs1 = params->linear_params[0];
       }
       linear_solver = new linsolv_amgx<N_VARS>(device_num, convert_to_bs1);
+	  linear_solver_type_str = "GPU_AMGX";
       break;
     }
 #ifdef WITH_ADGPRS_NF
@@ -316,13 +322,14 @@ int engine_base_gpu::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_li
 
       cpr->set_prec(new linsolv_adgprs_nf<1>(nx, ny, nz, params->global_actnum, n_colors, coloring_scheme, is_ordering_reversed, is_factorization_twisted));
       linear_solver->set_prec(cpr);
+	  linear_solver_type_str = "GPU_GMRES_CPR_NF";
       break;
     }
 #endif //WITH_ADGPRS_NF
     case sim_params::GPU_GMRES_ILU0:
     {
       linear_solver = new linsolv_bos_gmres<N_VARS>(1);
-
+	  linear_solver_type_str = "GPU_GMRES_ILU0";
       break;
     }
     case sim_params::GPU_BICGSTAB_CPR_AMGX:
@@ -335,16 +342,20 @@ int engine_base_gpu::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_li
 
       cpr->set_prec(new linsolv_amgx<1>(device_num));
       linear_solver->set_prec(cpr);
+	  linear_solver_type_str = "GPU_BICGSTAB_CPR_AMGX";
       break;
     }
     default:
     {
-      std::cerr << "Linear solver type " << params->linear_type << " is not supproted for " << engine_name << std::endl << std::flush;
+      std::cerr << "Linear solver type " << params->linear_type << " is not supported for " << engine_name << std::endl << std::flush;
       exit(1);
     }
     }
   }
-
+  
+  std::cout << "Linear solver type is " << params->linear_type << std::endl;
+  std::cout << "Engine is " << engine_name << std::endl << std::flush;
+	
   // *** allocate host data ***
 
   n_vars = get_n_vars();

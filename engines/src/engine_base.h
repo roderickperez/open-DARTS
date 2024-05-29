@@ -512,6 +512,7 @@ int engine_base::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_list_,
 	}
 #endif
 
+	std::string linear_solver_type_str;	
 	// create linear solver
 	if (!linear_solver)
 	{
@@ -523,6 +524,7 @@ int engine_base::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_list_,
 			linsolv_iface *cpr = new linsolv_bos_cpr<N_VARS>;
 			cpr->set_prec(new linsolv_bos_amg<1>);
 			linear_solver->set_prec(cpr);
+			linear_solver_type_str = "CPU_GMRES_CPR_AMG";
 			break;
 		}
 #ifdef _WIN32
@@ -534,6 +536,7 @@ int engine_base::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_list_,
 			linsolv_iface *cpr = new linsolv_bos_cpr<N_VARS>;
 			cpr->set_prec(new linsolv_amg1r5<1>);
 			linear_solver->set_prec(cpr);
+			linear_solver_type_str = "CPU_GMRES_CPR_AMG1R5";
 			break;
 		}
 #endif 
@@ -542,11 +545,13 @@ int engine_base::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_list_,
 		{
 			linear_solver = new linsolv_bos_gmres<N_VARS>;
 			linear_solver->set_prec(new linsolv_bos_bilu0<N_VARS>);
+			linear_solver_type_str = "CPU_GMRES_ILU0";
 			break;
 		}
 		case sim_params::CPU_SUPERLU:
 		{
 			linear_solver = new linsolv_superlu<N_VARS>;
+			linear_solver_type_str = "CPU_SUPERLU";
 			break;
 		}
 
@@ -560,6 +565,7 @@ int engine_base::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_list_,
 			((linsolv_bos_cpr_gpu<N_VARS> *)cpr)->p_solver_requires_diag_first = 1;
 			cpr->set_prec(new linsolv_bos_amg<1>);
 			linear_solver->set_prec(cpr);
+			linear_solver_type_str = "GPU_GMRES_CPR_AMG";
 			break;
 		}
 #ifdef WITH_AIPS
@@ -593,6 +599,7 @@ int engine_base::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_list_,
 			}
 			cpr->set_prec(new linsolv_aips<1>(n_terms, print_radius, aips_type, print_structure));
 			linear_solver->set_prec(cpr);
+			linear_solver_type_str = "GPU_GMRES_CPR_AIPS";
 			break;
 		}
 #endif //WITH_AIPS
@@ -608,6 +615,7 @@ int engine_base::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_list_,
 			// set full system prec
 			cpr->set_prec(new linsolv_cusparse_ilu<N_VARS>);
 			linear_solver->set_prec(cpr);
+			linear_solver_type_str = "GPU_GMRES_CPR_AMGX_ILU";
 			break;
 		}
 #ifdef WITH_ADGPRS_NF
@@ -653,24 +661,28 @@ int engine_base::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_list_,
 
 			cpr->set_prec(new linsolv_adgprs_nf<1>(nx, ny, nz, params->global_actnum, n_colors, coloring_scheme, is_ordering_reversed, is_factorization_twisted));
 			linear_solver->set_prec(cpr);
+			linear_solver_type_str = "GPU_GMRES_CPR_NF";
 			break;
 		}
 #endif //WITH_ADGPRS_NF
 		case sim_params::GPU_GMRES_ILU0:
 		{
 			linear_solver = new linsolv_bos_gmres<N_VARS>(1);
-
+            linear_solver_type_str = "GPU_GMRES_ILU0";
 			break;
 		}
 #endif
 		default:
 		{
-		    std::cerr << "Linear solver type " << params->linear_type << " is not supproted for " << engine_name << std::endl << std::flush;
+		    std::cerr << "Linear solver type " << params->linear_type << " is not supported for " << engine_name << std::endl << std::flush;
 		    exit(1);
 		}
 		
 		}
 	}
+
+	std::cout << "Linear solver type is " << linear_solver_type_str << std::endl;
+	std::cout << "Engine is " << engine_name << std::endl << std::flush;
 
 	n_vars = get_n_vars();
 	n_ops = get_n_ops();
