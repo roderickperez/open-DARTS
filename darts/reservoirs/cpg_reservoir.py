@@ -102,7 +102,7 @@ class CPG_Reservoir(ReservoirBase):
         cell_m = np.array(self.discretizer.cell_m)[ids]
         cell_p = np.array(self.discretizer.cell_p)[ids]
         tran = mpfa_tran[::2][ids]
-        tranD = mpfa_tranD[1::2][ids]
+        tranD = mpfa_tranD[::2][ids]
 
         # self.discretizer.write_tran_cube('tran_cpg.grdecl', 'nnc_cpg.txt')
         if self.faultfile is not None:
