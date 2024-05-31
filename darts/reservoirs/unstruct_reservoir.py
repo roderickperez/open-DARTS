@@ -191,9 +191,9 @@ class UnstructReservoir(ReservoirBase):
                             'hcap': self.hcap, 'rcond': self.rcond, 'op_num': self.op_num,
                             }
             # order of values in volume_all_cells: FRACTURE MATRIX
-            matrix_props['volume'] = self.discretizer.volume_all_cells[self.discretizer.frac_cells_tot:]
+            matrix_props['volume'] = np.array(self.mesh.volume, copy=False)[self.discretizer.frac_cells_tot:]
             # order of values in depth_all_cells: FRACTURE MATRIX BOUNDARY
-            matrix_props['depth']  = self.discretizer.depth_all_cells[self.discretizer.frac_cells_tot:self.discretizer.frac_cells_tot+self.discretizer.mat_cells_tot]
+            matrix_props['depth'] = np.array(self.mesh.depth, copy=False)[self.discretizer.frac_cells_tot:self.discretizer.frac_cells_tot+self.discretizer.mat_cells_tot]
             matrix_props['center_x'] = self.discretizer.centroid_all_cells[self.discretizer.frac_cells_tot:][:,0]
             matrix_props['center_y'] = self.discretizer.centroid_all_cells[self.discretizer.frac_cells_tot:][:, 1]
             matrix_props['center_z'] = self.discretizer.centroid_all_cells[self.discretizer.frac_cells_tot:][:, 2]
