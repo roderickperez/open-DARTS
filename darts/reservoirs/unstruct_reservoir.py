@@ -225,7 +225,7 @@ class UnstructReservoir(ReservoirBase):
                         elif type(data) is float:
                             cell_data[prop][ith_geometry] += (data * np.ones(len(cell_idxs), dtype=mesh_geom_dtype)).tolist()
                     else:
-                        cell_data[prop][ith_geometry] += data.tolist()
+                        cell_data[prop][ith_geometry] += data[cell_idxs].tolist()
                     ith_geometry += 1
 
             # Loop over fracture cell properties
@@ -241,7 +241,7 @@ class UnstructReservoir(ReservoirBase):
                             elif type(data) is float:
                                 cell_data[prop][ith_geometry] += (data * np.ones(len(cell_idxs), dtype=mesh_geom_dtype)).tolist()
                         else:
-                            cell_data[prop][ith_geometry] += data.tolist()
+                            cell_data[prop][ith_geometry] += data[cell_idxs].tolist()
                         ith_geometry += 1
                     # Fill matrix cells with zeros
                     for geometry, cell_idxs in output_idxs['matrix'].items():
