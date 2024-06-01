@@ -98,17 +98,17 @@ public:
 	};
 
 	// get the number of primary unknowns (per block)
-	virtual const uint8_t get_n_vars() = 0;
+	virtual uint8_t get_n_vars() const = 0;
 
 	// get the number of operators (per block)
-	virtual const uint8_t get_n_ops() = 0;
+	virtual uint8_t get_n_ops() const = 0;
 
 	// get the number of components
-	virtual const uint8_t get_n_comps() = 0;
-	virtual const uint8_t get_n_fl_var() { return 0; };
+	virtual uint8_t get_n_comps() const = 0;
+	virtual uint8_t get_n_fl_var() const { return 0; };
 
 	// get the index of Z variable
-	virtual const uint8_t get_z_var() = 0;
+	virtual uint8_t get_z_var() const = 0;
 
 	// initialization
 	virtual int init(conn_mesh *mesh_, std::vector<ms_well *> &well_list_, std::vector<operator_set_gradient_evaluator_iface *> &acc_flux_op_set_list_, sim_params *params, timer_node *timer_) = 0;
@@ -528,7 +528,7 @@ int engine_base::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_list_,
 			break;
 		}
 #ifdef _WIN32
-#if 0 // can be enabled if amgdll.dll is available \
+#if 0 // can be enabled if amgdll.dll is available
 	  // since we compile PIC code, we cannot link existing static library, which was compiled withouf fPIC flag.
 		case sim_params::CPU_GMRES_CPR_AMG1R5:
 		{
@@ -877,6 +877,7 @@ int engine_base::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_list_,
 		time_data_report_customized.clear();
 		time_data_customized.clear();
 
+		// WARNING: this variable shadows a member variable of a different type
         index_t n_ops = 1;  // here '1' is to distinguish the size of the customized operator with the ordinary operator
 
 		op_vals_arr_customized.resize(n_ops * mesh->n_blocks);   // [1 * n_blocks] array of values of operators
