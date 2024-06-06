@@ -334,7 +334,7 @@ void engine_super_gpu<NC, NP, THERMAL>::copy_residual_to_device()
 }
 
 template <uint8_t NC, uint8_t NP, bool THERMAL>
-int engine_super_gpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::vector<value_t> &X, csr_matrix_base *jacobian, std::vector<value_t> &RHS)
+int engine_super_gpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::vector<value_t> &X, csr_matrix_base *jacobian, std::vector<value_t> &RHS) override
 {
   timer->node["jacobian assembly"].node["kernel"].start_gpu();
   //cudaMemset(jacobian->values_d, 0, jacobian->rows_ptr[mesh->n_blocks] * N_VARS_SQ * sizeof(double));

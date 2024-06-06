@@ -84,7 +84,7 @@ public:
            std::vector<operator_set_gradient_evaluator_iface *> &acc_flux_op_set_list_,
            sim_params *params_, timer_node *timer_);
 
-  int assemble_jacobian_array(value_t dt, std::vector<value_t> &X, csr_matrix_base *jacobian, std::vector<value_t> &RHS);
+  int assemble_jacobian_array(value_t dt, std::vector<value_t> &X, csr_matrix_base *jacobian, std::vector<value_t> &RHS) override;
   int adjoint_gradient_assembly(value_t dt, std::vector<value_t>& X, csr_matrix_base* jacobian, std::vector<value_t>& RHS);
 
   void copy_solution_to_host();
