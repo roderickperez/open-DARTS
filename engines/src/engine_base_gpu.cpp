@@ -145,18 +145,6 @@ int engine_base_gpu::solve_linear_equation()
 	copy_data_to_host(dX, dX_d);
 	timer->node["host<->device_overhead"].stop_gpu();
 
-    if (PRINT_LINEAR_SYSTEM) //changed this to write jacobian to file!
-    {
-      const std::string matrix_filename = "jac_nc_dar_" + std::to_string(output_counter) + ".csr";
-      copy_data_to_host(Jacobian->values, Jacobian->values_d, Jacobian->n_row_size * Jacobian->n_row_size * Jacobian->rows_ptr[mesh->n_blocks]);
-      static_cast<csr_matrix<N_VARS>*>(Jacobian)->write_matrix_to_file_mm(matrix_filename.c_str());
-      //Jacobian->write_matrix_to_file(("jac_nc_dar_" + std::to_string(output_counter) + ".csr").c_str());
-      copy_data_to_host(RHS_d, RHS);
-      write_vector_to_file("jac_nc_dar_" + std::to_string(output_counter) + ".rhs", RHS);
-      write_vector_to_file("jac_nc_dar_" + std::to_string(output_counter) + ".sol", dX);
-      output_counter++;
-    }
-
 	if (r_code)
 	{
 		sprintf(buffer, "ERROR: Linear solver solve returned %d \n", r_code);

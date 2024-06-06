@@ -381,3 +381,72 @@ int engine_super_gpu<NC, NP, THERMAL>::adjoint_gradient_assembly(value_t dt, std
 {
 	return 0;
 };
+
+template <uint8_t NC, uint8_t NP, bool THERMAL>
+int engine_super_gpu<NC, NP, THERMAL>::solve_linear_equation()
+{
+	int r_code;
+	char buffer[1024];
+	linear_solver_error_last_dt = 0;
+
+	timer->node["linear solver setup"].start_gpu();
+	if (params->assembly_kernel == 13)
+	{
+		r_code = linear_solver->setup(this);
+	}
+	else
+	{
+		r_code = linear_solver->setup(Jacobian);
+	}
+	timer->node["linear solver setup"].stop_gpu();
+
+	if (r_code)
+	{
+		sprintf(buffer, "ERROR: Linear solver setup returned %d \n", r_code);
+		std::cout << buffer << std::flush;
+		// use class property to save error state from linear solver
+		// this way it will work for both C++ and python newton loop
+		//Jacobian->write_matrix_to_file("jac_linear_setup_fail.csr");
+		linear_solver_error_last_dt = 1;
+		return linear_solver_error_last_dt;
+	}
+
+	timer->node["linear solver solve"].start_gpu();
+	r_code = linear_solver->solve(RHS_d, dX_d);
+	timer->node["linear solver solve"].stop_gpu();
+
+	timer->node["host<->device_overhead"].start_gpu();
+	copy_data_to_host(dX, dX_d);
+	timer->node["host<->device_overhead"].stop_gpu();
+
+  if (PRINT_LINEAR_SYSTEM) //changed this to write jacobian to file!
+  {
+    const std::string matrix_filename = "jac_nc_dar_" + std::to_string(output_counter) + ".csr";
+    copy_data_to_host(Jacobian->values, Jacobian->values_d, Jacobian->n_row_size * Jacobian->n_row_size * Jacobian->rows_ptr[mesh->n_blocks]);
+    static_cast<csr_matrix<N_VARS>*>(Jacobian)->write_matrix_to_file_mm(matrix_filename.c_str());
+    //Jacobian->write_matrix_to_file(("jac_nc_dar_" + std::to_string(output_counter) + ".csr").c_str());
+    copy_data_to_host(RHS_d, RHS);
+    write_vector_to_file("jac_nc_dar_" + std::to_string(output_counter) + ".rhs", RHS);
+    write_vector_to_file("jac_nc_dar_" + std::to_string(output_counter) + ".sol", dX);
+    output_counter++;
+  }
+
+	if (r_code)
+	{
+		sprintf(buffer, "ERROR: Linear solver solve returned %d \n", r_code);
+		std::cout << buffer << std::flush;
+		// use class property to save error state from linear solver
+		// this way it will work for both C++ and python newton loop
+		linear_solver_error_last_dt = 2;
+		return linear_solver_error_last_dt;
+	}
+	else
+	{
+		sprintf(buffer, "\t #%d (%.4e, %.4e): lin %d (%.1e)\n", n_newton_last_dt + 1, newton_residual_last_dt,
+			well_residual_last_dt, linear_solver->get_n_iters(), linear_solver->get_residual());
+		std::cout << buffer << std::flush;
+		n_linear_last_dt += linear_solver->get_n_iters();
+	}
+
+	return 0;
+}
