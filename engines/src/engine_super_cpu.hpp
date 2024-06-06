@@ -99,6 +99,7 @@ public:
   int adjoint_gradient_assembly(value_t dt, std::vector<value_t>& X, csr_matrix_base* jacobian, std::vector<value_t>& RHS);
 
 public:
+  int solve_linear_equation() override;
 };
 
 #include "engine_super_cpu.tpp"
