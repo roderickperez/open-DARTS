@@ -185,8 +185,7 @@ assemble_jacobian_array_kernel(const unsigned int n_blocks, const unsigned int n
       // Add diffusion term to the residual:
       for (uint8_t p = 0; p < NP; p++)
       {
-        value_t grad_con = op_vals_arr[j * N_OPS + GRAD_OP + c * NP + p] - op_vals_arr[i * N_OPS + GRAD_OP + c * NP + p];
-
+        value_t grad_con = op_vals_arr[j * N_OPS + GRAD_OP + p * NE + c] - op_vals_arr[i * N_OPS + GRAD_OP + p * NE + c];
         if (grad_con < 0)
         {
           // Diffusion flows from cell i to j (high to low), use upstream quantity from cell i for compressibility and saturation (mass or energy):
@@ -197,8 +196,8 @@ assemble_jacobian_array_kernel(const unsigned int n_blocks, const unsigned int n
           }
 
           // Add diffusion terms to Jacobian:
-          jac_diag += diff_mob_ups_m * op_ders_arr[(i * N_OPS + GRAD_OP + c * NP + p) * N_VARS + v];
-          jac_offd -= diff_mob_ups_m * op_ders_arr[(j * N_OPS + GRAD_OP + c * NP + p) * N_VARS + v];
+          jac_diag += diff_mob_ups_m * op_ders_arr[(i * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
+          jac_offd -= diff_mob_ups_m * op_ders_arr[(j * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
 
           jac_diag -= grad_con * dt * tranD[conn_idx] * phi_avg * op_ders_arr[(i * N_OPS + UPSAT_OP + p) * N_VARS + v];
         }
@@ -213,8 +212,8 @@ assemble_jacobian_array_kernel(const unsigned int n_blocks, const unsigned int n
           }
 
           // Add diffusion terms to Jacobian:
-          jac_diag += diff_mob_ups_m * op_ders_arr[(i * N_OPS + GRAD_OP + c * NP + p) * N_VARS + v];
-          jac_offd -= diff_mob_ups_m * op_ders_arr[(j * N_OPS + GRAD_OP + c * NP + p) * N_VARS + v];
+          jac_diag += diff_mob_ups_m * op_ders_arr[(i * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
+          jac_offd -= diff_mob_ups_m * op_ders_arr[(j * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
 
           jac_offd -= grad_con * dt * tranD[conn_idx] * phi_avg * op_ders_arr[(j * N_OPS + UPSAT_OP + p) * N_VARS + v];
         }
