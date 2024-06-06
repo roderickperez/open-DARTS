@@ -73,7 +73,7 @@ int engine_base_gpu::post_newtonloop(value_t deltat, value_t time)
 	return converged;
 }
 
-int engine_base_gpu::assemble_linear_system(value_t deltat) override
+int engine_base_gpu::assemble_linear_system(value_t deltat)
 {
 	// switch constraints if needed
 	timer->node["jacobian assembly"].start_gpu();
