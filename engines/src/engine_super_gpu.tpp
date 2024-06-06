@@ -158,6 +158,7 @@ assemble_jacobian_array_kernel(const unsigned int n_blocks, const unsigned int n
         jac_diag -= (phase_gamma_p_diff * op_ders_arr[(i * N_OPS + FLUX_OP + p * NE + c) * N_VARS + v] +
                      tran[conn_idx] * dt * phase_p_diff * trans_mult_der_i * op_vals_arr[i * N_OPS + FLUX_OP + p * NE + c]);
         jac_diag += c_flux * grav_pc_der_i;
+        jac_offd += c_flux * grav_pc_der_j;
       }
       else
       {
