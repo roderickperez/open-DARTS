@@ -1,8 +1,13 @@
 # 1.1.1 []
 - C++ standart is changed from 14 to 20
 - Discretizer binary type hanged from shared to static library 
-- TODO: add notes from https://gitlab.com/open-darts/open-darts/-/merge_requests/53
-
+- Thermo-hydro-mechanical-compositional (THMC) modeling:
+ 	- Coupled Multi-Point Stress and Multi-Point Flux Approximations
+ 	- Fully implicit thermo-poroelasticity resolved with collocated FVM and coupled with compositional multiphase transport
+	- Tests to compare to Mandel, Terzaghi, two-layer Terzaghi and Bai analytics
+	- SPE10 mechanical extension model
+	- Interface to block-partitioned preconditioner
+- Improved performance of discretization
 
 # 1.1.0 [16-02-2024]
 - Migrated to cmake build system [(See details)](https://gitlab.com/open-darts/open-darts/-/merge_requests/58). We kept the old Visual Studio projects, but they will be removed later.
