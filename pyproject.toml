@@ -18,7 +18,8 @@ readme = "README.md"
 keywords = ["energy transition", "modeling of CO2 sequestration", "geothermal energy production"]
 requires-python = ">=3.7"
 # Here we specify open-darts dependencies, at the moment we do not specify versions of each one of those, but that can be the case.
-dependencies = ['numpy', 'numba', 'scipy', 'pandas', 'meshio', 'gmsh', 'iapws', 'openpyxl', 'pyevtk', 'matplotlib', 'vtk', 'shapely', 'igraph', 'sympy']
+
+dependencies = ['numpy', 'numba', 'scipy', 'pandas', 'meshio', 'gmsh', 'iapws', 'openpyxl', 'pyevtk', 'matplotlib', 'vtk', 'shapely', 'igraph', 'sympy', 'opmcpg']
 
 license = {text = "LICENSE.md"}
 
@@ -38,6 +39,3 @@ documentation = "https://open-darts.readthedocs.io/en/docs"
 
 # Dependencies to be able to build the documentation
 docs = ["myst-parser", "sphinx_rtd_theme", "sphinx", "sphinx-tabs", "sphinx_inline_tabs", "sphinxcontrib-matlabdomain", "sphinxcontrib-bibtex", "linkify-it-py", "sphinx-copybutton"]
-
-# Dependencies to use cpg (not available to macOS)
-cpg = ['opmcpg']
