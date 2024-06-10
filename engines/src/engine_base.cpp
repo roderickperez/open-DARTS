@@ -2581,6 +2581,20 @@ int engine_base::solve_linear_equation()
 	r_code = linear_solver->solve(&RHS[0], &dX[0]);
 	timer->node["linear solver solve"].stop();
 
+	if (PRINT_LINEAR_SYSTEM) //changed this to write jacobian to file!
+	{
+	  const std::string matrix_filename = "jac_nc_dar_" + std::to_string(output_counter) + ".csr";
+#ifdef OPENDARTS_LINEAR_SOLVERS
+	  Jacobian->export_matrix_to_file(matrix_filename, opendarts::linear_solvers::sparse_matrix_export_format::csr);
+#else
+	  Jacobian->write_matrix_to_file_mm(matrix_filename.c_str());
+#endif
+	  //Jacobian->write_matrix_to_file(("jac_nc_dar_" + std::to_string(output_counter) + ".csr").c_str());
+	  write_vector_to_file("jac_nc_dar_" + std::to_string(output_counter) + ".rhs", RHS);
+	  write_vector_to_file("jac_nc_dar_" + std::to_string(output_counter) + ".sol", dX);
+	  output_counter++;
+	}
+
 	if (r_code)
 	{
 		sprintf(buffer, "ERROR: Linear solver solve returned %d \n", r_code);
