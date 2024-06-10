@@ -100,8 +100,6 @@ public:
   value_t *mesh_poro_d;       // [n_blocks] porosity for each block
   value_t *mesh_kin_factor_d; // [n_blocks] kin factor for each block
   value_t *mesh_grav_coef_d;  // [n_conns] porosity for each block
-
-  int solve_linear_equation() override;
 };
 
 #include "engine_super_gpu.tpp"
