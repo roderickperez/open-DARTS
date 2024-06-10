@@ -572,7 +572,6 @@ test-windows-3.7-ODLS:
         - pip install --force-reinstall --no-deps ./dist/$WHEEL_NAME
         # force-reinstall of dependencies takes too much time, lets only upgrade (eagerly!) them
         - pip install --upgrade --upgrade-strategy eager ./dist/$WHEEL_NAME
-        - pip install opmcpg
     script:
         # run simulation fot test models set
         - cd models
@@ -723,7 +722,7 @@ pages:
     image: python:3.9
     script:
         # re-install open-darts with the dependencies for building the documentation
-        - pip install .[docs,cpg]
+        - pip install .[docs]
         # use the wheel generated in build to install open-darts
         - pip install --force-reinstall --no-deps ./dist/*cp39-linux_x86_64.whl
         - cd docs

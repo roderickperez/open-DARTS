@@ -136,7 +136,7 @@ if %wheel%==true (
   python setup.py build bdist_wheel --plat-name=win-amd64 > make_wheel.log || goto :error
   echo -- Python wheel generated!
 )
-python -m pip install .[cpg] >> make_wheel.log
+python -m pip install . >> make_wheel.log
 
 echo ************************************************************************
 echo   Building python package open-darts: DONE!
