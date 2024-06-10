@@ -1168,6 +1168,9 @@ conn_mesh::reverse_and_sort_dvel()
 int
 conn_mesh::reverse_and_sort_mpfa()
 {
+	const size_t diff_trans = one_way_tranD.size();
+	const size_t thermal_trans = one_way_tran_heat_cond.size();
+
 	cout << "Processing mesh: " << n_blocks << " reservoir blocks, " << n_blocks - n_res_blocks << " well blocks, " << n_bounds << " boundary segments, " << n_conns << " connections\n";
 	n_matrix = n_blocks;
 	cell_stencil.resize(n_blocks);
@@ -1225,9 +1228,10 @@ conn_mesh::reverse_and_sort_mpfa()
 	block_m.resize(n_two_way_conns);
 	block_p.resize(n_two_way_conns);
 	tran.resize(n_two_way_stencil);
-	tranD.resize(n_two_way_stencil);
-	const bool thermal_trans_initialized = (one_way_tran_heat_cond.size()) ? true : false;
-	if (thermal_trans_initialized) tran_heat_cond.resize(n_two_way_stencil);
+	if (diff_trans)
+		tranD.resize(n_two_way_stencil);
+	if (thermal_trans) 
+		tran_heat_cond.resize(n_two_way_stencil);
 	stencil.resize(n_two_way_stencil);
 	offset.resize(n_two_way_conns + 1);
 	rhs.resize(n_two_way_conns);
@@ -1258,8 +1262,10 @@ conn_mesh::reverse_and_sort_mpfa()
 			{
 			    stencil[j + f_acc] = one_way_stencil[ind[j]];
 			    tran[j + f_acc] = one_way_tran[ind[j]];
-			    tranD[j + f_acc] = one_way_tranD[ind[j]];
-				if (thermal_trans_initialized) tran_heat_cond[j + f_acc] = one_way_tran_heat_cond[ind[j]];
+				if (diff_trans)
+					tranD[j + f_acc] = one_way_tranD[ind[j]];
+				if (thermal_trans)
+					tran_heat_cond[j + f_acc] = one_way_tran_heat_cond[ind[j]];
 			}
 
 			f_acc += size;
