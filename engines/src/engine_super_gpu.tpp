@@ -158,6 +158,7 @@ assemble_jacobian_array_kernel(const unsigned int n_blocks, const unsigned int n
         jac_diag -= (phase_gamma_p_diff * op_ders_arr[(i * N_OPS + FLUX_OP + p * NE + c) * N_VARS + v] +
                      tran[conn_idx] * dt * phase_p_diff * trans_mult_der_i * op_vals_arr[i * N_OPS + FLUX_OP + p * NE + c]);
         jac_diag += c_flux * grav_pc_der_i;
+        jac_offd += c_flux * grav_pc_der_j;
       }
       else
       {
@@ -185,8 +186,7 @@ assemble_jacobian_array_kernel(const unsigned int n_blocks, const unsigned int n
       // Add diffusion term to the residual:
       for (uint8_t p = 0; p < NP; p++)
       {
-        value_t grad_con = op_vals_arr[j * N_OPS + GRAD_OP + c * NP + p] - op_vals_arr[i * N_OPS + GRAD_OP + c * NP + p];
-
+        value_t grad_con = op_vals_arr[j * N_OPS + GRAD_OP + p * NE + c] - op_vals_arr[i * N_OPS + GRAD_OP + p * NE + c];
         if (grad_con < 0)
         {
           // Diffusion flows from cell i to j (high to low), use upstream quantity from cell i for compressibility and saturation (mass or energy):
@@ -197,8 +197,8 @@ assemble_jacobian_array_kernel(const unsigned int n_blocks, const unsigned int n
           }
 
           // Add diffusion terms to Jacobian:
-          jac_diag += diff_mob_ups_m * op_ders_arr[(i * N_OPS + GRAD_OP + c * NP + p) * N_VARS + v];
-          jac_offd -= diff_mob_ups_m * op_ders_arr[(j * N_OPS + GRAD_OP + c * NP + p) * N_VARS + v];
+          jac_diag += diff_mob_ups_m * op_ders_arr[(i * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
+          jac_offd -= diff_mob_ups_m * op_ders_arr[(j * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
 
           jac_diag -= grad_con * dt * tranD[conn_idx] * phi_avg * op_ders_arr[(i * N_OPS + UPSAT_OP + p) * N_VARS + v];
         }
@@ -213,8 +213,8 @@ assemble_jacobian_array_kernel(const unsigned int n_blocks, const unsigned int n
           }
 
           // Add diffusion terms to Jacobian:
-          jac_diag += diff_mob_ups_m * op_ders_arr[(i * N_OPS + GRAD_OP + c * NP + p) * N_VARS + v];
-          jac_offd -= diff_mob_ups_m * op_ders_arr[(j * N_OPS + GRAD_OP + c * NP + p) * N_VARS + v];
+          jac_diag += diff_mob_ups_m * op_ders_arr[(i * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
+          jac_offd -= diff_mob_ups_m * op_ders_arr[(j * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
 
           jac_offd -= grad_con * dt * tranD[conn_idx] * phi_avg * op_ders_arr[(j * N_OPS + UPSAT_OP + p) * N_VARS + v];
         }
@@ -381,3 +381,71 @@ int engine_super_gpu<NC, NP, THERMAL>::adjoint_gradient_assembly(value_t dt, std
 {
 	return 0;
 };
+
+template <uint8_t NC, uint8_t NP, bool THERMAL>
+int engine_super_gpu<NC, NP, THERMAL>::solve_linear_equation()
+{
+	int r_code;
+	char buffer[1024];
+	linear_solver_error_last_dt = 0;
+
+	timer->node["linear solver setup"].start_gpu();
+	if (params->assembly_kernel == 13)
+	{
+		r_code = linear_solver->setup(this);
+	}
+	else
+	{
+		r_code = linear_solver->setup(Jacobian);
+	}
+	timer->node["linear solver setup"].stop_gpu();
+
+	if (r_code)
+	{
+		sprintf(buffer, "ERROR: Linear solver setup returned %d \n", r_code);
+		std::cout << buffer << std::flush;
+		// use class property to save error state from linear solver
+		// this way it will work for both C++ and python newton loop
+		//Jacobian->write_matrix_to_file("jac_linear_setup_fail.csr");
+		linear_solver_error_last_dt = 1;
+		return linear_solver_error_last_dt;
+	}
+
+	timer->node["linear solver solve"].start_gpu();
+	r_code = linear_solver->solve(RHS_d, dX_d);
+	timer->node["linear solver solve"].stop_gpu();
+
+	timer->node["host<->device_overhead"].start_gpu();
+	copy_data_to_host(dX, dX_d);
+	timer->node["host<->device_overhead"].stop_gpu();
+
+  if (PRINT_LINEAR_SYSTEM) //changed this to write jacobian to file!
+  {
+    const std::string matrix_filename = "jac_nc_dar_" + std::to_string(output_counter) + ".csr";
+    copy_data_to_host(Jacobian->values, Jacobian->values_d, Jacobian->n_row_size * Jacobian->n_row_size * Jacobian->rows_ptr[mesh->n_blocks]);
+    static_cast<csr_matrix<N_VARS>*>(Jacobian)->write_matrix_to_file_mm(matrix_filename.c_str());
+    //Jacobian->write_matrix_to_file(("jac_nc_dar_" + std::to_string(output_counter) + ".csr").c_str());
+    write_vector_to_file("jac_nc_dar_" + std::to_string(output_counter) + ".rhs", RHS);
+    write_vector_to_file("jac_nc_dar_" + std::to_string(output_counter) + ".sol", dX);
+    output_counter++;
+  }
+
+	if (r_code)
+	{
+		sprintf(buffer, "ERROR: Linear solver solve returned %d \n", r_code);
+		std::cout << buffer << std::flush;
+		// use class property to save error state from linear solver
+		// this way it will work for both C++ and python newton loop
+		linear_solver_error_last_dt = 2;
+		return linear_solver_error_last_dt;
+	}
+	else
+	{
+		sprintf(buffer, "\t #%d (%.4e, %.4e): lin %d (%.1e)\n", n_newton_last_dt + 1, newton_residual_last_dt,
+			well_residual_last_dt, linear_solver->get_n_iters(), linear_solver->get_residual());
+		std::cout << buffer << std::flush;
+		n_linear_last_dt += linear_solver->get_n_iters();
+	}
+
+	return 0;
+}
