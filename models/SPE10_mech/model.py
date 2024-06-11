@@ -180,7 +180,8 @@ class Model(THMCModel):
                                       thermal=self.thermal, min_t=self.idata.obl.min_t, max_t=self.idata.obl.max_t,
                                       discretizer=self.discretizer_name)
         self.physics.add_property_region(property_container)
-        self.engine = self.physics.init_physics(discretizer=self.discretizer_name, platform='cpu')
+
+        self.physics.init_physics(discr_type=self.discretizer_name, platform='cpu')
 
         return
 

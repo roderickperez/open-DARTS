@@ -10,7 +10,7 @@ def run_python(m, days=0, restart_dt=0, init_step = False):
 
     mult_dt = m.params.mult_ts
     max_dt = m.params.max_ts
-    m.e = m.engine
+    m.e = m.physics.engine
 
     # get current engine time
     t = m.e.t
@@ -72,7 +72,7 @@ def run_timestep_python(m, dt, t):
     well_tolerance_coefficient = 1e2
     self.timer.node['simulation'].start()
     for i in range(max_newt + 1):
-        self.e.run_single_newton_iteration(dt)
+        self.e.assemble_linear_system(dt)
         res = self.e.calc_newton_dev()#self.e.calc_newton_residual()
         self.e.dev_p = res[0]
         self.e.dev_u = res[1]
@@ -120,12 +120,12 @@ def run(model_folder, physics_type):
 
     # intialization:
     m.reservoir.set_equilibrium(zero_conduction=True)
-    m.engine.find_equilibrium = True
+    m.physics.engine.find_equilibrium = True
     dt_init = 1.e+8
     m.params.first_ts = dt_init
     run_python(m, dt_init, init_step=True)
     m.reinit(zero_conduction=True)
-    m.engine.find_equilibrium = False
+    m.physics.engine.find_equilibrium = False
 
     size_report_step = 1
     max_dt = size_report_step
