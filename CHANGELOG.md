@@ -5,7 +5,7 @@
 	- Tests to compare to Mandel, Terzaghi, two-layer Terzaghi and Bai analytics [(link))](https://gitlab.com/open-darts/open-darts/-/tree/development/models/1ph_1comp_poroelastic_analytics)
 	- [Convergence test](https://gitlab.com/open-darts/open-darts/-/tree/development/models/1ph_1comp_poroelastic_convergence)
 	- Interface to block-partitioned preconditioner
-- Improved performance of discretization (C++ ?)
+- Improved performance of discretization (C++)
 - [InputData class](https://gitlab.com/open-darts/open-darts/-/blob/development/darts/input/input_data.py) added and used in THM tests
 - C++ standart is changed from 14 to 20
 - Discretizer binary type changed from shared to static library
