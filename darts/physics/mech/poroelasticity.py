@@ -104,8 +104,8 @@ class Poroelasticity(Compositional):
         """
         for w in wells:
             assert isinstance(w, ms_well)
-            w.init_mech_rate_parameters(self.engine.N_VARS, self.engine.P_VAR, self.n_vars, self.phases,
-                                        self.rate_itor)#, self.thermal)
+            w.init_mech_rate_parameters(self.engine.N_VARS, self.engine.P_VAR, self.n_vars,
+                                        self.n_ops, self.phases, self.rate_itor, self.thermal)
 
     def set_uniform_initial_conditions(self, mesh, uniform_pressure, uniform_displacement: list,
                                        uniform_composition: list = None, uniform_temperature: float = None):
