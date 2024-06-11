@@ -5,7 +5,6 @@
  	- Coupled Multi-Point Stress and Multi-Point Flux Approximations
  	- Fully implicit thermo-poroelasticity resolved with collocated FVM and coupled with compositional multiphase transport
 	- Tests to compare to Mandel, Terzaghi, two-layer Terzaghi and Bai analytics
-	- SPE10 mechanical extension model
 	- Interface to block-partitioned preconditioner
 - Improved performance of discretization
 
