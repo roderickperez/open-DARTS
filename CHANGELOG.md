@@ -7,8 +7,11 @@
 	- Interface to block-partitioned preconditioner
 - Improved performance of discretization (C++)
 - [InputData class](https://gitlab.com/open-darts/open-darts/-/blob/development/darts/input/input_data.py) added and used in THM tests
-- C++ standart is changed from 14 to 20
+- C++ standard is changed from 14 to 20
 - Discretizer binary type changed from shared to static library
+- Enable linking to external library (iterative solvers) compiled in debug mode if compiling openDARTS in debug mode.
+- Improve documentation on multi-thread version.
+- Add `opmcpg` as a main dependency.
 
 # 1.1.1 [15-03-2024]
 
