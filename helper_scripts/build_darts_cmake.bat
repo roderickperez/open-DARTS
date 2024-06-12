@@ -7,7 +7,7 @@ set testing=false
 set wheel=false
 set bos_solvers_artifact=false
 set bos_solvers_dir=""
-set MT=false
+set MT=true
 set skip_req=false
 set config=Release
 set NT=8
@@ -38,10 +38,14 @@ if %bos_solvers_artifact%==true (
   if %testing%==true (
     set testing=false
   )
+)
+REM ODLS version does not support OpenMP yet
+if %bos_solvers_artifact%==false (
   if %MT%==true (
     set MT=false
   )
 )
+
 echo - Report configuration of this script: START
 echo    bos_solvers_dir = %bos_solvers_dir%
 echo    fetch bos_solvers_artifact = %bos_solvers_artifact%
@@ -63,7 +67,7 @@ if %clean_mode%==true (
 if %skip_req%==false (
   echo - Update submodules: START
   rmdir /s /q thirdparty\eigen thirdparty\pybind11 thirdparty\MshIO
-  git submodule update --recursive --remote --init || goto :error
+  git submodule update --recursive --init || goto :error
   echo - Update submodules: DONE!
 
   echo - Install requirements: START
@@ -73,13 +77,13 @@ if %skip_req%==false (
   cd build
   mkdir eigen
   cd eigen
-  cmake -D CMAKE_INSTALL_PREFIX=../../install ../../eigen/ || goto :error
-  msbuild INSTALL.vcxproj /p:Configuration=Release /p:Platform=x64 -maxCpuCount:%NT% || goto :error
+  cmake -D CMAKE_INSTALL_PREFIX=../../install ../../eigen/ > ../../../make_eigen.log || goto :error
+  msbuild INSTALL.vcxproj /p:Configuration=Release /p:Platform=x64 -maxCpuCount:%NT% >> ../../../make_eigen.log || goto :error
   cd ..\..
 
   echo -- Install SuperLU
   cd SuperLU_5.2.1
-  msbuild superlu.sln /p:Configuration=%config% /p:Platform=x64 -maxCpuCount:%NT% || goto :error
+  msbuild superlu.sln /p:Configuration=%config% /p:Platform=x64 -maxCpuCount:%NT% > ../../make_superlu.log || goto :error
   cd ..\..
   echo - Install requirements: DONE!
 )
@@ -108,7 +112,7 @@ echo CMake options: %cmake_options%
 cmake %cmake_options% ..
 
 REM build and install
-msbuild openDARTS.sln /p:Configuration=%config% /p:Platform=x64 -maxCpuCount:%NT% || goto :error
+msbuild openDARTS.sln /p:Configuration=%config% /p:Platform=x64 -maxCpuCount:%NT% > ../make_darts.log || goto :error
 msbuild INSTALL.vcxproj /p:Configuration=%config% /p:Platform=x64 -maxCpuCount:%NT% || goto :error
 
 if %testing%==true ctest -C %config% 
@@ -129,10 +133,10 @@ if %wheel%==true (
   rem copy $env:VCToolsRedistDir\x64\Microsoft.VC143.CRT\msvcp140.dll .\darts
   rem copy $env:VCToolsRedistDir\x64\Microsoft.VC143.CRT\vcruntime140.dll .\darts
   rem copy $env:VCToolsRedistDir\x64\Microsoft.VC143.OpenMP\vcomp140.dll .\darts
-  python setup.py build bdist_wheel --plat-name=win-amd64 || goto :error
+  python setup.py build bdist_wheel --plat-name=win-amd64 > make_wheel.log || goto :error
   echo -- Python wheel generated!
 )
-python -m pip install .[cpg]
+python -m pip install . >> make_wheel.log
 
 echo ************************************************************************
 echo   Building python package open-darts: DONE!

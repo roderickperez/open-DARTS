@@ -72,9 +72,9 @@ class UnstructDiscretizer:
         self.output_faces_tot = 0  # Number of output faces
         self.frac_bound_faces_tot = 0  # Number of segments on the boundary of faults
 
-        self.volume_all_cells = {}  # Volume of matrix and fracture cells (later as numpy.array)
-        self.depth_all_cells = {}  # Depth of matrix and fracture cells (later as numpy.array)
-        self.centroid_all_cells = {}  # Centroid of matrix and fracture cells (later as numpy.array)
+        self.volume_all_cells = []  # Volume of matrix and fracture cells (later as numpy.array)
+        self.depth_all_cells = []  # Depth of matrix and fracture cells (later as numpy.array)
+        self.centroid_all_cells = []  # Centroid of matrix and fracture cells (later as numpy.array)
 
         self.boundary_connections = {}
         self.tol = 1.E-10  # Tolerance in MPxA
@@ -478,6 +478,7 @@ class UnstructDiscretizer:
         Class method which loops over all the cells and stores the volume in single array (first frac, then mat)
         :return:
         """
+        self.volume_all_cells = np.zeros(self.mat_cells_tot + self.frac_cells_tot)
         tot_cell_count = 0
         for ith_cell in self.frac_cell_info_dict:
             self.volume_all_cells[tot_cell_count] = self.frac_cell_info_dict[ith_cell].volume
@@ -487,10 +488,26 @@ class UnstructDiscretizer:
             self.volume_all_cells[tot_cell_count] = self.mat_cell_info_dict[ith_cell].volume
             tot_cell_count += 1
 
-        self.volume_all_cells = np.array(list(self.volume_all_cells.values()))
         return 0
 
     def store_centroid_all_cells(self):
+        """
+        Class method which loops over all the cells and stores the volume in single array (first frac, then mat)
+        :return:
+        """
+        self.centroid_all_cells = np.zeros((self.mat_cells_tot + self.frac_cells_tot, 3))
+        tot_cell_count = 0
+        for ith_cell in self.frac_cell_info_dict:
+            self.centroid_all_cells[tot_cell_count,:] = self.frac_cell_info_dict[ith_cell].centroid
+            tot_cell_count += 1
+
+        for ith_cell in self.mat_cell_info_dict:
+            self.centroid_all_cells[tot_cell_count,:] = self.mat_cell_info_dict[ith_cell].centroid
+            tot_cell_count += 1
+
+        return 0
+
+    def store_centroid_all_cells_1(self):
         """
         Class method which loops over all the cells and stores the volume in single array (first frac, then mat)
         :return:
@@ -507,11 +524,13 @@ class UnstructDiscretizer:
         self.centroid_all_cells = np.array(list(self.centroid_all_cells.values()))
         return 0
 
+
     def store_depth_all_cells(self):
         """
         Class method which loops over all the cells and stores the depth in single array (first frac, then mat)
         :return:
         """
+        self.depth_all_cells = np.zeros(self.mat_cells_tot + self.frac_cells_tot + self.bound_faces_tot)
         tot_cell_count = 0
         for ith_cell in self.frac_cell_info_dict:
             self.depth_all_cells[tot_cell_count] = self.frac_cell_info_dict[ith_cell].depth
@@ -525,7 +544,6 @@ class UnstructDiscretizer:
             self.depth_all_cells[tot_cell_count] = self.bound_face_info_dict[ith_cell].depth
             tot_cell_count += 1
 
-        self.depth_all_cells = np.array(list(self.depth_all_cells.values()))
         return 0
 
     @staticmethod
@@ -781,7 +799,7 @@ class UnstructDiscretizer:
                             # interface:
                             try:
                                 for geometry in ['quad', 'triangle']:
-                                    if geometry == 'triangle': # it goes to 'except' in triangle case, thus misses next quad iteration
+                                    if geometry not in self.mesh_data.cells_dict.keys():
                                         continue
                                     # todo: this is most likely the reason why models with a lot of fractures are
                                     #  extremely slow, check after holiday if this can be done in another way!!!
@@ -2838,7 +2856,7 @@ class UnstructDiscretizer:
         :return: well_index, well_index_thermal
         '''
         if res_block < self.frac_cells_tot:
-            well_index = well_indexD = 1e+3 # set big value for well perf in fracture
+            well_index = well_indexD = 1e+5 # set big value for well perf in fracture
             return well_index, well_indexD
         kx = self.perm_x_cell[res_block - self.frac_cells_tot] # perm array contains only cells data
         ky = self.perm_y_cell[res_block - self.frac_cells_tot] # perm array contains only cells data

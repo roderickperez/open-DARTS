@@ -1,6 +1,7 @@
 # Setup shell script run -------------------------------------------------------
 # Exit when any command fails
-set -e  
+set -e
+set -o pipefail
 # ------------------------------------------------------------------------------
 
 ################################################################################
@@ -101,7 +102,7 @@ else
         # clean-up previous versions.
         rm -rf thirdparty/eigen thirdparty/pybind11
         git submodule sync --recursive
-        git submodule update --recursive --remote --init
+        git submodule update --recursive --init
         echo -e "\n- Update submodules: DONE! \n"
 
         # Install requirements
@@ -111,8 +112,8 @@ else
         cd thirdparty
         mkdir -p build/eigen
         cd build/eigen
-        cmake -D CMAKE_INSTALL_PREFIX=../../install ../../eigen/
-        make install -j $NT
+        cmake -D CMAKE_INSTALL_PREFIX=../../install ../../eigen/  2>&1 | tee ../../../make_eigen.log
+        make install -j $NT 2>&1 | tee -a ../../../make_eigen.log
         cd ../../
 
         echo -e "\n-- Install SuperLU \n"
@@ -126,8 +127,8 @@ else
   	        cp make_gcc_linux.inc make.inc
         fi
 
-        make -j $NT
-        make install -j $NT
+        make -j $NT 2>&1 | tee ../../make_superlu.log
+        make install -j $NT 2>&1 | tee -a ../../make_superlu.log
         cd ../../
 
         if [[ "$bos_solvers_artifact" == true ]]; then
@@ -170,10 +171,10 @@ else
     fi
 
     echo "CMake options: $cmake_options" # Report to user the CMake options
-    cmake $cmake_options ..
+    cmake $cmake_options .. 2>&1 | tee ../make_darts.log
 
     # Build and install openDARTS
-    make install -j $NT
+    make install -j $NT 2>&1 | tee -a ../make_darts.log
 
     # Test
     if [[ "$testing" == true ]]; then
@@ -196,12 +197,12 @@ else
     # build darts.whl
     if [[ "$wheel" == true ]]; then
         python3 setup.py clean
-        python3 setup.py build bdist_wheel
+        python3 setup.py build bdist_wheel 2>&1 | tee make_wheel.log
         echo "-- Python wheel generated! \n"
     fi
 
     # installing python package
-    python3 -m pip install .
+    python3 -m pip install . 2>&1 | tee -a make_wheel.log
 
     echo "\n************************************************************************"
     echo "| Building python package open-darts: DONE! "

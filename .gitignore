@@ -31,3 +31,6 @@ darts/build_info.txt
 *.pdb
 *.npy
 .vscode
+/.idea/*
+*x64*
+*.log

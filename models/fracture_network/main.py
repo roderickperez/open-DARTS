@@ -32,10 +32,15 @@ def test(case, overwrite='0'):
     return 0, 0.0
 
 if __name__ == "__main__":
-    #cases_list = ['case_1']
-    #cases_list = ['case_1_burden']
-    #cases_list = ['case_1_burden_2']
     #cases_list = ['whitby']
-    cases_list = ['case_1', 'case_1_burden', 'case_1_burden_2']
+    #cases_list = ['case_3']
+    #cases_list = ['case_4']
+    cases_list = ['case_1']
+    cases_list += ['case_1_burden_O1']
+    cases_list += ['case_1_burden_O2']
+    cases_list += ['case_1_burden_U1']
+    cases_list += ['case_1_burden_U2']
+    cases_list += ['case_1_burden_O1_U1']
+    cases_list += ['case_1_burden_O2_U2']
     for case in cases_list:
         test(case)

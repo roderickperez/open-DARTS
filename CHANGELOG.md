@@ -1,6 +1,20 @@
-# 1.1.0 [21-02-2024]
+# 1.1.2 []
+- Thermo-hydro-mechanical-compositional (THMC) modeling:
+ 	- Coupled Multi-Point Stress and Multi-Point Flux Approximations
+ 	- Fully implicit thermo-poroelasticity resolved with collocated FVM and coupled with compositional multiphase transport
+	- Tests to compare to Mandel, Terzaghi, two-layer Terzaghi and Bai analytics [(link))](https://gitlab.com/open-darts/open-darts/-/tree/development/models/1ph_1comp_poroelastic_analytics)
+	- [Convergence test](https://gitlab.com/open-darts/open-darts/-/tree/development/models/1ph_1comp_poroelastic_convergence)
+	- Interface to block-partitioned preconditioner
+- Improved performance of discretization (C++)
+- [InputData class](https://gitlab.com/open-darts/open-darts/-/blob/development/darts/input/input_data.py) added and used in THM tests
+- C++ standart is changed from 14 to 20
+- Discretizer binary type changed from shared to static library
+
+# 1.1.1 [15-03-2024]
+
+# 1.1.0 [16-02-2024]
 - Migrated to cmake build system [(See details)](https://gitlab.com/open-darts/open-darts/-/merge_requests/58). We kept the old Visual Studio projects, but they will be removed later.
-- Well rates in SuperEngine ("Compositional") are defined in reservoir conditions now, the units are Kmol/day
+- Well rates in SuperEngine ("Compositional") are defined in reservoir conditions now, the units are kmol/day
 - VTK output unified for all the reservoir classes [(See details)](https://gitlab.com/open-darts/open-darts/-/merge_requests/79)
 - Discrete Fracture mesh generation tool and model added [(See details)](https://gitlab.com/open-darts/open-darts/-/merge_requests/79)
 - Windows build script supports optional arguments  [(See details)](https://gitlab.com/open-darts/open-darts/-/merge_requests/82)

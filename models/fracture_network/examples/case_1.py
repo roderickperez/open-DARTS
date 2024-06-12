@@ -16,7 +16,7 @@ def input_data_case_1():
     # cell sizes
     input_data['char_len'] = 50  # near fractures (characteristic length for cleaning and mesh generation) [m]
     input_data['char_len_boundary'] = 150  # grid size near grid boundaries [m]
-    input_data['char_len_well'] = 100  # grid size near wells [m]
+    input_data['char_len_well'] = 50  # grid size near wells [m]
 
     # initial pressure and temperature
     # uniform initial pressure and temperature
@@ -36,8 +36,6 @@ def input_data_case_1():
 
     input_data['z_top'] = 2000  # [m]
     input_data['height_res'] = 20  # [m]
-
-    input_data['perm'] = 20  # [mD]
 
     input_data['frac_aper'] = 1e-3  # (initial) fracture aperture [m]
 
