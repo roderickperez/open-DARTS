@@ -79,7 +79,7 @@ public:
         dg_dT_general = 0;
         dT_du = 0;
 
-		PRINT_LINEAR_SYSTEM = false;
+		print_linear_system = false;
 		output_counter = 0;
 	};
 
@@ -249,7 +249,7 @@ public:
 	value_t dt, prev_usual_dt, stop_time;
 	
 	index_t output_counter;
-	bool PRINT_LINEAR_SYSTEM;
+	bool print_linear_system;
 
 	// statistics
 	value_t CFL_max; // maximum value of CFL for last Jacobian assebly

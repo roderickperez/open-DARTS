@@ -35,7 +35,6 @@ int engine_pm_cpu::init(conn_mesh *mesh_, std::vector<ms_well *> &well_list_,
 	output_counter = 0;
 	FIND_EQUILIBRIUM = false;
 	contact_solver = pm::RETURN_MAPPING;
-	PRINT_LINEAR_SYSTEM = false;
 	TIME_DEPENDENT_DISCRETIZATION = false;
 	SCALE_ROWS = false;
 	SCALE_DIMLESS = false;
@@ -1672,7 +1671,7 @@ int engine_pm_cpu::solve_linear_equation()
 	r_code = linear_solver->solve(&RHS[0], &dX[0]);
 	timer->node["linear solver solve"].stop();
 
-	if (PRINT_LINEAR_SYSTEM) // changed this to write jacobian to file!
+	if (print_linear_system) // changed this to write jacobian to file!
 	{
             #ifndef OPENDARTS_LINEAR_SOLVERS
 	    static_cast<csr_matrix<N_VARS>*>(Jacobian)->write_matrix_to_file_mm(("jac_nc_dar_" + std::to_string(output_counter) + ".csr").c_str());

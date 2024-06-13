@@ -121,7 +121,7 @@ public:
   index_t active_linear_solver_id;
 
 public:
-  bool FIND_EQUILIBRIUM, PRINT_LINEAR_SYSTEM, TIME_DEPENDENT_DISCRETIZATION, EXPLICIT_SCHEME, SCALE_ROWS, SCALE_DIMLESS;
+  bool FIND_EQUILIBRIUM, TIME_DEPENDENT_DISCRETIZATION, EXPLICIT_SCHEME, SCALE_ROWS, SCALE_DIMLESS;
   pm::ContactSolver contact_solver;
   
   value_t t_dim, x_dim, p_dim, m_dim;
