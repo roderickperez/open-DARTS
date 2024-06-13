@@ -75,8 +75,8 @@ if [ "$bos_solvers_artifact" == true ] && [ "$testing" == true ]; then
     testing=false
 fi
 if [ "$bos_solvers_artifact" == false ] && [ "$MT" == true ]; then
-    # Open-DARTS linear solvers do not support multi-threading
-    MT=false
+   echo '\n Warning: Open-DARTS linear solvers do not support multi-threading. Switched to the sequentional build.'
+   MT=false
 fi
 # ------------------------------------------------------------------------------
 
