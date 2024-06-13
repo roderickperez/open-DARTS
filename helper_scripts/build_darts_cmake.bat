@@ -42,6 +42,7 @@ if %bos_solvers_artifact%==true (
 REM ODLS version does not support OpenMP yet
 if %bos_solvers_artifact%==false (
   if %MT%==true (
+    echo Waring: ODLS version does not support OpenMP yet. Switched to the sequentional build.
     set MT=false
   )
 )
