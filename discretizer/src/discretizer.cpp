@@ -37,7 +37,7 @@ Discretizer::~Discretizer()
 
 void Discretizer::init()
 {
-	for (index_t i = mesh::MIN_CONNS_PER_ELEM; i < mesh::MAX_CONNS_PER_ELEM; i++)
+	for (index_t i = mesh::MIN_CONNS_PER_ELEM; i <= mesh::MAX_CONNS_PER_ELEM; i++)
 	{
 		pre_grad_A_p[i] = Matrix(i, ND);
 		pre_grad_R_p[i] = Matrix(i, i + 1);

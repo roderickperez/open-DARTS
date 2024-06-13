@@ -220,7 +220,6 @@ class CPG_Reservoir(ReservoirBase):
         self.discretizer = Discretizer()
         self.cpp_bc = self.set_boundary_conditions(displaced_tags)
         self.discretizer.set_mesh(self.discr_mesh)
-        self.discretizer.init()
 
         self.volume_all_cells = np.array(self.discr_mesh.volumes, copy=False)
         self.depth_all_cells = np.array(self.discr_mesh.depths, copy=False)
