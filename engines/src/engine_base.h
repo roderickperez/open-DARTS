@@ -78,6 +78,9 @@ public:
         dg_dx_n = 0;
         dg_dT_general = 0;
         dT_du = 0;
+
+		print_linear_system = false;
+		output_counter = 0;
 	};
 
 	~engine_base()
@@ -135,7 +138,7 @@ public:
 	virtual void apply_composition_correction(std::vector<value_t> &X, std::vector<value_t> &dX);
 	virtual void apply_composition_correction_(std::vector<value_t>& X, std::vector<value_t>& dX);
 
-	void apply_global_chop_correction(std::vector<value_t> &X, std::vector<value_t> &dX);
+	virtual void apply_global_chop_correction(std::vector<value_t> &X, std::vector<value_t> &dX);
 	virtual void apply_local_chop_correction(std::vector<value_t> &X, std::vector<value_t> &dX);
 
 	void apply_composition_correction_with_solid(std::vector<value_t> &X, std::vector<value_t> &dX);
@@ -244,6 +247,9 @@ public:
 	std::vector<value_t> X0, RHS, dX;
 
 	value_t dt, prev_usual_dt, stop_time;
+	
+	index_t output_counter;
+	bool print_linear_system;
 
 	// statistics
 	value_t CFL_max; // maximum value of CFL for last Jacobian assebly

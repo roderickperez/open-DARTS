@@ -37,7 +37,6 @@ struct engine_super_elastic_exposer
 			(typename engine_super_elastic_cpu<NC, NP, THERMAL>::DiscretizerType*)) &engine_super_elastic_cpu<NC, NP, THERMAL>::set_discretizer) \
 			.def("eval_stresses_and_velocities", &engine_super_elastic_cpu<NC, NP, THERMAL>::eval_stresses_and_velocities) \
 			.def_readwrite("find_equilibrium", &engine_super_elastic_cpu<NC, NP, THERMAL>::FIND_EQUILIBRIUM) \
-			.def_readwrite("print_linear_system", &engine_super_elastic_cpu<NC, NP, THERMAL>::PRINT_LINEAR_SYSTEM) \
 			.def_readwrite("geomechanics_mode", &engine_super_elastic_cpu<NC, NP, THERMAL>::geomechanics_mode) \
 			.def_readwrite("newton_update_coefficient", &engine_super_elastic_cpu<NC, NP, THERMAL>::newton_update_coefficient) \
 			.def_readwrite("dev_u", &engine_super_elastic_cpu<NC, NP, THERMAL>::dev_u) \
