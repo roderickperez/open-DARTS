@@ -108,7 +108,6 @@ int engine_base_gpu::assemble_linear_system(value_t deltat)
 	return 0;
 }
 
-
 int engine_base_gpu::solve_linear_equation()
 {
 	int r_code;
