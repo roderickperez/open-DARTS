@@ -43,8 +43,8 @@ class DartsModel:
         self.timer.start()  # Start time record
         self.timer.node["simulation"] = timer_node()  # Create timer.node called "simulation" to record simulation time
         self.timer.node["newton update"] = timer_node()
-        self.timer.node[
-            "initialization"] = timer_node()  # Create timer.node called "initialization" to record initialization time
+        self.timer.node["vtk_output"] = timer_node()
+        self.timer.node["initialization"] = timer_node()  # Create timer.node called "initialization" to record initialization time
         self.timer.node["initialization"].start()  # Start recording "initialization" time
 
         self.params = sim_params()  # Create sim_params object to set simulation parameters
@@ -457,6 +457,7 @@ class DartsModel:
         :param output_properties: List of properties to include in .vtk file, default is None which will pass all
         :type output_properties: list
         """
+        self.timer.node["vtk_output"].start()
         # Find index of properties to output
         tot_props = self.physics.vars + self.physics.property_operators[0].props_name
         if output_properties is None:
@@ -472,6 +473,8 @@ class DartsModel:
 
         # Pass to Reservoir.output_to_vtk() method
         self.reservoir.output_to_vtk(ith_step, t, output_directory, prop_idxs, output_data)
+        self.timer.node["vtk_output"].stop()
+
 
     def load_restart_data(self, filename: str = 'restart.pkl'):
         """

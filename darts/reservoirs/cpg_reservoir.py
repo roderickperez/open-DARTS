@@ -586,7 +586,7 @@ class CPG_Reservoir(ReservoirBase):
 
         start = time.perf_counter()
         # c++ implementation using discretizer.pyd
-        print('[Geometry] Converting GRDECL to Paraview Hexahedron mesh data (new implementation)....')
+        print('[Geometry] Converting GRDECL to Paraview Hexahedron mesh data...')
         nodes_cpp = self.discr_mesh.get_nodes_array()
         nodes_1d = np.array(nodes_cpp, copy=True)
         points = nodes_1d.reshape((nodes_1d.size // 3, 3))
@@ -613,16 +613,15 @@ class CPG_Reservoir(ReservoirBase):
         vtk_points.SetData(points_vtk)
         self.vtkobj.VTK_Grids.SetPoints(vtk_points)
 
-        print("new     NumOfPoints", self.vtkobj.VTK_Grids.GetNumberOfPoints())
-        print("new     NumOfCells", self.vtkobj.VTK_Grids.GetNumberOfCells())
+        print("     NumOfPoints", self.vtkobj.VTK_Grids.GetNumberOfPoints())
+        print("     NumOfCells", self.vtkobj.VTK_Grids.GetNumberOfCells())
 
         # 3. Load grid properties data if applicable
         for keyword, data in self.vtkobj.GRDECL_Data.SpatialDatas.items():
             self.vtkobj.AppendScalarData(keyword, data)
-        print('new.....Done!')
 
         end = time.perf_counter()
-        print('time:', end - start, 'sec.')
+        print('Done! init vtk time:', end - start, 'sec.')
 
     def apply_fault_mult(self, faultfile, cell_m, cell_p, mpfa_tran, ids):
         # Faults
