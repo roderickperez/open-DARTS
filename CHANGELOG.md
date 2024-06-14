@@ -1,8 +1,19 @@
-# 1.1.1 []
-- C++ standart is changed from 14 to 20
-- Discretizer binary type hanged from shared to static library 
-- TODO: add notes from https://gitlab.com/open-darts/open-darts/-/merge_requests/53
+# 1.1.2 []
+- Thermo-hydro-mechanical-compositional (THMC) modeling:
+ 	- Coupled Multi-Point Stress and Multi-Point Flux Approximations
+ 	- Fully implicit thermo-poroelasticity resolved with collocated FVM and coupled with compositional multiphase transport
+	- Tests to compare to Mandel, Terzaghi, two-layer Terzaghi and Bai analytics [(link))](https://gitlab.com/open-darts/open-darts/-/tree/development/models/1ph_1comp_poroelastic_analytics)
+	- [Convergence test](https://gitlab.com/open-darts/open-darts/-/tree/development/models/1ph_1comp_poroelastic_convergence)
+	- Interface to block-partitioned preconditioner
+- Improved performance of discretization (C++)
+- [InputData class](https://gitlab.com/open-darts/open-darts/-/blob/development/darts/input/input_data.py) added and used in THM tests
+- C++ standard is changed from 14 to 20
+- Discretizer binary type changed from shared to static library
+- Enable linking to external library (iterative solvers) compiled in debug mode if compiling openDARTS in debug mode.
+- Improve documentation on multi-thread version.
+- Add `opmcpg` as a main dependency.
 
+# 1.1.1 [15-03-2024]
 
 # 1.1.0 [16-02-2024]
 - Migrated to cmake build system [(See details)](https://gitlab.com/open-darts/open-darts/-/merge_requests/58). We kept the old Visual Studio projects, but they will be removed later.

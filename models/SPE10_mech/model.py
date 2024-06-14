@@ -180,7 +180,8 @@ class Model(THMCModel):
                                       thermal=self.thermal, min_t=self.idata.obl.min_t, max_t=self.idata.obl.max_t,
                                       discretizer=self.discretizer_name)
         self.physics.add_property_region(property_container)
-        self.engine = self.physics.init_physics(discretizer=self.discretizer_name, platform='cpu')
+
+        self.physics.init_physics(discr_type=self.discretizer_name, platform='cpu')
 
         return
 
@@ -256,7 +257,7 @@ class Model(THMCModel):
                 elif self.physics_type == 'dead_oil':
                     inj = [1.0 - self.idata.obl.zero]
                 elif self.physics_type == 'dead_oil_thermal':
-                    inj = [1.0 - self.idata.obl.zero, np.min(self.reservoir.t_init[self.well_cell_ids[1]]) - 25]
+                    inj = [1.0 - self.idata.obl.zero, np.mean(self.reservoir.t_init[self.well_cell_ids[1]]) - 25]
                 w.control = self.physics.new_bhp_inj(np.max(p_cell) + 50, inj)
         return 0
 

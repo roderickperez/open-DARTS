@@ -42,6 +42,7 @@ if %bos_solvers_artifact%==true (
 REM ODLS version does not support OpenMP yet
 if %bos_solvers_artifact%==false (
   if %MT%==true (
+    echo Waring: ODLS version does not support OpenMP yet. Switched to the sequentional build.
     set MT=false
   )
 )
@@ -136,7 +137,7 @@ if %wheel%==true (
   python setup.py build bdist_wheel --plat-name=win-amd64 > make_wheel.log || goto :error
   echo -- Python wheel generated!
 )
-python -m pip install .[cpg] >> make_wheel.log
+python -m pip install . >> make_wheel.log
 
 echo ************************************************************************
 echo   Building python package open-darts: DONE!

@@ -246,6 +246,18 @@ class UnstructReservoir(ReservoirBase):
                         cell_data[prop][ith_geometry] += [0.] * len(cell_idxs)
                         ith_geometry += 1
 
+            # Distinguish fracture cells from matrix cells
+            cell_data['matrix_cell_bool'] = [[] for geometry in geometries]
+            ith_geometry = 0
+            for geometry, cell_idxs in self.discretizer.vtk_output_cell_idxs['fracture'].items():
+                cell_data['matrix_cell_bool'][ith_geometry] += np.zeros(
+                    len(cell_idxs)).tolist()  # fill fracture cells with zeros
+                ith_geometry += 1
+            for geometry, cell_idxs in self.discretizer.vtk_output_cell_idxs['matrix'].items():
+                cell_data['matrix_cell_bool'][ith_geometry] += np.ones(
+                    len(cell_idxs)).tolist()  # fill matrix cells with ones
+                ith_geometry += 1
+
             mesh = meshio.Mesh(
                 points=self.discretizer.mesh_data.points,  # list of point coordinates
                 cells=output_nodes,  # list of cell geometries and idxs for reporting
