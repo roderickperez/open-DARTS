@@ -33,6 +33,7 @@ clean_mode=false  # Set mode to clean up, cleans build to prepare for fresh new 
 testing=false     # Whether to enable the testing (ctest) of solvers.
 wheel=false       # Whether to generate python wheel.
 bos_solvers_artifact=false # Fetch the bos_solvers library from artifacts (for CI/CD purposes)
+iter_solvers=false # Iterative linear solvers, will be set below depending on -a and -b flags
 MT=true           # Build openDARTS multi-threaded. This is for engines and bos_solvers (if defined)
 skip_req=false    # Skip building requirements.
 config="Release"  # Default configuration (install).
@@ -56,9 +57,11 @@ while getopts ":chtwmrab:d:j:g:" option; do
         r) # skip buildrequirements
            skip_req=true;;
         a) # Fetch the bos_solvers library from artifacts
-           bos_solvers_artifact=true;;
+           bos_solvers_artifact=true
+           iter_solvers=true;;
         b) # path to bos_solvers
-           bos_solvers_dir=${OPTARG};;
+           bos_solvers_dir=${OPTARG}
+           iter_solvers=true;;
         d) # Select a mode
            config=${OPTARG};;
         j) # Number of threads
@@ -70,11 +73,11 @@ while getopts ":chtwmrab:d:j:g:" option; do
 done
 
 # Amend possible contradictory inputs
-if [ "$bos_solvers_artifact" == true ] && [ "$testing" == true ]; then
+if [ "$iter_solvers" == true ] && [ "$testing" == true ]; then
     # tests are only available in open-DARTS, bos_solvers do not have testing
     testing=false
 fi
-if [ "$bos_solvers_artifact" == false ] && [ "$MT" == true ]; then
+if [ "$iter_solvers" == false ] && [ "$MT" == true ]; then
    echo '\n Warning: Open-DARTS linear solvers do not support multi-threading. Switched to the sequentional build.'
    MT=false
 fi
@@ -88,12 +91,13 @@ if [[ "$(basename $PWD)" == "helper_scripts" ]]; then
 fi
 # ------------------------------------------------------------------------------
 
+rm -rf darts/*.so
+
 # Build loop -------------------------------------------------------------------
 if [[ "$clean_mode" == true ]]; then
     # Cleaning build to prepare a fresh build
     echo '\n   Cleaning build folder'
     rm -r build
-    rm darts/*.so
     rm -r dist
 else
     if [[ "$skip_req" == false ]]; then
