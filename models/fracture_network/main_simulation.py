@@ -38,8 +38,8 @@ def run_simulation(input_data):
     m.output_to_vtk(ith_step=0, output_directory=output_directory)
 
     sim_time = 0.
-    m.print_range(sim_time)
-    m.print_range(sim_time, full=1)
+    m.print_range(sim_time, part='cells')
+    m.print_range(sim_time, part='fracs')
 
     # Run over all reporting time-steps:
     for ith_step in range(num_report_steps):
@@ -49,8 +49,8 @@ def run_simulation(input_data):
             m.output_to_vtk(ith_step=ith_step+1, output_directory=output_directory)
 
         sim_time += size_report_step
-        m.print_range(sim_time)
-        m.print_range(sim_time, full=1)
+        m.print_range(sim_time, part='cells')
+        m.print_range(sim_time, part='fracs')
 
     m.print_timers()
     m.print_stat()
