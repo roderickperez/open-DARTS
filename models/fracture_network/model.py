@@ -17,7 +17,7 @@ def fmt(x):
 # Here the Model class is defined (child-class from DartsModel) in which most of the data and properties for the
 # simulation are defined, e.g. for the reservoir/physics/sim_parameters/etc.
 class Model(DartsModel):
-    def __init__(self, input_data, n_points=1000):
+    def __init__(self, input_data, n_points=100):
         """
         Class constructor of Model class
         :param n_points: number of discretization points for the parameter space

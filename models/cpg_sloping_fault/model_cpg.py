@@ -30,7 +30,7 @@ def get_case_files(case: str):
 
 #####################################################
 class Model(CICDModel):
-    def __init__(self, discr_type='cpp', case='generate', n_points=1000):
+    def __init__(self, discr_type='cpp', case='generate', n_points=100):
         super().__init__()
         self.n_points = n_points
         self.discr_type = discr_type
