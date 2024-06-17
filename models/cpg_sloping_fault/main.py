@@ -12,10 +12,13 @@ def run(discr_type : str, case: str, out_dir: str, dt : float, n_time_steps : in
     redirect_darts_output(os.path.join(out_dir, 'run.log'))
     m = Model(discr_type=discr_type, case=case)
 
-    m.init()
+    m.init(output_folder=out_dir)
+    m.save_data_to_h5(kind = 'solution')
     m.set_well_controls()
     if export_vtk:
-        m.output_to_vtk(ith_step=0, output_directory=out_dir)
+        # m.output_to_vtk(ith_step=0, output_directory=out_dir)
+        binary_filename = out_dir + '/solution.h5'
+        m.output_to_vtk(0, out_dir, binary_filename)
     m.save_cubes(os.path.join(out_dir, 'res_init'))
 
     t = 0
@@ -23,7 +26,10 @@ def run(discr_type : str, case: str, out_dir: str, dt : float, n_time_steps : in
         m.run(dt)
         t += dt
         if export_vtk:
-            m.output_to_vtk(ith_step=ti+1, output_directory=out_dir)
+            # m.output_to_vtk(ith_step=ti+1, output_directory=out_dir)
+            m.save_data_to_h5('solution')
+            binary_filename = out_dir+ '/solution.h5'
+            m.output_to_vtk(ti+1, out_dir, binary_filename)
         # save to grdecl file
         #m.save_cubes(os.path.join(out_dir, 'res_' + str(ti+1)))
         m.physics.engine.report()

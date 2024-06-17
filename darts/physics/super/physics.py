@@ -3,7 +3,7 @@ from darts.engines import *
 from darts.physics.physics_base import PhysicsBase
 
 from darts.physics.operators_base import PropertyOperators
-from darts.physics.super.operator_evaluator import ReservoirOperators, WellOperators, RateOperators
+from darts.physics.super.operator_evaluator import ReservoirOperators, WellOperators, RateOperators, MassFluxOperators
 
 
 class Compositional(PhysicsBase):
@@ -94,6 +94,7 @@ class Compositional(PhysicsBase):
         for region in self.regions:
             self.reservoir_operators[region] = ReservoirOperators(self.property_containers[region], self.thermal)
             self.property_operators[region] = PropertyOperators(self.property_containers[region], self.thermal)
+            self.mass_flux_operators[region] = MassFluxOperators(self.property_containers[region], self.thermal)
 
         if self.thermal:
             self.wellbore_operators = ReservoirOperators(self.property_containers[self.regions[0]], self.thermal)

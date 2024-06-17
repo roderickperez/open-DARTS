@@ -28,14 +28,16 @@ def run_simulation(input_data):
 
     m = Model(input_data)
 
-    m.init(verbose=True)
+    m.init(verbose=True, output_folder = output_directory)
 
     # Specify some other time-related properties (NOTE: all time parameters are in [days])
     size_report_step = 60  # Size of the reporting step 
     num_report_steps = 12*5   # Number of reporting steps (see above)
     output_vtk_period = 12  # output each output_vtk_period-th step results to tk
 
-    m.output_to_vtk(ith_step=0, output_directory=output_directory)
+    m.save_data_to_h5(kind = 'solution')
+    m.output_to_vtk(ith_step=0, output_directory=m.output_folder, binary_filename=m.output_folder+'/solution.h5')
+    # m.output_to_vtk(ith_step=0, output_directory=output_directory)
 
     sim_time = 0.
     m.print_range(sim_time, part='cells')
@@ -44,9 +46,11 @@ def run_simulation(input_data):
     # Run over all reporting time-steps:
     for ith_step in range(num_report_steps):
         m.run(size_report_step)
+        m.save_data_to_h5(kind='solution')
 
         if ith_step % output_vtk_period == 0:
-            m.output_to_vtk(ith_step=ith_step+1, output_directory=output_directory)
+            m.output_to_vtk(ith_step=ith_step+1, output_directory=m.output_folder, binary_filename=m.output_folder + '/solution.h5')
+            # m.output_to_vtk(ith_step=ith_step+1, output_directory=output_directory)
 
         sim_time += size_report_step
         m.print_range(sim_time, part='cells')
