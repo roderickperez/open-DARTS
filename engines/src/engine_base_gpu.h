@@ -81,6 +81,7 @@ public:
   virtual int copy_struct_to_device() { return 0; };
   virtual int copy_values_to_device() { return 0; };
   virtual int write_matrix_to_file(const char *file_name, int sort_cols = 0) { return 0; };
+  virtual int write_matrix_to_file_mm(const char *file_name) { return 0; };
   virtual int convert_to_ELL() { return 0; };
   virtual csr_matrix_base *get_csr_matrix() { return Jacobian; };
 

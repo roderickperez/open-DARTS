@@ -125,7 +125,7 @@ int engine_base_gpu::solve_linear_equation()
 	}
 	timer->node["linear solver setup"].stop_gpu();
 
-    if (PRINT_LINEAR_SYSTEM) //changed this to write jacobian to file!
+    if (print_linear_system) //changed this to write jacobian to file!
     {
       const std::string matrix_filename = "jac_nc_dar_" + std::to_string(output_counter) + ".csr";
       copy_data_to_host(Jacobian->values, Jacobian->values_d, Jacobian->n_row_size * Jacobian->n_row_size * Jacobian->rows_ptr[mesh->n_blocks]);
