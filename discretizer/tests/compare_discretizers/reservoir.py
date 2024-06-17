@@ -186,7 +186,7 @@ class UnstructReservoir:
         # right-hand side of boundary conditions
         for i, bound_id in enumerate(range(self.discr_mesh.region_ranges[elem_loc.BOUNDARY][0],
                                            self.discr_mesh.region_ranges[elem_loc.BOUNDARY][1])):
-            c = np.array(self.discr_mesh.centroids[bound_id].values, copy=False)
+            c = np.array(self.discr_mesh.centroids[bound_id].values)
             #bc = self.boundary_conditions[self.discr_mesh.tags[bound_id]]
             x = np.append(c, 0.0)
             self.solution[self.n_vars * bound_id: self.n_vars * (bound_id + 1)] = self.ref1(x)
@@ -316,7 +316,7 @@ class UnstructReservoir:
         stencil = np.array(st, copy=False)
         stencil_cols = np.concatenate([
             np.arange(i * self.n_vars, i * self.n_vars + self.n_vars) for i in stencil])
-        trans = np.array(coef, copy=False).reshape(3 * self.n_vars, stencil.size * self.n_vars)
+        trans = np.array(coef).reshape(3 * self.n_vars, stencil.size * self.n_vars)
         assert((np.sum(trans, axis=1) < 1.e-8).all())
 
         grad = trans.dot(self.solution[stencil_cols])
@@ -329,8 +329,7 @@ class UnstructReservoir:
             np.arange(i * self.n_vars, i * self.n_vars + self.n_vars) for i in u_grad.stencil])
 
         p_trans = np.array(p_grad.a.values).reshape(3, len(p_grad.stencil))
-        u_trans = np.array(u_grad.a.values, copy=False).\
-            reshape(3 * 3, len(u_grad.stencil) * self.n_vars)
+        u_trans = np.array(u_grad.a.values).reshape(3 * 3, len(u_grad.stencil) * self.n_vars)
         assert((np.sum(p_trans, axis=1) < 1.e-8).all())
         assert((np.sum(u_trans, axis=1) < 1.e-8).all())
         nabla_u = u_trans.dot(self.solution[stencil_cols])
