@@ -1,3 +1,10 @@
+# 1.1.3 []
+- support of H5 / xarray output
+- default *.h5 output of data required for the calculation of well rates
+- user-defined solution output to *.h5
+- molar and phase volumetric well rate calculators
+- support of restarts
+
 # 1.1.2 []
 - Thermo-hydro-mechanical-compositional (THMC) modeling:
  	- Coupled Multi-Point Stress and Multi-Point Flux Approximations
