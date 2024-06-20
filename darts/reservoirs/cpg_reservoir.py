@@ -223,8 +223,8 @@ class CPG_Reservoir(ReservoirBase):
 
         self.volume_all_cells = np.array(self.discr_mesh.volumes, copy=False)
         self.depth_all_cells = np.array(self.discr_mesh.depths, copy=False)
+        self.centroids_all_cells = np.array(self.discr_mesh.centroids)
         self.actnum = np.array(self.discr_mesh.actnum, copy=False)
-        # self.centroids = np.array(self.discr_mesh.centroids, copy=False)
 
         self.discretizer.set_permeability(self.permx_cpp, self.permy_cpp, self.permz_cpp)
 
@@ -439,8 +439,9 @@ class CPG_Reservoir(ReservoirBase):
                     return
             well.perforations = well.perforations + [(well_block, res_block_local, well_index, well_indexD)]
             if verbose:
-                print('Added perforation for well %s to block %d [%d, %d, %d] with WI=%f WID=%f' % (
-                    well.name, res_block_local, i, j, k, well_index, well_indexD))
+                c = self.centroids_all_cells[res_block_local].values
+                print('Added perforation for well %s to block %d IJK=[%d, %d, %d] XYZ=(%f, %f, %f) with WI=%f WID=%f' % (
+                    well.name, res_block_local, i, j, k, c[0], c[1], c[2], well_index, well_indexD))
         else:
             if verbose:
                 print('Neglected perforation for well %s to block [%d, %d, %d] (inactive block)' % (well.name, i, j, k))
