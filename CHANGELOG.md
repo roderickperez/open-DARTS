@@ -5,7 +5,7 @@
 - molar and phase volumetric well rate calculators
 - support of restarts
 
-# 1.1.2 []
+# 1.1.2 [12-06-2024]
 - Thermo-hydro-mechanical-compositional (THMC) modeling:
  	- Coupled Multi-Point Stress and Multi-Point Flux Approximations
  	- Fully implicit thermo-poroelasticity resolved with collocated FVM and coupled with compositional multiphase transport
