@@ -377,7 +377,8 @@ class DartsModel:
                      self.physics.engine.stat.n_newton_total, self.physics.engine.stat.n_newton_wasted,
                      self.physics.engine.stat.n_linear_total, self.physics.engine.stat.n_linear_wasted))
 
-    def run(self, days: float = None, restart_dt: float = 0., verbose: bool = True):
+    def run(self, days: float = None, restart_dt: float = 0., verbose: bool = True,
+            log_3d_body_path: bool = False):
         """
         Method to run simulation for specified time. Optional argument to specify dt to restart simulation with.
 
@@ -386,6 +387,8 @@ class DartsModel:
         :param restart_dt: Restart value for timestep size [days, optional]
         :type restart_dt: float
         :param verbose: Switch for verbose, default is True
+        :type verbose: bool
+        :param log_3d_body_path: hypercube output
         :type verbose: bool
         """
         days = days if days is not None else self.runtime
@@ -405,6 +408,9 @@ class DartsModel:
 
         ts = 0
 
+        if log_3d_body_path:
+            self.body_path_start()
+
         while t < stop_time:
             converged = self.run_timestep(dt, t, verbose)
 
@@ -420,6 +426,13 @@ class DartsModel:
 
                 if t + dt > stop_time:
                     dt = stop_time - t
+
+                if log_3d_body_path:
+                    self.body_path_add_bodys(t)
+
+                    for axis_counter, axis in enumerate(self.physics.vars):
+                        self.save_matlab_map(axis + '_ts_' + str(ts), self.physics.engine.X[axis_counter::self.physics.n_vars])
+
                 else:
                     self.prev_dt = dt
 
@@ -741,6 +754,40 @@ class DartsModel:
             well_head_conn_id = np.where(np.logical_and(block_m == well.well_head_idx, block_p == well.well_body_idx))[0]
             assert(len(well_head_conn_id) == 1)
             self.well_head_conn_id[well.name] = well_head_conn_id[0]
+
+    def body_path_start(self):
+        """
+        Function that prepare hypercube output demonstrating occupancy of state space (for adaptive interpolators)
+        """
+        with open('body_path.txt', "w") as fp:
+            itor = self.physics.acc_flux_itor[0]
+            self.processed_body_idxs = set()
+            for id in range(self.physics.n_vars):
+                fp.write('%d %lf %lf %s\n' % (self.physics.n_axes_points[id],
+                                              self.physics.axes_min[id],
+                                              self.physics.axes_max[id],
+                                              self.physics.vars[id]))
+            fp.write('Body Index Data\n')
+
+    def body_path_add_bodys(self, time):
+        """
+        Function performs hypercube output demonstrating occupancy of state space (for adaptive interpolators)
+        """
+        with open('body_path.txt', "a") as fp:
+            fp.write('T=%lf\n' % time)
+            itor = self.physics.acc_flux_itor[0]
+            all_idxs = set(itor.get_hypercube_indexes())
+            new_idxs = all_idxs - self.processed_body_idxs
+            for i in new_idxs:
+                fp.write('%d\n' % i)
+            self.processed_body_idxs = all_idxs
+
+    def save_matlab_map(self, name, np_arr):
+        """
+        Export data in Matlab format
+        """
+        import scipy.io
+        scipy.io.savemat(name + '.mat', dict(x=np_arr))
 
     # destructor to force to destroy all created C objects and free memory
     def __del__(self):

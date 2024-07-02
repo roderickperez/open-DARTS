@@ -56,6 +56,17 @@ multilinear_adaptive_cpu_interpolator<index_t, value_t, N_DIMS, N_OPS>::get_poin
 }
 
 template <typename index_t, typename value_t, uint8_t N_DIMS, uint8_t N_OPS>
+std::vector<index_t> multilinear_adaptive_cpu_interpolator<index_t, value_t, N_DIMS, N_OPS>::get_hypercube_indexes() const
+{
+  std::vector<index_t> keys;
+  keys.reserve(hypercube_data.size());
+  for (const auto& pair : hypercube_data) {
+    keys.push_back(pair.first);
+  }
+  return keys;
+}
+
+template <typename index_t, typename value_t, uint8_t N_DIMS, uint8_t N_OPS>
 const typename multilinear_adaptive_cpu_interpolator<index_t, value_t, N_DIMS, N_OPS>::hypercube_data_t &
 multilinear_adaptive_cpu_interpolator<index_t, value_t, N_DIMS, N_OPS>::get_hypercube_data(const index_t hypercube_index)
 {
