@@ -426,15 +426,15 @@ class DartsModel:
 
                 if t + dt > stop_time:
                     dt = stop_time - t
+                else:
+                    self.prev_dt = dt
 
                 if log_3d_body_path:
                     self.body_path_add_bodys(t)
 
                     for axis_counter, axis in enumerate(self.physics.vars):
-                        self.save_matlab_map(axis + '_ts_' + str(ts), self.physics.engine.X[axis_counter::self.physics.n_vars])
-
-                else:
-                    self.prev_dt = dt
+                        self.save_matlab_map(axis + '_ts_' + str(self.physics.engine.stat.n_timesteps_total),
+                                             self.physics.engine.X[axis_counter::self.physics.n_vars])
 
                 self.save_data_to_h5(kind='well')
 
@@ -759,7 +759,10 @@ class DartsModel:
         """
         Function that prepare hypercube output demonstrating occupancy of state space (for adaptive interpolators)
         """
-        with open('body_path.txt', "w") as fp:
+        if not os.path.exists(self.output_folder):
+            os.mkdir(self.output_folder)
+
+        with open(os.path.join(self.output_folder, 'body_path.txt'), "w") as fp:
             itor = self.physics.acc_flux_itor[0]
             self.processed_body_idxs = set()
             for id in range(self.physics.n_vars):
@@ -773,7 +776,7 @@ class DartsModel:
         """
         Function performs hypercube output demonstrating occupancy of state space (for adaptive interpolators)
         """
-        with open('body_path.txt', "a") as fp:
+        with open(os.path.join(self.output_folder, 'body_path.txt'), "a") as fp:
             fp.write('T=%lf\n' % time)
             itor = self.physics.acc_flux_itor[0]
             all_idxs = set(itor.get_hypercube_indexes())
@@ -787,7 +790,7 @@ class DartsModel:
         Export data in Matlab format
         """
         import scipy.io
-        scipy.io.savemat(name + '.mat', dict(x=np_arr))
+        scipy.io.savemat(os.path.join(self.output_folder, name + '.mat'), dict(x=np_arr))
 
     # destructor to force to destroy all created C objects and free memory
     def __del__(self):
