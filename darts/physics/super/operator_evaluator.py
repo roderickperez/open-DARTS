@@ -57,16 +57,17 @@ class ReservoirOperators(OperatorsSuper):
         """
         # Composition vector and pressure from state:
         vec_state_as_np = np.asarray(state)
+        vec_values_as_np = np.asarray(values)
         pressure = vec_state_as_np[0]
 
         nm = self.property.nm
         nc_fl = self.nc - nm
 
-        for i in range(self.n_ops):
-            values[i] = 0
+        vec_values_as_np[:] = 0
 
         #  some arrays will be reused in thermal
         self.ph, self.sat, self.x, rho, self.rho_m, self.mu, self.kr, pc, mass_source = self.property.evaluate(state)
+        self.ph = np.array(self.ph, dtype=np.intp)
 
         self.compr = self.property.rock_compr_ev.evaluate(pressure)
 
@@ -77,42 +78,35 @@ class ReservoirOperators(OperatorsSuper):
         """ CONSTRUCT OPERATORS HERE """
 
         """ Alpha operator represents accumulation term """
-        for i in range(nc_fl):
-            values[self.ACC_OP + i] = self.compr * density_tot * zc[i]
-        
+        vec_values_as_np[self.ACC_OP:self.ACC_OP + nc_fl] = self.compr * density_tot * zc[:nc_fl]
+
         """ and alpha for mineral components """
-        for i in range(nm):
-            values[self.ACC_OP + nc_fl + i] = self.property.solid_dens[i] * zc[nc_fl + i]
+        vec_values_as_np[self.ACC_OP + nc_fl:self.ACC_OP + self.nc] = self.property.solid_dens * zc[nc_fl:self.nc]
 
         """ Beta operator represents flux term: """
         for j in self.ph:
-            for i in range(nc_fl):
-                values[self.FLUX_OP + j * self.ne + i] = self.x[j][i] * self.rho_m[j] * self.kr[j] / self.mu[j]
+            vec_values_as_np[self.FLUX_OP + j * self.ne:self.FLUX_OP + j * self.ne + nc_fl] = self.x[j] * self.rho_m[j] * self.kr[j] / self.mu[j]
 
         """ Gamma operator for diffusion (same for thermal and isothermal) """
-        for j in self.ph:
-            values[self.UPSAT_OP + j] = self.compr * self.sat[j]
+        vec_values_as_np[self.UPSAT_OP + self.ph] = self.compr * self.sat[self.ph]
 
         """ Chi operator for diffusion """
         for j in self.ph:
             D = self.property.diffusion_ev[self.property.phases_name[j]].evaluate()
-            for i in range(nc_fl):
-                values[self.GRAD_OP + j * self.ne + i] = D[i] * self.x[j][i] * self.rho_m[j]
+            vec_values_as_np[self.GRAD_OP + j * self.ne:self.GRAD_OP + j * self.ne + nc_fl] = D * self.x[j] * self.rho_m[j]
 
         """ Delta operator for reaction """
-        for i in range(self.nc):
-            values[self.KIN_OP + i] = mass_source[i]
+        vec_values_as_np[self.KIN_OP:self.KIN_OP + self.nc] = mass_source
 
         """ Gravity and Capillarity operators """
         # E3-> gravity
-        for j in self.ph:
-            values[self.GRAV_OP + j] = rho[j]
+        vec_values_as_np[self.GRAV_OP + self.ph] = rho[self.ph]
 
         # E4-> capillarity
-        for j in self.ph:
-            values[self.PC_OP + j] = pc[j]
+        vec_values_as_np[self.PC_OP + self.ph] = np.array(pc)[self.ph]
+
         # E5_> porosity
-        values[self.PORO_OP] = phi
+        vec_values_as_np[self.PORO_OP] = phi
 
         if self.thermal:
             self.evaluate_thermal(state, values)
@@ -123,6 +117,7 @@ class ReservoirOperators(OperatorsSuper):
 
     def evaluate_thermal(self, state: value_vector, values: value_vector):
         vec_state_as_np = np.asarray(state)
+        vec_values_as_np = np.asarray(values)
         pressure = state[0]
         temperature = vec_state_as_np[-1]
 
@@ -130,29 +125,25 @@ class ReservoirOperators(OperatorsSuper):
         enthalpy, cond, energy_source = self.property.evaluate_thermal(state)
 
         """ Alpha operator represents accumulation term: """
-        for m in self.ph:
-            values[self.ACC_OP + self.nc] += self.compr * self.sat[m] * self.rho_m[m] * enthalpy[
-                m]  # fluid enthalpy (kJ/m3)
-        values[self.ACC_OP + self.nc] -= self.compr * 100 * pressure
+        vec_values_as_np[self.ACC_OP + self.nc] += self.compr * np.sum(self.sat[self.ph] * self.rho_m[self.ph] * enthalpy[self.ph])  # fluid enthalpy (kJ/m3)
+        vec_values_as_np[self.ACC_OP + self.nc] -= self.compr * 100 * pressure
 
         """ Beta operator represents flux term: """
-        for j in self.ph:
-            values[self.FLUX_OP + j * self.ne + self.nc] = enthalpy[j] * self.rho_m[j] * self.kr[j] / self.mu[j]
+        vec_values_as_np[self.FLUX_OP + self.ph * self.ne + self.nc] = enthalpy[self.ph] * self.rho_m[self.ph] * self.kr[self.ph] / self.mu[self.ph]
 
         """ Chi operator for temperature in conduction """
-        for j in self.ph:
-            values[self.GRAD_OP + j * self.ne + self.nc] = temperature * cond[j]
+        vec_values_as_np[self.GRAD_OP + self.ph * self.ne + self.nc] = temperature * cond[self.ph]
 
         """ Delta operator for reaction """
-        values[self.KIN_OP + self.nc] = energy_source
+        vec_values_as_np[self.KIN_OP + self.nc] = energy_source
 
         """ Additional energy operators """
         # E1-> rock internal energy
-        values[self.RE_INTER_OP] = rock_energy / self.compr  # (T-T_0), multiplied by rock hcap inside engine
+        vec_values_as_np[self.RE_INTER_OP] = rock_energy / self.compr  # (T-T_0), multiplied by rock hcap inside engine
         # E2-> rock temperature
-        values[self.RE_TEMP_OP] = temperature
+        vec_values_as_np[self.RE_TEMP_OP] = temperature
         # E3-> rock conduction
-        values[self.ROCK_COND] = 1 / self.compr  # multiplied by rock cond inside engine
+        vec_values_as_np[self.ROCK_COND] = 1 / self.compr  # multiplied by rock cond inside engine
 
         return 0
 
