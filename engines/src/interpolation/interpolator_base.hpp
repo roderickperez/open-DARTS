@@ -5,6 +5,11 @@
 
 #include "evaluator_iface.h"
 
+#ifdef _MSC_VER
+#include <__msvc_int128.hpp>
+using __uint128_t = std::_Unsigned128;
+#endif
+
 /**
  * Interpolator base class
  */
@@ -152,7 +157,7 @@ protected:
     std::vector<double> axes_step_inv; ///< inverse of step (to avoid division)
 
     uint64_t n_interpolations; ///< Number of interpolations that took place
-    uint64_t n_points_total;   ///< Total number of parametrization points
+    __uint128_t n_points_total;   ///< Total number of parametrization points
     double n_points_total_fp;  ///< Total number of parametrization points in floating point format, to detect index overflow in derived classes
     uint64_t n_points_used;    ///< Number of parametrization points which were used (equal to n_points_total for static interpolators)
 

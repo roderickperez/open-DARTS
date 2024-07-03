@@ -20,7 +20,13 @@ linear_cpu_interpolator_base<index_t, N_DIMS, N_OPS>::linear_cpu_interpolator_ba
         for (int dim_i = vertex_i; dim_i < N_DIMS; dim_i++)
             standard_simplex[vertex_i][dim_i] = 1;
 
-    if (n_points_total_fp > std::numeric_limits<index_t>::max())
+#ifdef _MSC_VER
+    const auto int128_max = std::numeric_limits<__uint128_t>::max();
+    const double int64_max = std::ldexp(static_cast<double>(int128_max._Word[1]), 64) + static_cast<double>(int128_max._Word[0]);
+#elif defined(__GNUC__)
+    const double int64_max = std::numeric_limits<__uint128_t>::max();
+#endif
+    if (n_points_total_fp > int64_max)
     {
         std::string error = "Error: The total requested amount of points (" + std::to_string(n_points_total_fp) +
                             ") exceeds the limit in index type (" + std::to_string(std::numeric_limits<index_t>::max()) + ")\n";

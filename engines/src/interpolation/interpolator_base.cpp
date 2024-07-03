@@ -24,7 +24,12 @@ interpolator_base::interpolator_base(operator_set_evaluator_iface *supporting_po
     for (int dim = 0; dim < n_dims; dim++)
         n_points_total_fp *= axes_points[dim];
 
+#ifdef _MSC_VER
+    n_points_total = _Unsigned128(static_cast<uint64_t>(std::fmod(n_points_total_fp, std::pow(2, 64))),
+                                  static_cast<uint64_t>(n_points_total_fp / std::pow(2, 64)));
+#elif defined(__GNUC__)
     n_points_total = n_points_total_fp;
+#endif
     n_points_used = 0;
     n_interpolations = 0;
 }
@@ -90,7 +95,7 @@ uint64_t interpolator_base::get_n_interpolations()
 
 uint64_t interpolator_base::get_n_points_total()
 {
-    return n_points_total;
+    return static_cast<uint64_t>(n_points_total);
 }
 
 uint64_t interpolator_base::get_n_points_used()
