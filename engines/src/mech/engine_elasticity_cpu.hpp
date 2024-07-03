@@ -48,7 +48,7 @@ public:
 
   uint8_t get_n_vars() const override { return N_VARS; };
   uint8_t get_n_ops() const override { return N_OPS; };
-  uint8_t get_n_dim() const { return ND_; };
+  uint8_t get_n_dim() const override { return ND_; };
   uint8_t get_n_comps() const override { return 0; };
   uint8_t get_z_var() const override { return -1; };
   bool USE_CALCULATED_FLUX;

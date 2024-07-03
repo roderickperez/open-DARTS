@@ -1,6 +1,7 @@
 #ifndef CPU_SIMULATOR_SUPER_ELASTIC_HPP
 #define CPU_SIMULATOR_SUPER_ELASTIC_HPP
 
+#ifndef WITH_GPU
 #include <vector>
 #include <array>
 #include <unordered_map>
@@ -105,10 +106,10 @@ public:
   const static uint8_t N_VARS_SQ = N_VARS * N_VARS;
 
   uint8_t get_n_vars() const override { return N_VARS; };
-  uint8_t get_n_ops() const override { return N_OPS; };
-  uint8_t get_n_comps() const override { return NC; };
-  uint8_t get_z_var() const override { return Z_VAR; };
-  uint8_t get_n_state() const { return N_STATE; };
+  uint8_t get_n_ops() const override  { return N_OPS; };
+  uint8_t get_n_comps() const override  { return NC; };
+  uint8_t get_z_var() const override  { return Z_VAR; };
+  uint8_t get_n_state() const override { return N_STATE; };
 
   engine_super_elastic_cpu()
   {
@@ -206,5 +207,6 @@ public:
 };
 
 #include "engine_super_elastic_cpu.tpp"
+#endif//WITH_GPU
 
 #endif
