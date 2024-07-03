@@ -62,7 +62,7 @@ public:
     free_device_data(mesh_grav_coef_d);
   }
 
-  const uint8_t get_n_vars() override { return N_VARS; };
+  const uint8_t get_n_vars() { return N_VARS; };
   const uint8_t get_n_ops() { return N_OPS; };
   const uint8_t get_n_comps() { return NC; };
   const uint8_t get_z_var() { return Z_VAR; };
