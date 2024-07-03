@@ -1,3 +1,4 @@
+#ifndef WITH_GPU
 #ifdef PYBIND11_ENABLED
 #include <pybind11/pybind11.h>
 #include "py_globals.h"
@@ -116,3 +117,4 @@ void pybind_engine_super_elastic_cpu(py::module &m)
 }
 
 #endif //PYBIND11_ENABLED
+#endif // WITH_GPU
