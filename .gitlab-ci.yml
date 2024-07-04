@@ -245,7 +245,7 @@ build-windows-3.7-ODLS:
         - linux
     before_script:
         - echo 'before build-linux'
-        - apt-get update -qq && apt-get install -y -qq smbclient
+        - [ "$ODLS" -eq "-a" ] && apt-get update -qq && apt-get install -y -qq smbclient
         - export PY_SUFFIX=`python -c "import importlib.machinery; print(importlib.machinery.EXTENSION_SUFFIXES[0])"`
         - pip install wheel
     script:
@@ -556,7 +556,7 @@ test-windows-3.7-ODLS:
     tags:
         - linux
     before_script:
-        - apt-get update -qq && apt-get install -y -qq smbclient
+        - [ "$ODLS" -eq "-a" ] && apt-get update -qq && apt-get install -y -qq smbclient
         - apt-get update -qq && apt-get install -y -qq libglu1-mesa-dev # for gmsh
         - apt-get update -qq && apt-get install -y -qq libxcursor1      # for gmsh
         - apt-get update -qq && apt-get install -y -qq libxinerama1     # for gmsh
