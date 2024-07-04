@@ -67,7 +67,6 @@ class ReservoirOperators(OperatorsSuper):
 
         #  some arrays will be reused in thermal
         self.ph, self.sat, self.x, rho, self.rho_m, self.mu, self.kr, pc, mass_source = self.property.evaluate(state)
-        self.ph = np.array(self.ph, dtype=np.intp)
 
         self.compr = self.property.rock_compr_ev.evaluate(pressure)
 
