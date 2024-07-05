@@ -73,32 +73,32 @@ int interpolator_base::evaluate_with_derivatives(const std::vector<double> &stat
     return 0;
 }
 
-int interpolator_base::get_axis_n_points(int axis)
+int interpolator_base::get_axis_n_points(int axis) const
 {
     return axes_points[axis];
 }
 
-double interpolator_base::get_axis_max(int axis)
+double interpolator_base::get_axis_max(int axis) const
 {
     return axes_max[axis];
 }
 
-double interpolator_base::get_axis_min(int axis)
+double interpolator_base::get_axis_min(int axis) const
 {
     return axes_min[axis];
 }
 
-uint64_t interpolator_base::get_n_interpolations()
+uint64_t interpolator_base::get_n_interpolations() const
 {
     return n_interpolations;
 }
 
-uint64_t interpolator_base::get_n_points_total()
+uint64_t interpolator_base::get_n_points_total() const
 {
     return static_cast<uint64_t>(n_points_total);
 }
 
-uint64_t interpolator_base::get_n_points_used()
+uint64_t interpolator_base::get_n_points_used() const
 {
     return n_points_used;
 }
