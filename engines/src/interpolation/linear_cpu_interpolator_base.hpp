@@ -60,6 +60,7 @@ public:
     int interpolate_with_derivatives(const std::vector<double> &points, const std::vector<int> &points_idxs,
                                      std::vector<double> &interp_values, std::vector<double> &derivatives) override;
 
+    bool use_barycentric_interpolation; ///< flag that enables barycentric interpolation
 protected:
     std::array<std::array<int, N_DIMS>, N_DIMS + 1> standard_simplex; ///< a standard simplex
     std::array<index_t, N_DIMS> axes_mult;                            /// multiplication factor used for transferring supporting point to point index

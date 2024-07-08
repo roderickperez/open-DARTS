@@ -60,7 +60,7 @@ struct interpolator_exposer
     std::string long_name = "Operator set interpolator with " + i_typename + " index type and " + f_typename + " value type for " + std::to_string(N_OPS) + " operators in " + std::to_string(N_DIMS) + "-dimensional parameter space";
     try
     {
-      if constexpr (std::is_same<interpolator_class, multilinear_adaptive_cpu_interpolator<i_t, f_t, N_DIMS, N_OPS>>::value)
+      if constexpr (std::is_same_v<interpolator_class, multilinear_adaptive_cpu_interpolator<i_t, f_t, N_DIMS, N_OPS>>)
       {
         py::class_<interpolator_class,
           operator_set_gradient_evaluator_iface>(m, name.c_str(), long_name.c_str())
@@ -76,7 +76,7 @@ struct interpolator_exposer
           .def_readwrite("point_data", &interpolator_class::point_data)
           .def("get_hypercube_indexes", &interpolator_class::get_hypercube_indexes);
       }
-      else
+      else if constexpr (std::is_same_v<interpolator_class, linear_adaptive_cpu_interpolator<i_t, N_DIMS, N_OPS>>)
       {
         py::class_<interpolator_class,
           operator_set_gradient_evaluator_iface>(m, name.c_str(), long_name.c_str())
@@ -89,11 +89,22 @@ struct interpolator_exposer
           .def("write_to_file", &interpolator_class::write_to_file, "Write interpolator data to file")
           .def("evaluate", &interpolator_class::evaluate,
             "Evaluate operators", "state"_a, "values"_a)
+          .def_readwrite("point_data", &interpolator_class::point_data)
+          .def_readwrite("use_barycentric_interpolation", &interpolator_class::use_barycentric_interpolation);
+      }
+      else {
+        py::class_<interpolator_class,
+          operator_set_gradient_evaluator_iface>(m, name.c_str(), long_name.c_str())
+          .def(py::init<operator_set_evaluator_iface*, std::vector<index_t> &, std::vector<value_t> &, std::vector<value_t> &>(), py::keep_alive<1, 2>()) /*.def("benchmark", &interpolator_class::benchmark, "Init by nc and rate operators") \*/
+          .def("evaluate_with_derivatives", &interpolator_class::evaluate_with_derivatives,
+            "Evaluate operators and derivatives (v)", "state"_a, "block_idx"_a, "values"_a, "derivatives"_a)
+          .def("init_timer_node", &interpolator_class::init_timer_node,
+            "Initialize timer", "timer_node"_a)
+          .def("init", &interpolator_class::init, "Initialize interpolator")
+          .def("write_to_file", &interpolator_class::write_to_file, "Write interpolator data to file")
+          .def("evaluate", &interpolator_class::evaluate,
+            "Evaluate operators", "state"_a, "values"_a)
           .def_readwrite("point_data", &interpolator_class::point_data);
-        // .def("clear", &interpolator_class::clear) \
-          // .def("clear_body_data", &interpolator_class::clear_body_data) \
-          // .def_readwrite("base_points_generator", &interpolator_class::base_points_generator) \
-          // .def_readwrite("body_data", &interpolator_class::body_data);
       }
     }
     catch (...)
