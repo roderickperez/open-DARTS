@@ -597,7 +597,45 @@ class DartsModel:
 
         return time, cell_id, X, var_names
 
-    def output_properties(self, binary_filename: str, output_properties: list = None, timestep: int = None) -> tuple:
+    def output_properties(self):
+        """
+        Function to return array of properties.
+        Primary variables (vars) are obtained from engine, secondary variables (props) are interpolated by property_itor.
+
+        :returns: property_array
+        :rtype: np.ndarray
+        """
+        # Initialize property_array
+        n_vars = self.physics.n_vars
+        if len(self.physics.property_operators) > 0:
+            n_props = self.physics.property_operators[next(iter(self.physics.property_operators))].n_ops
+        else:
+            n_props = 0
+        tot_props = n_vars + n_props
+        nb = self.reservoir.mesh.n_res_blocks
+        property_array = np.zeros((tot_props, nb))
+
+        # Obtain primary variables from engine
+        X = np.array(self.physics.engine.X, copy=False)
+        for j, variable in enumerate(self.physics.vars):
+            property_array[j, :] = X[j:nb * n_vars:n_vars]
+
+        if tot_props > n_vars:
+            n_ops = self.physics.n_ops
+            state = value_vector(property_array[:n_vars, :].T.flatten())
+            values = value_vector(np.zeros(n_ops * nb))
+            values_numpy = np.array(values, copy=False)
+            dvalues = value_vector(np.zeros(n_ops * nb * n_vars))
+            for region, prop_itor in self.physics.property_itor.items():
+                block_idx = np.where(self.op_num == region)[0].astype(np.int32)
+                prop_itor.evaluate_with_derivatives(state, index_vector(block_idx), values, dvalues)
+
+            for j in range(n_props):
+                property_array[j + n_vars] = values_numpy[j::n_ops]
+
+        return property_array
+
+    def output_properties_from_h5(self, binary_filename: str, output_properties: list = None, timestep: int = None) -> tuple:
         """
         Function to read *.h5 data and evaluate properties per grid block, per timestep
         :param binary_filename: *.h5 filename that contains data from the simulation
@@ -614,6 +652,7 @@ class DartsModel:
 
         # Initialize property_array
         n_vars = len(var_names)
+        n_ops = self.physics.n_ops
         nb = self.reservoir.mesh.n_res_blocks
         props = list(var_names) + output_properties if output_properties is not None else list(var_names)
         property_array = {prop: np.zeros((len(timesteps), nb)) for prop in props}
@@ -624,15 +663,17 @@ class DartsModel:
             for j, variable in enumerate(var_names):
                 property_array[variable][k, :] = X[k, :nb, j]
 
-            # Interpolate properties
-            for i in range(nb):
-                if self.physics.property_operators[self.op_num[i]].n_ops:
-                    values = value_vector(np.zeros(self.physics.n_ops))
-                    state = value_vector([property_array[var][k, i] for var in var_names])
-                    self.physics.property_itor[self.op_num[i]].evaluate(state, values)
+            if len(props) > n_vars:
+                state = value_vector(np.stack([property_array[var][k] for var in var_names]).T.flatten())
+                values = value_vector(np.zeros(n_ops * nb))
+                values_numpy = np.array(values, copy=False)
+                dvalues = value_vector(np.zeros(n_ops * nb * n_vars))
+                for region, prop_itor in self.physics.property_itor.items():
+                    block_idx = np.where(self.op_num == region)[0].astype(np.int32)
+                    prop_itor.evaluate_with_derivatives(state, index_vector(block_idx), values, dvalues)
 
-                    for j, prop in enumerate(props[n_vars:]):
-                        property_array[prop][k, i] = values[j]
+                for j, prop in enumerate(props[n_vars:]):
+                    property_array[prop][k] = values_numpy[j::n_ops]
 
         return timesteps, property_array
 
@@ -646,9 +687,9 @@ class DartsModel:
         """
         # Interpolate properties
         if timestep is None:
-            timesteps, data = self.output_properties(binary_filename, output_properties)
+            timesteps, data = self.output_properties_from_h5(binary_filename, output_properties)
         else:
-            timesteps, data = self.output_properties(binary_filename, output_properties, timestep)
+            timesteps, data = self.output_properties_from_h5(binary_filename, output_properties, timestep)
         props = list(data.keys())
 
         # Initialize coords and data_vars for Xarray Dataset
@@ -669,7 +710,7 @@ class DartsModel:
 
         return dataset
 
-    def output_to_vtk(self, ith_step: int, output_directory: str, binary_filename: str, output_properties: list = None):
+    def output_to_vtk(self, ith_step: int, output_directory: str, output_properties: list = None):
         """
         Function to export results at timestamp t into `.vtk` format.
 
@@ -677,8 +718,6 @@ class DartsModel:
         :type ith_step: int
         :param output_directory: Name to save .vtk file
         :type output_directory: str
-        :param: binary_filename: *.h5 filename that contains data from the simulation
-        :type: binary_filename: str
         :param output_properties: List of properties to include in .vtk file, default is None which will pass all
         :type output_properties: list
         """
@@ -694,17 +733,10 @@ class DartsModel:
 
         # get current time and property data from engine
         t = self.physics.engine.t
-
-        timesteps, property_array = self.output_properties(binary_filename, tot_props, timestep=ith_step)
+        property_array = self.output_properties()
 
         # Pass to Reservoir.output_to_vtk() method
-
-        data = np.zeros((len(property_array), self.reservoir.mesh.n_res_blocks))
-
-        for i, name in enumerate(property_array.keys()):
-            data[i, :] = property_array[name]
-
-        self.reservoir.output_to_vtk(ith_step, timesteps[0], output_directory, prop_idxs, data)
+        self.reservoir.output_to_vtk(ith_step, t, output_directory, prop_idxs, property_array)
         self.timer.node["vtk_output"].stop()
 
     def print_timers(self):
