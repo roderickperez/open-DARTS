@@ -2464,7 +2464,7 @@ int engine_base::test_assembly(int n_times, int kernel_number, int dump_jacobian
 
 	for (int i = 0; i < n_times; i++)
 	{
-		for (int r = 0; r < acc_flux_op_set_list.size(); r++)
+		for (auto r = 0; r < acc_flux_op_set_list.size(); r++)
 		{
 			int result = acc_flux_op_set_list[r]->evaluate_with_derivatives(X, block_idxs[r], op_vals_arr, op_ders_arr);
 			if (result < 0)
@@ -2580,6 +2580,20 @@ int engine_base::solve_linear_equation()
 	timer->node["linear solver solve"].start();
 	r_code = linear_solver->solve(&RHS[0], &dX[0]);
 	timer->node["linear solver solve"].stop();
+
+	if (print_linear_system) //changed this to write jacobian to file!
+	{
+	  const std::string matrix_filename = "jac_nc_dar_" + std::to_string(output_counter) + ".csr";
+#ifdef OPENDARTS_LINEAR_SOLVERS
+	  Jacobian->export_matrix_to_file(matrix_filename, opendarts::linear_solvers::sparse_matrix_export_format::csr);
+#else
+	  Jacobian->write_matrix_to_file_mm(matrix_filename.c_str());
+#endif
+	  //Jacobian->write_matrix_to_file(("jac_nc_dar_" + std::to_string(output_counter) + ".csr").c_str());
+	  write_vector_to_file("jac_nc_dar_" + std::to_string(output_counter) + ".rhs", RHS);
+	  write_vector_to_file("jac_nc_dar_" + std::to_string(output_counter) + ".sol", dX);
+	  output_counter++;
+	}
 
 	if (r_code)
 	{

@@ -7,13 +7,19 @@ import numpy as np
 
 
 m = Model(resolution=10)
-
 m.init()
-m.output_to_vtk(ith_step=0, output_directory='vtk')
+m.save_data_to_h5('solution')
+output_directory = m.output_folder
+binary_filename = m.output_folder + '/solution.h5'
+m.output_to_vtk(0, output_directory, binary_filename)
+# m.output_to_vtk(ith_step=0, output_directory='vtk')
+
 m.run(365)
+m.save_data_to_h5('solution')
 m.print_timers()
 m.print_stat()
-m.output_to_vtk(ith_step=1, output_directory='vtk')
+m.output_to_vtk(1, output_directory, binary_filename)
+# m.output_to_vtk(ith_step=1, output_directory='vtk')
 
 td = pd.DataFrame.from_dict(m.physics.engine.time_data)
 td.to_pickle("darts_time_data.pkl")

@@ -1,6 +1,7 @@
 #ifndef CPU_SIMULATOR_SUPER_ELASTIC_HPP
 #define CPU_SIMULATOR_SUPER_ELASTIC_HPP
 
+#ifndef WITH_GPU
 #include <vector>
 #include <array>
 #include <unordered_map>
@@ -104,11 +105,11 @@ public:
   // number of variables per jacobian matrix block
   const static uint8_t N_VARS_SQ = N_VARS * N_VARS;
 
-  const uint8_t get_n_vars() override { return N_VARS; };
-  const uint8_t get_n_ops() { return N_OPS; };
-  const uint8_t get_n_comps() { return NC; };
-  const uint8_t get_z_var() { return Z_VAR; };
-  const uint8_t get_n_state() { return N_STATE; };
+  uint8_t get_n_vars() const { return N_VARS; };
+  uint8_t get_n_ops() const  { return N_OPS; };
+  uint8_t get_n_comps() const  { return NC; };
+  uint8_t get_z_var() const  { return Z_VAR; };
+  uint8_t get_n_state() const { return N_STATE; };
 
   engine_super_elastic_cpu()
   {
@@ -150,7 +151,6 @@ public:
 
   value_t dev_u,		dev_p,		dev_e,		dev_z[NC], dev_g;
   value_t dev_u_prev,	dev_p_prev, dev_e_prev, dev_z_prev[NC], dev_g_prev, well_residual_prev_dt;
-  int output_counter;
   value_t newton_update_coefficient;
   
   int adjoint_gradient_assembly(value_t dt, std::vector<value_t>& X, csr_matrix_base* jacobian, std::vector<value_t>& RHS);
@@ -192,7 +192,7 @@ public:
   std::vector<value_t> darcy_velocities;
 
   std::vector<value_t> Xref, Xn_ref;
-  bool FIND_EQUILIBRIUM, PRINT_LINEAR_SYSTEM;
+  bool FIND_EQUILIBRIUM;
   std::vector<pm::contact> contacts;
   pm::ContactSolver contact_solver;
   std::vector<index_t> geomechanics_mode;
@@ -207,5 +207,6 @@ public:
 };
 
 #include "engine_super_elastic_cpu.tpp"
+#endif//WITH_GPU
 
 #endif

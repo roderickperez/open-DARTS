@@ -232,6 +232,8 @@ build-windows-3.7-ODLS:
     image: dockcross/manylinux2014-x64:latest
     # Install samba client to upload build results to shared folder TODO remove
     before_script:
+        - sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+        - sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
         - yum install samba-client -y -q
         - export PATH="/opt/python/$PY_SUF/bin:$PATH"
         
@@ -562,7 +564,7 @@ test-windows-3.7-ODLS:
         - apt-get update -qq && apt-get install -y -qq libxinerama1     # for gmsh
         - export PYTHONUNBUFFERED=1
         # complex command to create fake wheel and figure out the proper name for current python and platform
-        - export WHEEL_NAME=`python -c "from setuptools.dist import Distribution;from distutils.core import  Extension;dist = Distribution({'name':'open_darts', 'version':'1.1.1', 'ext_modules':[Extension('mylib', ['mysrc.pyx', 'native.c'])]});bdist_wheel_cmd = dist.get_command_obj('bdist_wheel');print(bdist_wheel_cmd.wheel_dist_name + '-' + '-'.join(bdist_wheel_cmd.get_tag())+ '.whl');"`
+        - export WHEEL_NAME=`python -c "from setuptools.dist import Distribution;from distutils.core import  Extension;dist = Distribution({'name':'open_darts', 'version':'1.1.2', 'ext_modules':[Extension('mylib', ['mysrc.pyx', 'native.c'])]});bdist_wheel_cmd = dist.get_command_obj('bdist_wheel');print(bdist_wheel_cmd.wheel_dist_name + '-' + '-'.join(bdist_wheel_cmd.get_tag())+ '.whl');"`
         # upgrade pip package first
         - python -m pip install --upgrade pip
         - pip install sympy  # for models\1ph_1comp_poroelastic_convergence
@@ -572,12 +574,9 @@ test-windows-3.7-ODLS:
         - pip install --force-reinstall --no-deps ./dist/$WHEEL_NAME
         # force-reinstall of dependencies takes too much time, lets only upgrade (eagerly!) them
         - pip install --upgrade --upgrade-strategy eager ./dist/$WHEEL_NAME
-        - pip install opmcpg
     script:
         # run simulation fot test models set
         - cd models
-        # to help find discretizer.so when import engines
-        - export LD_LIBRARY_PATH=`python -c "import os;import darts;print(os.path.dirname(darts.__file__))"`:$LD_LIBRARY_PATH
         # passing additional argument to trigger verbose check performance
         - python run_test_suite2.py LOG
         - echo "run_test_suite2 returned" $?
@@ -610,7 +609,7 @@ test-windows-3.7-ODLS:
         - $env:PYTHONUNBUFFERED = 1
         - $env:PYTHONLEGACYWINDOWSSTDIO = 1
         # complex command to create fake wheel and figure out the proper name for current python and platform
-        - $env:WHEEL_NAME=python.exe -c "from setuptools.dist import Distribution;from distutils.core import  Extension;dist = Distribution({'name':'open_darts', 'version':'1.1.1', 'ext_modules':[Extension('mylib', ['mysrc.pyx', 'native.c'])]});bdist_wheel_cmd = dist.get_command_obj('bdist_wheel');print(bdist_wheel_cmd.wheel_dist_name + '-' + '-'.join(bdist_wheel_cmd.get_tag())+ '.whl');"
+        - $env:WHEEL_NAME=python.exe -c "from setuptools.dist import Distribution;from distutils.core import  Extension;dist = Distribution({'name':'open_darts', 'version':'1.1.2', 'ext_modules':[Extension('mylib', ['mysrc.pyx', 'native.c'])]});bdist_wheel_cmd = dist.get_command_obj('bdist_wheel');print(bdist_wheel_cmd.wheel_dist_name + '-' + '-'.join(bdist_wheel_cmd.get_tag())+ '.whl');"
         # upgrade pip package first
         - python -m pip install --upgrade pip
         - pip install sympy  # for models\1ph_1comp_poroelastic_convergence
@@ -723,7 +722,7 @@ pages:
     image: python:3.9
     script:
         # re-install open-darts with the dependencies for building the documentation
-        - pip install .[docs,cpg]
+        - pip install .[docs]
         # use the wheel generated in build to install open-darts
         - pip install --force-reinstall --no-deps ./dist/*cp39-linux_x86_64.whl
         - cd docs

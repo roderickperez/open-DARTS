@@ -42,6 +42,7 @@ if %bos_solvers_artifact%==true (
 REM ODLS version does not support OpenMP yet
 if %bos_solvers_artifact%==false (
   if %MT%==true (
+    echo Waring: ODLS version does not support OpenMP yet. Switched to the sequentional build.
     set MT=false
   )
 )
@@ -56,11 +57,12 @@ echo    Multi thread = %MT%
 echo - Report configuration of this script: DONE!
 REM ----------------------------------------------------------------
 
+del darts\*.pyd 2> NUL
+
 if %clean_mode%==true (
   echo - Cleaning up
   rmdir /s /q build 2> NUL
   rmdir /s /q dist 2> NUL
-  del darts\*.pyd 2> NUL
   goto :eof
 )
 
@@ -136,7 +138,7 @@ if %wheel%==true (
   python setup.py build bdist_wheel --plat-name=win-amd64 > make_wheel.log || goto :error
   echo -- Python wheel generated!
 )
-python -m pip install .[cpg] >> make_wheel.log
+python -m pip install . >> make_wheel.log
 
 echo ************************************************************************
 echo   Building python package open-darts: DONE!
