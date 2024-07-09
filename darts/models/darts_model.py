@@ -94,6 +94,9 @@ class DartsModel:
 
         self.restart = restart
 
+        # save solution vector
+        self.save_data_to_h5(kind='solution')
+
     def reset(self):
         """
         Function to initialize the engine by calling 'engine.init()' method.
@@ -435,6 +438,9 @@ class DartsModel:
         # update current engine time
         self.physics.engine.t = stop_time
 
+        # save solution vector
+        self.save_data_to_h5(kind='solution')
+
         if verbose:
             print("TS = %d(%d), NI = %d(%d), LI = %d(%d)"
                   % (self.physics.engine.stat.n_timesteps_total, self.physics.engine.stat.n_timesteps_wasted,
@@ -597,58 +603,20 @@ class DartsModel:
 
         return time, cell_id, X, var_names
 
-    def output_properties(self):
-        """
-        Function to return array of properties.
-        Primary variables (vars) are obtained from engine, secondary variables (props) are interpolated by property_itor.
-
-        :returns: property_array
-        :rtype: np.ndarray
-        """
-        # Initialize property_array
-        n_vars = self.physics.n_vars
-        if len(self.physics.property_operators) > 0:
-            n_props = self.physics.property_operators[next(iter(self.physics.property_operators))].n_ops
-        else:
-            n_props = 0
-        tot_props = n_vars + n_props
-        nb = self.reservoir.mesh.n_res_blocks
-        property_array = np.zeros((tot_props, nb))
-
-        # Obtain primary variables from engine
-        X = np.array(self.physics.engine.X, copy=False)
-        for j, variable in enumerate(self.physics.vars):
-            property_array[j, :] = X[j:nb * n_vars:n_vars]
-
-        if tot_props > n_vars:
-            n_ops = self.physics.n_ops
-            state = value_vector(property_array[:n_vars, :].T.flatten())
-            values = value_vector(np.zeros(n_ops * nb))
-            values_numpy = np.array(values, copy=False)
-            dvalues = value_vector(np.zeros(n_ops * nb * n_vars))
-            for region, prop_itor in self.physics.property_itor.items():
-                block_idx = np.where(self.op_num == region)[0].astype(np.int32)
-                prop_itor.evaluate_with_derivatives(state, index_vector(block_idx), values, dvalues)
-
-            for j in range(n_props):
-                property_array[j + n_vars] = values_numpy[j::n_ops]
-
-        return property_array
-
-    def output_properties_from_h5(self, binary_filename: str, output_properties: list = None, timestep: int = None) -> tuple:
+    def output_properties(self, output_properties: list = None, timestep: int = None) -> tuple:
         """
         Function to read *.h5 data and evaluate properties per grid block, per timestep
-        :param binary_filename: *.h5 filename that contains data from the simulation
         :param output_properties: List of properties to evaluate for output
         :return property_array : dictionary containing the states and evaluated properties
         :return timesteps: np.ndarray containing the timesteps at which the properties were evaluated
         :rtype: tuple
         """
         # Read binary file
+        path = os.path.join(self.output_folder, self.sol_filename)
         if timestep is None:
-            timesteps, cell_id, X, var_names = self.read_specific_data(binary_filename)
+            timesteps, cell_id, X, var_names = self.read_specific_data(path)
         else:
-            timesteps, cell_id, X, var_names = self.read_specific_data(binary_filename, timestep)
+            timesteps, cell_id, X, var_names = self.read_specific_data(path, timestep)
 
         # Initialize property_array
         n_vars = len(var_names)
@@ -677,7 +645,7 @@ class DartsModel:
 
         return timesteps, property_array
 
-    def output_to_xarray(self, binary_filename: str, output_properties: list = None, timestep: int = None):
+    def output_to_xarray(self, output_properties: list = None, timestep: int = None):
         """
         Function to return array of properties.
         Primary variables (vars) are obtained from engine, secondary variables (props) are interpolated by property_itor.
@@ -687,9 +655,9 @@ class DartsModel:
         """
         # Interpolate properties
         if timestep is None:
-            timesteps, data = self.output_properties_from_h5(binary_filename, output_properties)
+            timesteps, data = self.output_properties(output_properties)
         else:
-            timesteps, data = self.output_properties_from_h5(binary_filename, output_properties, timestep)
+            timesteps, data = self.output_properties(output_properties, timestep)
         props = list(data.keys())
 
         # Initialize coords and data_vars for Xarray Dataset
@@ -733,10 +701,13 @@ class DartsModel:
 
         # get current time and property data from engine
         t = self.physics.engine.t
-        property_array = self.output_properties()
+        timesteps, property_array = self.output_properties(output_properties=list(prop_idxs.keys()), timestep=ith_step)
+        data = np.zeros((len(property_array), self.reservoir.mesh.n_res_blocks))
+        for i, name in enumerate(property_array.keys()):
+            data[i, :] = property_array[name]
 
         # Pass to Reservoir.output_to_vtk() method
-        self.reservoir.output_to_vtk(ith_step, t, output_directory, prop_idxs, property_array)
+        self.reservoir.output_to_vtk(ith_step, timesteps[0], output_directory, prop_idxs, data)
         self.timer.node["vtk_output"].stop()
 
     def print_timers(self):
