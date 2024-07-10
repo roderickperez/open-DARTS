@@ -57,7 +57,8 @@ class DartsModel:
         self.timer.node["initialization"].stop()  # Stop recording "initialization" time
 
     def init(self, discr_type: str = 'tpfa', platform: str = 'cpu', restart: bool = False,
-             verbose: bool = False, output_folder: str = None):
+             verbose: bool = False, output_folder: str = None, itor_mode: str = 'adaptive',
+             itor_type: str = 'multilinear'):
         """
         Function to initialize the model, which includes:
         - initialize well (perforation) position
@@ -66,6 +67,21 @@ class DartsModel:
         - initialize well control settings
         - define list of operator interpolators for accumulation-flux regions and wells
         - initialize engine
+
+        :param discr_type: 'tpfa' for using Python implementation of TPFA, 'mpfa' activates C++ implementation of MPFA
+        :type discr_type: str
+        :param platform: 'cpu' for CPU, 'gpu' for using GPU for matrix assembly/solvers/interpolators
+        :type platform: str
+        :param restart: Boolean to check if existing file should be overwritten or appended
+        :type restart: bool
+        :param verbose: Switch for verbose
+        :type verbose: bool
+        :param output_folder: folder for h5 output files
+        :type output_folder: str
+        :param itor_mode: specifies either 'static' or 'adaptive' interpolator
+        :type itor_mode: str
+        :param itor_type: specifies either 'linear' or 'multilinear' interpolator
+        :type itor_type: str
         """
         # Initialize reservoir and Mesh object
         assert self.reservoir is not None, "Reservoir object has not been defined"
@@ -74,7 +90,8 @@ class DartsModel:
 
         # Initialize physics and Engine object
         assert self.physics is not None, "Physics object has not been defined"
-        self.physics.init_physics(discr_type=discr_type, platform=platform, verbose=verbose)
+        self.physics.init_physics(discr_type=discr_type, platform=platform, verbose=verbose,
+                                  itor_mode=itor_mode, itor_type=itor_type)
         if platform == 'gpu':
             self.params.linear_type = sim_params.gpu_gmres_cpr_amgx_ilu
 
@@ -93,6 +110,9 @@ class DartsModel:
         self.reset()
 
         self.restart = restart
+
+        # save solution vector
+        self.save_data_to_h5(kind='solution')
 
     def reset(self):
         """
@@ -448,6 +468,9 @@ class DartsModel:
         # update current engine time
         self.physics.engine.t = stop_time
 
+        # save solution vector
+        self.save_data_to_h5(kind='solution')
+
         if verbose:
             print("TS = %d(%d), NI = %d(%d), LI = %d(%d)"
                   % (self.physics.engine.stat.n_timesteps_total, self.physics.engine.stat.n_timesteps_wasted,
@@ -610,23 +633,24 @@ class DartsModel:
 
         return time, cell_id, X, var_names
 
-    def output_properties(self, binary_filename: str, output_properties: list = None, timestep: int = None) -> tuple:
+    def output_properties(self, output_properties: list = None, timestep: int = None) -> tuple:
         """
         Function to read *.h5 data and evaluate properties per grid block, per timestep
-        :param binary_filename: *.h5 filename that contains data from the simulation
         :param output_properties: List of properties to evaluate for output
         :return property_array : dictionary containing the states and evaluated properties
         :return timesteps: np.ndarray containing the timesteps at which the properties were evaluated
         :rtype: tuple
         """
         # Read binary file
+        path = os.path.join(self.output_folder, self.sol_filename)
         if timestep is None:
-            timesteps, cell_id, X, var_names = self.read_specific_data(binary_filename)
+            timesteps, cell_id, X, var_names = self.read_specific_data(path)
         else:
-            timesteps, cell_id, X, var_names = self.read_specific_data(binary_filename, timestep)
+            timesteps, cell_id, X, var_names = self.read_specific_data(path, timestep)
 
         # Initialize property_array
         n_vars = len(var_names)
+        n_ops = self.physics.n_ops
         nb = self.reservoir.mesh.n_res_blocks
         props = list(var_names) + output_properties if output_properties is not None else list(var_names)
         property_array = {prop: np.zeros((len(timesteps), nb)) for prop in props}
@@ -637,19 +661,21 @@ class DartsModel:
             for j, variable in enumerate(var_names):
                 property_array[variable][k, :] = X[k, :nb, j]
 
-            # Interpolate properties
-            for i in range(nb):
-                if self.physics.property_operators[self.op_num[i]].n_ops:
-                    values = value_vector(np.zeros(self.physics.n_ops))
-                    state = value_vector([property_array[var][k, i] for var in var_names])
-                    self.physics.property_itor[self.op_num[i]].evaluate(state, values)
+            if len(props) > n_vars:
+                state = value_vector(np.stack([property_array[var][k] for var in var_names]).T.flatten())
+                values = value_vector(np.zeros(n_ops * nb))
+                values_numpy = np.array(values, copy=False)
+                dvalues = value_vector(np.zeros(n_ops * nb * n_vars))
+                for region, prop_itor in self.physics.property_itor.items():
+                    block_idx = np.where(self.op_num == region)[0].astype(np.int32)
+                    prop_itor.evaluate_with_derivatives(state, index_vector(block_idx), values, dvalues)
 
-                    for j, prop in enumerate(props[n_vars:]):
-                        property_array[prop][k, i] = values[j]
+                for j, prop in enumerate(props[n_vars:]):
+                    property_array[prop][k] = values_numpy[j::n_ops]
 
         return timesteps, property_array
 
-    def output_to_xarray(self, binary_filename: str, output_properties: list = None, timestep: int = None):
+    def output_to_xarray(self, output_properties: list = None, timestep: int = None):
         """
         Function to return array of properties.
         Primary variables (vars) are obtained from engine, secondary variables (props) are interpolated by property_itor.
@@ -659,9 +685,9 @@ class DartsModel:
         """
         # Interpolate properties
         if timestep is None:
-            timesteps, data = self.output_properties(binary_filename, output_properties)
+            timesteps, data = self.output_properties(output_properties)
         else:
-            timesteps, data = self.output_properties(binary_filename, output_properties, timestep)
+            timesteps, data = self.output_properties(output_properties, timestep)
         props = list(data.keys())
 
         # Initialize coords and data_vars for Xarray Dataset
@@ -682,7 +708,7 @@ class DartsModel:
 
         return dataset
 
-    def output_to_vtk(self, ith_step: int, output_directory: str, binary_filename: str, output_properties: list = None):
+    def output_to_vtk(self, ith_step: int, output_directory: str, output_properties: list = None):
         """
         Function to export results at timestamp t into `.vtk` format.
 
@@ -690,8 +716,6 @@ class DartsModel:
         :type ith_step: int
         :param output_directory: Name to save .vtk file
         :type output_directory: str
-        :param: binary_filename: *.h5 filename that contains data from the simulation
-        :type: binary_filename: str
         :param output_properties: List of properties to include in .vtk file, default is None which will pass all
         :type output_properties: list
         """
@@ -707,16 +731,12 @@ class DartsModel:
 
         # get current time and property data from engine
         t = self.physics.engine.t
-
-        timesteps, property_array = self.output_properties(binary_filename, tot_props, timestep=ith_step)
-
-        # Pass to Reservoir.output_to_vtk() method
-
+        timesteps, property_array = self.output_properties(output_properties=list(prop_idxs.keys()), timestep=ith_step)
         data = np.zeros((len(property_array), self.reservoir.mesh.n_res_blocks))
-
         for i, name in enumerate(property_array.keys()):
             data[i, :] = property_array[name]
 
+        # Pass to Reservoir.output_to_vtk() method
         self.reservoir.output_to_vtk(ith_step, timesteps[0], output_directory, prop_idxs, data)
         self.timer.node["vtk_output"].stop()
 

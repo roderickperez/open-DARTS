@@ -232,6 +232,8 @@ build-windows-3.7-ODLS:
     image: dockcross/manylinux2014-x64:latest
     # Install samba client to upload build results to shared folder TODO remove
     before_script:
+        - sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+        - sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
         - yum install samba-client -y -q
         - export PATH="/opt/python/$PY_SUF/bin:$PATH"
         

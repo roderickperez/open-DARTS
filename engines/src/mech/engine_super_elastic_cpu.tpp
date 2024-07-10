@@ -1,3 +1,4 @@
+#ifndef WITH_GPU
 #include <algorithm>
 #include <time.h>
 #include <functional>
@@ -2224,3 +2225,4 @@ int engine_super_elastic_cpu<NC, NP, THERMAL>::adjoint_gradient_assembly(value_t
 //	}
 //	return residual;
 //}
+#endif // WITH_GPU
