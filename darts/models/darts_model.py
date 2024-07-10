@@ -57,7 +57,8 @@ class DartsModel:
         self.timer.node["initialization"].stop()  # Stop recording "initialization" time
 
     def init(self, discr_type: str = 'tpfa', platform: str = 'cpu', restart: bool = False,
-             verbose: bool = False, output_folder: str = None):
+             verbose: bool = False, output_folder: str = None, itor_mode: str = 'adaptive',
+             itor_type: str = 'multilinear'):
         """
         Function to initialize the model, which includes:
         - initialize well (perforation) position
@@ -66,6 +67,21 @@ class DartsModel:
         - initialize well control settings
         - define list of operator interpolators for accumulation-flux regions and wells
         - initialize engine
+
+        :param discr_type: 'tpfa' for using Python implementation of TPFA, 'mpfa' activates C++ implementation of MPFA
+        :type discr_type: str
+        :param platform: 'cpu' for CPU, 'gpu' for using GPU for matrix assembly/solvers/interpolators
+        :type platform: str
+        :param restart: Boolean to check if existing file should be overwritten or appended
+        :type restart: bool
+        :param verbose: Switch for verbose
+        :type verbose: bool
+        :param output_folder: folder for h5 output files
+        :type output_folder: str
+        :param itor_mode: specifies either 'static' or 'adaptive' interpolator
+        :type itor_mode: str
+        :param itor_type: specifies either 'linear' or 'multilinear' interpolator
+        :type itor_type: str
         """
         # Initialize reservoir and Mesh object
         assert self.reservoir is not None, "Reservoir object has not been defined"
@@ -74,7 +90,8 @@ class DartsModel:
 
         # Initialize physics and Engine object
         assert self.physics is not None, "Physics object has not been defined"
-        self.physics.init_physics(discr_type=discr_type, platform=platform, verbose=verbose)
+        self.physics.init_physics(discr_type=discr_type, platform=platform, verbose=verbose,
+                                  itor_mode=itor_mode, itor_type=itor_type)
         if platform == 'gpu':
             self.params.linear_type = sim_params.gpu_gmres_cpr_amgx_ilu
 
