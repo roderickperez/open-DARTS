@@ -12,6 +12,7 @@ class Initialize:
         self.vars = physics.vars
         self.var_idxs = {var: i for i, var in enumerate(physics.vars)}
         self.nv = len(self.vars)
+        self.thermal = ('temperature' in self.vars)
 
         self.depths = depths
         self.nb = len(depths)
@@ -52,7 +53,8 @@ class Initialize:
     def set_bc(self, boundary_state: dict, dTdh: float = 0.03, bc_idx: int = 0):
         self.top_bc = True if bc_idx == 0 else False
         self.boundary_state = boundary_state
-        self.T = lambda i: boundary_state['temperature'] + (self.depths[i] - self.depths[bc_idx]) * dTdh
+        if self.thermal:
+            self.T = lambda i: boundary_state['temperature'] + (self.depths[i] - self.depths[bc_idx]) * dTdh
 
     def set_specs(self, primary_specs: dict = None, secondary_specs: dict = None):
         for spec, values in primary_specs.items():
@@ -72,7 +74,9 @@ class Initialize:
         # X of boundary cell
         idx = 0 if self.top_bc else self.nb - 1
         X0[idx * self.nv] = self.boundary_state['pressure']
-        X0[idx * self.nv + self.nv - 1] = self.T(idx)
+        if self.thermal:
+            X0[idx * self.nv + self.nv - 1] = self.T(idx)
+
         for j, var in enumerate(self.vars[1:-1]):
             if var in self.boundary_state.keys():
                 X0[idx * self.nv + j + 1] = self.boundary_state[var]
@@ -93,8 +97,9 @@ class Initialize:
                 gh = 9.81 * (self.depths[idx - 1] - self.depths[idx]) * 1e-5
                 X0[idx * self.nv] = X0[(idx + 1) * self.nv] - values[self.props_idxs['rhoT']] * gh
 
-            # Set temperature of block i
-            X0[idx * self.nv + self.nv - 1] = self.T(idx)
+            if self.thermal:
+                # Set temperature of block i
+                X0[idx * self.nv + self.nv - 1] = self.T(idx)
 
             # Set zj of block i
             for j, var in enumerate(self.vars[1:-1]):
@@ -165,11 +170,12 @@ class Initialize:
         for i in range(self.nb):
             res, Jac = self.spec_equation(X, res, Jac, i)
 
-            # Temperature equation
-            idx = i * self.nv + self.nv - 1
-            res[idx] = 0
-            Jac[idx, :] = 0
-            Jac[idx, idx] = 1
+            if self.thermal:
+                # Temperature equation
+                idx = i * self.nv + self.nv - 1
+                res[idx] = 0
+                Jac[idx, :] = 0
+                Jac[idx, idx] = 1
 
         # Pressure BC
         idx = 0 if self.top_bc else (self.nb - 1) * self.nv
