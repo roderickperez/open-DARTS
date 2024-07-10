@@ -696,7 +696,7 @@ class DartsModel:
 
         return dataset
 
-    def output_to_vtk(self, ith_step: int, output_directory: str, output_properties: list = None):
+    def output_to_vtk(self, ith_step: int, output_directory: str = None, output_properties: list = None):
         """
         Function to export results at timestamp t into `.vtk` format.
 
@@ -708,6 +708,9 @@ class DartsModel:
         :type output_properties: list
         """
         self.timer.node["vtk_output"].start()
+        # Set default output directory
+        if output_directory is None:
+            output_directory = self.output_folder
         # Find index of properties to output
         tot_props = self.physics.vars + self.physics.property_operators[next(iter(self.physics.property_operators))].props_name
         if output_properties is None:
