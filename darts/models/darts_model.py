@@ -639,7 +639,7 @@ class DartsModel:
         n_vars = len(var_names)
         n_ops = self.physics.n_ops
         nb = self.reservoir.mesh.n_res_blocks
-        props = list(var_names) + output_properties if output_properties is not None else list(var_names)
+        props = output_properties if output_properties is not None else list(var_names)
         property_array = {prop: np.zeros((len(timesteps), nb)) for prop in props}
 
         # Loop over timesteps
