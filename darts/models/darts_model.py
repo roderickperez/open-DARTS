@@ -666,9 +666,10 @@ class DartsModel:
                 values = value_vector(np.zeros(n_ops * nb))
                 values_numpy = np.array(values, copy=False)
                 dvalues = value_vector(np.zeros(n_ops * nb * n_vars))
+                i = 0
                 for region, prop_itor in self.physics.property_itor.items():
-                    block_idx = np.where(self.op_num == region)[0].astype(np.int32)
-                    prop_itor.evaluate_with_derivatives(state, index_vector(block_idx), values, dvalues)
+                    prop_itor.evaluate_with_derivatives(state, self.physics.engine.region_cell_idx[i], values, dvalues)
+                    i += 1
 
                 for j, prop in enumerate(props[n_vars:]):
                     property_array[prop][k] = values_numpy[j::n_ops]
