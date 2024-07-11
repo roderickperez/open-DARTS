@@ -391,6 +391,7 @@ class DartsModel:
                     print("Cut timestep to %2.10f" % dt)
                 if dt < self.params.min_ts:
                     break
+                    
         # update current engine time
         self.physics.engine.t = stop_time
 
@@ -642,7 +643,6 @@ class DartsModel:
         n_vars = len(var_names)
         n_ops = self.physics.n_ops
         nb = self.reservoir.mesh.n_res_blocks
-        # props = output_properties if output_properties is not None else list(var_names)
         props = list(var_names) + output_properties if output_properties is not None else list(var_names)
         property_array = {prop: np.zeros((len(timesteps), nb)) for prop in props}
 
@@ -717,7 +717,7 @@ class DartsModel:
             output_directory = self.output_folder
 
         # Find index of properties to output
-        ev_props = self.physics.property_operators[next(iter(self.physics.property_operators))].props_name
+        ev_props  = self.physics.property_operators[next(iter(self.physics.property_operators))].props_name
         tot_props = self.physics.vars + ev_props
 
         if output_properties is None:
@@ -728,17 +728,22 @@ class DartsModel:
             # Else, it finds the indices of output_properties in the output data
             prop_idxs = {prop: tot_props.index(prop) for prop in output_properties}
 
-        # timesteps, property_array = self.output_properties(output_properties=list(prop_idxs.keys())[self.physics.n_vars:], timestep=ith_step)
         timesteps, property_array = self.output_properties(output_properties=list(prop_idxs.keys()), timestep=ith_step)
 
         prop_names = {prop: i for i, prop in enumerate(property_array.keys())}
+
+        
         for t, time in enumerate(timesteps):
             data = np.zeros((len(property_array), self.reservoir.mesh.n_res_blocks))
             for i, name in enumerate(property_array.keys()):
                 data[i, :] = property_array[name][t]
 
             # Pass to Reservoir.output_to_vtk() method
-            self.reservoir.output_to_vtk(t, time, output_directory, prop_names, data)
+            if ith_step is None:
+                self.reservoir.output_to_vtk(t, time, output_directory, prop_names, data)
+            else:
+                self.reservoir.output_to_vtk(ith_step, time, output_directory, prop_names, data)
+
         self.timer.node["vtk_output"].stop()
 
     def print_timers(self):
