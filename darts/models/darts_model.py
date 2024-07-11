@@ -109,10 +109,11 @@ class DartsModel:
         self.set_well_controls()
         self.reset()
 
-        self.restart = restart
+        # self.restart = restart
 
         # save solution vector
-        self.save_data_to_h5(kind='solution')
+        if restart is False:
+            self.save_data_to_h5(kind = 'solution')
 
     def reset(self):
         """
@@ -159,7 +160,7 @@ class DartsModel:
             # write brief description
             f.attrs['description'] = description
 
-    def configure_output(self, kind: str, restart: bool):
+    def configure_output(self, kind: str):
         """
         Configuration of output
         :param kind: 'well' for well output or 'solution' to write the whole solution vector
@@ -175,7 +176,7 @@ class DartsModel:
         # solution ouput
         if kind == 'solution':
             sol_output_path = os.path.join(self.output_folder, self.sol_filename)
-            if os.path.exists(sol_output_path) and not restart:
+            if os.path.exists(sol_output_path): #and not restart:
                 os.remove(sol_output_path)
             self.configure_h5_output(filename=sol_output_path, cell_ids=np.arange(self.reservoir.mesh.n_blocks),
                                 add_static_data=False, description='Reservoir data')
@@ -212,6 +213,8 @@ class DartsModel:
         self.physics.engine.t = time[0]
         self.physics.engine.X = value_vector(X.flatten())
         self.physics.engine.Xn = value_vector(X.flatten())
+
+        self.save_data_to_h5(kind='solution')
 
     def set_wells(self, verbose: bool = False):
         """
@@ -566,7 +569,7 @@ class DartsModel:
         """
 
         if not hasattr(self, 'output_configured') or kind not in self.output_configured:
-            self.configure_output(kind=kind, restart=self.restart)
+            self.configure_output(kind=kind)
 
         if kind == 'well':
             path = os.path.join(self.output_folder, self.well_filename)
@@ -614,7 +617,7 @@ class DartsModel:
         # Open the HDF5 file
         with h5py.File(filename, 'r') as file:
             if timestep is None:
-                datapoints = file['dynamic/X'].shape[0] * file['dynamic/X'].shape[1] * file['dynamic/X'].shape[1]
+                datapoints = file['dynamic/X'].shape[0] * file['dynamic/X'].shape[1] * file['dynamic/X'].shape[2]
                 print('WARNING: %s contains %d data points...' % (filename, datapoints))
 
                 cell_id = file['dynamic/cell_id'][:]
@@ -652,7 +655,8 @@ class DartsModel:
         n_vars = len(var_names)
         n_ops = self.physics.n_ops
         nb = self.reservoir.mesh.n_res_blocks
-        props = output_properties if output_properties is not None else list(var_names)
+        # props = output_properties if output_properties is not None else list(var_names)
+        props = list(var_names) + output_properties if output_properties is not None else list(var_names)
         property_array = {prop: np.zeros((len(timesteps), nb)) for prop in props}
 
         # Loop over timesteps
@@ -709,7 +713,7 @@ class DartsModel:
 
         return dataset
 
-    def output_to_vtk(self, ith_step: int, output_directory: str = None, output_properties: list = None):
+    def output_to_vtk(self, ith_step: int = None, output_directory: str = None, output_properties: list = None):
         """
         Function to export results at timestamp t into `.vtk` format.
 
@@ -724,24 +728,30 @@ class DartsModel:
         # Set default output directory
         if output_directory is None:
             output_directory = self.output_folder
+
         # Find index of properties to output
-        tot_props = self.physics.vars + self.physics.property_operators[next(iter(self.physics.property_operators))].props_name
+        ev_props = self.physics.property_operators[next(iter(self.physics.property_operators))].props_name
+        tot_props = self.physics.vars + ev_props
+
         if output_properties is None:
             # If None, all variables and properties from property_operators will be passed
-            prop_idxs = {prop: i for i, prop in enumerate(tot_props)}
+            # prop_idxs = {prop: i for i, prop in enumerate(tot_props)}
+            prop_idxs  = {prop: i for i, prop in enumerate(ev_props)}
         else:
             # Else, it finds the indices of output_properties in the output data
             prop_idxs = {prop: tot_props.index(prop) for prop in output_properties}
 
-        # get current time and property data from engine
-        t = self.physics.engine.t
+        # timesteps, property_array = self.output_properties(output_properties=list(prop_idxs.keys())[self.physics.n_vars:], timestep=ith_step)
         timesteps, property_array = self.output_properties(output_properties=list(prop_idxs.keys()), timestep=ith_step)
-        data = np.zeros((len(property_array), self.reservoir.mesh.n_res_blocks))
-        for i, name in enumerate(property_array.keys()):
-            data[i, :] = property_array[name]
 
-        # Pass to Reservoir.output_to_vtk() method
-        self.reservoir.output_to_vtk(ith_step, timesteps[0], output_directory, prop_idxs, data)
+        prop_names = {prop: i for i, prop in enumerate(property_array.keys())}
+        for t, time in enumerate(timesteps):
+            data = np.zeros((len(property_array), self.reservoir.mesh.n_res_blocks))
+            for i, name in enumerate(property_array.keys()):
+                data[i, :] = property_array[name][t]
+
+            # Pass to Reservoir.output_to_vtk() method
+            self.reservoir.output_to_vtk(t, time, output_directory, prop_names, data)
         self.timer.node["vtk_output"].stop()
 
     def print_timers(self):
