@@ -90,12 +90,16 @@ def animate_solution_1d(paths, n_cells, labels, lower_lims, upper_lims):
     anim.save(paths[0] + 'comparison.mp4', writer=writervideo)
     plt.close(fig)
 
-def run(itor_mode, itor_type, obl_points, reservoir_type, nx: int = None):
-    output_folder = 'output_' + itor_type + '_' + itor_mode + '_' + str(obl_points) + '_' + reservoir_type
+def run(itor_mode, itor_type, obl_points, reservoir_type, nx: int = None, vtk_output: bool = False):
+    if nx is None:
+        output_folder = 'output_' + itor_type + '_' + itor_mode + '_' + str(obl_points) + '_' + reservoir_type
+    else:
+        output_folder = 'output_' + itor_type + '_' + itor_mode + '_' + str(obl_points) + '_' + reservoir_type + '_' + str(nx)
+
     if itor_type == 'linear':
         log_3d_body_path = False
     else:
-        log_3d_body_path = True
+        log_3d_body_path = False#True
 
     if not os.path.exists(output_folder):
         os.mkdir(output_folder)
@@ -110,7 +114,8 @@ def run(itor_mode, itor_type, obl_points, reservoir_type, nx: int = None):
     n.init(itor_mode=itor_mode, itor_type=itor_type, output_folder=output_folder)
 
     if reservoir_type != '1D':
-        n.output_to_vtk(ith_step=0)
+        if vtk_output:
+            n.output_to_vtk(ith_step=0)
         if reservoir_type != '2D':
             n.params.first_ts = n.params.max_ts = 0.001
             n.run(1.0, log_3d_body_path=log_3d_body_path)
@@ -120,13 +125,14 @@ def run(itor_mode, itor_type, obl_points, reservoir_type, nx: int = None):
 
     for i in range(12):
         n.run(30.5, log_3d_body_path=log_3d_body_path)
-        if reservoir_type != '1D':
+        if reservoir_type != '1D' and vtk_output:
             n.output_to_vtk(ith_step=i + 1)
 
+    n.timer.stop()
     n.print_timers()
     n.print_stat()
 
-    if reservoir_type == '1D':
+    if reservoir_type == '1D' and vtk_output:
         # populate input lists for comparing multiple solutions
         animate_solution_1d(paths=[output_folder + '/'],
                             labels=[itor_type + ', ' + itor_mode + ', N=' + str(nx)],
@@ -134,8 +140,99 @@ def run(itor_mode, itor_type, obl_points, reservoir_type, nx: int = None):
                             lower_lims = [48.9, -1.e-2, -1.e-2, -1.e-2, -1.e-2, -1.e-2],
                             upper_lims = [60, 1.01, 0.5, 0.21, 0.15, 0.1])
 
+    return n.timer, n.physics.engine.stat
+
+def test_performance(params, n_repeat: int = 1):
+    n_models = len(params['itor_type'])
+    n_repeat = 1
+    output = {'total_time': [],
+              'interpolation_time': [],
+              'reservoir_interpolation_time': [],
+              'point_generation_time': [],
+              'timesteps': [],
+              'nonlinear_iterations': [],
+              'linear_iterations': [],
+              'wasted_timesteps': [],
+              'wasted_linear_iterations': [],
+              'wasted_nonlinear_iterations': []}
+
+    for i in range(n_models):
+        for key, val in output.items():
+            val.append([])
+        for j in range(n_repeat):
+            timer, stat = run(itor_type=params['itor_type'][i], itor_mode=params['itor_mode'][i], obl_points=params['obl_points'][i],
+                        reservoir_type=params['reservoir_type'][i], nx=params['nx'][i])
+
+            output['timesteps'][i].append(stat.n_timesteps_total)
+            output['nonlinear_iterations'][i].append(stat.n_newton_total)
+            output['linear_iterations'][i].append(stat.n_linear_total)
+            output['wasted_timesteps'][i].append(stat.n_timesteps_wasted)
+            output['wasted_nonlinear_iterations'][i].append(stat.n_newton_wasted)
+            output['wasted_linear_iterations'][i].append(stat.n_linear_wasted)
+
+            output['total_time'][i].append(timer.get_timer())
+            output['interpolation_time'][i].append(timer.node['simulation'].node['jacobian assembly']\
+                                                   .node['interpolation'].get_timer())
+            output['reservoir_interpolation_time'][i].append(timer.node['simulation'].node['jacobian assembly']\
+                                                   .node['interpolation'].node['reservoir 0 interpolation'].get_timer())
+            nodes1 = [nd for nd in timer.node['simulation'].node['jacobian assembly'].node['interpolation'].\
+                node['reservoir 0 interpolation'].node]
+            if 'point generation' in nodes1:
+                output['point_generation_time'][i].append(timer.node['simulation'].node['jacobian assembly'] \
+                                                    .node['interpolation'].node['reservoir 0 interpolation'].\
+                                                          node['point generation'].get_timer())
+            elif 'body generation' in nodes1:
+                output['point_generation_time'][i].append(timer.node['simulation'].node['jacobian assembly'] \
+                                                    .node['interpolation'].node['reservoir 0 interpolation'].\
+                                                          node['body generation'].node['point generation'].get_timer())
+            else:
+                output['point_generation_time'][i].append(0.0)
+
+        for key, val in output.items():
+            output[key][i] = np.array(val[i])
+
+    for key, val in output.items():
+        output[key] = np.array(val)
+
+    # for key, val in output.items():
+    #     print(f'{key}: {val.flatten()}')
+
+    return output
+
+
+params1 = {'itor_type': ['linear', 'linear', 'linear',
+                        'multilinear', 'multilinear', 'multilinear'],
+          'itor_mode': ['adaptive', 'adaptive', 'adaptive',
+                        'adaptive', 'adaptive', 'adaptive'],
+          'obl_points': [10, 100, 1000,
+                         10, 100, 1000],
+          'reservoir_type': 6 * ['1D'],
+          'nx': [1000, 1000, 1000,
+                 1000, 1000, 1000]}
+
+params2 = {'itor_type': ['linear', 'linear', 'linear',
+                        'multilinear', 'multilinear', 'multilinear'],
+          'itor_mode': ['adaptive', 'adaptive', 'adaptive',
+                        'adaptive', 'adaptive', 'adaptive'],
+          'obl_points': [10, 100, 1000,
+                         10, 100, 1000],
+          'reservoir_type': 6 * ['2D'],
+          'nx': [100, 100, 100,
+                 100, 100, 100]}
+
+out_type_1d = test_performance(params=params1, n_repeat=1)
+out_type_2d = test_performance(params=params2, n_repeat=1)
+print('Linear vs Multilinear in 1D setup with nx=1000')
+for key, val in out_type_1d.items():
+    print(f'{key}: {val.flatten()}')
+print('\n')
+print('Linear vs Multilinear in 2D setup with nx=ny=100')
+for key, val in out_type_2d.items():
+    print(f'{key}: {val.flatten()}')
+
+
 # run(itor_type='linear', itor_mode='adaptive', obl_points=1024, reservoir_type='1D', nx=100)
-run(itor_type='linear', itor_mode='adaptive', obl_points=1024, reservoir_type='2D', nx=100)
+# run(itor_type='linear', itor_mode='adaptive', obl_points=1024, reservoir_type='2D', nx=10)
 # run(itor_type='linear', itor_mode='adaptive', obl_points=1024, reservoir_type='spe10_20_40_40')
 # run(itor_type='multilinear', itor_mode='adaptive', obl_points=1024)
 # run(itor_mode='static_nested', obl_points=4)
