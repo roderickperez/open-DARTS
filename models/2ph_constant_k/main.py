@@ -90,11 +90,11 @@ def animate_solution_1d(paths, n_cells, labels, lower_lims, upper_lims):
     anim.save(paths[0] + 'comparison.mp4', writer=writervideo)
     plt.close(fig)
 
-def run(itor_mode, itor_type, obl_points, reservoir_type, nx: int = None, vtk_output: bool = False):
+def run(itor_mode, itor_type, obl_points, n_comps, reservoir_type, nx: int = None, vtk_output: bool = False):
     if nx is None:
-        output_folder = 'output_' + itor_type + '_' + itor_mode + '_' + str(obl_points) + '_' + reservoir_type
+        output_folder = 'output_' + itor_type + '_' + itor_mode + '_' + str(obl_points) + '_{}comp'.format(n_comps) + '_' + reservoir_type
     else:
-        output_folder = 'output_' + itor_type + '_' + itor_mode + '_' + str(obl_points) + '_' + reservoir_type + '_' + str(nx)
+        output_folder = 'output_' + itor_type + '_' + itor_mode + '_' + str(obl_points) + '_{}comp'.format(n_comps) + '_' + reservoir_type + '_' + str(nx)
 
     if itor_type == 'linear':
         log_3d_body_path = False
@@ -104,13 +104,25 @@ def run(itor_mode, itor_type, obl_points, reservoir_type, nx: int = None, vtk_ou
     if not os.path.exists(output_folder):
         os.mkdir(output_folder)
 
-    components = ['CO2', 'CH4', 'C4', 'C10', 'C16', 'C20']
-    inj_comp = [0.995, 0.001, 0.001, 0.001, 0.001, 0.001]
-    ini_comp = [0.005, 0.350, 0.250, 0.195, 0.125, 0.075]
-
     redirect_darts_output('log.out')
-    n = Model(inj_comp=inj_comp, ini_comp=ini_comp, obl_points=obl_points,
-              reservoir_type=reservoir_type, nx=nx)
+
+    if n_comps == 3:
+        components = ['CO2', 'C1', 'C6']
+    elif n_comps == 4:
+        components = ['CO2', 'C1', 'C4', 'C10']
+    elif n_comps == 6:
+        components = ['CO2', 'C1', 'C4', 'C10', 'C16', 'C20']
+    elif n_comps == 8:
+        components = ['CO2', 'C1', 'C2', 'C4', 'C6', 'C10', 'C16', 'C20']
+    elif n_comps == 10:
+        components = ['CO2', 'C1', 'C2', 'C4', 'C5', 'nC5', 'C6', 'C10', 'C16', 'C20']
+    elif n_comps == 12:
+        components = ['CO2', 'C1', 'C2', 'C3', 'C4', 'nC4', 'C5', 'nC5', 'C6', 'C10', 'C16', 'C20']
+    else:
+        print('{} is not a valid number of components'.format(n_comps))
+        return
+
+    n = Model(obl_points=obl_points, components=components, reservoir_type=reservoir_type, nx=nx)
     n.init(itor_mode=itor_mode, itor_type=itor_type, output_folder=output_folder)
 
     if reservoir_type != '1D':
@@ -121,7 +133,6 @@ def run(itor_mode, itor_type, obl_points, reservoir_type, nx: int = None, vtk_ou
             n.run(1.0, log_3d_body_path=log_3d_body_path)
             n.physics.engine.t = 0.0
             n.set_spe10_well_controls_initialized()
-
 
     for i in range(12):
         n.run(30.5, log_3d_body_path=log_3d_body_path)
@@ -161,7 +172,7 @@ def test_performance(params, n_repeat: int = 1):
             val.append([])
         for j in range(n_repeat):
             timer, stat = run(itor_type=params['itor_type'][i], itor_mode=params['itor_mode'][i], obl_points=params['obl_points'][i],
-                        reservoir_type=params['reservoir_type'][i], nx=params['nx'][i])
+                        n_comps=params['n_comps'][i], reservoir_type=params['reservoir_type'][i], nx=params['nx'][i])
 
             output['timesteps'][i].append(stat.n_timesteps_total)
             output['nonlinear_iterations'][i].append(stat.n_newton_total)
@@ -199,37 +210,98 @@ def test_performance(params, n_repeat: int = 1):
 
     return output
 
+def write_performance_output(filename, param_arrays, res_arrays):
+    dict_params = { key: np.concatenate([d[key] for d in param_arrays], axis=0) for key in param_arrays[0].keys() }
+    dict_res = { key: np.concatenate([d[key] for d in res_arrays], axis=0) for key in res_arrays[0].keys() }
 
-params1 = {'itor_type': ['linear', 'linear', 'linear',
-                        'multilinear', 'multilinear', 'multilinear'],
-          'itor_mode': ['adaptive', 'adaptive', 'adaptive',
-                        'adaptive', 'adaptive', 'adaptive'],
-          'obl_points': [10, 100, 1000,
-                         10, 100, 1000],
-          'reservoir_type': 6 * ['1D'],
-          'nx': [1000, 1000, 1000,
-                 1000, 1000, 1000]}
+    out_dict = {}
+    for key, value in dict_res.items():
+        out_dict[key] = np.mean(value, axis=-1)
 
-params2 = {'itor_type': ['linear', 'linear', 'linear',
-                        'multilinear', 'multilinear', 'multilinear'],
-          'itor_mode': ['adaptive', 'adaptive', 'adaptive',
-                        'adaptive', 'adaptive', 'adaptive'],
-          'obl_points': [10, 100, 1000,
-                         10, 100, 1000],
-          'reservoir_type': 6 * ['2D'],
-          'nx': [100, 100, 100,
-                 100, 100, 100]}
+    df = pd.DataFrame({**dict_params, **out_dict})
+    df.to_excel(filename, index=False)
 
-out_type_1d = test_performance(params=params1, n_repeat=1)
-out_type_2d = test_performance(params=params2, n_repeat=1)
-print('Linear vs Multilinear in 1D setup with nx=1000')
-for key, val in out_type_1d.items():
-    print(f'{key}: {val.flatten()}')
-print('\n')
-print('Linear vs Multilinear in 2D setup with nx=ny=100')
-for key, val in out_type_2d.items():
-    print(f'{key}: {val.flatten()}')
+def test_linear_multilinear_obl_points():
+    params1 = {'itor_type': ['linear', 'linear', 'linear',
+                            'multilinear', 'multilinear', 'multilinear'],
+              'itor_mode': ['adaptive', 'adaptive', 'adaptive',
+                            'adaptive', 'adaptive', 'adaptive'],
+              'obl_points': [10, 100, 1000,
+                             10, 100, 1000],
+              'n_comps': 6 * [6],
+              'reservoir_type': 6 * ['1D'],
+              'nx': [1000, 1000, 1000,
+                     1000, 1000, 1000]}
 
+    params2 = {'itor_type': ['linear', 'linear', 'linear',
+                            'multilinear', 'multilinear', 'multilinear'],
+              'itor_mode': ['adaptive', 'adaptive', 'adaptive',
+                            'adaptive', 'adaptive', 'adaptive'],
+              'obl_points': [10, 100, 1000,
+                             10, 100, 1000],
+              'n_comps': 6 * [6],
+              'reservoir_type': 6 * ['2D'],
+              'nx': [100, 100, 100,
+                     100, 100, 100]}
+
+    out_type_1d = test_performance(params=params1, n_repeat=1)
+    out_type_2d = test_performance(params=params2, n_repeat=1)
+    print('Linear vs Multilinear in 1D setup with nx=1000')
+    for key, val in out_type_1d.items():
+        print(f'{key}: {val.flatten()}')
+    print('\n')
+    print('Linear vs Multilinear in 2D setup with nx=ny=100')
+    for key, val in out_type_2d.items():
+        print(f'{key}: {val.flatten()}')
+
+    write_performance_output(filename='test_linear_multilinear_obl_points.xlsx',
+                             param_arrays=[params1, params2],
+                             res_arrays=[out_type_1d, out_type_2d])
+
+def test_linear_multilinear_components():
+    n_repeat = 1
+    # 1D
+    params1 = {'itor_type': ['linear', 'linear', 'linear',
+                            'multilinear', 'multilinear', 'multilinear'],
+              'itor_mode': ['adaptive', 'adaptive', 'adaptive',
+                            'adaptive', 'adaptive', 'adaptive'],
+              'obl_points': [100, 100, 100,
+                             100, 100, 100],
+              'n_comps': [4, 6, 8,
+                          4, 6, 8],
+              'reservoir_type': 6 * ['1D'],
+              'nx': [1000, 1000, 1000,
+                     1000, 1000, 1000]}
+    out_type_1d = test_performance(params=params1, n_repeat=n_repeat)
+    # 2D
+    params2 = {'itor_type': ['linear', 'linear', 'linear',
+                            'multilinear', 'multilinear', 'multilinear'],
+              'itor_mode': ['adaptive', 'adaptive', 'adaptive',
+                            'adaptive', 'adaptive', 'adaptive'],
+              'obl_points': [100, 100, 100,
+                             100, 100, 100],
+              'n_comps': [4, 6, 8,
+                          4, 6, 8],
+              'reservoir_type': 6 * ['2D'],
+              'nx': [100, 100, 100,
+                     100, 100, 100]}
+    out_type_2d = test_performance(params=params2, n_repeat=n_repeat)
+
+    print('Linear vs Multilinear in 1D setup with nx=1000')
+    for key, val in out_type_1d.items():
+        print(f'{key}: {val.flatten()}')
+    print('\n')
+    print('Linear vs Multilinear in 2D setup with nx=1000')
+    for key, val in out_type_2d.items():
+        print(f'{key}: {val.flatten()}')
+    print('\n')
+
+    write_performance_output(filename='test_linear_multilinear_components.xlsx',
+                             param_arrays=[params1, params2],
+                             res_arrays=[out_type_1d, out_type_2d])
+
+test_linear_multilinear_obl_points()
+test_linear_multilinear_components()
 
 # run(itor_type='linear', itor_mode='adaptive', obl_points=1024, reservoir_type='1D', nx=100)
 # run(itor_type='linear', itor_mode='adaptive', obl_points=1024, reservoir_type='2D', nx=10)

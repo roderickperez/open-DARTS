@@ -13,16 +13,15 @@ from darts.physics.properties.density import DensityBasic
 
 
 class Model(DartsModel):
-    def __init__(self, inj_comp, ini_comp, obl_points, reservoir_type, nx: int = None):
+    def __init__(self, obl_points, reservoir_type, nx: int = None, components: list = []):
         # Call base class constructor
         super().__init__()
-        
-        self.inj_comp = inj_comp
-        self.ini_comp = ini_comp
+
         self.nx = nx
         self.obl_points = obl_points
         self.discr_type = 'tpfa'
         self.reservoir_type = reservoir_type
+        self.components = components
 
         # Measure time spend on reading/initialization
         self.timer.node["initialization"].start()
@@ -37,16 +36,11 @@ class Model(DartsModel):
         self.timer.node["initialization"].stop()
 
         self.initial_values = {
-                                self.physics.vars[0]: self.p_init,
-                                self.physics.vars[1]: self.ini_comp[0],
-                                self.physics.vars[2]: self.ini_comp[1],
-                                self.physics.vars[3]: self.ini_comp[3],
-                                self.physics.vars[4]: self.ini_comp[4],
-                                self.physics.vars[5]: self.ini_comp[5],
-                               }
+                self.physics.vars[0]: self.p_init,
+                **{self.physics.vars[i + 1]: self.ini_comp[i] for i in range(len(self.physics.vars) - 1)} }
         
         self.inj_stream = self.inj_comp[:self.physics.nc-1]
-        self.physics.components = ['CO2', 'CH4', 'C4', 'C10', 'C16', 'C20']
+        self.physics.components = self.components
         # for i in range(self.physics.nc - 1):
         #     self.initial_values[self.components[i]][0] = self.inj_stream[i]
 
@@ -109,17 +103,40 @@ class Model(DartsModel):
         """Physical properties"""
         self.zero = 1e-8
         # Create property containers:
-        
-        self.components = ['CO2', 'CH4', 'C4', 'C10', 'C16', 'C20']
+
+        n_comps = len(self.components)
+        self.inj_comp = [1. - (n_comps - 1) * 0.001] + (n_comps - 1) * [0.001]
+        if n_comps == 3:
+            self.ini_comp = [0.005, 0.550, 0.445]
+        elif n_comps == 4:
+            self.ini_comp = [0.005, 0.500, 0.300, 0.195]
+        elif n_comps == 6:
+            self.ini_comp = [0.005, 0.350, 0.250, 0.195, 0.125, 0.075]
+        elif n_comps == 8:
+            self.ini_comp = [0.005, 0.350, 0.170, 0.150, 0.125, 0.100, 0.075, 0.025]
+        elif n_comps == 10:
+            self.ini_comp = [0.005, 0.300, 0.170, 0.150, 0.100, 0.100, 0.075, 0.050, 0.025, 0.025]
+        elif n_comps == 12:
+            self.ini_comp = [0.005, 0.300, 0.150, 0.100, 0.075, 0.075, 0.065, 0.065, 0.060, 0.050, 0.035, 0.020]
+        assert (sum(self.ini_comp) == 1.0)
+
+        Mw_comps = {'CO2': 44.010, 'C1': 16.043, 'C2': 30.069, 'C3': 44.0956,
+                    'C4': 58.123, 'nC4': 58.123, 'C5': 72.15, 'nC5': 72.15,
+                    'C6': 86.178, 'C10': 114.520, 'C16': 226.448, 'C20': 282.556}
+        K_comps = {'CO2': 1.5, 'C1': 2.5, 'C2': 2.0, 'C3': 1.0,
+                   'C4': 0.7, 'nC4': 0.5, 'C5': 0.4, 'nC5': 0.3,
+                   'C6': 0.2, 'C10': 0.05, 'C16': 0.01, 'C20': 0.01}
+
+        Mw = [Mw_comps[c] for c in self.components]
+        K = [K_comps[c] for c in self.components]
+
         phases = ['gas', 'oil']
         thermal = 0
-        Mw =  [44.010, 16.043, 58.123, 114.520, 226.448, 282.556]
 
         property_container = ModelProperties(phases_name=phases, components_name=self.components,
                                                Mw=Mw, min_z=self.zero / 10, temperature=1.)
 
         """ properties correlations """
-        K = [1.5, 2.5, 0.5, 0.05, 0.01, 0.01]
         property_container.flash_ev = ConstantK(len(self.components), K, self.zero)
         property_container.density_ev = dict([('gas', DensityBasic(compr=1e-3, dens0=200)),
                                               ('oil', DensityBasic(compr=1e-5, dens0=600))])
@@ -129,9 +146,8 @@ class Model(DartsModel):
                                                ('oil', PhaseRelPerm("oil"))])
 
         """ Activate physics """
-        self.physics = Compositional(self.components, phases, self.timer,
-                                n_points=self.obl_points, min_p=1, max_p=300, min_z=self.zero/10, max_z=1-self.zero/10,
-                                     cache=True)
+        self.physics = Compositional(self.components, phases, self.timer, n_points=self.obl_points,
+                                     min_p=1, max_p=300, min_z=self.zero/10, max_z=1-self.zero/10, cache=True)
         self.physics.add_property_region(property_container)
         
         return
