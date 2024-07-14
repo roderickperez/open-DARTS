@@ -42,6 +42,7 @@ if %bos_solvers_artifact%==true (
 REM ODLS version does not support OpenMP yet
 if %bos_solvers_artifact%==false (
   if %MT%==true (
+    echo Waring: ODLS version does not support OpenMP yet. Switched to the sequentional build.
     set MT=false
   )
 )
@@ -56,11 +57,12 @@ echo    Multi thread = %MT%
 echo - Report configuration of this script: DONE!
 REM ----------------------------------------------------------------
 
+del darts\*.pyd 2> NUL
+
 if %clean_mode%==true (
   echo - Cleaning up
   rmdir /s /q build 2> NUL
   rmdir /s /q dist 2> NUL
-  del darts\*.pyd 2> NUL
   goto :eof
 )
 

@@ -46,6 +46,7 @@ class StructReservoir(ReservoirBase):
         dx = self.convert_to_3d_array(dx)
         dy = self.convert_to_3d_array(dy)
         dz = self.convert_to_3d_array(dz)
+
         permx = self.convert_to_3d_array(permx)
         permy = self.convert_to_3d_array(permy)
         permz = self.convert_to_3d_array(permz)

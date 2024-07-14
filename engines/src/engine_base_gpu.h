@@ -24,16 +24,16 @@ public:
   ~engine_base_gpu();
 
   // get the number of primary unknowns (per block)
-  virtual uint8_t const get_n_vars() = 0;
+  virtual uint8_t get_n_vars() const = 0;
 
   // get the number of operators (per block)
-  virtual uint8_t const get_n_ops() = 0;
+  virtual uint8_t get_n_ops() const = 0;
 
   // get the number of components
-  virtual uint8_t const get_n_comps() = 0;
+  virtual uint8_t get_n_comps() const = 0;
 
   // get the index of Z variable
-  virtual uint8_t const get_z_var() = 0;
+  virtual uint8_t get_z_var() const = 0;
 
   // initialization
   virtual int init(conn_mesh *mesh_, std::vector<ms_well *> &well_list_, std::vector<operator_set_gradient_evaluator_iface *> &acc_flux_op_set_list_, sim_params *params, timer_node *timer_) = 0;
@@ -45,11 +45,11 @@ public:
   virtual int assemble_jacobian_array(value_t dt, std::vector<value_t> &X, csr_matrix_base *jacobian, std::vector<value_t> &RHS) = 0;
   virtual int adjoint_gradient_assembly(value_t dt, std::vector<value_t>& X, csr_matrix_base* jacobian, std::vector<value_t>& RHS) = 0;
 
-  void apply_composition_correction(std::vector<value_t> &X, std::vector<value_t> &dX);
-  void apply_global_chop_correction(std::vector<value_t> &X, std::vector<value_t> &dX);
-  void apply_local_chop_correction(std::vector<value_t> &X, std::vector<value_t> &dX);
+  void apply_composition_correction(std::vector<value_t> &X, std::vector<value_t> &dX) override;
+  void apply_global_chop_correction(std::vector<value_t> &X, std::vector<value_t> &dX) override;
+  void apply_local_chop_correction(std::vector<value_t> &X, std::vector<value_t> &dX) override;
 
-  int apply_newton_update(value_t dt);
+  int apply_newton_update(value_t dt) override;
 
   /** @defgroup Engine_methods
      *  Methods of base engine class exposed to Python
@@ -57,13 +57,13 @@ public:
      */
 
   /// @brief report for one newton iteration
-  virtual int run_single_newton_iteration(value_t deltat);
-  virtual int solve_linear_equation();
-  virtual int post_newtonloop(value_t deltat, value_t time);
+  virtual int assemble_linear_system(value_t deltat) override;
+  virtual int solve_linear_equation() override;
+  virtual int post_newtonloop(value_t deltat, value_t time) override;
 
-  virtual int test_assembly(int n_times, int kernel_number = 0, int dump_jacobian_rhs = 0);
+  virtual int test_assembly(int n_times, int kernel_number = 0, int dump_jacobian_rhs = 0) override;
 
-  virtual int test_spmv(int n_times, int kernel_number = 0, int dump_result = 0);
+  virtual int test_spmv(int n_times, int kernel_number = 0, int dump_result = 0) override;
 
   // calc r_d = Jacobian * v_d
   virtual int matrix_vector_product_d0(const value_t *v_d, value_t *r_d);
@@ -81,6 +81,7 @@ public:
   virtual int copy_struct_to_device() { return 0; };
   virtual int copy_values_to_device() { return 0; };
   virtual int write_matrix_to_file(const char *file_name, int sort_cols = 0) { return 0; };
+  virtual int write_matrix_to_file_mm(const char *file_name) { return 0; };
   virtual int convert_to_ELL() { return 0; };
   virtual csr_matrix_base *get_csr_matrix() { return Jacobian; };
 

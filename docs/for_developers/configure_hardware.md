@@ -1,13 +1,25 @@
 # Configure hardware usage
 
-To set the number of threads (CPU cores) to be used, add:
+## Multi-thread with openMP
+
+To set the number of threads (CPU cores) to be used, you must have had compiled open-darts with the multi-thread option. Also, `open-darts/solvers` do not support multi-thread with openMP yet.
+
+Then add to your python script:
 
 ```python
 from darts.engines import set_num_threads
 set_num_threads(NT) 
 ```
 
-All cores available are used by default.
+Half of the cores available are used unless specified via `set_num_threads` or via setting the environment variable `export OMP_NUM_THREADS=NT`.
+
+<div class="warning">
+
+If the number of threads requested `NT` is larger than the available you might get a Segmentation fault or a BUS error.
+
+</div>
+
+## GPU
 
 Turn on GPU usage in calculation by adding the next lines at the start of the python script:
 Add `palatform='gpu'` at `set_physics` call, for example:

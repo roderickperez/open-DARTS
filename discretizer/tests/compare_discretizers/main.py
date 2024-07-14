@@ -36,7 +36,7 @@ def test_compare_discretizers(mesh='rect', thermal=False, abs_tol=1e-8, rel_tol=
     diff_grad_flag = 0
     for i in range(pm_reservoir.unstr_discr.mat_cells_tot):
         new_grad = new_reservoir.get_gradients_new_discretizer(i)
-        x = np.append(np.array(new_reservoir.discr_mesh.centroids[i].values, copy=False), 0.0)
+        x = np.append(np.array(new_reservoir.discr_mesh.centroids[i].values), 0.0)
         true_grad = new_reservoir.nabla_ref1(x)[:,:n_dim].flatten()
         diff_grad_flag += compare(new_grad, true_grad, 'new_grad', 'true_grad')
         if not thermal:
@@ -59,7 +59,7 @@ def test_compare_discretizers(mesh='rect', thermal=False, abs_tol=1e-8, rel_tol=
     new_cell_m = np.array(new_reservoir.discr.cell_m, copy=False)
     new_cell_p = np.array(new_reservoir.discr.cell_p, copy=False)
     new_conn_ids = np.array(new_reservoir.discr_mesh.adj_matrix, copy=False)
-    new_conns = np.array(new_reservoir.discr_mesh.conns, copy=False)
+    new_conns = np.array(new_reservoir.discr_mesh.conns)
     # new->old connections mapping
     sum_new = np.array(new_cell_m, dtype=np.float64) + np.array(new_cell_p, dtype=np.float64) / 10 ** 6
     sum_old = np.array(old_cell_m, dtype=np.float64) + np.array(old_cell_p, dtype=np.float64) / 10 ** 6

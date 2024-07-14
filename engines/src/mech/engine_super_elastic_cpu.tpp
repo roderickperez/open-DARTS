@@ -1,3 +1,4 @@
+#ifndef WITH_GPU
 #include <algorithm>
 #include <time.h>
 #include <functional>
@@ -48,9 +49,7 @@ int engine_super_elastic_cpu<NC, NP, THERMAL>::init(conn_mesh *mesh_, std::vecto
   newton_update_coefficient = 1.0;
   dev_u = dev_p = dev_e = well_residual_last_dt = std::numeric_limits<value_t>::infinity();
   fill(dev_z, dev_z + NC_, std::numeric_limits<value_t>::infinity());
-  output_counter = 0;
   FIND_EQUILIBRIUM = false;
-  PRINT_LINEAR_SYSTEM = false;
   contact_solver = pm::RETURN_MAPPING;
   geomechanics_mode.resize(mesh_->n_blocks, 0);
   gravity = {0.0, 0.0, 0.0};
@@ -1547,13 +1546,13 @@ int engine_super_elastic_cpu<NC, NP, THERMAL>::solve_linear_equation()
 	r_code = linear_solver->solve(&RHS[0], &dX[0]);
 	timer->node["linear solver solve"].stop();
 
-	if (PRINT_LINEAR_SYSTEM) //changed this to write jacobian to file!
+	if (print_linear_system) //changed this to write jacobian to file!
 	{
 		const std::string matrix_filename = "jac_nc_dar_" + std::to_string(output_counter) + ".csr";
 #ifdef OPENDARTS_LINEAR_SOLVERS
-		static_cast<csr_matrix<N_VARS>*>(Jacobian)->export_matrix_to_file(matrix_filename, opendarts::linear_solvers::sparse_matrix_export_format::csr);
+		Jacobian->export_matrix_to_file(matrix_filename, opendarts::linear_solvers::sparse_matrix_export_format::csr);
 #else
-		static_cast<csr_matrix<N_VARS>*>(Jacobian)->write_matrix_to_file_mm(matrix_filename.c_str());
+		Jacobian->write_matrix_to_file_mm(matrix_filename.c_str());
 #endif
 		//Jacobian->write_matrix_to_file(("jac_nc_dar_" + std::to_string(output_counter) + ".csr").c_str());
 		write_vector_to_file("jac_nc_dar_" + std::to_string(output_counter) + ".rhs", RHS);
@@ -2226,3 +2225,4 @@ int engine_super_elastic_cpu<NC, NP, THERMAL>::adjoint_gradient_assembly(value_t
 //	}
 //	return residual;
 //}
+#endif // WITH_GPU
