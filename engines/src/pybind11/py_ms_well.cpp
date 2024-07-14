@@ -28,6 +28,8 @@ void pybind_ms_well(py::module &m)
     .def_readwrite("segment_depth_increment", &ms_well::segment_depth_increment)
     .def_readwrite("segment_diameter", &ms_well::segment_diameter)
     .def_readwrite("segment_roughness", &ms_well::segment_roughness)
+    .def_readonly("well_body_idx", &ms_well::well_body_idx)
+    .def_readonly("well_head_idx", &ms_well::well_head_idx)
     .def_property("control",
                   [](ms_well &self) { return self.control; },
                   py::cpp_function([](ms_well &self, well_control_iface *control_) { self.control = control_; }, py::keep_alive<1, 2>()))

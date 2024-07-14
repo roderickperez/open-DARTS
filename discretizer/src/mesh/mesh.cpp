@@ -233,7 +233,11 @@ void Mesh::gmsh_mesh_construct_connections(const PhysicalTags& tags)
 	size_t len;
 	
 	// vector of cell's indices pairs to check if particular one was already created
-	vector<vector<index_t>> conn_set(num_of_elements, vector<index_t>(MAX_CONNS_PER_ELEM_GMSH, -1));
+	vector<vector<index_t>> conn_set;
+	conn_set.resize(num_of_elements);
+	for (index_t i = 0; i < num_of_elements; i++)
+		conn_set[i].reserve(MAX_CONNS_PER_ELEM_GMSH);
+
 	std::vector<size_t> conn_set_size(num_of_elements, 0);
 	vector<index_t>::const_iterator it1, it2;
 	vector<index_t>::iterator it1_end, it2_end;
@@ -338,7 +342,8 @@ void Mesh::gmsh_mesh_construct_connections(const PhysicalTags& tags)
 								fault_nodes.insert(set<index_t>(intersect.end() - len, intersect.end()));
 							}
 
-							id1[id_size1++] = el2.elem_id;
+							id1.push_back(el2.elem_id);
+							id_size1++;
 							offset += conn.n_pts;
 
 							conn.type = conn_type_it->second;
@@ -445,6 +450,7 @@ void Mesh::gmsh_mesh_construct_connections(const PhysicalTags& tags)
 	cout << conns.size() << " connections:\t" << duration_cast<std::chrono::milliseconds>(t2 - t1).count() << "\t[ms]" << endl;
 }
 
+
 // uses: conns, num_of_elements
 // fills: adj_matrix, adj_matrix_cols, adj_matrix_offset
 void Mesh::generate_adjacency_matrix() 
@@ -452,23 +458,36 @@ void Mesh::generate_adjacency_matrix()
 	steady_clock::time_point t1, t2;
 
 	t1 = steady_clock::now();
-	
 	// Temporary arrays to identify all connections per element
-	std::vector<std::vector<index_t>> adj_2d (num_of_elements, std::vector<index_t> (MAX_CONNS_PER_ELEM));
+	std::vector<std::vector<index_t>> adj_2d;
 	std::vector<size_t> conn_per_element(num_of_elements, 0);
-	std::vector<std::vector<bool>> conn_signs(num_of_elements, std::vector<bool>(MAX_CONNS_PER_ELEM, true));
+	std::vector<std::vector<bool>> conn_signs;
+	// Reserve number of elements for number of rows in connection signs matrix
+	// adjacency matrix
+	adj_2d.resize(num_of_elements);
+	conn_signs.resize(num_of_elements);
 
+
+	for (index_t i = 0; i < num_of_elements; i++)
+	{
+		adj_2d[i].reserve(MAX_CONNS_PER_ELEM);
+		conn_signs[i].reserve(MAX_CONNS_PER_ELEM);
+	}
+	
 	// Append connections per element to 2D array
 	for (auto& conn : conns) 
 	{
 		auto& conn_size1 = conn_per_element[conn.elem_id1];
-		adj_2d[conn.elem_id1][conn_size1++] = conn.conn_id;
-
+		adj_2d[conn.elem_id1].push_back(conn.conn_id);
+		conn_signs[conn.elem_id1].push_back(true);
+		conn_size1++;
+		
 		if (conn.type != MAT_BOUND && conn.type != FRAC_BOUND)
 		{
 			auto& conn_size2 = conn_per_element[conn.elem_id2];
-			adj_2d[conn.elem_id2][conn_size2] = conn.conn_id;
-			conn_signs[conn.elem_id2][conn_size2++] = false;
+			adj_2d[conn.elem_id2].push_back(conn.conn_id);
+			conn_signs[conn.elem_id2].push_back(false);
+			conn_size2++;
 		}
 	}
 
@@ -899,12 +918,12 @@ Mesh::cpg_elems_nodes(
 	}// loop by all faces
 
 	face_nodes_set.clear();
-
+	size_t initial_points_per_element = 8;
 	num_of_elements = num_of_cells + bnd_faces_num;
 	elems.resize(num_of_elements);
 	element_tags.resize(num_of_elements);
-	elem_nodes.reserve(MAX_PTS_PER_3D_ELEM * num_of_elements);
-	elem_nodes_sorted.reserve(MAX_PTS_PER_3D_ELEM * num_of_elements);
+	elem_nodes.reserve(initial_points_per_element * num_of_elements);	// Remove the max points per 3D element and change it to 8 nodes
+	elem_nodes_sorted.reserve(initial_points_per_element * num_of_elements); // Remove the max points per 3D element and change it to 8 nodes
 	volumes.resize(num_of_elements);
 	centroids.resize(num_of_elements);
 

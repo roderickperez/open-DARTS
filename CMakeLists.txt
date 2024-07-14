@@ -82,6 +82,8 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     list(APPEND opendarts_cxx_linker_flags "/openmp")
   endif()
 
+  message("COMPILER FLAGS:" opendarts_cxx_compiler_flags)
+
   # Compiler specific helper variables 
    
   # Flags cmake to import external libraries as msvc like files: .lib and .dll instead of .a and .so

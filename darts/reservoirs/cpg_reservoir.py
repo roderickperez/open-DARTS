@@ -220,12 +220,11 @@ class CPG_Reservoir(ReservoirBase):
         self.discretizer = Discretizer()
         self.cpp_bc = self.set_boundary_conditions(displaced_tags)
         self.discretizer.set_mesh(self.discr_mesh)
-        self.discretizer.init()
 
         self.volume_all_cells = np.array(self.discr_mesh.volumes, copy=False)
         self.depth_all_cells = np.array(self.discr_mesh.depths, copy=False)
+        self.centroids_all_cells = np.array(self.discr_mesh.centroids)
         self.actnum = np.array(self.discr_mesh.actnum, copy=False)
-        # self.centroids = np.array(self.discr_mesh.centroids, copy=False)
 
         self.discretizer.set_permeability(self.permx_cpp, self.permy_cpp, self.permz_cpp)
 
@@ -440,8 +439,9 @@ class CPG_Reservoir(ReservoirBase):
                     return
             well.perforations = well.perforations + [(well_block, res_block_local, well_index, well_indexD)]
             if verbose:
-                print('Added perforation for well %s to block %d [%d, %d, %d] with WI=%f WID=%f' % (
-                    well.name, res_block_local, i, j, k, well_index, well_indexD))
+                c = self.centroids_all_cells[res_block_local].values
+                print('Added perforation for well %s to block %d IJK=[%d, %d, %d] XYZ=(%f, %f, %f) with WI=%f WID=%f' % (
+                    well.name, res_block_local, i, j, k, c[0], c[1], c[2], well_index, well_indexD))
         else:
             if verbose:
                 print('Neglected perforation for well %s to block [%d, %d, %d] (inactive block)' % (well.name, i, j, k))
@@ -587,7 +587,7 @@ class CPG_Reservoir(ReservoirBase):
 
         start = time.perf_counter()
         # c++ implementation using discretizer.pyd
-        print('[Geometry] Converting GRDECL to Paraview Hexahedron mesh data (new implementation)....')
+        print('[Geometry] Converting GRDECL to Paraview Hexahedron mesh data...')
         nodes_cpp = self.discr_mesh.get_nodes_array()
         nodes_1d = np.array(nodes_cpp, copy=True)
         points = nodes_1d.reshape((nodes_1d.size // 3, 3))
@@ -614,16 +614,15 @@ class CPG_Reservoir(ReservoirBase):
         vtk_points.SetData(points_vtk)
         self.vtkobj.VTK_Grids.SetPoints(vtk_points)
 
-        print("new     NumOfPoints", self.vtkobj.VTK_Grids.GetNumberOfPoints())
-        print("new     NumOfCells", self.vtkobj.VTK_Grids.GetNumberOfCells())
+        print("     NumOfPoints", self.vtkobj.VTK_Grids.GetNumberOfPoints())
+        print("     NumOfCells", self.vtkobj.VTK_Grids.GetNumberOfCells())
 
         # 3. Load grid properties data if applicable
         for keyword, data in self.vtkobj.GRDECL_Data.SpatialDatas.items():
             self.vtkobj.AppendScalarData(keyword, data)
-        print('new.....Done!')
 
         end = time.perf_counter()
-        print('time:', end - start, 'sec.')
+        print('Done! init vtk time:', end - start, 'sec.')
 
     def apply_fault_mult(self, faultfile, cell_m, cell_p, mpfa_tran, ids):
         # Faults

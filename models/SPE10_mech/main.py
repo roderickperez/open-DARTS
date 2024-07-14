@@ -38,7 +38,7 @@ def run_python(m, days=0, restart_dt=0, init_step = False):
             # evaluate and assign transient boundaries or sources / sinks
             # m.reservoir.update_boundary(time=new_time, idata=m.idata)
             # update transient boundaries or sources / sinks
-            m.reservoir.update_trans(dt, m.engine.X)
+            m.reservoir.update_trans(dt, m.physics.engine.X)
             m.timer.node["update"].stop()
 
         converged = run_timestep_python(m, dt, t)
@@ -137,9 +137,9 @@ def run(model_folder, physics_type):
 
     # Run over all reporting time-steps:
     ith_step = 0
-    while m.engine.t < 20:
+    while m.physics.engine.t < 20:
         run_python(m=m, days=size_report_step)
-        m.reservoir.write_to_vtk(m.output_directory, ith_step + 1, m.engine)
+        m.reservoir.write_to_vtk(m.output_directory, ith_step + 1, m.physics.engine)
         ith_step += 1
 
     m.print_timers()

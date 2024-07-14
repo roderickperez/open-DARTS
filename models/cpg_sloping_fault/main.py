@@ -12,7 +12,8 @@ def run(discr_type : str, case: str, out_dir: str, dt : float, n_time_steps : in
     redirect_darts_output(os.path.join(out_dir, 'run.log'))
     m = Model(discr_type=discr_type, case=case)
 
-    m.init()
+    m.init(output_folder=out_dir)
+    m.save_data_to_h5(kind = 'solution')
     m.set_well_controls()
     if export_vtk:
         m.output_to_vtk(ith_step=0, output_directory=out_dir)
@@ -48,7 +49,7 @@ def run(discr_type : str, case: str, out_dir: str, dt : float, n_time_steps : in
     # add time in years
     time_data_report['Time (years)'] = time_data_report['time'] / 365.25
     writer = pd.ExcelWriter(os.path.join(out_dir, 'time_data_report_' + discr_type + '.xlsx'))
-    time_data_report.to_excel(writer, 'time_data_report')
+    time_data_report.to_excel(writer, sheet_name='time_data_report')
     writer.close()
 
     return time_data_report

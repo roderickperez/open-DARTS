@@ -30,7 +30,7 @@ def get_case_files(case: str):
 
 #####################################################
 class Model(CICDModel):
-    def __init__(self, discr_type='cpp', case='generate', n_points=1000):
+    def __init__(self, discr_type='cpp', case='generate', n_points=100):
         super().__init__()
         self.n_points = n_points
         self.discr_type = discr_type
@@ -181,8 +181,8 @@ class Model(CICDModel):
         property_container = PropertyContainerGeothermal()
         self.physics = Geothermal(timer=self.timer,
                                   n_points=101,        # number of OBL points
-                                  min_p=1, max_p=600,       # pressure range
-                                  min_e=1, max_e=50000,  # enthalpy range
+                                  min_p=50, max_p=400,       # pressure range
+                                  min_e=1000, max_e=25000,  # enthalpy range
                                   cache=False
         )
         self.physics.add_property_region(property_container)

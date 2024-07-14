@@ -148,7 +148,7 @@ class UnstructReservoir:
             # self.perm_base = np.diag([1000.0, 10.0, 10.0])
             # L = max([pt.values[0] for pt in self.discr_mesh.nodes])
 
-            centroids = np.array(self.discr_mesh.centroids, copy=False)
+            centroids = np.array(self.discr_mesh.centroids)
             volumes = np.array(self.discr_mesh.volumes, copy=False)
             L = max([pt.values[0] for pt in self.discr_mesh.nodes])
             pp = self.porperm[0]

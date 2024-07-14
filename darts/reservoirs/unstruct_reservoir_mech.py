@@ -262,8 +262,8 @@ class UnstructReservoirMech():
         self.n_bounds = self.discr_mesh.region_ranges[elem_loc.BOUNDARY][1] - \
                         self.discr_mesh.region_ranges[elem_loc.BOUNDARY][0]
 
-        self.conns = np.array(self.discr_mesh.conns, copy=False)
-        self.centroids = np.array(self.discr_mesh.centroids, copy=False)
+        self.conns = np.array(self.discr_mesh.conns)
+        self.centroids = np.array(self.discr_mesh.centroids)
         self.adj_matrix_cols = np.array(self.discr_mesh.adj_matrix_cols, copy=False)
         self.adj_matrix = np.array(self.discr_mesh.adj_matrix, copy=False)
 
@@ -361,9 +361,9 @@ class UnstructReservoirMech():
                 for id in ids:
                     assert(self.adj_matrix_cols[self.id_sorted[id]] == id + self.discr_mesh.region_ranges[elem_loc.BOUNDARY][0])
                     conn = self.conns[self.id_boundary_conns[id]]
-                    n = np.array(conn.n.values, copy=False)
-                    conn_c = np.array(conn.c.values, copy=False)
-                    c1 = np.array(self.centroids[conn.elem_id1].values, copy=False)
+                    n = np.array(conn.n.values)
+                    conn_c = np.array(conn.c.values)
+                    c1 = np.array(self.centroids[conn.elem_id1].values)
                     if n.dot(conn_c - c1) < 0: n *= -1.0
                     self.bc_rhs[self.n_bc_vars * id + self.u_bc_var:self.n_bc_vars * id + self.u_bc_var + self.n_dim] = bc['mech']['rn'] * n + bc['mech']['rt']
         elif self.discretizer_name == 'pm_discretizer':

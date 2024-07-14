@@ -1,3 +1,10 @@
+# 1.1.3 [13-07-2024]
+- Support of H5 / xarray output
+- Default `*.h5` output of data required for the calculation of well rates.
+- User-defined solution output to `*.h5`.
+- Molar and phase volumetric well rate calculators.
+- Support of restarts.
+
 # 1.1.2 [12-06-2024]
 - Thermo-hydro-mechanical-compositional (THMC) modeling:
  	- Coupled Multi-Point Stress and Multi-Point Flux Approximations
@@ -7,8 +14,11 @@
 	- Interface to block-partitioned preconditioner
 - Improved performance of discretization (C++)
 - [InputData class](https://gitlab.com/open-darts/open-darts/-/blob/development/darts/input/input_data.py) added and used in THM tests
-- C++ standart is changed from 14 to 20
+- C++ standard is changed from 14 to 20
 - Discretizer binary type changed from shared to static library
+- Enable linking to external library (iterative solvers) compiled in debug mode if compiling openDARTS in debug mode.
+- Improve documentation on multi-thread version.
+- Add `opmcpg` as a main dependency.
 
 # 1.1.1 [15-03-2024]
 
