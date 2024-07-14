@@ -1,9 +1,9 @@
-# 1.1.3 []
-- support of H5 / xarray output
-- default *.h5 output of data required for the calculation of well rates
-- user-defined solution output to *.h5
-- molar and phase volumetric well rate calculators
-- support of restarts
+# 1.1.3 [13-07-2024]
+- Support of H5 / xarray output
+- Default `*.h5` output of data required for the calculation of well rates.
+- User-defined solution output to `*.h5`.
+- Molar and phase volumetric well rate calculators.
+- Support of restarts.
 
 # 1.1.2 [12-06-2024]
 - Thermo-hydro-mechanical-compositional (THMC) modeling:
