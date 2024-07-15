@@ -261,30 +261,22 @@ def test_linear_multilinear_obl_points():
 def test_linear_multilinear_components():
     n_repeat = 1
     # 1D
-    params1 = {'itor_type': ['linear', 'linear', 'linear',
-                            'multilinear', 'multilinear', 'multilinear'],
-              'itor_mode': ['adaptive', 'adaptive', 'adaptive',
-                            'adaptive', 'adaptive', 'adaptive'],
-              'obl_points': [100, 100, 100,
-                             100, 100, 100],
+    params1 = {'itor_type': 3 * ['linear'] + 3 * ['multilinear'],
+              'itor_mode': 6 * ['adaptive'],
+              'obl_points': 6 * [100],
               'n_comps': [4, 6, 8,
                           4, 6, 8],
               'reservoir_type': 6 * ['1D'],
-              'nx': [1000, 1000, 1000,
-                     1000, 1000, 1000]}
+              'nx': 6 * [1000]}
     out_type_1d = test_performance(params=params1, n_repeat=n_repeat)
     # 2D
-    params2 = {'itor_type': ['linear', 'linear', 'linear',
-                            'multilinear', 'multilinear', 'multilinear'],
-              'itor_mode': ['adaptive', 'adaptive', 'adaptive',
-                            'adaptive', 'adaptive', 'adaptive'],
-              'obl_points': [100, 100, 100,
-                             100, 100, 100],
+    params2 = {'itor_type': 3 * ['linear'] + 3 * ['multilinear'],
+              'itor_mode': 6 * ['adaptive'],
+              'obl_points': 6 * [100],
               'n_comps': [4, 6, 8,
                           4, 6, 8],
               'reservoir_type': 6 * ['2D'],
-              'nx': [100, 100, 100,
-                     100, 100, 100]}
+              'nx': 6 * [100]}
     out_type_2d = test_performance(params=params2, n_repeat=n_repeat)
 
     print('Linear vs Multilinear in 1D setup with nx=1000')
@@ -300,10 +292,35 @@ def test_linear_multilinear_components():
                              param_arrays=[params1, params2],
                              res_arrays=[out_type_1d, out_type_2d])
 
-test_linear_multilinear_obl_points()
-test_linear_multilinear_components()
+def test_linear_multilinear_nx():
+    n_repeat = 1
+    # 1D
+    params1 = {'itor_type': 3 * ['linear'] + 3 * ['multilinear'],
+              'itor_mode': 6 * ['adaptive'],
+              'obl_points': 6 * [100],
+              'n_comps': 6 * [6],
+              'reservoir_type': 6 * ['1D'],
+              'nx': 2 * [100, 1000, 10000]}
+    out_type_1d = test_performance(params=params1, n_repeat=n_repeat)
+    # 2D
+    params2 = {'itor_type': 3 * ['linear'] + 3 * ['multilinear'],
+              'itor_mode': 6 * ['adaptive'],
+              'obl_points': 6 * [100],
+              'n_comps': 6 * [6],
+              'reservoir_type': 6 * ['2D'],
+              'nx': 2 * [10, 100, 1000]}
+    out_type_2d = test_performance(params=params2, n_repeat=n_repeat)
 
-# run(itor_type='linear', itor_mode='adaptive', obl_points=1024, reservoir_type='1D', nx=100)
+    write_performance_output(filename='test_linear_multilinear_nx.xlsx',
+                             param_arrays=[params1, params2],
+                             res_arrays=[out_type_1d, out_type_2d])
+
+
+# test_linear_multilinear_obl_points()
+test_linear_multilinear_components()
+# test_linear_multilinear_nx()
+
+# run(itor_type='linear', itor_mode='adaptive', obl_points=100, n_comps=8, reservoir_type='1D', nx=1000)
 # run(itor_type='linear', itor_mode='adaptive', obl_points=1024, reservoir_type='2D', nx=10)
 # run(itor_type='linear', itor_mode='adaptive', obl_points=1024, reservoir_type='spe10_20_40_40')
 # run(itor_type='multilinear', itor_mode='adaptive', obl_points=1024)
