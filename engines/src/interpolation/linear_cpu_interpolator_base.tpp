@@ -1,5 +1,6 @@
 #include <numeric>
 #include <algorithm>
+#include <fstream>
 #include "linear_cpu_interpolator_base.hpp"
 #include "mech/matrix.h"
 
@@ -32,7 +33,7 @@ linear_cpu_interpolator_base<index_t, N_DIMS, N_OPS>::linear_cpu_interpolator_ba
 #endif
     }
     else 
-      int64_max = std::numeric_limits<index_t>::max();
+      int64_max = static_cast<double>(std::numeric_limits<index_t>::max());
 
     if (n_points_total_fp > int64_max)
     {
@@ -42,7 +43,76 @@ linear_cpu_interpolator_base<index_t, N_DIMS, N_OPS>::linear_cpu_interpolator_ba
     }
 
     transform_last_axis = 1;
-    use_barycentric_interpolation = false;
+
+    this->use_barycentric_interpolation = true;
+    if (this->use_barycentric_interpolation)
+    {
+      load_delaunay_triangulation("c:\\work\\packages\\open-darts\\engines\\src\\interpolation\\hypercube_delaunay_7_new.bin");
+
+      delaunay_map_axes_mult[N_DIMS - 1] = 1;
+      for (int dim = N_DIMS - 2 ; dim >= 0; dim--)
+        delaunay_map_axes_mult[dim] = delaunay_map_axes_mult[dim + 1] * delaunay_spatial_map_n_points;
+    }
+}
+
+template <typename index_t, int N_DIMS, int N_OPS>
+void linear_cpu_interpolator_base<index_t, N_DIMS, N_OPS>::load_delaunay_triangulation(const std::string filename)
+{
+  std::ifstream file(filename, std::ios::binary);
+
+  if (!file)
+  {
+    printf("Unable to open file\n");
+    exit(-1);
+  }
+
+  int n_simplices, n_simplex_size, n_dim, n_mappings, n_mapping_size;
+  //int n_located_simplices;
+  while (file.peek() != EOF)
+  {
+    file.read(reinterpret_cast<char*>(&n_simplices), sizeof(n_simplices));
+    file.read(reinterpret_cast<char*>(&n_simplex_size), sizeof(n_simplex_size));
+    file.read(reinterpret_cast<char*>(&n_mappings), sizeof(n_mappings));
+    file.read(reinterpret_cast<char*>(&n_mapping_size), sizeof(n_mapping_size));
+    n_dim = n_simplex_size - 1;
+
+    Delaunay cur_tri(n_simplices, n_simplex_size, n_mappings, n_mapping_size);
+
+    // read simplices
+    for (auto& simplex : cur_tri.simplices)
+    {
+      file.read(reinterpret_cast<char*>(simplex.data()), n_simplex_size * sizeof(int));
+    }
+
+    // read points
+    for (auto& pt : cur_tri.points)
+    {
+      file.read(reinterpret_cast<char*>(pt.data()), (n_simplex_size - 1) * sizeof(int));
+    }
+
+    // read barycentric transformation
+    for (auto& mat : cur_tri.barycentric_matrices)
+    {
+      file.read(reinterpret_cast<char*>(mat.data()), mat.size() * sizeof(double));
+    }
+
+    // read spatial maps
+    //n_located_simplices = 0;
+    for (auto& map : cur_tri.spatial_map)
+    {
+      file.read(reinterpret_cast<char*>(map.data()), map.size() * sizeof(int));
+      auto pos = std::find_if(map.rbegin(), map.rend(), [](int value) { return value != -1; }).base();
+      map.erase(pos, map.end());
+      //n_located_simplices += map.size();
+    }
+    //printf("Ndim = %d\tAvg .= %2.3f\n", n_dim, (double)n_located_simplices / (double)cur_tri.spatial_map.size());
+
+    delaunay_spatial_map_n_points = std::round(std::pow(cur_tri.spatial_map.size(), 1.0 / (double)n_dim));
+    delaunay_spatial_map_step = 1.0 / (double)delaunay_spatial_map_n_points;
+    tri_info.emplace(std::make_pair(n_dim, std::move(cur_tri)));
+  }
+
+  file.close();
 }
 
 template <typename index_t, int N_DIMS, int N_OPS>
@@ -134,48 +204,80 @@ int linear_cpu_interpolator_base<index_t, N_DIMS, N_OPS>::interpolate_with_deriv
         std::array<double, N_DIMS> scaled_point;
         find_hypercube(points, hypercube, scaled_point, point_offset * N_DIMS);
 
-        std::array<std::array<int, N_DIMS>, N_DIMS + 1> simplex;
-        std::array<int, N_DIMS> tri_order;
-        find_simplex(hypercube, scaled_point, tri_order, simplex);
-
-        std::array<std::array<double, N_OPS>, N_DIMS + 1> simplex_vertex_values;
-        for (int i = 0; i <= N_DIMS; i++)
-            get_supporting_point(simplex[i], simplex_vertex_values[i]);
-
         if (use_barycentric_interpolation)
         {
-          //// find barycentric coordinates (weights)
+          // size of n-simplex
           constexpr int n_size = N_DIMS + 1;
-          linalg::Matrix<double> mat(n_size, n_size);
-          std::array<double, n_size> rhs;
+          bool next_simplex;
+          int s;
+
+          // find index of cell in Delaunay spatial map the scaled_point belong to
+          index_t index = 0;
+          for (int dim_i = 0; dim_i < N_DIMS; dim_i++)
+            index += int(scaled_point[dim_i] / delaunay_spatial_map_step) * delaunay_map_axes_mult[dim_i];
+          
+          // indentify possible simplices
+          const auto& simplices_for_cells = tri_info[N_DIMS].spatial_map[index];
+
+          // barycentric coordinates
           std::array<double, N_DIMS + 1> weights;
 
-          // fill matrix
-          for (int j = 0; j < n_size; j++)
+          // loop over these simplices
+          for (int sim_i = 0; sim_i < simplices_for_cells.size(); sim_i++)
           {
-            for (int i = 0; i < N_DIMS; i++)
-              mat(i, j) = simplex[j][i] - hypercube[i];
+            // simplex
+            s = simplices_for_cells[sim_i];
 
-            mat(N_DIMS, j) = 1.0;
+            // barycentric transformation
+            const auto& mat = tri_info[N_DIMS].barycentric_matrices[s];
+
+            // calculate barycentric coordinates
+            next_simplex = false;
+            for (int i = 0; i < n_size; i++)
+            {
+              weights[i] = 0.0;
+              for (int j = 0; j < N_DIMS ; j++)
+                weights[i] += mat[i * n_size + j] * scaled_point[j];
+
+              weights[i] += mat[i * n_size + N_DIMS];
+
+              // check consistency
+              if (weights[i] < 0.0 || weights[i] > 1.0)
+              {
+                next_simplex = true;
+                break;
+              }
+            }
+
+            if (!next_simplex)
+              break;
           }
-          // fill rhs
-          for (int i = 0; i < N_DIMS; i++)
-            rhs[i] = scaled_point[i];
-          rhs[N_DIMS] = 1.0;
-          // invert the system
-          bool res = mat.inv();
-          if (!res)
+
+          if (next_simplex)
           {
-            printf("Inversion failed!\n");
+            printf("Not found correct barycentric coordinates!\n");
             exit(-1);
           }
-          // find coordinates
-          for (int i = 0; i < n_size; i++)
+
+          // simplex is located
+          const auto& sim_pts = tri_info[N_DIMS].simplices[s];
+          const auto& mat = tri_info[N_DIMS].barycentric_matrices[s];
+
+          // estimate points comprising the simplex
+          std::array<std::array<int, N_DIMS>, N_DIMS + 1> simplex;
+          const auto& vertices = tri_info[N_DIMS].points;
+          for (int vertex_i = 0; vertex_i <= N_DIMS; vertex_i++)
           {
-            weights[i] = 0.0;
-            for (int j = 0; j < n_size; j++)
-              weights[i] += mat(i, j) * rhs[j];
+            for (int dim_i = 0; dim_i < N_DIMS; dim_i++)
+            {
+              simplex[vertex_i][dim_i] = hypercube[dim_i] + vertices[sim_pts[vertex_i]][dim_i];
+            }
           }
+
+          // retrieve values at supporting points
+          std::array<std::array<double, N_OPS>, N_DIMS + 1> simplex_vertex_values;
+          for (int i = 0; i <= N_DIMS; i++)
+            get_supporting_point(simplex[i], simplex_vertex_values[i]);
 
           int idx;
           for (int op_i = 0; op_i < N_OPS; op_i++)
@@ -192,7 +294,7 @@ int linear_cpu_interpolator_base<index_t, N_DIMS, N_OPS>::interpolate_with_deriv
               derivatives[idx] = 0.0;
               // calculate derivatives
               for (int pt_i = 0; pt_i <= N_DIMS; pt_i++)
-                derivatives[idx] += mat(pt_i, dim_i) * simplex_vertex_values[pt_i][op_i];
+                derivatives[idx] += mat[pt_i * n_size + dim_i] * simplex_vertex_values[pt_i][op_i];
 
               if (transform_last_axis && dim_i == (N_DIMS - 1))
                 derivatives[idx] *= -axes_step_inv[dim_i];
@@ -203,6 +305,14 @@ int linear_cpu_interpolator_base<index_t, N_DIMS, N_OPS>::interpolate_with_deriv
         }
         else
         {
+          std::array<std::array<int, N_DIMS>, N_DIMS + 1> simplex;
+          std::array<int, N_DIMS> tri_order;
+          find_simplex(hypercube, scaled_point, tri_order, simplex);
+
+          std::array<std::array<double, N_OPS>, N_DIMS + 1> simplex_vertex_values;
+          for (int i = 0; i <= N_DIMS; i++)
+            get_supporting_point(simplex[i], simplex_vertex_values[i]);
+
           for (int i = 0; i < N_OPS; i++)
           {
             values[point_offset * N_OPS + i] = simplex_vertex_values[0][i];

@@ -60,10 +60,30 @@ public:
     int interpolate_with_derivatives(const std::vector<double> &points, const std::vector<int> &points_idxs,
                                      std::vector<double> &interp_values, std::vector<double> &derivatives) override;
 
+    struct Delaunay
+    {
+      Delaunay() {};
+      Delaunay(size_t n_simplices, uint8_t n_simplex_size, size_t n_mappings, uint8_t n_mapping_size) :
+        simplices(n_simplices, std::vector<int>(n_simplex_size)),
+        points(1LL << (n_simplex_size - 1), std::vector<int>(n_simplex_size - 1)),
+        barycentric_matrices(n_simplices, std::vector<double>(n_simplex_size* n_simplex_size)),
+        spatial_map(n_mappings, std::vector<int>(n_mapping_size))
+      {};
+
+      std::vector<std::vector<int>> simplices;
+      std::vector<std::vector<int>> points;
+      std::vector<std::vector<double>> barycentric_matrices;
+      std::vector<std::vector<int>> spatial_map;
+    };
+
     bool use_barycentric_interpolation; ///< flag that enables barycentric interpolation
 protected:
     std::array<std::array<int, N_DIMS>, N_DIMS + 1> standard_simplex; ///< a standard simplex
-    std::array<index_t, N_DIMS> axes_mult;                            /// multiplication factor used for transferring supporting point to point index
+    std::array<index_t, N_DIMS> axes_mult;                            ///< multiplication factor used for transferring supporting point to point index
+    std::map<uint8_t, Delaunay> tri_info;                             ///< contains Delaunay triangulation and barycentric transformations
+    int delaunay_spatial_map_n_points;                                ///< number of points used for Delaunay spatial map
+    double delaunay_spatial_map_step;                                 ///< step of the spatial map for simplex's location in Delaunay triangulation
+    std::array<index_t, N_DIMS> delaunay_map_axes_mult;               ///< multiplication factor used for transferring delaunay map multiindex to plain index
 
     int transform_last_axis; ///< apply transformation z'=1-z for the last axis
 
@@ -119,6 +139,12 @@ protected:
      * @param[out] point The coordinates of the supporting point
      */
     void get_point_from_vertex(const std::array<int, N_DIMS> &vertex, std::vector<double> &point);
+    /**
+     * @brief Loads Delaunay triangulation and data for associated barycentric interpolation.
+     *
+     * @param[in] filename The name of binary datafile
+     */
+    void load_delaunay_triangulation(const std::string filename);
 };
 
 #include "linear_cpu_interpolator_base.tpp"
