@@ -438,8 +438,9 @@ class ModelProperties(PropertyContainer):
 
         zc_r = zc[:nc_fl] / norm
         self.flash_ev.evaluate(pressure, temperature, zc_r)
-        nu = self.flash_ev.getnu()
-        xr = self.flash_ev.getx()
+        flash_results = self.flash_ev.get_flash_results()
+        nu = np.array(flash_results.nu)
+        xr = np.array(flash_results.X).reshape(self.nph, nc_fl)
         V = nu[0]
 
         if V <= 0:

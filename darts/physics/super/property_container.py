@@ -146,8 +146,9 @@ class PropertyContainer(PropertyBase):
     def run_flash(self, pressure, temperature, zc):
         # Evaluates flash, then uses getter for nu and x - for compatibility with DARTS-flash
         error_output = self.flash_ev.evaluate(pressure, temperature, zc)
-        self.nu = np.array(self.flash_ev.getnu())
-        self.x = np.array(self.flash_ev.getx()).reshape(self.nph, self.nc)
+        flash_results = self.flash_ev.get_flash_results()
+        self.nu = np.array(flash_results.nu)
+        self.x = np.array(flash_results.X).reshape(self.nph, self.nc)
 
         ph = []
         for j in range(self.nph):
