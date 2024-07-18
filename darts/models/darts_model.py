@@ -58,7 +58,7 @@ class DartsModel:
 
     def init(self, discr_type: str = 'tpfa', platform: str = 'cpu', restart: bool = False,
              verbose: bool = False, output_folder: str = None, itor_mode: str = 'adaptive',
-             itor_type: str = 'multilinear'):
+             itor_type: str = 'multilinear', is_barycentric: bool = False):
         """
         Function to initialize the model, which includes:
         - initialize well (perforation) position
@@ -82,6 +82,8 @@ class DartsModel:
         :type itor_mode: str
         :param itor_type: specifies either 'linear' or 'multilinear' interpolator
         :type itor_type: str
+        :param is_barycentric: Flag which turn on barycentric interpolation on Delaunay simplices
+        :type is_barycentric: bool
         """
         # Initialize reservoir and Mesh object
         assert self.reservoir is not None, "Reservoir object has not been defined"
@@ -91,7 +93,7 @@ class DartsModel:
         # Initialize physics and Engine object
         assert self.physics is not None, "Physics object has not been defined"
         self.physics.init_physics(discr_type=discr_type, platform=platform, verbose=verbose,
-                                  itor_mode=itor_mode, itor_type=itor_type)
+                                  itor_mode=itor_mode, itor_type=itor_type, is_barycentric=is_barycentric)
         if platform == 'gpu':
             self.params.linear_type = sim_params.gpu_gmres_cpr_amgx_ilu
 

@@ -17,7 +17,8 @@ public:
     linear_adaptive_cpu_interpolator(operator_set_evaluator_iface *base_points_generator,
                                      const std::vector<int> &axesPoints,
                                      const std::vector<double> &axesMin,
-                                     const std::vector<double> &axesMax);
+                                     const std::vector<double> &axesMax,
+                                     bool _use_barycentric_interpolation);
 
     std::unordered_map<index_t, std::array<double, N_OPS>> point_data; ///< adaptive storage: the values of operators at supporting points actually required
 private:

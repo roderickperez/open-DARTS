@@ -2,8 +2,10 @@
 #define E0E335E5_CB89_46FA_B098_6A9185E06492
 
 #include <array>
-
+#include <vector>
+#include <pybind11/pybind11.h>
 #include "interpolator_base.hpp"
+#include "mech/matrix.h"
 
 /**
  * @brief  Interpolator base for static/adaptive piecewise linear interpolator.
@@ -19,15 +21,17 @@ public:
     /**
      * @brief Construct an interpolator with specified parametrization space
      * 
-     * @param[in] supporting_point_evaluator    Object used to compute operators values at supporting points
-     * @param[in] axes_points               Number of supporting points (minimum 2) along axes
-     * @param[in] axes_min                  Minimum value for each axis
-     * @param[in] axes_max                  Maximum for each axis
+     * @param[in] supporting_point_evaluator      Object used to compute operators values at supporting points
+     * @param[in] axes_points                     Number of supporting points (minimum 2) along axes
+     * @param[in] axes_min                        Minimum value for each axis
+     * @param[in] axes_max                        Maximum for each axis
+     * @param[in] _use_barycentric_interpolation  Flag to turn on barycentric interpolation on Delaunay triangulation
      */
     linear_cpu_interpolator_base(operator_set_evaluator_iface *supporting_point_evaluator,
                                  const std::vector<int> &axes_points,
                                  const std::vector<double> &axes_min,
-                                 const std::vector<double> &axes_max);
+                                 const std::vector<double> &axes_max,
+                                 bool _use_barycentric_interpolation);
     /**
      * @brief Get the number of dimensions in interpolation space
      *
@@ -63,27 +67,15 @@ public:
     struct Delaunay
     {
       Delaunay() {};
-      Delaunay(size_t n_simplices, uint8_t n_simplex_size, size_t n_mappings, uint8_t n_mapping_size) :
-        simplices(n_simplices, std::vector<int>(n_simplex_size)),
-        points(1LL << (n_simplex_size - 1), std::vector<int>(n_simplex_size - 1)),
-        barycentric_matrices(n_simplices, std::vector<double>(n_simplex_size* n_simplex_size)),
-        spatial_map(n_mappings, std::vector<int>(n_mapping_size))
-      {};
-
-      std::vector<std::vector<int>> simplices;
-      std::vector<std::vector<int>> points;
-      std::vector<std::vector<double>> barycentric_matrices;
-      std::vector<std::vector<int>> spatial_map;
+      std::vector<linalg::Matrix<double>> barycentric_matrices;
+      pybind11::object tri;
     };
 
-    bool use_barycentric_interpolation; ///< flag that enables barycentric interpolation
+    bool use_barycentric_interpolation; ///< flag that enables barycentric interpolation on Delaunay simplices
 protected:
     std::array<std::array<int, N_DIMS>, N_DIMS + 1> standard_simplex; ///< a standard simplex
     std::array<index_t, N_DIMS> axes_mult;                            ///< multiplication factor used for transferring supporting point to point index
-    std::map<uint8_t, Delaunay> tri_info;                             ///< contains Delaunay triangulation and barycentric transformations
-    int delaunay_spatial_map_n_points;                                ///< number of points used for Delaunay spatial map
-    double delaunay_spatial_map_step;                                 ///< step of the spatial map for simplex's location in Delaunay triangulation
-    std::array<index_t, N_DIMS> delaunay_map_axes_mult;               ///< multiplication factor used for transferring delaunay map multiindex to plain index
+    Delaunay tri_info;                                                ///< contains Delaunay triangulation and barycentric transformations
 
     int transform_last_axis; ///< apply transformation z'=1-z for the last axis
 
@@ -145,6 +137,10 @@ protected:
      * @param[in] filename The name of binary datafile
      */
     void load_delaunay_triangulation(const std::string filename);
+    /**
+     * @brief Calculate Delaunay triangulation and associated barycentric transformations.
+     */
+    void find_delaunay_and_barycentric();
 };
 
 #include "linear_cpu_interpolator_base.tpp"

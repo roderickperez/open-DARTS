@@ -92,8 +92,8 @@ class PhysicsBase:
         self.mass_flux_operators = {}
 
     def init_physics(self, discr_type: str = 'tpfa', platform: str = 'cpu',
-                     itor_type: str = 'multilinear', itor_mode: str = 'adaptive', itor_precision: str = 'd',
-                     verbose: bool = False):
+                     itor_type: str = 'multilinear', itor_mode: str = 'adaptive',
+                     itor_precision: str = 'd', verbose: bool = False, is_barycentric: bool = False):
         """
         Function to initialize all contained objects within the Physics object.
 
@@ -109,11 +109,13 @@ class PhysicsBase:
         :type itor_precision: str
         :param verbose: Set verbose level
         :type verbose: bool
+        :param is_barycentric: Flag which turn on barycentric interpolation on Delaunay simplices
+        :type is_barycentric: bool
         """
         # Define operators, set engine, set interpolators and define well controls
         self.set_operators()
         self.engine = self.set_engine(discr_type, platform)
-        self.set_interpolators(platform, itor_type, itor_mode, itor_precision)
+        self.set_interpolators(platform, itor_type, itor_mode, itor_precision, is_barycentric)
         self.define_well_controls()
         return
 
@@ -154,7 +156,8 @@ class PhysicsBase:
         """
         pass
 
-    def set_interpolators(self, platform='cpu', itor_type='multilinear', itor_mode='adaptive', itor_precision='d'):
+    def set_interpolators(self, platform='cpu', itor_type='multilinear', itor_mode='adaptive',
+                          itor_precision='d', is_barycentric: bool = False):
         """
         Function to initialize set interpolator objects based on the set of operators.
         It creates timers for each of the interpolators.
@@ -167,6 +170,8 @@ class PhysicsBase:
         :type itor_mode: str
         :param itor_precision: Precision of interpolation, 'd' (default) - double precision or 's' - single precision
         :type itor_precision: str
+        :param is_barycentric: Flag which turn on barycentric interpolation on Delaunay simplices
+        :type is_barycentric: bool
         """
         self.acc_flux_itor = {}
         self.property_itor = {}
@@ -175,7 +180,8 @@ class PhysicsBase:
             self.acc_flux_itor[region] = self.create_interpolator(self.reservoir_operators[region], n_ops=self.n_ops,
                                                                   platform=platform, algorithm=itor_type,
                                                                   mode=itor_mode, precision=itor_precision,
-                                                                  timer_name='reservoir %d interpolation' % region, region=str(region))
+                                                                  timer_name='reservoir %d interpolation' % region, region=str(region),
+                                                                  is_barycentric=is_barycentric)
 
             self.property_itor[region] = self.create_interpolator(self.property_operators[region], n_ops=self.n_ops,
                                                                   platform=platform, algorithm=itor_type,
@@ -215,7 +221,8 @@ class PhysicsBase:
 
     def create_interpolator(self, evaluator: operator_set_evaluator_iface, timer_name: str, n_ops: int,
                             algorithm: str = 'multilinear', mode: str = 'adaptive',
-                            platform: str = 'cpu', precision: str = 'd', region: str = ''):
+                            platform: str = 'cpu', precision: str = 'd', region: str = '',
+                            is_barycentric: bool = False):
         """
         Create interpolator object according to specified parameters
 
@@ -242,6 +249,8 @@ class PhysicsBase:
         :type region: str
         :param region: str(region index) for reservoir operator, str(-1) for well operator, '' for others
         needed to make different filenames for cache as self.wellbore_operators has the same type ReservoirOperators
+        :param is_barycentric: Flag which turn on barycentric interpolation on Delaunay simplices
+        :type is_barycentric: bool
         """
         # verify then inputs are valid
         assert len(self.n_axes_points) == self.n_vars
@@ -263,13 +272,19 @@ class PhysicsBase:
         cache_loaded = 0
         # try to create itor with 32-bit index type first (kinda a bit faster)
         try:
-            itor = eval(itor_name)(evaluator, self.n_axes_points, self.axes_min, self.axes_max)
+            if algorithm == 'linear':
+                itor = eval(itor_name)(evaluator, self.n_axes_points, self.axes_min, self.axes_max, is_barycentric)
+            else:
+                itor = eval(itor_name)(evaluator, self.n_axes_points, self.axes_min, self.axes_max)
         except (ValueError, NameError):
             # 32-bit index type did not succeed: either total amount of points is out of range or has not been compiled
             # try 64 bit now raising exception this time if goes wrong:
             itor_name = itor_name.replace('interpolator_i', 'interpolator_l')
             try:
-                itor = eval(itor_name)(evaluator, self.n_axes_points, self.axes_min, self.axes_max)
+                if algorithm == 'linear':
+                    itor = eval(itor_name)(evaluator, self.n_axes_points, self.axes_min, self.axes_max, is_barycentric)
+                else:
+                    itor = eval(itor_name)(evaluator, self.n_axes_points, self.axes_min, self.axes_max)
             except (ValueError, NameError):
                 # if 64-bit index also failed, probably the combination of required n_ops and n_dims
                 # was not instantiated/exposed. In this case substitute general implementation of interpolator
