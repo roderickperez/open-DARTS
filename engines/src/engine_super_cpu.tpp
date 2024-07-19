@@ -103,7 +103,7 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
 #endif //_OPENMP
 
     index_t j, diag_idx, jac_idx;
-    value_t p_diff, gamma_p_diff, t_diff, gamma_t_i, gamma_t_j, phi_i, phi_j, phi_0_avg;
+    value_t p_diff, gamma_p_diff, t_diff, gamma_t_i, gamma_t_j, phi_i, phi_j, phi_avg, phi_0_avg;
     value_t CFL_in[NC], CFL_out[NC];
     value_t CFL_max_local = 0;
 
@@ -307,8 +307,8 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
         if (THERMAL)
         {
           t_diff = op_vals_arr[j * N_OPS + RE_TEMP_OP] - op_vals_arr[i * N_OPS + RE_TEMP_OP];
-          gamma_t_i = tranD[conn_idx] * dt * (1 - mesh->poro[i]) * mesh->rock_cond[i]
-          gamma_t_j = tranD[conn_idx] * dt * (1 - mesh->poro[j]) * mesh->rock_cond[j]
+          gamma_t_i = tranD[conn_idx] * dt * (1 - mesh->poro[i]) * mesh->rock_cond[i];
+          gamma_t_j = tranD[conn_idx] * dt * (1 - mesh->poro[j]) * mesh->rock_cond[j];
 
           // rock heat transfers flows from cell i to j
           RHS[i * N_VARS + NC] -= t_diff * (gamma_t_i * op_vals_arr[i * N_OPS + ROCK_COND] + gamma_t_j * op_vals_arr[j * N_OPS + ROCK_COND]) / 2;
