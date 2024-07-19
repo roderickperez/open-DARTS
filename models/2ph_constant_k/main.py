@@ -55,7 +55,7 @@ def animate_solution_1d(paths, n_cells, labels, lower_lims, upper_lims):
             li, = ax[i].plot(c, data['X'][0,:n_cells[k],i], linewidth=1, color=colors[k], linestyle='-', label=labels[k])
             lines.append(li)
 
-    time_text = ax[0].text(0.4, 0.93, 'time = ' + str(round(data0['time'][0], 4)) + ' sec',
+    time_text = ax[0].text(0.4, 0.93, 'time = ' + str(round(data0['time'][0], 4)) + ' days',
                            fontsize=16, rotation='horizontal', transform=fig.transFigure)
 
     for i in range(n_plots):
@@ -73,12 +73,12 @@ def animate_solution_1d(paths, n_cells, labels, lower_lims, upper_lims):
                 data = load_hdf5_to_dict(filename=path + 'solution.h5')['dynamic']
                 for j in range(n_plots):
                     lines[n_plots * k + j].set_data(c, data['X'][i,:n_cells[k],j])
-                time_text.set_text('time = ' + str(round(data0['time'][i], 4)) + ' sec')
+                time_text.set_text('time = ' + str(round(data0['time'][i], 4)) + ' days')
 
         return lines
 
 
-    anim = FuncAnimation(fig, animate, interval=100, repeat=True, frames=np.arange(0, n_steps))
+    anim = FuncAnimation(fig, animate, interval=100, repeat=True, frames=np.arange(1, n_steps))
 
     # writer = animation.PillowWriter(fps=20,
     #                                 metadata=dict(artist='Me'),
@@ -90,11 +90,19 @@ def animate_solution_1d(paths, n_cells, labels, lower_lims, upper_lims):
     anim.save(paths[0] + 'comparison.mp4', writer=writervideo)
     plt.close(fig)
 
-def run(itor_mode, itor_type, obl_points, n_comps, reservoir_type, nx: int = None, vtk_output: bool = False):
+def get_output_folder(itor_mode, itor_type, obl_points, n_comps, reservoir_type, nx: int = None, is_barycentric: bool = False):
     if nx is None:
         output_folder = 'output_' + itor_type + '_' + itor_mode + '_' + str(obl_points) + '_{}comp'.format(n_comps) + '_' + reservoir_type
     else:
-        output_folder = 'output_' + itor_type + '_' + itor_mode + '_' + str(obl_points) + '_{}comp'.format(n_comps) + '_' + reservoir_type + '_' + str(nx)
+        if itor_type == 'linear' and is_barycentric:
+            output_folder = 'output_' + itor_type + '_' + itor_mode + '_' + str(obl_points) + '_{}comp'.format(n_comps) + '_barycentric_' + reservoir_type + '_' + str(nx)
+        else:
+            output_folder = 'output_' + itor_type + '_' + itor_mode + '_' + str(obl_points) + '_{}comp'.format(n_comps) + '_' + reservoir_type + '_' + str(nx)
+    return output_folder
+
+def run(itor_mode, itor_type, obl_points, n_comps, reservoir_type, nx: int = None, is_barycentric: bool = False, vtk_output: bool = False):
+    output_folder = get_output_folder(itor_mode=itor_mode, itor_type=itor_type, obl_points=obl_points, n_comps=n_comps,
+                                      reservoir_type=reservoir_type, nx=nx, is_barycentric=is_barycentric)
 
     if itor_type == 'linear':
         log_3d_body_path = False
@@ -123,7 +131,7 @@ def run(itor_mode, itor_type, obl_points, n_comps, reservoir_type, nx: int = Non
         return
 
     n = Model(obl_points=obl_points, components=components, reservoir_type=reservoir_type, nx=nx)
-    n.init(itor_mode=itor_mode, itor_type=itor_type, output_folder=output_folder)
+    n.init(itor_mode=itor_mode, itor_type=itor_type, output_folder=output_folder, is_barycentric=is_barycentric)
 
     if reservoir_type != '1D':
         if vtk_output:
@@ -171,8 +179,10 @@ def test_performance(params, n_repeat: int = 1):
         for key, val in output.items():
             val.append([])
         for j in range(n_repeat):
-            timer, stat = run(itor_type=params['itor_type'][i], itor_mode=params['itor_mode'][i], obl_points=params['obl_points'][i],
-                        n_comps=params['n_comps'][i], reservoir_type=params['reservoir_type'][i], nx=params['nx'][i])
+            timer, stat = run(itor_type=params['itor_type'][i], itor_mode=params['itor_mode'][i],
+                              obl_points=params['obl_points'][i], n_comps=params['n_comps'][i],
+                              reservoir_type=params['reservoir_type'][i], nx=params['nx'][i],
+                              is_barycentric=params['barycentric'][i])
 
             output['timesteps'][i].append(stat.n_timesteps_total)
             output['nonlinear_iterations'][i].append(stat.n_newton_total)
@@ -222,30 +232,27 @@ def write_performance_output(filename, param_arrays, res_arrays):
     df.to_excel(filename, index=False)
 
 def test_linear_multilinear_obl_points():
-    params1 = {'itor_type': ['linear', 'linear', 'linear',
-                            'multilinear', 'multilinear', 'multilinear'],
-              'itor_mode': ['adaptive', 'adaptive', 'adaptive',
-                            'adaptive', 'adaptive', 'adaptive'],
-              'obl_points': [10, 100, 1000,
-                             10, 100, 1000],
-              'n_comps': 6 * [6],
-              'reservoir_type': 6 * ['1D'],
-              'nx': [1000, 1000, 1000,
-                     1000, 1000, 1000]}
+    n_repeat = 1
+    n_runs = 9
+    # 1D
+    params1 = {'itor_type': 6 * ['linear'] + 3 * ['multilinear'],
+              'itor_mode': n_runs * ['adaptive'],
+              'obl_points': 3 * [10, 100, 1000],
+              'n_comps': n_runs * [6],
+              'barycentric': 3 * [False] + 3 * [True] + 3 * [False],
+              'reservoir_type': n_runs * ['1D'],
+              'nx': n_runs * [1000]}
+    out_type_1d = test_performance(params=params1, n_repeat=n_repeat)
+    # 2D
+    params2 = {'itor_type': 6 * ['linear'] + 3 * ['multilinear'],
+              'itor_mode': n_runs * ['adaptive'],
+              'obl_points': 3 * [10, 100, 1000],
+              'n_comps': n_runs * [6],
+              'barycentric': 3 * [False] + 3 * [True] + 3 * [False],
+              'reservoir_type': n_runs * ['2D'],
+              'nx': n_runs * [100]}
+    out_type_2d = test_performance(params=params2, n_repeat=n_repeat)
 
-    params2 = {'itor_type': ['linear', 'linear', 'linear',
-                            'multilinear', 'multilinear', 'multilinear'],
-              'itor_mode': ['adaptive', 'adaptive', 'adaptive',
-                            'adaptive', 'adaptive', 'adaptive'],
-              'obl_points': [10, 100, 1000,
-                             10, 100, 1000],
-              'n_comps': 6 * [6],
-              'reservoir_type': 6 * ['2D'],
-              'nx': [100, 100, 100,
-                     100, 100, 100]}
-
-    out_type_1d = test_performance(params=params1, n_repeat=1)
-    out_type_2d = test_performance(params=params2, n_repeat=1)
     print('Linear vs Multilinear in 1D setup with nx=1000')
     for key, val in out_type_1d.items():
         print(f'{key}: {val.flatten()}')
@@ -260,30 +267,31 @@ def test_linear_multilinear_obl_points():
 
 def test_linear_multilinear_components():
     n_repeat = 1
+    n_runs = 9
     # 1D
-    params1 = {'itor_type': 3 * ['linear'] + 3 * ['multilinear'],
-              'itor_mode': 6 * ['adaptive'],
-              'obl_points': 6 * [100],
-              'n_comps': [4, 6, 8,
-                          4, 6, 8],
-              'reservoir_type': 6 * ['1D'],
-              'nx': 6 * [1000]}
+    params1 = {'itor_type': 6 * ['linear'] + 3 * ['multilinear'],
+              'itor_mode': n_runs * ['adaptive'],
+              'obl_points': n_runs * [100],
+              'n_comps': 3 * [4, 6, 8],
+              'barycentric': 3 * [False] + 3 * [True] + 3 * [False],
+              'reservoir_type': n_runs * ['1D'],
+              'nx': n_runs * [1000]}
     out_type_1d = test_performance(params=params1, n_repeat=n_repeat)
     # 2D
-    params2 = {'itor_type': 3 * ['linear'] + 3 * ['multilinear'],
-              'itor_mode': 6 * ['adaptive'],
-              'obl_points': 6 * [100],
-              'n_comps': [4, 6, 8,
-                          4, 6, 8],
-              'reservoir_type': 6 * ['2D'],
-              'nx': 6 * [100]}
+    params2 = {'itor_type': 6 * ['linear'] + 3 * ['multilinear'],
+              'itor_mode': n_runs * ['adaptive'],
+              'obl_points': n_runs * [100],
+              'n_comps': 3 * [4, 6, 8],
+              'barycentric': 3 * [False] + 3 * [True] + 3 * [False],
+              'reservoir_type': n_runs * ['2D'],
+              'nx': n_runs * [100]}
     out_type_2d = test_performance(params=params2, n_repeat=n_repeat)
 
     print('Linear vs Multilinear in 1D setup with nx=1000')
     for key, val in out_type_1d.items():
         print(f'{key}: {val.flatten()}')
     print('\n')
-    print('Linear vs Multilinear in 2D setup with nx=1000')
+    print('Linear vs Multilinear in 2D setup with nx=100')
     for key, val in out_type_2d.items():
         print(f'{key}: {val.flatten()}')
     print('\n')
@@ -294,21 +302,24 @@ def test_linear_multilinear_components():
 
 def test_linear_multilinear_nx():
     n_repeat = 1
+    n_runs = 9
     # 1D
-    params1 = {'itor_type': 3 * ['linear'] + 3 * ['multilinear'],
-              'itor_mode': 6 * ['adaptive'],
-              'obl_points': 6 * [100],
-              'n_comps': 6 * [6],
-              'reservoir_type': 6 * ['1D'],
-              'nx': 2 * [100, 1000, 10000]}
+    params1 = {'itor_type': 6 * ['linear'] + 3 * ['multilinear'],
+              'itor_mode': n_runs * ['adaptive'],
+              'obl_points': n_runs * [100],
+              'n_comps': n_runs * [6],
+              'barycentric': 3 * [False] + 3 * [True] + 3 * [False],
+              'reservoir_type': n_runs * ['1D'],
+              'nx': 3 * [100, 1000, 10000]}
     out_type_1d = test_performance(params=params1, n_repeat=n_repeat)
     # 2D
-    params2 = {'itor_type': 3 * ['linear'] + 3 * ['multilinear'],
-              'itor_mode': 6 * ['adaptive'],
-              'obl_points': 6 * [100],
-              'n_comps': 6 * [6],
-              'reservoir_type': 6 * ['2D'],
-              'nx': 2 * [10, 100, 1000]}
+    params2 = {'itor_type': 6 * ['linear'] + 3 * ['multilinear'],
+              'itor_mode': n_runs * ['adaptive'],
+              'obl_points': n_runs * [100],
+              'n_comps': n_runs * [6],
+              'barycentric': 3 * [False] + 3 * [True] + 3 * [False],
+              'reservoir_type': n_runs * ['2D'],
+              'nx': 3 * [10, 100, 1000]}
     out_type_2d = test_performance(params=params2, n_repeat=n_repeat)
 
     write_performance_output(filename='test_linear_multilinear_nx.xlsx',
@@ -317,10 +328,21 @@ def test_linear_multilinear_nx():
 
 
 # test_linear_multilinear_obl_points()
-test_linear_multilinear_components()
+# test_linear_multilinear_components()
 # test_linear_multilinear_nx()
 
-# run(itor_type='linear', itor_mode='adaptive', obl_points=100, n_comps=8, reservoir_type='1D', nx=1000)
+run(itor_type='linear', itor_mode='adaptive', obl_points=10, n_comps=6, reservoir_type='1D', nx=1000, is_barycentric=True)#, vtk_output=True)
+run(itor_type='linear', itor_mode='adaptive', obl_points=10, n_comps=6, reservoir_type='1D', nx=1000, is_barycentric=False)#, vtk_output=True)
+
+paths = [get_output_folder(itor_type='linear', itor_mode='adaptive', obl_points=10, n_comps=6, reservoir_type='1D', nx=1000, is_barycentric=True) + '/',
+         get_output_folder(itor_type='linear', itor_mode='adaptive', obl_points=10, n_comps=6, reservoir_type='1D', nx=1000, is_barycentric=False) + '/']
+labels = ['Delaunay', 'standard']
+animate_solution_1d(paths=paths,
+                    labels=labels,
+                    n_cells=[1000, 1000],
+                    lower_lims=[48.9, -1.e-2, -1.e-2, -1.e-2, -1.e-2, -1.e-2],
+                    upper_lims=[170, 1.01, 0.55, 0.26, 0.21, 0.15])
+
 # run(itor_type='linear', itor_mode='adaptive', obl_points=1024, reservoir_type='2D', nx=10)
 # run(itor_type='linear', itor_mode='adaptive', obl_points=1024, reservoir_type='spe10_20_40_40')
 # run(itor_type='multilinear', itor_mode='adaptive', obl_points=1024)
