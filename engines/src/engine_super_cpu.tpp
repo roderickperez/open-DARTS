@@ -103,7 +103,7 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
 #endif //_OPENMP
 
     index_t j, diag_idx, jac_idx;
-    value_t p_diff, gamma_p_diff, t_diff, gamma_t_diff, phi_i, phi_j, phi_avg, phi_0_avg;
+    value_t p_diff, gamma_p_diff, t_diff, gamma_t_i, gamma_t_j, phi_i, phi_j, phi_0_avg;
     value_t CFL_in[NC], CFL_out[NC];
     value_t CFL_max_local = 0;
 
@@ -274,8 +274,6 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
         } // end of loop over number of phases for convective operator with gravity and capillarity
 
         // [3] Additional diffusion code here:   (phi_p * S_p) * (rho_p * D_cp * Delta_x_cp)  or (phi_p * S_p) * (kappa_p * Delta_T)
-        phi_avg = (mesh->poro[i] + mesh->poro[j]) * 0.5; // diffusion term depends on total porosity!
-
         // Only if block connection is between reservoir and reservoir cells!
         if (i < mesh->n_res_blocks && j < mesh->n_res_blocks)
         {
@@ -286,37 +284,20 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
             {
               value_t grad_con = op_vals_arr[j * N_OPS + GRAD_OP + p * NE + c] - op_vals_arr[i * N_OPS + GRAD_OP + p * NE + c];
 
-              if (grad_con < 0)
+              // Diffusion flows from cell i to j (high to low), use upstream quantity from cell i for compressibility and saturation (mass or energy):
+              value_t diff_mob_ups_m = dt * mesh->tranD[conn_idx] * (mesh->poro[i] * op_vals_arr[i * N_OPS + UPSAT_OP + p] + 
+                                                                      mesh->poro[j] * op_vals_arr[j * N_OPS + UPSAT_OP + p]) / 2;
+
+              RHS[i * N_VARS + c] -= diff_mob_ups_m * grad_con; // diffusion term
+
+              // Add diffusion terms to Jacobian:
+              for (uint8_t v = 0; v < N_VARS; v++)
               {
-                // Diffusion flows from cell i to j (high to low), use upstream quantity from cell i for compressibility and saturation (mass or energy):
-                value_t diff_mob_ups_m = dt * mesh->tranD[conn_idx] * phi_avg * op_vals_arr[i * N_OPS + UPSAT_OP + p];
+                Jac[diag_idx + c * N_VARS + v] += diff_mob_ups_m * op_ders_arr[(i * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
+                Jac[jac_idx + c * N_VARS + v] -= diff_mob_ups_m * op_ders_arr[(j * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
 
-                RHS[i * N_VARS + c] -= diff_mob_ups_m * grad_con; // diffusion term
-
-                // Add diffusion terms to Jacobian:
-                for (uint8_t v = 0; v < N_VARS; v++)
-                {
-                  Jac[diag_idx + c * N_VARS + v] += diff_mob_ups_m * op_ders_arr[(i * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
-                  Jac[jac_idx + c * N_VARS + v] -= diff_mob_ups_m * op_ders_arr[(j * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
-
-                  Jac[diag_idx + c * N_VARS + v] -= grad_con * dt * mesh->tranD[conn_idx] * phi_avg * op_ders_arr[(i * N_OPS + UPSAT_OP + p) * N_VARS + v];
-                }
-              }
-              else
-              {
-                // Diffusion flows from cell j to i (high to low), use upstream quantity from cell j for density and saturation:
-                value_t diff_mob_ups_m = dt * mesh->tranD[conn_idx] * phi_avg * op_vals_arr[j * N_OPS + UPSAT_OP + p];
-
-                RHS[i * N_VARS + c] -= diff_mob_ups_m * grad_con; // diffusion term
-
-                // Add diffusion terms to Jacobian:
-                for (uint8_t v = 0; v < N_VARS; v++)
-                {
-                  Jac[diag_idx + c * N_VARS + v] += diff_mob_ups_m * op_ders_arr[(i * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
-                  Jac[jac_idx + c * N_VARS + v] -= diff_mob_ups_m * op_ders_arr[(j * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
-
-                  Jac[jac_idx + c * N_VARS + v] -= grad_con * dt * mesh->tranD[conn_idx] * phi_avg * op_ders_arr[(j * N_OPS + UPSAT_OP + p) * N_VARS + v];
-                }
+                Jac[diag_idx + c * N_VARS + v] -= grad_con * dt * mesh->tranD[conn_idx] * mesh->poro[i] * op_ders_arr[(i * N_OPS + UPSAT_OP + p) * N_VARS + v] / 2;
+                Jac[jac_idx + c * N_VARS + v] -= grad_con * dt * mesh->tranD[conn_idx] * mesh->poro[j] * op_ders_arr[(j * N_OPS + UPSAT_OP + p) * N_VARS + v] / 2;
               }
             }
           }
@@ -326,34 +307,19 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
         if (THERMAL)
         {
           t_diff = op_vals_arr[j * N_OPS + RE_TEMP_OP] - op_vals_arr[i * N_OPS + RE_TEMP_OP];
-          gamma_t_diff = tranD[conn_idx] * dt * t_diff;
+          gamma_t_i = tranD[conn_idx] * dt * (1 - mesh->poro[i]) * mesh->rock_cond[i]
+          gamma_t_j = tranD[conn_idx] * dt * (1 - mesh->poro[j]) * mesh->rock_cond[j]
 
-          if (t_diff < 0)
+          // rock heat transfers flows from cell i to j
+          RHS[i * N_VARS + NC] -= t_diff * (gamma_t_i * op_vals_arr[i * N_OPS + ROCK_COND] + gamma_t_j * op_vals_arr[j * N_OPS + ROCK_COND]) / 2;
+          for (uint8_t v = 0; v < N_VARS; v++)
           {
-            // rock heat transfers flows from cell i to j
-            RHS[i * N_VARS + NC] -= gamma_t_diff * op_vals_arr[i * N_OPS + ROCK_COND] * (1 - mesh->poro[i]) * mesh->rock_cond[i];
-            for (uint8_t v = 0; v < N_VARS; v++)
+            Jac[diag_idx + NC * N_VARS + v] -= t_diff * gamma_t_i * op_ders_arr[(i * N_OPS + ROCK_COND) * N_VARS + v] / 2;
+            Jac[jac_idx + NC * N_VARS + v] -= t_diff * gamma_t_j * op_ders_arr[(j * N_OPS + ROCK_COND) * N_VARS + v] / 2;
+            if (v == T_VAR)
             {
-              Jac[diag_idx + NC * N_VARS + v] -= gamma_t_diff * op_ders_arr[(i * N_OPS + ROCK_COND) * N_VARS + v] * (1 - mesh->poro[i]) * mesh->rock_cond[i];
-              if (v == T_VAR)
-              {
-                Jac[jac_idx + NC * N_VARS + v] -= tranD[conn_idx] * dt * op_vals_arr[i * N_OPS + ROCK_COND] * (1 - mesh->poro[i]) * mesh->rock_cond[i];
-                Jac[diag_idx + NC * N_VARS + v] += tranD[conn_idx] * dt * op_vals_arr[i * N_OPS + ROCK_COND] * (1 - mesh->poro[i]) * mesh->rock_cond[i];
-              }
-            }
-          }
-          else
-          {
-            // rock heat transfers flows from cell j to i
-            RHS[i * N_VARS + NC] -= gamma_t_diff * op_vals_arr[j * N_OPS + ROCK_COND] * (1 - mesh->poro[j]) * mesh->rock_cond[j]; // energy cond operator
-            for (uint8_t v = 0; v < N_VARS; v++)
-            {
-              Jac[jac_idx + NC * N_VARS + v] -= gamma_t_diff * op_ders_arr[(j * N_OPS + ROCK_COND) * N_VARS + v] * (1 - mesh->poro[j]) * mesh->rock_cond[j];
-              if (v == T_VAR)
-              {
-                Jac[diag_idx + NC * N_VARS + v] += tranD[conn_idx] * dt * op_vals_arr[j * N_OPS + ROCK_COND] * (1 - mesh->poro[j]) * mesh->rock_cond[j];
-                Jac[jac_idx + NC * N_VARS + v] -= tranD[conn_idx] * dt * op_vals_arr[j * N_OPS + ROCK_COND] * (1 - mesh->poro[j]) * mesh->rock_cond[j];
-              }
+              Jac[jac_idx + NC * N_VARS + v] -= (gamma_t_i * op_vals_arr[i * N_OPS + ROCK_COND] + gamma_t_j * op_vals_arr[j * N_OPS + ROCK_COND]) / 2;
+              Jac[diag_idx + NC * N_VARS + v] += (gamma_t_i * op_vals_arr[i * N_OPS + ROCK_COND] + gamma_t_j * op_vals_arr[j * N_OPS + ROCK_COND]) / 2;
             }
           }
         }
@@ -645,29 +611,13 @@ int engine_super_cpu<NC, NP, THERMAL>::adjoint_gradient_assembly(value_t dt, std
           {
             value_t grad_con = op_vals_arr[j * N_OPS + GRAD_OP + c * NP + p] - op_vals_arr[i * N_OPS + GRAD_OP + c * NP + p];
 
-            if (grad_con < 0)
-            {
-              // Diffusion flows from cell i to j (high to low), use upstream quantity from cell i for compressibility and saturation (mass or energy):
-              //value_t diff_mob_ups_m = dt * mesh->tranD[conn_idx] * phi_avg * op_vals_arr[i * N_OPS + UPSAT_OP + p];
+            // Diffusion flows, use arithmetic mean for compressibility and saturation (mass or energy):
+            //value_t diff_mob_ups_m = dt * mesh->tranD[conn_idx] * phi_avg * (op_vals_arr[i * N_OPS + UPSAT_OP + p] + op_vals_arr[j * N_OPS + UPSAT_OP + p]) / 2;
+            //RHS[i * N_VARS + c] -= diff_mob_ups_m * grad_con; // diffusion term
 
-              //RHS[i * N_VARS + c] -= diff_mob_ups_m * grad_con; // diffusion term
-
-              value_g_u = grad_con * dt * phi_avg * op_vals_arr[i * N_OPS + UPSAT_OP + p];
-              idx = count + c * N_element + temp_num[k_count];
-              value_dg_dT[idx] -= value_g_u;
-            }
-            else
-            {
-              // Diffusion flows from cell j to i (high to low), use upstream quantity from cell j for density and saturation:
-              //value_t diff_mob_ups_m = dt * mesh->tranD[conn_idx] * phi_avg * op_vals_arr[j * N_OPS + UPSAT_OP + p];
-
-              //RHS[i * N_VARS + c] -= diff_mob_ups_m * grad_con; // diffusion term
-
-              value_g_u = grad_con * dt * phi_avg * op_vals_arr[j * N_OPS + UPSAT_OP + p];
-              idx = count + c * N_element + temp_num[k_count];
-              value_dg_dT[idx] -= value_g_u;
-
-            }
+            value_g_u = grad_con * dt * phi_avg * (op_vals_arr[i * N_OPS + UPSAT_OP + p] + op_vals_arr[j * N_OPS + UPSAT_OP + p]) / 2;
+            idx = count + c * N_element + temp_num[k_count];
+            value_dg_dT[idx] -= value_g_u;
           }
         }
       }
@@ -678,24 +628,14 @@ int engine_super_cpu<NC, NP, THERMAL>::adjoint_gradient_assembly(value_t dt, std
         t_diff = op_vals_arr[j * N_OPS + RE_TEMP_OP] - op_vals_arr[i * N_OPS + RE_TEMP_OP];
         gamma_t_diff = tranD[conn_idx] * dt * t_diff;
 
-        if (t_diff < 0)
-        {
-          // rock heat transfers flows from cell i to j
-          //RHS[i * N_VARS + NC] -= gamma_t_diff * op_vals_arr[i * N_OPS + ROCK_COND] * (1 - mesh->poro[i]) * mesh->rock_cond[i];
+        // rock heat transfers flows from cell i to j
+        //RHS[i * N_VARS + NC] -= gamma_t_diff * (op_vals_arr[i * N_OPS + ROCK_COND] * (1 - mesh->poro[i]) * mesh->rock_cond[i] + 
+        //                                        op_vals_arr[i * N_OPS + ROCK_COND] * (1 - mesh->poro[i]) * mesh->rock_cond[i]) / 2;
 
-          value_g_u = dt * t_diff * op_vals_arr[i * N_OPS + ROCK_COND] * (1 - mesh->poro[i]) * mesh->rock_cond[i];
-          idx = count + NC * N_element + temp_num[k_count];
-          value_dg_dT[idx] -= value_g_u;
-        }
-        else
-        {
-          // rock heat transfers flows from cell j to i
-          //RHS[i * N_VARS + NC] -= gamma_t_diff * op_vals_arr[j * N_OPS + ROCK_COND] * (1 - mesh->poro[j]) * mesh->rock_cond[j]; // energy cond operator
-          
-          value_g_u = dt * t_diff * op_vals_arr[j * N_OPS + ROCK_COND] * (1 - mesh->poro[j]) * mesh->rock_cond[j];
-          idx = count + NC * N_element + temp_num[k_count];
-          value_dg_dT[idx] -= value_g_u;
-        }
+        value_g_u = dt * t_diff * (op_vals_arr[i * N_OPS + ROCK_COND] * (1 - mesh->poro[i]) * mesh->rock_cond[i] + 
+                                    op_vals_arr[j * N_OPS + ROCK_COND] * (1 - mesh->poro[j]) * mesh->rock_cond[j]) / 2;
+        idx = count + NC * N_element + temp_num[k_count];
+        value_dg_dT[idx] -= value_g_u;
       }
 
       k_count++;
