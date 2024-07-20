@@ -148,7 +148,7 @@ void linear_cpu_interpolator_base<index_t, N_DIMS, N_OPS>::find_delaunay_and_bar
   py::object scipy = py::module_::import("scipy.spatial");
   py::object Delaunay = scipy.attr("Delaunay");
   tri_info.tri = Delaunay(numpy_points);
-  py::array_t<int> simplices = tri_info.tri.attr("simplices").cast<py::array_t<int>>();
+  py::array_t<int> simplices = tri_info.tri.attr("simplices").template cast<py::array_t<int>>();
   auto s_info = simplices.request();
 
   // calculate barycentric transformations
@@ -236,7 +236,7 @@ int linear_cpu_interpolator_base<index_t, N_DIMS, N_OPS>::interpolate(const std:
 
       // find Delaunay simplex
       auto numpy_point = py::array_t<double>(N_DIMS, scaled_point.data());
-      int simplex_id = tri_info.tri.attr("find_simplex")(numpy_point).cast<int>();
+      int simplex_id = tri_info.tri.attr("find_simplex")(numpy_point).template cast<int>();
 
       const auto& mat = tri_info.barycentric_matrices[simplex_id];
 
@@ -254,8 +254,8 @@ int linear_cpu_interpolator_base<index_t, N_DIMS, N_OPS>::interpolate(const std:
       }
 
       // estimate points comprising the simplex
-      double* vertices = static_cast<double*>(tri_info.tri.attr("points").cast<py::array_t<double>>().request().ptr);
-      int* simplices = &(static_cast<int*>(tri_info.tri.attr("simplices").cast<py::array_t<int>>().request().ptr))[n_size * simplex_id];
+      double* vertices = static_cast<double*>(tri_info.tri.attr("points").template cast<py::array_t<double>>().request().ptr);
+      int* simplices = &(static_cast<int*>(tri_info.tri.attr("simplices").template cast<py::array_t<int>>().request().ptr))[n_size * simplex_id];
       double* vertex;
       for (int vertex_i = 0; vertex_i <= N_DIMS; vertex_i++)
       {
@@ -319,7 +319,7 @@ int linear_cpu_interpolator_base<index_t, N_DIMS, N_OPS>::interpolate_with_deriv
 
           // find Delaunay simplex
           auto numpy_point = py::array_t<double>(N_DIMS, scaled_point.data());
-          int simplex_id = tri_info.tri.attr("find_simplex")(numpy_point).cast<int>();
+          int simplex_id = tri_info.tri.attr("find_simplex")(numpy_point).template cast<int>();
           const auto& mat = tri_info.barycentric_matrices[simplex_id];
 
           // barycentric coordinates
@@ -336,8 +336,8 @@ int linear_cpu_interpolator_base<index_t, N_DIMS, N_OPS>::interpolate_with_deriv
           }
 
           // estimate points comprising the simplex
-          double* vertices = static_cast<double*>(tri_info.tri.attr("points").cast<py::array_t<double>>().request().ptr);
-          int* simplices = &(static_cast<int*>(tri_info.tri.attr("simplices").cast<py::array_t<int>>().request().ptr))[n_size * simplex_id];
+          double* vertices = static_cast<double*>(tri_info.tri.attr("points").template cast<py::array_t<double>>().request().ptr);
+          int* simplices = &(static_cast<int*>(tri_info.tri.attr("simplices").template cast<py::array_t<int>>().request().ptr))[n_size * simplex_id];
           double* vertex;
           for (int vertex_i = 0; vertex_i <= N_DIMS; vertex_i++)
           {
