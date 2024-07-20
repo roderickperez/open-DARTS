@@ -9,6 +9,7 @@ from darts.physics.properties.basic import ConstFunc, PhaseRelPerm
 from darts.physics.properties.flash import ConstantK
 from darts.physics.properties.density import DensityBasic, DensityBrineCO2
 
+import numpy as np
 
 class Model(CICDModel):
     def __init__(self):
@@ -121,4 +122,4 @@ class ModelProperties(PropertyContainer):
         self.nu[1] = (1 - V) * (1 - zc[-1])
         self.nu[2] = zc[-1]
 
-        return ph
+        return np.array(ph, dtype=np.intp)

@@ -462,7 +462,7 @@ class ModelProperties(PropertyContainer):
         self.nu[0] = V
         self.nu[1] = (1 - V)
 
-        return ph
+        return np.array(ph, dtype=np.intp)
 
     def evaluate_mass_source(self, pressure, temperature, zc):
         # Kinetic reaction

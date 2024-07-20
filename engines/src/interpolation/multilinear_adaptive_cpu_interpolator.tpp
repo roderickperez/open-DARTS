@@ -116,7 +116,7 @@ int multilinear_adaptive_cpu_interpolator<index_t, value_t, N_DIMS, N_OPS>::inte
                                                       this->axes_step_inv_internal[i], this->axes_points[i]);
       hypercube_idx += axis_idx * this->axis_hypercube_mult[i];
     }
-    const hypercube_data_t &hypercube = this->get_hypercube_data(hypercube_idx);
+    (void)this->get_hypercube_data(hypercube_idx);
   }
 
   // Now data storages are filled with required data, and parallel interpolation can be launched

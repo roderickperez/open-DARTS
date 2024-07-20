@@ -84,7 +84,7 @@ class ReservoirOperators(OperatorsSuper):
 
         """ Beta operator represents flux term: """
         for j in self.ph:
-            vec_values_as_np[self.FLUX_OP + j * self.ne:self.FLUX_OP + j * self.ne + nc_fl] = self.x[j] * self.rho_m[j] * self.kr[j] / self.mu[j]
+            vec_values_as_np[self.FLUX_OP + j * self.ne:self.FLUX_OP + j * self.ne + nc_fl] = self.x[j][:nc_fl] * self.rho_m[j] * self.kr[j] / self.mu[j]
 
         """ Gamma operator for diffusion (same for thermal and isothermal) """
         vec_values_as_np[self.UPSAT_OP + self.ph] = self.compr * self.sat[self.ph]
@@ -92,7 +92,7 @@ class ReservoirOperators(OperatorsSuper):
         """ Chi operator for diffusion """
         for j in self.ph:
             D = self.property.diffusion_ev[self.property.phases_name[j]].evaluate()
-            vec_values_as_np[self.GRAD_OP + j * self.ne:self.GRAD_OP + j * self.ne + nc_fl] = D * self.x[j] * self.rho_m[j]
+            vec_values_as_np[self.GRAD_OP + j * self.ne:self.GRAD_OP + j * self.ne + nc_fl] = D[:nc_fl] * self.x[j][:nc_fl] * self.rho_m[j]
 
         """ Delta operator for reaction """
         vec_values_as_np[self.KIN_OP:self.KIN_OP + self.nc] = mass_source
