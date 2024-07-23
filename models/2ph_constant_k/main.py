@@ -237,7 +237,7 @@ def test_linear_multilinear_obl_points():
     # 1D
     params1 = {'itor_type': 6 * ['linear'] + 3 * ['multilinear'],
               'itor_mode': n_runs * ['adaptive'],
-              'obl_points': 3 * [10, 100, 1000],
+              'obl_points': 3 * [64, 256, 1024],
               'n_comps': n_runs * [6],
               'barycentric': 3 * [False] + 3 * [True] + 3 * [False],
               'reservoir_type': n_runs * ['1D'],
@@ -246,7 +246,7 @@ def test_linear_multilinear_obl_points():
     # 2D
     params2 = {'itor_type': 6 * ['linear'] + 3 * ['multilinear'],
               'itor_mode': n_runs * ['adaptive'],
-              'obl_points': 3 * [10, 100, 1000],
+              'obl_points': 3 * [64, 256, 1024],
               'n_comps': n_runs * [6],
               'barycentric': 3 * [False] + 3 * [True] + 3 * [False],
               'reservoir_type': n_runs * ['2D'],
@@ -327,21 +327,21 @@ def test_linear_multilinear_nx():
                              res_arrays=[out_type_1d, out_type_2d])
 
 
-# test_linear_multilinear_obl_points()
-# test_linear_multilinear_components()
-# test_linear_multilinear_nx()
+test_linear_multilinear_obl_points()
+test_linear_multilinear_components()
+test_linear_multilinear_nx()
 
-run(itor_type='linear', itor_mode='adaptive', obl_points=10, n_comps=6, reservoir_type='1D', nx=1000, is_barycentric=True)#, vtk_output=True)
-run(itor_type='linear', itor_mode='adaptive', obl_points=10, n_comps=6, reservoir_type='1D', nx=1000, is_barycentric=False)#, vtk_output=True)
-
-paths = [get_output_folder(itor_type='linear', itor_mode='adaptive', obl_points=10, n_comps=6, reservoir_type='1D', nx=1000, is_barycentric=True) + '/',
-         get_output_folder(itor_type='linear', itor_mode='adaptive', obl_points=10, n_comps=6, reservoir_type='1D', nx=1000, is_barycentric=False) + '/']
-labels = ['Delaunay', 'standard']
-animate_solution_1d(paths=paths,
-                    labels=labels,
-                    n_cells=[1000, 1000],
-                    lower_lims=[48.9, -1.e-2, -1.e-2, -1.e-2, -1.e-2, -1.e-2],
-                    upper_lims=[170, 1.01, 0.55, 0.26, 0.21, 0.15])
+# run(itor_type='linear', itor_mode='adaptive', obl_points=64, n_comps=6, reservoir_type='1D', nx=1000, is_barycentric=True)#, vtk_output=True)
+# run(itor_type='linear', itor_mode='adaptive', obl_points=10, n_comps=6, reservoir_type='1D', nx=1000, is_barycentric=False)#, vtk_output=True)
+#
+# paths = [get_output_folder(itor_type='linear', itor_mode='adaptive', obl_points=10, n_comps=6, reservoir_type='1D', nx=1000, is_barycentric=True) + '/',
+#          get_output_folder(itor_type='linear', itor_mode='adaptive', obl_points=10, n_comps=6, reservoir_type='1D', nx=1000, is_barycentric=False) + '/']
+# labels = ['Delaunay', 'standard']
+# animate_solution_1d(paths=paths,
+#                     labels=labels,
+#                     n_cells=[1000, 1000],
+#                     lower_lims=[48.9, -1.e-2, -1.e-2, -1.e-2, -1.e-2, -1.e-2],
+#                     upper_lims=[170, 1.01, 0.55, 0.26, 0.21, 0.15])
 
 # run(itor_type='linear', itor_mode='adaptive', obl_points=1024, reservoir_type='2D', nx=10)
 # run(itor_type='linear', itor_mode='adaptive', obl_points=1024, reservoir_type='spe10_20_40_40')

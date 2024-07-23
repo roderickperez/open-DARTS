@@ -147,7 +147,7 @@ class Model(DartsModel):
 
         """ Activate physics """
         self.physics = Compositional(self.components, phases, self.timer, n_points=self.obl_points,
-                                     min_p=1, max_p=300, min_z=self.zero/10, max_z=1-self.zero/10, cache=True)
+                                     min_p=1, max_p=300, min_z=self.zero/10, max_z=1-self.zero/10, cache=False)
         self.physics.add_property_region(property_container)
         
         return
