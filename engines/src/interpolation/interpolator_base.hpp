@@ -63,6 +63,7 @@ struct __uint128_t : std::_Unsigned128
     return __uint128_t(static_cast<const std::_Unsigned128&>(*this) * static_cast<const std::_Unsigned128&>(other));
   };
 };
+#endif
 
 namespace std
 {
@@ -115,7 +116,6 @@ namespace std
   // Custom to_string for __uint128_t
   std::string to_string(const __uint128_t& value);
 };
-#endif
 
 /**
  * Interpolator base class
