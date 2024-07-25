@@ -153,11 +153,13 @@ def run(itor_mode, itor_type, obl_points, n_comps, reservoir_type, nx: int = Non
 
     if reservoir_type == '1D' and vtk_output:
         # populate input lists for comparing multiple solutions
+        upper_lims = np.array([140, 1.01] + n.ini_comp[1:])
+        upper_lims[2:] *= 1.2
         animate_solution_1d(paths=[output_folder + '/'],
                             labels=[itor_type + ', ' + itor_mode + ', N=' + str(nx)],
                             n_cells=[nx],
-                            lower_lims = [48.9, -1.e-2, -1.e-2, -1.e-2, -1.e-2, -1.e-2],
-                            upper_lims = [60, 1.01, 0.5, 0.21, 0.15, 0.1])
+                            lower_lims = [48.9] + (n_comps-1) * [-1.e-2],
+                            upper_lims = upper_lims)
 
     return n.timer, n.physics.engine.stat
 
@@ -331,17 +333,20 @@ test_linear_multilinear_obl_points()
 test_linear_multilinear_components()
 test_linear_multilinear_nx()
 
-# run(itor_type='linear', itor_mode='adaptive', obl_points=64, n_comps=6, reservoir_type='1D', nx=1000, is_barycentric=True)#, vtk_output=True)
+# run(itor_type='linear', itor_mode='adaptive', obl_points=64, n_comps=12, reservoir_type='1D', nx=1000, is_barycentric=False, vtk_output=True)
 # run(itor_type='linear', itor_mode='adaptive', obl_points=10, n_comps=6, reservoir_type='1D', nx=1000, is_barycentric=False)#, vtk_output=True)
-#
-# paths = [get_output_folder(itor_type='linear', itor_mode='adaptive', obl_points=10, n_comps=6, reservoir_type='1D', nx=1000, is_barycentric=True) + '/',
-#          get_output_folder(itor_type='linear', itor_mode='adaptive', obl_points=10, n_comps=6, reservoir_type='1D', nx=1000, is_barycentric=False) + '/']
-# labels = ['Delaunay', 'standard']
+
+# n_comps = 12
+# paths = [get_output_folder(itor_type='linear', itor_mode='adaptive', obl_points=64, n_comps=n_comps, reservoir_type='1D', nx=1000, is_barycentric=False) + '/',
+#          get_output_folder(itor_type='linear', itor_mode='adaptive', obl_points=256, n_comps=n_comps, reservoir_type='1D', nx=1000, is_barycentric=False) + '/']
+# labels = ['OBL points = 64', 'OBL points = 256']
+# upper_lims = np.array([140, 1.01] + [0.300, 0.150, 0.100, 0.075, 0.075, 0.065, 0.065, 0.060, 0.050, 0.035, 0.020])
+# upper_lims[2:] *= 1.2
 # animate_solution_1d(paths=paths,
 #                     labels=labels,
 #                     n_cells=[1000, 1000],
-#                     lower_lims=[48.9, -1.e-2, -1.e-2, -1.e-2, -1.e-2, -1.e-2],
-#                     upper_lims=[170, 1.01, 0.55, 0.26, 0.21, 0.15])
+#                     lower_lims=[48.9] + (n_comps-1) * [-1.e-2],
+#                     upper_lims=upper_lims)
 
 # run(itor_type='linear', itor_mode='adaptive', obl_points=1024, reservoir_type='2D', nx=10)
 # run(itor_type='linear', itor_mode='adaptive', obl_points=1024, reservoir_type='spe10_20_40_40')

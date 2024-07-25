@@ -3,6 +3,7 @@ import hashlib
 import os
 import pickle
 import atexit
+import numpy as np
 
 from darts.engines import *
 
@@ -279,7 +280,10 @@ class PhysicsBase:
         except (ValueError, NameError):
             # 32-bit index type did not succeed: either total amount of points is out of range or has not been compiled
             # try 64 bit now raising exception this time if goes wrong:
-            itor_name = itor_name.replace('interpolator_i', 'interpolator_l')
+            if np.prod(np.array(self.n_axes_points), dtype=np.float64) < np.iinfo(np.int64).max:
+                itor_name = itor_name.replace('interpolator_i', 'interpolator_l')
+            else:
+                itor_name = itor_name.replace('interpolator_i', 'interpolator_ll')
             try:
                 if algorithm == 'linear':
                     itor = eval(itor_name)(evaluator, self.n_axes_points, self.axes_min, self.axes_max, is_barycentric)

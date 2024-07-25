@@ -73,7 +73,7 @@ public:
 
     bool use_barycentric_interpolation; ///< flag that enables barycentric interpolation on Delaunay simplices
 protected:
-    std::array<std::array<int, N_DIMS>, N_DIMS + 1> standard_simplex; ///< a standard simplex
+    std::array<std::array<index_t, N_DIMS>, N_DIMS + 1> standard_simplex; ///< a standard simplex
     std::array<index_t, N_DIMS> axes_mult;                            ///< multiplication factor used for transferring supporting point to point index
     Delaunay tri_info;                                                ///< contains Delaunay triangulation and barycentric transformations
 
@@ -89,7 +89,7 @@ protected:
      * @param[in] point_index Index of the point in the std::vector points
      *      The argument point_index is used only when std::vector points consists of multiple points.
      */
-    void find_hypercube(const std::vector<double> &points, std::array<int, N_DIMS> &hypercube,
+    void find_hypercube(const std::vector<double> &points, std::array<index_t, N_DIMS> &hypercube,
                         std::array<double, N_DIMS> &scaled_point, const int point_index = 0);
     /**
      * @brief Compute which simplex the given point is located in using standard triangulation
@@ -101,8 +101,8 @@ protected:
      *      2. computing weights of the barycentric interpolation
      * @param[out] simplex An array of vertices which forms simplex in N_DIMS-dimensional space
      */
-    void find_simplex(const std::array<int, N_DIMS> &hypercube, const std::array<double, N_DIMS> &scaled_point,
-                      std::array<int, N_DIMS> &tri_order, std::array<std::array<int, N_DIMS>, N_DIMS + 1> &simplex);
+    void find_simplex(const std::array<index_t, N_DIMS> &hypercube, const std::array<double, N_DIMS> &scaled_point,
+                      std::array<int, N_DIMS> &tri_order, std::array<std::array<index_t, N_DIMS>, N_DIMS + 1> &simplex);
     /**
      * @brief Get values of operators at the given supporting point
      * Implementation depends on underlying storage. If static storage is used, the function simply reads
@@ -114,7 +114,7 @@ protected:
      * @param[in] vertex The indexes of coordinates the given supporting point along axes
      * @param[out] values The operator values at the given point
      */
-    virtual void get_supporting_point(const std::array<int, N_DIMS> &vertex, std::array<double, N_OPS> &values) = 0;
+    virtual void get_supporting_point(const std::array<index_t, N_DIMS> &vertex, std::array<double, N_OPS> &values) = 0;
     /**
      * @brief Given a supporting point, compute its index.
      *
@@ -123,14 +123,14 @@ protected:
      * @param[in] vertex The indexes of coordinates the given supporting point along axes
      * @return The index of point among all supporting point
      */
-    index_t get_index_from_vertex(const std::array<int, N_DIMS> &vertex);
+    index_t get_index_from_vertex(const std::array<index_t, N_DIMS> &vertex);
     /**
      * @brief Transfer a vertex to its coordinates.
      *
      * @param[in] vertex The indexes of the given supporting point along axes
      * @param[out] point The coordinates of the supporting point
      */
-    void get_point_from_vertex(const std::array<int, N_DIMS> &vertex, std::vector<double> &point);
+    void get_point_from_vertex(const std::array<index_t, N_DIMS> &vertex, std::vector<double> &point);
     /**
      * @brief Loads Delaunay triangulation and data for associated barycentric interpolation.
      *
