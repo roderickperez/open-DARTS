@@ -63,21 +63,9 @@ struct __uint128_t : std::_Unsigned128
     return __uint128_t(static_cast<const std::_Unsigned128&>(*this) * static_cast<const std::_Unsigned128&>(other));
   };
 };
-#endif
 
 namespace std
 {
-  template <>
-  struct hash<__uint128_t>
-  {
-    size_t operator()(const __uint128_t& x) const noexcept
-    {
-      size_t h1 = std::hash<uint64_t>{}(x._Word[0]);
-      size_t h2 = std::hash<uint64_t>{}(x._Word[1]);
-      return h1 ^ (h2 * 0x9e3779b97f4a7c15 + 0x7f4a7c15);  // Use a large prime multiplier and a random offset
-    }
-  };
-
   template<>
   class numeric_limits<__uint128_t>
   {
@@ -111,6 +99,27 @@ namespace std
     static constexpr bool traps = false;
     static constexpr bool tinyness_before = false;
     static constexpr float_round_style round_style = std::round_toward_zero;
+  };
+};
+
+#endif
+
+namespace std
+{
+  template <>
+  struct hash<__uint128_t>
+  {
+    size_t operator()(const __uint128_t& x) const noexcept
+    {
+#ifdef _MSC_VER
+      size_t h1 = std::hash<uint64_t>{}(x._Word[0]);
+      size_t h2 = std::hash<uint64_t>{}(x._Word[1]);
+#elif defined(__GNUC__)
+      size_t h1 = std::hash<uint64_t>{}(x.lo);
+      size_t h2 = std::hash<uint64_t>{}(x.hi);
+#endif
+      return h1 ^ (h2 * 0x9e3779b97f4a7c15 + 0x7f4a7c15);  // Use a large prime multiplier and a random offset
+    }
   };
 
   // Custom to_string for __uint128_t
