@@ -126,6 +126,9 @@ def run(itor_mode, itor_type, obl_points, n_comps, reservoir_type, nx: int = Non
         components = ['CO2', 'C1', 'C2', 'C4', 'C5', 'nC5', 'C6', 'C10', 'C16', 'C20']
     elif n_comps == 12:
         components = ['CO2', 'C1', 'C2', 'C3', 'C4', 'nC4', 'C5', 'nC5', 'C6', 'C10', 'C16', 'C20']
+    elif n_comps == 20:
+        components = ['CO2', 'C1', 'C2', 'C3', 'C4', 'nC4', 'C5', 'nC5', 'C6', 'C7',
+                      'C8', 'C9', 'C10', 'C11', 'C12', 'C14', 'C16', 'C18', 'C19', 'C20']
     else:
         print('{} is not a valid number of components'.format(n_comps))
         return
