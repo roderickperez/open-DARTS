@@ -30,9 +30,10 @@ class Model(DartsModel):
         #self.set_wells()
         self.set_physics()
 
-        self.set_sim_params(first_ts=0.05, mult_ts=2, max_ts=5.00, runtime=1000, tol_newton=1e-2, tol_linear=1e-3,
+        max_ts = min(5., 5. * 1000 / self.nx)
+        self.set_sim_params(first_ts=0.05, mult_ts=2, max_ts=max_ts, runtime=1000, tol_newton=1e-2, tol_linear=1e-3,
                             it_newton=10, it_linear=50, newton_type=sim_params.newton_local_chop)
-        self.params.linear_type = sim_params.cpu_superlu
+        # self.params.linear_type = sim_params.cpu_superlu
 
         self.timer.node["initialization"].stop()
 
@@ -42,21 +43,19 @@ class Model(DartsModel):
         
         self.inj_stream = self.inj_comp[:self.physics.nc-1]
         self.physics.components = self.components
-        # for i in range(self.physics.nc - 1):
-        #     self.initial_values[self.components[i]][0] = self.inj_stream[i]
 
     def set_reservoir(self):
         if self.reservoir_type == '1D':
             self.p_init = 100.
             self.ny = self.nz = 1
-            self.reservoir = StructReservoir(self.timer, nx=self.nx, ny=self.ny, nz=self.nz, dx=1, dy=1, dz=1, permx=100, permy=100, permz=100,
+            self.reservoir = StructReservoir(self.timer, nx=self.nx, ny=self.ny, nz=self.nz, dx=1000. / self.nx, dy=1, dz=1, permx=100, permy=100, permz=100,
                                         poro=0.3, depth=1000)
             self.well_cell_id = [[1, 1], [self.nx, 1]]
         elif self.reservoir_type == '2D':
             self.p_init = 100.
             self.ny = self.nx
             self.nz = 1
-            self.reservoir = StructReservoir(self.timer, nx=self.nx, ny=self.ny, nz=self.nz, dx=1, dy=1, dz=1, permx=100, permy=100, permz=100,
+            self.reservoir = StructReservoir(self.timer, nx=self.nx, ny=self.ny, nz=self.nz, dx=1000. / self.nx, dy=1000. / self.nx, dz=1, permx=100, permy=100, permz=100,
                                         poro=0.3, depth=1000)
             self.well_cell_id = [[1, 1], [self.nx, self.nx]]
         else: # SPE10
@@ -91,7 +90,8 @@ class Model(DartsModel):
             self.p_init = np.append(self.p_init, 2 * n_wells * [depth])
 
         return
-
+    # for i in range(self.physics.nc - 1):
+    #     self.initial_values[self.components[i]][0] = self.inj_stream[i]
     def set_wells(self):
         self.reservoir.add_well("I1")
         self.reservoir.add_well("P1")
@@ -119,10 +119,15 @@ class Model(DartsModel):
             self.ini_comp = [0.005, 0.300, 0.170, 0.150, 0.100, 0.100, 0.075, 0.050, 0.025, 0.025]
         elif n_comps == 12:
             self.ini_comp = [0.005, 0.300, 0.150, 0.100, 0.075, 0.075, 0.065, 0.065, 0.060, 0.050, 0.035, 0.020]
+        elif n_comps == 14:
+            self.ini_comp = [0.005, 0.275, 0.125, 0.100, 0.075, 0.075, 0.065, 0.065, 0.060, 0.050, 0.040, 0.030, 0.020, 0.015]
+        elif n_comps == 16:
+            self.ini_comp = [0.005, 0.250, 0.125, 0.100, 0.070, 0.070, 0.060, 0.060, 0.050, 0.045,
+                             0.040, 0.035, 0.030, 0.025, 0.020, 0.015]
         elif n_comps == 20:
             self.ini_comp = [0.005, 0.240, 0.120, 0.090, 0.070, 0.070, 0.060, 0.060, 0.050, 0.045,
                              0.040, 0.035, 0.030, 0.025, 0.020, 0.015, 0.010, 0.007, 0.005, 0.003]
-        assert (sum(self.ini_comp) == 1.0)
+        assert (np.isclose(sum(self.ini_comp), 1.0, atol=1.e-8))
 
         Mw_comps = {
             'CO2': 44.010,
@@ -196,7 +201,7 @@ class Model(DartsModel):
 
         """ Activate physics """
         self.physics = Compositional(self.components, phases, self.timer, n_points=self.obl_points,
-                                     min_p=1, max_p=300, min_z=self.zero/10, max_z=1-self.zero/10, cache=False)
+                                     min_p=40, max_p=200, min_z=self.zero/10, max_z=1-self.zero/10, cache=False)
         self.physics.add_property_region(property_container)
         
         return

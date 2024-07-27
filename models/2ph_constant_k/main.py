@@ -31,9 +31,10 @@ def find_ffmpeg():
 
 rcParams['animation.ffmpeg_path'] = find_ffmpeg()
 
-def animate_solution_1d(paths, n_cells, labels, lower_lims, upper_lims):
+def animate_solution_1d(paths, n_cells, labels, lower_lims, upper_lims, video_fname='plot.mp4'):
     data0 = load_hdf5_to_dict(filename=paths[0] + 'solution.h5')['dynamic']
-    c = np.arange(n_cells[0])
+    n_cells_max = max(n_cells)
+    c = [np.arange(n_cells_max, step=int(n_cells_max / n_cells[i])) for i in range(len(n_cells))]
     n_plots = len(data0['variable_names'])
     n_steps = data0['time'].size # number of saved snapshots
     colors = ['b', 'r', 'g', 'm', 'c', 'y', 'k']
@@ -52,7 +53,7 @@ def animate_solution_1d(paths, n_cells, labels, lower_lims, upper_lims):
         data = load_hdf5_to_dict(filename=filename)['dynamic']
 
         for i in range(n_plots):
-            li, = ax[i].plot(c, data['X'][0,:n_cells[k],i], linewidth=1, color=colors[k], linestyle='-', label=labels[k])
+            li, = ax[i].plot(c[k], data['X'][0,:n_cells[k],i], linewidth=1, color=colors[k], linestyle='-', label=labels[k])
             lines.append(li)
 
     time_text = ax[0].text(0.4, 0.93, 'time = ' + str(round(data0['time'][0], 4)) + ' days',
@@ -72,7 +73,7 @@ def animate_solution_1d(paths, n_cells, labels, lower_lims, upper_lims):
             if ind % each_ith == 0:
                 data = load_hdf5_to_dict(filename=path + 'solution.h5')['dynamic']
                 for j in range(n_plots):
-                    lines[n_plots * k + j].set_data(c, data['X'][i,:n_cells[k],j])
+                    lines[n_plots * k + j].set_data(c[k], data['X'][i,:n_cells[k],j])
                 time_text.set_text('time = ' + str(round(data0['time'][i], 4)) + ' days')
 
         return lines
@@ -87,7 +88,7 @@ def animate_solution_1d(paths, n_cells, labels, lower_lims, upper_lims):
 
     fig.tight_layout()
     writervideo = animation.FFMpegWriter(fps=1)
-    anim.save(paths[0] + 'comparison.mp4', writer=writervideo)
+    anim.save(paths[0] + video_fname, writer=writervideo)
     plt.close(fig)
 
 def get_output_folder(itor_mode, itor_type, obl_points, n_comps, reservoir_type, nx: int = None, is_barycentric: bool = False):
@@ -126,6 +127,11 @@ def run(itor_mode, itor_type, obl_points, n_comps, reservoir_type, nx: int = Non
         components = ['CO2', 'C1', 'C2', 'C4', 'C5', 'nC5', 'C6', 'C10', 'C16', 'C20']
     elif n_comps == 12:
         components = ['CO2', 'C1', 'C2', 'C3', 'C4', 'nC4', 'C5', 'nC5', 'C6', 'C10', 'C16', 'C20']
+    elif n_comps == 14:
+        components = ['CO2', 'C1', 'C2', 'C3', 'C4', 'nC4', 'C5', 'nC5', 'C6', 'C8', 'C10', 'C12', 'C16', 'C20']
+    elif n_comps == 16:
+        components = ['CO2', 'C1', 'C2', 'C3', 'C4', 'nC4', 'C5', 'nC5',
+                      'C6', 'C8', 'C10', 'C12', 'C14', 'C16', 'C18', 'C20']
     elif n_comps == 20:
         components = ['CO2', 'C1', 'C2', 'C3', 'C4', 'nC4', 'C5', 'nC5', 'C6', 'C7',
                       'C8', 'C9', 'C10', 'C11', 'C12', 'C14', 'C16', 'C18', 'C19', 'C20']
@@ -336,20 +342,23 @@ test_linear_multilinear_obl_points()
 test_linear_multilinear_components()
 test_linear_multilinear_nx()
 
-# run(itor_type='linear', itor_mode='adaptive', obl_points=64, n_comps=12, reservoir_type='1D', nx=1000, is_barycentric=False, vtk_output=True)
-# run(itor_type='linear', itor_mode='adaptive', obl_points=10, n_comps=6, reservoir_type='1D', nx=1000, is_barycentric=False)#, vtk_output=True)
+# run(itor_type='linear', itor_mode='adaptive', obl_points=128, n_comps=14, reservoir_type='1D', nx=1000, is_barycentric=False, vtk_output=True)
+# run(itor_type='linear', itor_mode='adaptive', obl_points=128, n_comps=16, reservoir_type='1D', nx=100, is_barycentric=False, vtk_output=True)
+# run(itor_type='linear', itor_mode='adaptive', obl_points=128, n_comps=14, reservoir_type='1D', nx=4000, is_barycentric=False, vtk_output=True)
 
-# n_comps = 12
-# paths = [get_output_folder(itor_type='linear', itor_mode='adaptive', obl_points=64, n_comps=n_comps, reservoir_type='1D', nx=1000, is_barycentric=False) + '/',
-#          get_output_folder(itor_type='linear', itor_mode='adaptive', obl_points=256, n_comps=n_comps, reservoir_type='1D', nx=1000, is_barycentric=False) + '/']
-# labels = ['OBL points = 64', 'OBL points = 256']
-# upper_lims = np.array([140, 1.01] + [0.300, 0.150, 0.100, 0.075, 0.075, 0.065, 0.065, 0.060, 0.050, 0.035, 0.020])
+# n_comps = 14
+# paths = [get_output_folder(itor_type='linear', itor_mode='adaptive', obl_points=128, n_comps=n_comps, reservoir_type='1D', nx=100, is_barycentric=False) + '/',
+#          get_output_folder(itor_type='linear', itor_mode='adaptive', obl_points=128, n_comps=n_comps, reservoir_type='1D', nx=1000, is_barycentric=False) + '/',
+#          get_output_folder(itor_type='linear', itor_mode='adaptive', obl_points=128, n_comps=n_comps, reservoir_type='1D', nx=4000, is_barycentric=False) + '/']
+# labels = ['nx=100', 'nx=1000', 'nx=4000']
+# upper_lims = np.array([140, 1.01] + [0.275, 0.125, 0.100, 0.075, 0.075, 0.065, 0.065, 0.060, 0.050, 0.040, 0.030, 0.020, 0.015])
 # upper_lims[2:] *= 1.2
 # animate_solution_1d(paths=paths,
 #                     labels=labels,
-#                     n_cells=[1000, 1000],
+#                     n_cells=[100, 1000, 4000],
 #                     lower_lims=[48.9] + (n_comps-1) * [-1.e-2],
-#                     upper_lims=upper_lims)
+#                     upper_lims=upper_lims,
+#                     video_fname='comparison.mp4')
 
 # run(itor_type='linear', itor_mode='adaptive', obl_points=1024, reservoir_type='2D', nx=10)
 # run(itor_type='linear', itor_mode='adaptive', obl_points=1024, reservoir_type='spe10_20_40_40')
