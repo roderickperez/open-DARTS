@@ -40,7 +40,7 @@ class PhysicsBase:
     mass_flux_operators: operator_set_evaluator_iface
 
     def __init__(self, variables: list, nc: int, phases: list, n_ops: int,
-                 axes_min: value_vector, axes_max: value_vector, n_points: int,
+                 axes_min: value_vector, axes_max: value_vector, n_axes_points: index_vector,
                  timer: timer_node, cache: bool = False):
         """
         This is the constructor of the PhysicsBase class. It creates a `simulation` timer node and initializes caching.
@@ -55,8 +55,8 @@ class PhysicsBase:
         :type n_ops: int
         :param axes_min, axes_max: Minimum, maximum of each OBL axis
         :type axes_min, axes_max: :class:`darts.engines.value_vector`
-        :param n_points: Number of OBL points along axes
-        :type n_points: int
+        :param n_axes_points: Number of OBL points along axes
+        :type n_axes_points: index_vector
         :param timer: Timer object
         :type cache: :class:`darts.engines.timer_node`
         :param cache: Switch to cache operator values
@@ -72,10 +72,9 @@ class PhysicsBase:
         self.n_ops = n_ops
 
         # Define OBL grid
-        self.n_points = n_points
         self.axes_min = axes_min
         self.axes_max = axes_max
-        self.n_axes_points = index_vector([n_points] * self.n_vars)
+        self.n_axes_points = n_axes_points
 
         # Initialize timer for simulation and caching
         self.timer = timer.node["simulation"]

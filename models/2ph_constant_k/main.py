@@ -38,7 +38,7 @@ def animate_solution_1d(paths, n_cells, labels, lower_lims, upper_lims, video_fn
     n_plots = len(data0['variable_names'])
     n_steps = data0['time'].size # number of saved snapshots
     colors = ['b', 'r', 'g', 'm', 'c', 'y', 'k']
-    fig, ax = plt.subplots(nrows=n_plots, sharex=True, figsize=(8, 14))
+    fig, ax = plt.subplots(nrows=n_plots, sharex=True, figsize=(7, 20))
     for i in range(n_plots):
         if data0['variable_names'][i] == 'pressure':
             ax[i].set_ylabel('pressure, bar', fontsize=14)
@@ -162,7 +162,7 @@ def run(itor_mode, itor_type, obl_points, n_comps, reservoir_type, nx: int = Non
 
     if reservoir_type == '1D' and vtk_output:
         # populate input lists for comparing multiple solutions
-        upper_lims = np.array([140, 1.01] + n.ini_comp[1:])
+        upper_lims = np.array([160, 1.01] + n.ini_comp[1:])
         upper_lims[2:] *= 1.2
         animate_solution_1d(paths=[output_folder + '/'],
                             labels=[itor_type + ', ' + itor_mode + ', N=' + str(nx)],

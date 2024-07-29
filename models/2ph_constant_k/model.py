@@ -30,7 +30,11 @@ class Model(DartsModel):
         #self.set_wells()
         self.set_physics()
 
-        max_ts = min(5., 5. * 1000 / self.nx)
+        if len(self.components) > 14:
+            max_ts_mult = 1.
+        else:
+            max_ts_mult = 5.
+        max_ts = min(5., max_ts_mult * 1000 / self.nx)
         self.set_sim_params(first_ts=0.05, mult_ts=2, max_ts=max_ts, runtime=1000, tol_newton=1e-2, tol_linear=1e-3,
                             it_newton=10, it_linear=50, newton_type=sim_params.newton_local_chop)
         # self.params.linear_type = sim_params.cpu_superlu
@@ -200,8 +204,26 @@ class Model(DartsModel):
                                                ('oil', PhaseRelPerm("oil"))])
 
         """ Activate physics """
+        if n_comps != 20:
+            axes_max = [150., 1.-self.zero/10, 0.7]
+            if n_comps > 3:
+                axes_max += [0.5]
+            if n_comps > 4:
+                axes_max += [0.5]
+            if n_comps > 5:
+                axes_max += (n_comps - 5) * [0.2]
+            assert(len(axes_max) == n_comps)
+        else:
+            axes_max = np.array([200, 1-self.zero/10, 0.240, 0.120, 0.090, 0.070, 0.070, 0.060, 0.060, 0.050, 0.045,
+                                 0.040, 0.035, 0.030, 0.025, 0.020, 0.015, 0.010, 0.007, 0.005])
+            axes_max[2:] *= 2
+            assert(axes_max.size == n_comps)
+
+        # axes_max = None
+
         self.physics = Compositional(self.components, phases, self.timer, n_points=self.obl_points,
-                                     min_p=40, max_p=200, min_z=self.zero/10, max_z=1-self.zero/10, cache=False)
+                                     min_p=40, max_p=200, min_z=self.zero/10, max_z=1-self.zero/10, cache=False,
+                                     axes_max=axes_max)
         self.physics.add_property_region(property_container)
         
         return
