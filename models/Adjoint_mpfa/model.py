@@ -133,8 +133,8 @@ class Model(DartsModel, OptModuleSettings):
         # create physics
         thermal = True
         self.physics = Compositional(components, phases, self.timer,
-                                n_points=400, min_p=0, max_p=1000, min_z=zero, max_z=1-zero,
-                                min_t=273.15 + 20, max_t=273.15 + 200, thermal=thermal)
+                                     n_points=400, min_p=0, max_p=1000, min_z=zero, max_z=1-zero,
+                                     min_t=273.15 + 20, max_t=273.15 + 200, thermal=thermal)
         self.physics.add_property_region(property_container)
 
         self.runtime = 1000
@@ -272,45 +272,15 @@ class ModelProperties(PropertyContainer):
         # Call base class constructor
         self.nph = len(phases_name)
         Mw = np.ones(self.nph)
-        super().__init__(phases_name, components_name, Mw, min_z, temperature=None)
+        super().__init__(phases_name, components_name, Mw, min_z=min_z, temperature=None)
 
-    def evaluate(self, state):
-        """
-        Class methods which evaluates the state operators for the element based physics
-        :param state: state variables [pres, comp_0, ..., comp_N-1]
-        :param values: values of the operators (used for storing the operator values)
-        :return: updated value for operators, stored in values
-        """
-        # Composition vector and pressure from state:
-        vec_state_as_np = np.asarray(state)
-        pressure = vec_state_as_np[0]
-
-        zc = np.append(vec_state_as_np[1:self.nc], 1 - np.sum(vec_state_as_np[1:self.nc]))
-
-        self.clean_arrays()
-        # two-phase flash - assume water phase is always present and water component last
+    def run_flash(self, pressure, temperature, zc):
+        self.nu = zc
         for i in range(self.nph):
             self.x[i, i] = 1
 
-        self.ph = [0, 1]
-
-        for j in self.ph:
-            # molar weight of mixture
-            M = np.sum(self.x[j, :] * self.Mw)
-            self.dens[j] = self.density_ev[self.phases_name[j]].evaluate(pressure)  # output in [kg/m3]
-            self.dens_m[j] = self.dens[j] / M
-            self.mu[j] = self.viscosity_ev[self.phases_name[j]].evaluate()  # output in [cp]
-
-        self.nu = zc
-        self.compute_saturation(self.ph)
-
-        for j in self.ph:
-            self.kr[j] = self.rel_perm_ev[self.phases_name[j]].evaluate(self.sat[j])
-            self.pc[j] = 0
-
-        mass_source = np.zeros(self.nc)
-
-        return self.ph, self.sat, self.x, self.dens, self.dens_m, self.mu, self.kr, self.pc, mass_source
+        ph = [0, 1]
+        return ph
 
     def evaluate_at_cond(self, pressure, zc):
 
