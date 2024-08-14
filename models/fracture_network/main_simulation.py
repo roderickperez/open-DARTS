@@ -36,8 +36,7 @@ def run_simulation(input_data):
     output_vtk_period = 12  # output each output_vtk_period-th step results to tk
 
     m.save_data_to_h5(kind = 'solution')
-    m.output_to_vtk(ith_step=0, output_directory=m.output_folder, binary_filename=m.output_folder+'/solution.h5')
-    # m.output_to_vtk(ith_step=0, output_directory=output_directory)
+    m.output_to_vtk(ith_step=0, output_directory=output_directory)
 
     sim_time = 0.
     m.print_range(sim_time, part='cells')
@@ -49,8 +48,7 @@ def run_simulation(input_data):
         m.save_data_to_h5(kind='solution')
 
         if ith_step % output_vtk_period == 0:
-            m.output_to_vtk(ith_step=ith_step+1, output_directory=m.output_folder, binary_filename=m.output_folder + '/solution.h5')
-            # m.output_to_vtk(ith_step=ith_step+1, output_directory=output_directory)
+            m.output_to_vtk(ith_step=ith_step+1, output_directory=output_directory)
 
         sim_time += size_report_step
         m.print_range(sim_time, part='cells')

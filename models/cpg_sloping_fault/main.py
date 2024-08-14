@@ -16,9 +16,7 @@ def run(discr_type : str, case: str, out_dir: str, dt : float, n_time_steps : in
     m.save_data_to_h5(kind = 'solution')
     m.set_well_controls()
     if export_vtk:
-        # m.output_to_vtk(ith_step=0, output_directory=out_dir)
-        binary_filename = out_dir + '/solution.h5'
-        m.output_to_vtk(0, out_dir, binary_filename)
+        m.output_to_vtk(ith_step=0, output_directory=out_dir)
     m.save_cubes(os.path.join(out_dir, 'res_init'))
 
     t = 0
@@ -26,10 +24,7 @@ def run(discr_type : str, case: str, out_dir: str, dt : float, n_time_steps : in
         m.run(dt)
         t += dt
         if export_vtk:
-            # m.output_to_vtk(ith_step=ti+1, output_directory=out_dir)
-            m.save_data_to_h5('solution')
-            binary_filename = out_dir+ '/solution.h5'
-            m.output_to_vtk(ti+1, out_dir, binary_filename)
+            m.output_to_vtk(ith_step=ti+1, output_directory=out_dir)
         # save to grdecl file
         #m.save_cubes(os.path.join(out_dir, 'res_' + str(ti+1)))
         m.physics.engine.report()
@@ -54,7 +49,7 @@ def run(discr_type : str, case: str, out_dir: str, dt : float, n_time_steps : in
     # add time in years
     time_data_report['Time (years)'] = time_data_report['time'] / 365.25
     writer = pd.ExcelWriter(os.path.join(out_dir, 'time_data_report_' + discr_type + '.xlsx'))
-    time_data_report.to_excel(writer, 'time_data_report')
+    time_data_report.to_excel(writer, sheet_name='time_data_report')
     writer.close()
 
     return time_data_report
