@@ -760,18 +760,19 @@ deploy-testpypi:
         - ls ./dist/*
         - twine upload -u $REPOUSER -p $REPOPWD --repository $REPO --verbose dist/*
     dependencies:
-        - test-linux-3.7-ODLS
-        - test-linux-3.8-ODLS
-        - test-linux-3.9-ODLS
-        - test-linux-3.10-ODLS
-        - test-linux-3.11-ODLS  
-        - test-linux-3.12-ODLS
-        - test-windows-3.7-ODLS
-        - test-windows-3.8-ODLS
-        - test-windows-3.9-ODLS
-        - test-windows-3.10-ODLS
-        - test-windows-3.11-ODLS
-        - test-windows-3.12-ODLS
+        # get the wheels from the build stage
+        - build-linux-3.7-ODLS
+        - build-linux-3.8-ODLS
+        - build-linux-3.9-ODLS
+        - build-linux-3.10-ODLS
+        - build-linux-3.11-ODLS  
+        - build-linux-3.12-ODLS
+        - build-windows-3.7-ODLS
+        - build-windows-3.8-ODLS
+        - build-windows-3.9-ODLS
+        - build-windows-3.10-ODLS
+        - build-windows-3.11-ODLS
+        - build-windows-3.12-ODLS
         
 deploy-zenodo:
     stage: deploy
