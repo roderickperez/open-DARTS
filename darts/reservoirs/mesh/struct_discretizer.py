@@ -387,6 +387,49 @@ class StructDiscretizer:
 
         return cell_m, cell_p, tran, tran_thermal
 
+    def discretize_velocities(self, cell_m, cell_p, n_res_blocks):
+        # filter well connections
+        inds = np.where(np.logical_and(cell_m < n_res_blocks, cell_p < n_res_blocks))[0]
+        cell_m = cell_m[inds]
+        cell_p = cell_p[inds]
+
+        # find indices/directions of boundary cells - TODO
+
+        # approximate normals
+        dr = self.centroids_all_cells[cell_p] - self.centroids_all_cells[cell_m]
+        n = dr / np.linalg.norm(dr, axis=1)[:, np.newaxis]
+
+        # unique elements & and starting positions of each element
+        _, idx_start = np.unique(cell_m, return_index=True)
+
+        # group indices of elements with the same value (cell_m is already sorted)
+        res = np.split(np.arange(cell_m.size), idx_start[1:])
+
+        # form matrices for each cell
+        all_elements = []
+        offsets = [0]
+        current_offset = 0
+        for i in range(n_res_blocks):
+            A = n[res[i]]
+            A_T = A.T
+            A_TA = A_T @ A
+
+            # Use pseudoinverse if the matrix rank is less than the number of columns
+            if np.linalg.matrix_rank(A_TA) < A_TA.shape[0]:
+                least_squares = np.linalg.pinv(A_TA) @ A_T
+            else:
+                least_squares = np.linalg.inv(A_TA) @ A_T
+
+            # Flatten the matrix and add it to the all_elements array
+            flattened_matrix = least_squares.flatten()
+            all_elements.extend(flattened_matrix)
+
+            # Update the current offset and add it to the offsets array
+            current_offset += A.shape[0]
+            offsets.append(current_offset)
+
+        return np.array(all_elements), np.array(offsets, dtype=np.int32)
+
     def calc_cpg_discr(self):
         """
         Class methods which performs the actual construction of the connection list

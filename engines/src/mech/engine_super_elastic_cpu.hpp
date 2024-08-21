@@ -41,8 +41,6 @@ protected:
   /// @brief Pointer to discretizer required for the evaluation of stresses and velocities.
   DiscretizerType* discr;
 public:
-  // space dimension
-  const static uint8_t ND = 3;
   // number of components
   const static uint8_t NC_ = NC;
   // number of phases

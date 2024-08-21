@@ -781,6 +781,26 @@ class DartsModel:
             assert(len(well_head_conn_id) == 1)
             self.well_head_conn_id[well.name] = well_head_conn_id[0]
 
+    def reconstruct_velocities(self):
+        # velocity discretization
+        values, offset = self.reservoir.discretizer.discretize_velocities(cell_m=np.asarray(self.reservoir.mesh.block_m),
+                                                                            cell_p=np.asarray(self.reservoir.mesh.block_p),
+                                                                            n_res_blocks=self.reservoir.mesh.n_res_blocks)
+        self.reservoir.mesh.velocity_appr.resize(len(values))
+        self.reservoir.mesh.velocity_offset.resize(len(offset))
+
+        velocity_appr = np.asarray(self.reservoir.mesh.velocity_appr)
+        velocity_appr[:] = values
+        velocity_offset = np.asarray(self.reservoir.mesh.velocity_offset)
+        velocity_offset[:] = offset
+
+        # specify molar weights to get rid of molar density multiplier in flux terms
+        nc = self.physics.nc
+        self.physics.engine.molar_weights.resize(nc * len(self.physics.regions))
+        molar_weights = np.asarray(self.physics.engine.molar_weights)
+        for i, region in enumerate(self.physics.regions):
+            molar_weights[i * nc:(i + 1) * nc] = self.physics.property_containers[region].Mw
+
     # destructor to force to destroy all created C objects and free memory
     def __del__(self):
         for name in list(vars(self).keys()):

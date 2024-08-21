@@ -72,18 +72,29 @@ template <uint8_t NC, uint8_t NP, bool THERMAL>
 int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::vector<value_t> &X, csr_matrix_base *jacobian, std::vector<value_t> &RHS)
 {
   index_t n_blocks = mesh->n_blocks;
+  index_t n_res_blocks = mesh->n_res_blocks;
   index_t n_conns = mesh->n_conns;
-  std::vector<value_t> &tran = mesh->tran;
-  std::vector<value_t> &tranD = mesh->tranD;
-  std::vector<value_t> &hcap = mesh->heat_capacity;
-  std::vector<value_t> &kin_fac = mesh->kin_factor; // default value of 1
-  std::vector<value_t> &grav_coef = mesh->grav_coef;
+  const std::vector<value_t> &tran = mesh->tran;
+  const std::vector<value_t> &tranD = mesh->tranD;
+  const std::vector<value_t> &hcap = mesh->heat_capacity;
+  const std::vector<value_t> &kin_fac = mesh->kin_factor; // default value of 1
+  const std::vector<value_t> &grav_coef = mesh->grav_coef;
+  const std::vector<value_t> &velocity_appr = mesh->velocity_appr;
+  const std::vector<index_t> &velocity_offset = mesh->velocity_offset;
+  const std::vector<index_t> &op_num = mesh->op_num;
 
   value_t *Jac = jacobian->get_values();
   index_t *diag_ind = jacobian->get_diag_ind();
   index_t *rows = jacobian->get_rows_ptr();
   index_t *cols = jacobian->get_cols_ind();
   index_t *row_thread_starts = jacobian->get_row_thread_starts();
+
+  // for reconstruction of phase velocities
+  if (mesh->velocity_appr.size() && !darcy_velocities.size())
+    darcy_velocities.resize(n_res_blocks * NP * ND);
+  std::fill(darcy_velocities.begin(), darcy_velocities.end(), 0.0);
+  std::array<value_t, NP> phase_fluxes;
+  index_t cell_conn_idx, cell_conn_num;
 
   CFL_max = 0;
 
@@ -129,7 +140,7 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
         RHS[i * N_VARS + c] = PV[i] * (op_vals_arr[i * N_OPS + ACC_OP + c] - op_vals_arr_n[i * N_OPS + ACC_OP + c]); // acc operators only
 
         // Add reaction term to diagonal of reservoir cells (here the volume is pore volume or block volume):
-        if (i < mesh->n_res_blocks)
+        if (i < n_res_blocks)
           RHS[i * N_VARS + c] += (PV[i] + RV[i]) * dt * op_vals_arr[i * N_OPS + KIN_OP + c] * kin_fac[i]; // kinetics
 
         for (uint8_t v = 0; v < N_VARS; v++)
@@ -137,7 +148,7 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
           Jac[diag_idx + c * N_VARS + v] = PV[i] * op_ders_arr[(i * N_OPS + ACC_OP + c) * N_VARS + v]; // der of accumulation term
 
           // Include derivatives for reaction term if part of reservoir cells:
-          if (i < mesh->n_res_blocks)
+          if (i < n_res_blocks)
           {
             Jac[diag_idx + c * N_VARS + v] += (PV[i] + RV[i]) * dt * op_ders_arr[(i * N_OPS + KIN_OP + c) * N_VARS + v] * kin_fac[i]; // derivative kinetics
           }
@@ -153,6 +164,11 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
 
       jac_idx = N_VARS_SQ * csr_idx_start;
 
+      // for velocity reconstruction
+      if (i < n_res_blocks)
+        cell_conn_num = velocity_offset[i + 1] - velocity_offset[i];
+
+      cell_conn_idx = 0;
       for (index_t csr_idx = csr_idx_start; csr_idx < csr_idx_end; csr_idx++, jac_idx += N_VARS_SQ)
       { // fill offdiagonal part + contribute to diagonal
 
@@ -164,7 +180,7 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
         value_t trans_mult = 1;
         value_t trans_mult_der_i[N_VARS];
         value_t trans_mult_der_j[N_VARS];
-        if (params->trans_mult_exp > 0 && i < mesh->n_res_blocks && j < mesh->n_res_blocks)
+        if (params->trans_mult_exp > 0 && i < n_res_blocks && j < n_res_blocks)
         {
           // Calculate transmissibility multiplier:
           phi_i = op_vals_arr[i * N_OPS + PORO_OP];
@@ -193,7 +209,7 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
 
         p_diff = X[j * N_VARS + P_VAR] - X[i * N_VARS + P_VAR];
 
-        if (j >= mesh->n_res_blocks)
+        if (j >= n_res_blocks)
           connected_with_well = 1;
 
         // [2] fill offdiagonal part + contribute to diagonal, only fluid part is considered in energy equation
@@ -217,6 +233,8 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
             grav_pc_der_j[v] = -(op_ders_arr[(j * N_OPS + GRAV_OP + p) * N_VARS + v]) * grav_coef[conn_idx] / 2 + op_ders_arr[(j * N_OPS + PC_OP + p) * N_VARS + v];
           }
 
+          phase_fluxes[p] = 0.0;
+
           double phase_gamma_p_diff = trans_mult * tran[conn_idx] * dt * phase_p_diff;
 
           if (phase_p_diff < 0)
@@ -225,9 +243,12 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
             for (uint8_t c = 0; c < NE; c++)
             {
               value_t c_flux = trans_mult * tran[conn_idx] * dt * op_vals_arr[i * N_OPS + FLUX_OP + p * NE + c];
-
+              
               if (c < NC)
+              {
                 CFL_out[c] -= phase_p_diff * c_flux; // subtract negative value of flux
+                phase_fluxes[p] += op_vals_arr[i * N_OPS + FLUX_OP + p * NE + c] * molar_weights[NC * op_num[i] + c];
+              }
 
               RHS[i * N_VARS + c] -= phase_p_diff * c_flux; // flux operators only
               for (uint8_t v = 0; v < N_VARS; v++)
@@ -244,6 +265,8 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
                 }
               }
             }
+            if (phase_fluxes[p] != 0.0)
+              phase_fluxes[p] *= -trans_mult * tran[conn_idx] * phase_p_diff / op_vals_arr[i * N_OPS + GRAV_OP + p];
           }
           else
           {
@@ -253,7 +276,10 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
               value_t c_flux = trans_mult * tran[conn_idx] * dt * op_vals_arr[j * N_OPS + FLUX_OP + p * NE + c];
 
               if (c < NC)
+              {
                 CFL_in[c] += phase_p_diff * c_flux;
+                phase_fluxes[p] += op_vals_arr[j * N_OPS + FLUX_OP + p * NE + c] * molar_weights[NC * op_num[j] + c];
+              }
 
               RHS[i * N_VARS + c] -= phase_p_diff * c_flux; // flux operators only
               for (uint8_t v = 0; v < N_VARS; v++)
@@ -269,13 +295,14 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
                 }
               }
             }
+            if (phase_fluxes[p] != 0.0)
+              phase_fluxes[p] *= -trans_mult * tran[conn_idx] * phase_p_diff / op_vals_arr[j * N_OPS + GRAV_OP + p];
           }
-
         } // end of loop over number of phases for convective operator with gravity and capillarity
 
         // [3] Additional diffusion code here:   (phi_p * S_p) * (rho_p * D_cp * Delta_x_cp)  or (phi_p * S_p) * (kappa_p * Delta_T)
         // Only if block connection is between reservoir and reservoir cells!
-        if (i < mesh->n_res_blocks && j < mesh->n_res_blocks)
+        if (i < n_res_blocks && j < n_res_blocks)
         {
           // Add diffusion term to the residual:
           for (uint8_t c = 0; c < NE; c++)
@@ -301,6 +328,14 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
               }
             }
           }
+
+          // assemble velocities, dispersion is assembled in a separate loop as it requires multiple velocities
+          index_t vel_idx = ND * velocity_offset[i];
+          for (uint8_t p = 0; p < NP; p++)
+          {
+            for (uint8_t d = 0; d < ND; d++)
+              darcy_velocities[NP * ND * i + p * ND + d] += velocity_appr[vel_idx + d * cell_conn_num + cell_conn_idx] * phase_fluxes[p];
+          }
         }
 
         // [4] add rock conduction
@@ -324,6 +359,8 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
           }
         }
         conn_idx++;
+        if (j < n_res_blocks)
+          cell_conn_idx++;
       }
 
       // [5] finally add rock energy
@@ -339,7 +376,7 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
       }
 
       // calc CFL for reservoir cells, not connected with wells
-      if (i < mesh->n_res_blocks && !connected_with_well)
+      if (i < n_res_blocks && !connected_with_well)
       {
         for (uint8_t c = 0; c < NC; c++)
         {
