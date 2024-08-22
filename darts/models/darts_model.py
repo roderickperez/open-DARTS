@@ -795,6 +795,9 @@ class DartsModel:
         velocity_offset = np.asarray(self.reservoir.mesh.velocity_offset)
         velocity_offset[:] = offset
 
+        # resize storage for velocities inside engine
+        self.physics.engine.darcy_velocities.resize(self.reservoir.mesh.n_res_blocks * self.physics.nph * 3)
+
         # specify molar weights to get rid of molar density multiplier in flux terms
         nc = self.physics.nc
         self.physics.engine.molar_weights.resize(nc * len(self.physics.regions))
