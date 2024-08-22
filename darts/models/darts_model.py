@@ -785,6 +785,7 @@ class DartsModel:
         # velocity discretization
         values, offset = self.reservoir.discretizer.discretize_velocities(cell_m=np.asarray(self.reservoir.mesh.block_m),
                                                                             cell_p=np.asarray(self.reservoir.mesh.block_p),
+                                                                            geom_coef=np.asarray(self.reservoir.mesh.tranD),
                                                                             n_res_blocks=self.reservoir.mesh.n_res_blocks)
         self.reservoir.mesh.velocity_appr.resize(len(values))
         self.reservoir.mesh.velocity_offset.resize(len(offset))

@@ -387,7 +387,7 @@ class StructDiscretizer:
 
         return cell_m, cell_p, tran, tran_thermal
 
-    def discretize_velocities(self, cell_m, cell_p, n_res_blocks):
+    def discretize_velocities(self, cell_m, cell_p, geom_coef, n_res_blocks):
         # filter well connections
         inds = np.where(np.logical_and(cell_m < n_res_blocks, cell_p < n_res_blocks))[0]
         cell_m = cell_m[inds]
@@ -397,7 +397,7 @@ class StructDiscretizer:
 
         # approximate normals
         dr = self.centroids_all_cells[cell_p] - self.centroids_all_cells[cell_m]
-        n = dr / np.linalg.norm(dr, axis=1)[:, np.newaxis]
+        n = dr * geom_coef[:, np.newaxis]
 
         # unique elements & and starting positions of each element
         _, idx_start = np.unique(cell_m, return_index=True)
