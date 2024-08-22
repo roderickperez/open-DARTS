@@ -413,7 +413,7 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
     { // loop over grid blocks
 
       // index of diagonal block entry for block i in CSR values array
-      diag_idx = N_VARS_SQ * diag_ind[i];
+      index_t diag_idx = N_VARS_SQ * diag_ind[i];
       // index of first entry for block i in CSR cols array
       index_t csr_idx_start = rows[i];
       // index of last entry for block i in CSR cols array
@@ -421,11 +421,11 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
       // index of first entry for block i in connection array (has all entries of CSR except diagonals, ordering is identical)
       index_t conn_idx = csr_idx_start - i;
 
-      jac_idx = N_VARS_SQ * csr_idx_start;
+      index_t jac_idx = N_VARS_SQ * csr_idx_start;
 
       for (index_t csr_idx = csr_idx_start; csr_idx < csr_idx_end; csr_idx++, jac_idx += N_VARS_SQ)
       {
-        j = cols[csr_idx];
+        index_t j = cols[csr_idx];
 
         if (j < n_res_blocks)
         {
