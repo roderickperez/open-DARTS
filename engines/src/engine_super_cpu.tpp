@@ -449,14 +449,10 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
       {
         index_t j = cols[csr_idx];
 
-        p_diff = X[j * N_VARS + P_VAR] - X[i * N_VARS + P_VAR];
-
         if (j < n_res_blocks)
         {
           for (uint8_t p = 0; p < NP; p++)
           {
-            //value_t avg_density = (op_vals_arr[i * N_OPS + GRAV_OP + p] + op_vals_arr[j * N_OPS + GRAV_OP + p]) / 2;
-            //value_t phase_p_diff = p_diff + avg_density * grav_coef[conn_idx] - op_vals_arr[j * N_OPS + PC_OP + p] + op_vals_arr[i * N_OPS + PC_OP + p];
             value_t avg_enthalpy = (op_vals_arr[i * N_OPS + ENTH_OP + p] + op_vals_arr[j * N_OPS + ENTH_OP + p]) / 2.;
 
             // approximate facial velocity
