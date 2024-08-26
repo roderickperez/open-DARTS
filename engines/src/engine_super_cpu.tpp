@@ -328,6 +328,28 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
                 Jac[diag_idx + c * N_VARS + v] -= grad_con * dt * mesh->tranD[conn_idx] * mesh->poro[i] * op_ders_arr[(i * N_OPS + UPSAT_OP + p) * N_VARS + v] / 2;
                 Jac[jac_idx + c * N_VARS + v] -= grad_con * dt * mesh->tranD[conn_idx] * mesh->poro[j] * op_ders_arr[(j * N_OPS + UPSAT_OP + p) * N_VARS + v] / 2;
               }
+
+              // respective heat flux
+              if constexpr (THERMAL)
+              {
+                if (c < NC)
+                {
+                  value_t avg_enthalpy = (op_vals_arr[i * N_OPS + ENTH_OP + p] + op_vals_arr[j * N_OPS + ENTH_OP + p]) / 2.;
+                  RHS[i * N_VARS + NC] -= avg_enthalpy * diff_mob_ups_m * grad_con;
+
+                  for (uint8_t v = 0; v < N_VARS; v++)
+                  {
+                    Jac[diag_idx + NC * N_VARS + v] += avg_enthalpy * diff_mob_ups_m * op_ders_arr[(i * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
+                    Jac[jac_idx + NC * N_VARS + v] -= avg_enthalpy * diff_mob_ups_m * op_ders_arr[(j * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
+
+                    Jac[diag_idx + NC * N_VARS + v] -= avg_enthalpy * grad_con * dt * mesh->tranD[conn_idx] * mesh->poro[i] * op_ders_arr[(i * N_OPS + UPSAT_OP + p) * N_VARS + v] / 2;
+                    Jac[jac_idx + NC * N_VARS + v] -= avg_enthalpy * grad_con * dt * mesh->tranD[conn_idx] * mesh->poro[j] * op_ders_arr[(j * N_OPS + UPSAT_OP + p) * N_VARS + v] / 2;
+
+                    Jac[diag_idx + NC * N_VARS + v] -= op_ders_arr[(i * N_OPS + ENTH_OP + p) * N_VARS + v] * diff_mob_ups_m * grad_con / 2;
+                    Jac[jac_idx + NC * N_VARS + v] -= op_ders_arr[(j * N_OPS + ENTH_OP + p) * N_VARS + v] * diff_mob_ups_m * grad_con / 2;
+                  }
+                }
+              }
             }
           }
 
@@ -427,10 +449,16 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
       {
         index_t j = cols[csr_idx];
 
+        p_diff = X[j * N_VARS + P_VAR] - X[i * N_VARS + P_VAR];
+
         if (j < n_res_blocks)
         {
           for (uint8_t p = 0; p < NP; p++)
           {
+            //value_t avg_density = (op_vals_arr[i * N_OPS + GRAV_OP + p] + op_vals_arr[j * N_OPS + GRAV_OP + p]) / 2;
+            //value_t phase_p_diff = p_diff + avg_density * grav_coef[conn_idx] - op_vals_arr[j * N_OPS + PC_OP + p] + op_vals_arr[i * N_OPS + PC_OP + p];
+            value_t avg_enthalpy = (op_vals_arr[i * N_OPS + ENTH_OP + p] + op_vals_arr[j * N_OPS + ENTH_OP + p]) / 2.;
+
             // approximate facial velocity
             index_t vel_idx_i = ND * NP * i;
             index_t vel_idx_j = ND * NP * j;
@@ -455,6 +483,21 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
               {
                 Jac[diag_idx + c * N_VARS + v] += disp * op_ders_arr[(i * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
                 Jac[jac_idx + c * N_VARS + v] -= disp * op_ders_arr[(j * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
+              }
+
+              // respective heat fluxes
+              if constexpr (THERMAL)
+              {
+                RHS[i * N_VARS + NC] -= avg_enthalpy * disp * grad_con;
+
+                for (uint8_t v = 0; v < N_VARS; v++)
+                {
+                  Jac[diag_idx + NC * N_VARS + v] += avg_enthalpy * disp * op_ders_arr[(i * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
+                  Jac[jac_idx + NC * N_VARS + v] -= avg_enthalpy * disp * op_ders_arr[(j * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
+
+                  Jac[diag_idx + NC * N_VARS + v] -= op_ders_arr[(i * N_OPS + ENTH_OP + p) * N_VARS + v] * disp * grad_con / 2;
+                  Jac[jac_idx + NC * N_VARS + v] -= op_ders_arr[(j * N_OPS + ENTH_OP + p) * N_VARS + v] * disp * grad_con / 2;
+                }
               }
             }
           }

@@ -44,6 +44,9 @@ void pybind_operator_set_interpolator_super(py::module &m)
     // NP = 2: A =  6, B = 10 (th)
     ABPair<6, 10>,    // thermal problem, two phase
 
+    // NP = 2: A =  6, B = 12 (th)
+    ABPair<6, 12>,    // thermal problem, two phase
+
     // NP = 3: A =  8, B = 12 (th) ???
     ABPair<8, 13>,    // single phase thermal
 
