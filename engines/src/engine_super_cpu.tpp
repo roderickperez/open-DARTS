@@ -430,6 +430,7 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
   // dispersion
   if (velocity_appr.size() && dispersivity.size())
   {
+    value_t avg_dispersivity;
     std::array<value_t, ND> avg_velocity;
     for (index_t i = 0; i < n_res_blocks; ++i)
     { // loop over grid blocks
@@ -469,7 +470,13 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
               value_t vel_norm = sqrt(avg_velocity[0] * avg_velocity[0] +
                 avg_velocity[1] * avg_velocity[1] +
                 avg_velocity[2] * avg_velocity[2]);
-              value_t avg_dispersivity = (dispersivity[NP * NC * op_num[i] + p * NC + c] + dispersivity[NP * NC * op_num[j] + p * NC + c]) / 2.0;
+              
+              value_t sum_dispersivity = dispersivity[NP * NC * op_num[i] + p * NC + c] + dispersivity[NP * NC * op_num[j] + p * NC + c];
+              if (sum_dispersivity > 0.)
+                avg_dispersivity = dispersivity[NP * NC * op_num[i] + p * NC + c] * dispersivity[NP * NC * op_num[j] + p * NC + c] / sum_dispersivity;
+              else
+                avg_dispersivity = 0.0;
+              
               value_t disp = dt * avg_dispersivity * mesh->tranD[conn_idx] * vel_norm;
 
               RHS[i * N_VARS + c] -= disp * grad_con; // diffusion term
