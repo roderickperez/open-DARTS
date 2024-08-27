@@ -471,9 +471,9 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
                 avg_velocity[1] * avg_velocity[1] +
                 avg_velocity[2] * avg_velocity[2]);
               
-              value_t sum_dispersivity = dispersivity[NP * NC * op_num[i] + p * NC + c] + dispersivity[NP * NC * op_num[j] + p * NC + c];
-              if (sum_dispersivity > 0.)
-                avg_dispersivity = dispersivity[NP * NC * op_num[i] + p * NC + c] * dispersivity[NP * NC * op_num[j] + p * NC + c] / sum_dispersivity;
+              value_t arith_mean_dispersivity = (dispersivity[NP * NC * op_num[i] + p * NC + c] + dispersivity[NP * NC * op_num[j] + p * NC + c]) / 2.;
+              if (arith_mean_dispersivity > 0.)
+                avg_dispersivity = dispersivity[NP * NC * op_num[i] + p * NC + c] * dispersivity[NP * NC * op_num[j] + p * NC + c] / arith_mean_dispersivity;
               else
                 avg_dispersivity = 0.0;
               
