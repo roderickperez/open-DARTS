@@ -417,25 +417,17 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
       }
 
     } // end of loop over grid blocks
-#ifdef _OPENMP
-#pragma omp critical
-    {
-      if (CFL_max < CFL_max_local)
-        CFL_max = CFL_max_local;
-    }
-  } // end of omp parallel
-#else
-  CFL_max = CFL_max_local;
-#endif
 
   // dispersion
   if (velocity_appr.size() && dispersivity.size())
   {
     value_t avg_dispersivity;
     std::array<value_t, ND> avg_velocity;
-    for (index_t i = 0; i < n_res_blocks; ++i)
-    { // loop over grid blocks
 
+    for (index_t i = start; i < end; ++i)
+    { // loop over grid blocks
+      if (i > n_res_blocks) // skip wells
+        continue;
       // index of diagonal block entry for block i in CSR values array
       index_t diag_idx = N_VARS_SQ * diag_ind[i];
       // index of first entry for block i in CSR cols array
@@ -509,6 +501,18 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
       }
     }
   }
+
+#ifdef _OPENMP
+#pragma omp critical
+    {
+      if (CFL_max < CFL_max_local)
+        CFL_max = CFL_max_local;
+    }
+#else
+  CFL_max = CFL_max_local;
+#endif
+
+  } // end of omp parallel
 
   for (ms_well *w : wells)
   {
