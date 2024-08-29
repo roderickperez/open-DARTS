@@ -93,7 +93,6 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
   if (mesh->velocity_appr.size() && !darcy_velocities.size())
     darcy_velocities.resize(n_res_blocks * NP * ND);
   std::fill(darcy_velocities.begin(), darcy_velocities.end(), 0.0);
-  std::array<value_t, NP> phase_fluxes;
 
 
   CFL_max = 0;
@@ -118,6 +117,7 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
     value_t CFL_in[NC], CFL_out[NC];
     value_t CFL_max_local = 0;
     index_t cell_conn_idx, cell_conn_num;
+    std::array<value_t, NP> phase_fluxes;
 
     int connected_with_well;
 
