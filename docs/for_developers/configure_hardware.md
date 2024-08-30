@@ -22,10 +22,10 @@ If the number of threads requested `NT` is larger than the available you might g
 ## GPU
 
 Turn on GPU usage in calculation by adding the next lines at the start of the python script:
-Add `palatform='gpu'` at `set_physics` call, for example:
+Add `palatform='gpu'` at `init` call, for example:
 
 ```python
-super.set_physics(physics, platform='gpu')
+model.init(platform='gpu')
 ```
 
 If you would like to change the GPU device, add these lines to your model script:
