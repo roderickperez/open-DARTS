@@ -417,6 +417,16 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
         }
 
     } // end of loop over grid blocks
+#ifdef _OPENMP
+#pragma omp critical
+    {
+        if (CFL_max < CFL_max_local)
+            CFL_max = CFL_max_local;
+    }
+  } // end of omp parallel
+#else
+    CFL_max = CFL_max_local;
+#endif
 
   // dispersion
     if (velocity_appr.size() && dispersivity.size())
@@ -424,7 +434,7 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
         value_t avg_dispersivity;
         std::array<value_t, ND> avg_velocity;
 
-        for (index_t i = start; i < end; ++i)
+        for (index_t i = 0; i < n_res_blocks; ++i)
         { // loop over grid blocks
             if (i > n_res_blocks) // skip wells
                 continue;
@@ -501,17 +511,6 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
             }
         }
     }
-
-#ifdef _OPENMP
-#pragma omp critical
-    {
-        if (CFL_max < CFL_max_local)
-            CFL_max = CFL_max_local;
-    }
-  } // end of omp parallel
-#else
-  CFL_max = CFL_max_local;
-#endif
 
   for (ms_well *w : wells)
   {
