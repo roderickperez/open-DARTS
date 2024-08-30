@@ -22,7 +22,7 @@ If the number of threads requested `NT` is larger than the available you might g
 ## GPU
 
 Turn on GPU usage in calculation by adding the next lines at the start of the python script:
-Add `palatform='gpu'` at `init` call, for example:
+Add `platform='gpu'` at `init` call, for example:
 
 ```python
 model.init(platform='gpu')
