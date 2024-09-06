@@ -1,3 +1,9 @@
+# 1.1.4 [07-09-2024]
+- Generalize super engine physics for solid formulation[(See details)](https://gitlab.com/open-darts/open-darts/-/merge_requests/112)
+- Python 3.12 support
+- Recover the well control and constraints in case of switching between BHP and rate control
+- Fix local build script for Windows: don't turn off OpenMP if '-b' is specified
+
 # 1.1.3 [13-07-2024]
 - Support of H5 / xarray output
 - Default `*.h5` output of data required for the calculation of well rates.
