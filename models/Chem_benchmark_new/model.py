@@ -142,7 +142,7 @@ class Model(CICDModel):
 
         """Physical properties"""
         # Create property containers:
-        phases = ['gas', 'wat']
+        phases = ['gas', 'wat', 'sol']
         if self.combined_ions:
             components = ['CO2', 'Ions', 'H2O', 'CaCO3']
             Mw = [44.01, (40.078 + 60.008) / 2, 18.015, 100.086]
@@ -177,7 +177,8 @@ class Model(CICDModel):
             flash_ev = ConstantK(nc-1, [10, 1e-12, 1e-12, 1e-1], self.zero)
 
         density_ev = dict([('gas', DensityBasic(compr=1e-4, dens0=100)),
-                           ('wat', DensityBasic(compr=1e-6, dens0=1000))])
+                           ('wat', DensityBasic(compr=1e-6, dens0=1000)),
+                           ('sol', ConstFunc(2000.))])
         viscosity_ev = dict([('gas', ConstFunc(0.1)),
                              ('wat', ConstFunc(1))])
         rel_perm_ev = dict([('gas', PhaseRelPerm("gas")),
@@ -205,7 +206,7 @@ class Model(CICDModel):
 
         for i in range(3):
             property_container = ModelProperties(phases_name=phases, components_name=components, Mw=Mw,
-                                                 min_z=self.zero / 10, rock_comp=1e-7, solid_dens=[2000])
+                                                 nc_sol=1, np_sol=1, min_z=self.zero / 10, rock_comp=1e-7)
 
             property_container.flash_ev = flash_ev
             property_container.density_ev = density_ev
@@ -422,53 +423,16 @@ class Model(CICDModel):
 
 
 class ModelProperties(PropertyContainer):
-    def __init__(self, phases_name, components_name, Mw, min_z=1e-11, rock_comp=1e-6, solid_dens=None, temperature=1.):
+    def __init__(self, phases_name, components_name, Mw, nc_sol: int = 0, np_sol: int = 0,
+                 min_z=1e-11, rock_comp=1e-6, temperature=1.):
         # Call base class constructor
-        # Cm = 0
-        # super().__init__(phases_name, components_name, Mw, Cm, min_z, diff_coef, rock_comp, solid_dens)
-        if solid_dens is None:
-            solid_dens = []
-        super().__init__(phases_name, components_name, Mw, min_z=min_z,
-                         rock_comp=rock_comp, solid_dens=solid_dens, temperature=temperature)
-
-    def run_flash(self, pressure, temperature, zc):
-
-        nc_fl = self.nc - self.nm
-        norm = 1 - np.sum(zc[nc_fl:])
-
-        zc_r = zc[:nc_fl] / norm
-        self.flash_ev.evaluate(pressure, temperature, zc_r)
-        nu = self.flash_ev.getnu()
-        xr = self.flash_ev.getx()
-        V = nu[0]
-
-        if V <= 0:
-            V = 0
-            xr[1] = zc_r
-            xr[0] = np.zeros(nc_fl)
-            ph = [1]
-        elif V >= 1:
-            V = 1
-            xr[0] = zc_r
-            xr[1] = np.zeros(nc_fl)
-            ph = [0]
-        else:
-            ph = [0, 1]
-
-        for i in range(self.nc - 1):
-            for j in range(2):
-                self.x[j][i] = xr[j][i]
-
-        self.nu[0] = V
-        self.nu[1] = (1 - V)
-
-        return np.array(ph, dtype=np.intp)
+        super().__init__(phases_name, components_name, Mw, nc_sol=nc_sol, np_sol=np_sol,
+                         min_z=min_z, rock_comp=rock_comp, temperature=temperature)
 
     def evaluate_mass_source(self, pressure, temperature, zc):
         # Kinetic reaction
-        mass_source = np.zeros(self.nc)
         dm, _ = self.kinetic_rate_ev[0].evaluate(pressure, temperature, self.x, zc[-1])
-        mass_source += dm
+        self.mass_source += dm
 
         # Mass source
         if 1 in self.kinetic_rate_ev.keys():
@@ -476,15 +440,15 @@ class ModelProperties(PropertyContainer):
             if id == 0:
                 dens_m_pure = self.density_ev['gas'].evaluate(pressure, 0) / 44.01
                 dm, _ = self.kinetic_rate_ev[1].evaluate(dens_m_pure)
-                mass_source[id] -= dm
+                self.mass_source[id] -= dm
             elif id == 2:
                 dens_m_pure = self.density_ev['wat'].evaluate(pressure, 0) / 18.015
                 dm, _ = self.kinetic_rate_ev[1].evaluate(dens_m_pure)
-                mass_source[id] -= dm
+                self.mass_source[id] -= dm
         else:
             ''
 
-        return mass_source
+        return self.mass_source
 
 
 class MassSource:

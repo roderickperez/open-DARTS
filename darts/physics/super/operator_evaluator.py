@@ -5,10 +5,15 @@ from darts.physics.super.property_container import PropertyContainer
 
 
 class OperatorsSuper(OperatorsBase):
+    property: PropertyContainer
+
     def __init__(self, property_container: PropertyContainer, thermal: bool):
         super().__init__(property_container, thermal)  # Initialize base-class
 
         self.min_z = property_container.min_z
+        self.nc_fl = property_container.nc_fl
+        self.ns = property_container.ns
+        self.np_fl = property_container.np_fl
 
         # Operator order
         self.ACC_OP = 0  # accumulation operator - ne
@@ -32,11 +37,11 @@ class OperatorsSuper(OperatorsBase):
         print("STATE", state)
         print("ALPHA (accumulation)", values[self.ACC_OP:self.FLUX_OP])
         for j in range(self.nph):
-            idx0, idx1 = self.FLUX_OP + j * self.ne, self.FLUX_OP + (j+1) * self.ne
+            idx0, idx1 = self.FLUX_OP + j * self.ne, self.FLUX_OP + (j + 1) * self.ne
             print("BETA (flux) {}".format(j), values[idx0:idx1])
         print("GAMMA (diffusion)", values[self.UPSAT_OP:self.GRAD_OP])
         for j in range(self.nph):
-            idx0, idx1 = self.GRAD_OP + j * self.ne, self.GRAD_OP + (j+1) * self.ne
+            idx0, idx1 = self.GRAD_OP + j * self.ne, self.GRAD_OP + (j + 1) * self.ne
             print("CHI (diffusion) {}".format(j), values[idx0:idx1])
         print("DELTA (reaction)", values[self.KIN_OP:self.RE_INTER_OP])
         print("GRAVITY", values[self.GRAV_OP:self.PC_OP])
@@ -51,61 +56,71 @@ class ReservoirOperators(OperatorsSuper):
     def evaluate(self, state: value_vector, values: value_vector):
         """
         Class methods which evaluates the state operators for the element based physics
-        :param state: state variables [pres, comp_0, ..., comp_N-1]
+        :param state: state variables [pres, comp_0, ..., comp_N-1, temp]
         :param values: values of the operators (used for storing the operator values)
         :return: updated value for operators, stored in values
         """
         # Composition vector and pressure from state:
         vec_state_as_np = np.asarray(state)
         vec_values_as_np = np.asarray(values)
-        pressure = vec_state_as_np[0]
-
-        nm = self.property.nm
-        nc_fl = self.nc - nm
 
         vec_values_as_np[:] = 0
 
-        #  some arrays will be reused in thermal
-        self.ph, self.sat, self.x, rho, self.rho_m, self.mu, self.kr, pc, mass_source = self.property.evaluate(state)
+        # Evaluate isothermal properties at current state
+        self.property.evaluate(state)
+        self.compr = self.property.rock_compr_ev.evaluate(state[0])
 
-        self.compr = self.property.rock_compr_ev.evaluate(pressure)
-
-        density_tot = np.sum(self.sat * self.rho_m)
+        density_tot = np.sum(self.property.sat[:self.np_fl] * self.property.dens_m[:self.np_fl])
         zc = np.append(vec_state_as_np[1:self.nc], 1 - np.sum(vec_state_as_np[1:self.nc]))
-        phi = 1 - np.sum(zc[nc_fl:self.nc])
+        self.phi_s = np.sum(zc[self.nc_fl:])
+        self.phi_f = 1. - self.phi_s
 
         """ CONSTRUCT OPERATORS HERE """
 
         """ Alpha operator represents accumulation term """
-        vec_values_as_np[self.ACC_OP:self.ACC_OP + nc_fl] = self.compr * density_tot * zc[:nc_fl]
+        # fluid mass accumulation: c_r phi^T z_c* [-] rho_m^T [kmol/m3]
+        vec_values_as_np[self.ACC_OP:self.ACC_OP + self.nc_fl] = self.compr * density_tot * zc[:self.nc_fl]
 
         """ and alpha for mineral components """
-        vec_values_as_np[self.ACC_OP + nc_fl:self.ACC_OP + self.nc] = self.property.solid_dens * zc[nc_fl:self.nc]
+        vec_values_as_np[self.ACC_OP + self.nc_fl:self.ACC_OP + self.nc_fl + self.ns] = self.compr * \
+                self.property.dens_m[self.np_fl:self.np_fl + self.ns] * zc[self.nc_fl:self.nc_fl + self.ns]
 
         """ Beta operator represents flux term: """
-        for j in self.ph:
-            vec_values_as_np[self.FLUX_OP + j * self.ne:self.FLUX_OP + j * self.ne + nc_fl] = self.x[j][:nc_fl] * self.rho_m[j] * self.kr[j] / self.mu[j]
+        for j in self.property.ph:
+            # fluid convective mass flux: x_cj [-] rho_mj [kmol/m3] k_rj [-] / mu_j [cP ∝ bar.day] (kmol/m3.bar.day)
+            vec_values_as_np[self.FLUX_OP + j * self.ne:self.FLUX_OP + j * self.ne + self.nc_fl] = \
+                self.property.x[j][:self.nc_fl] * self.property.dens_m[j] * self.property.kr[j] / self.property.mu[j]
 
         """ Gamma operator for diffusion (same for thermal and isothermal) """
-        vec_values_as_np[self.UPSAT_OP + self.ph] = self.compr * self.sat[self.ph]
+        # fluid diffusive flux sat: c_r phi_f s_j (-)
+        vec_values_as_np[self.UPSAT_OP + self.property.ph] = self.compr * self.phi_f * self.property.sat[self.property.ph]
+        # solid diffusive flux sat: c_r z_s* (-)
+        vec_values_as_np[self.UPSAT_OP + self.np_fl:self.UPSAT_OP + self.np_fl + self.ns] = self.compr * zc[self.nc_fl:self.nc_fl + self.ns]
 
         """ Chi operator for diffusion """
-        for j in self.ph:
+        for j in self.property.ph:
             D = self.property.diffusion_ev[self.property.phases_name[j]].evaluate()
-            vec_values_as_np[self.GRAD_OP + j * self.ne:self.GRAD_OP + j * self.ne + nc_fl] = D[:nc_fl] * self.x[j][:nc_fl] * self.rho_m[j]
+            # fluid diffusive flux: D_cj [m2/day] x_cj [-] rho_mj [kmol/m3] (kmol/m.day)
+            vec_values_as_np[self.GRAD_OP + j * self.ne:self.GRAD_OP + j * self.ne + self.nc_fl] = D[:self.nc_fl] * \
+               self.property.x[j][:self.nc_fl] * self.property.dens_m[j]
 
         """ Delta operator for reaction """
-        vec_values_as_np[self.KIN_OP:self.KIN_OP + self.nc] = mass_source
+        # fluid/solid mass source: dt [day] n_c [kmol/m3.day] (kmol/m3)
+        vec_values_as_np[self.KIN_OP:self.KIN_OP + self.nc] = self.property.mass_source
+
 
         """ Gravity and Capillarity operators """
         # E3-> gravity
-        vec_values_as_np[self.GRAV_OP + self.ph] = rho[self.ph]
+        vec_values_as_np[self.GRAV_OP + self.property.ph] = self.property.dens[self.property.ph]
 
         # E4-> capillarity
-        vec_values_as_np[self.PC_OP + self.ph] = np.array(pc)[self.ph]
+        vec_values_as_np[self.PC_OP + self.property.ph] = self.property.pc[self.property.ph]
 
         # E5_> porosity
-        vec_values_as_np[self.PORO_OP] = phi
+        vec_values_as_np[self.PORO_OP] = self.phi_f
+
+        # E5_> fluid porosity
+        values[self.PORO_OP] = self.phi_f
 
         if self.thermal:
             self.evaluate_thermal(state, values)
@@ -115,26 +130,44 @@ class ReservoirOperators(OperatorsSuper):
         return 0
 
     def evaluate_thermal(self, state: value_vector, values: value_vector):
+        """
+        Method to evaluate operators for energy conservation equation
+
+        :param state: state variables [pres, comp_0, ..., comp_N-1, temp]
+        :param values: values of the operators (used for storing the operator values)
+        :return: updated value for operators, stored in values
+        """
         vec_state_as_np = np.asarray(state)
         vec_values_as_np = np.asarray(values)
         pressure = state[0]
         temperature = vec_state_as_np[-1]
 
+        # Evaluate thermal properties at current state
+        self.property.evaluate_thermal(state)
         rock_energy = self.property.rock_energy_ev.evaluate(temperature=temperature)
-        enthalpy, cond, energy_source = self.property.evaluate_thermal(state)
 
         """ Alpha operator represents accumulation term: """
-        vec_values_as_np[self.ACC_OP + self.nc] += self.compr * np.sum(self.sat[self.ph] * self.rho_m[self.ph] * enthalpy[self.ph])  # fluid enthalpy (kJ/m3)
+        # fluid enthalpy: s_j [-] rho_mj [kmol/m3] H_j [kJ/kmol] (kJ/m3)
+        vec_values_as_np[self.ACC_OP + self.nc] += self.compr * self.phi_f * \
+            np.sum(self.property.sat[self.property.ph] * self.property.dens_m[self.property.ph] * self.property.enthalpy[self.property.ph])  # fluid enthalpy (kJ/m3)
+        # solid enthalpy: s_j [-] rho_mj [kmol/m3] H_j [kJ/kmol] (kJ/m3)
+        vec_values_as_np[self.ACC_OP + self.nc] += self.compr * self.phi_s * \
+            np.sum(self.property.sat[self.np_fl:self.np_fl + self.ns] * self.property.dens_m[self.np_fl:self.np_fl + self.ns] * self.property.enthalpy[self.np_fl:self.np_fl + self.ns])
         vec_values_as_np[self.ACC_OP + self.nc] -= self.compr * 100 * pressure
 
         """ Beta operator represents flux term: """
-        vec_values_as_np[self.FLUX_OP + self.ph * self.ne + self.nc] = enthalpy[self.ph] * self.rho_m[self.ph] * self.kr[self.ph] / self.mu[self.ph]
+        # fluid convective energy flux: H_j [kJ/kmol] rho_mj [kmol/m3] k_rj [-] / mu_j [cP ∝ bar.day] (kJ/m3.bar.day)
+        vec_values_as_np[self.FLUX_OP + self.property.ph * self.ne + self.nc] = self.property.enthalpy[self.property.ph] * self.property.dens_m[self.property.ph] * \
+            self.property.kr[self.property.ph] / self.property.mu[self.property.ph]
+
 
         """ Chi operator for temperature in conduction """
-        vec_values_as_np[self.GRAD_OP + self.ph * self.ne + self.nc] = temperature * cond[self.ph]
+        # fluid/solid conductive flux: kappa_j [kJ/m.K.day] T [K] (kJ/m.day)
+        vec_values_as_np[self.GRAD_OP + self.property.ph * self.ne + self.nc] = temperature * self.property.cond[self.property.ph]
 
         """ Delta operator for reaction """
-        vec_values_as_np[self.KIN_OP + self.nc] = energy_source
+        # energy source: V [m3] dt [day] c_r phi^T Q [kJ/m3.days] (kJ/m3)
+        vec_values_as_np[self.KIN_OP + self.nc] = self.property.energy_source
 
         """ Additional energy operators """
         # E1-> rock internal energy
@@ -142,16 +175,14 @@ class ReservoirOperators(OperatorsSuper):
         # E2-> rock temperature
         vec_values_as_np[self.RE_TEMP_OP] = temperature
         # E3-> rock conduction
-        vec_values_as_np[self.ROCK_COND] = 1 / self.compr  # multiplied by rock cond inside engine
+        vec_values_as_np[self.ROCK_COND] = 1. / self.compr  # multiplied by rock cond inside engine
 
         return 0
 
-class MassFluxOperators(OperatorsBase):
+
+class MassFluxOperators(OperatorsSuper):
     def __init__(self, property_container: PropertyContainer, thermal: bool):
         super().__init__(property_container, thermal)  # Initialize base-class
-
-        nm = self.property.nm
-        self.nc_fl = self.nc - nm
 
         self.n_ops = self.nph * self.nc_fl
 
@@ -159,12 +190,13 @@ class MassFluxOperators(OperatorsBase):
         for i in range(self.n_ops):
             values[i] = 0
 
-        _, _, x, rho, _, mu, kr, _, _ = self.property.evaluate(state)
+        self.property.evaluate(state)
 
         """ Beta operator here represents mass flux term: """
         for j in range(self.nph):
             for i in range(self.nc_fl):
-                values[self.nc_fl * j + i] = x[j][i] * rho[j] * kr[j] / mu[j]
+                values[self.nc_fl * j + i] = self.property.x[j][i] * self.property.dens[j] * kr[j] / mu[j]
+
 
 class GeomechanicsReservoirOperators(ReservoirOperators):
     def evaluate(self, state, values):
@@ -202,34 +234,35 @@ class WellOperators(OperatorsSuper):
         vec_state_as_np = np.asarray(state)
         pressure = vec_state_as_np[0]
 
-        nm = self.property.nm
-        nc_fl = self.nc - nm
-
         for i in range(self.n_ops):
             values[i] = 0
 
-        ph, sat, x, rho, rho_m, mu, kr, pc, mass_source = self.property.evaluate(state)
+        self.property.evaluate(state)
 
         self.compr = self.property.rock_compr_ev.evaluate(pressure)
 
-        density_tot = np.sum(sat * rho_m)
+        density_tot = np.sum(self.property.sat[:self.np_fl] * self.property.dens_m[:self.np_fl])
         zc = np.append(vec_state_as_np[1:self.nc], 1 - np.sum(vec_state_as_np[1:self.nc]))
-        phi = 1
+        self.phi_f = 1.
 
         """ CONSTRUCT OPERATORS HERE """
 
         """ Alpha operator represents accumulation term """
-        for i in range(nc_fl):
+        for i in range(self.nc_fl):
+            # fluid mass accumulation: c_r phi^T z_c* [-] rho_m^T [kmol/m3]
             values[self.ACC_OP + i] = self.compr * density_tot * zc[i]
 
-        """ and alpha for mineral components """
-        for i in range(nm):
-            values[self.ACC_OP + nc_fl + i] = self.property.solid_dens[i] * zc[nc_fl + i]
+        """ and alpha for solid components """
+        for i in range(self.ns):
+            # solid mass accumulation: c_r phi^T z_s* [-] rho_ms [kmol/m3]
+            values[self.ACC_OP + self.nc_fl + i] = self.compr * self.property.dens_m[self.np_fl + i] * zc[self.nc_fl + i]
 
         """ Beta operator represents flux term: """
-        for j in ph:
-            for i in range(self.nc):
-                values[self.FLUX_OP + j * self.ne + i] = x[j][i] * rho_m[j] * kr[j] / mu[j]
+        for j in self.property.ph:
+            for i in range(self.nc_fl):
+                # fluid convective mass flux: x_cj [-] rho_mj [kmol/m3] k_rj [-] / mu_j [cP ∝ bar.day] (kmol/m3.bar.day)
+                values[self.FLUX_OP + j * self.ne + i] = (self.property.x[j][i] * self.property.dens_m[j] *
+                                                          self.property.kr[j] / self.property.mu[j])
 
         """ Gamma operator for diffusion (same for thermal and isothermal) """
 
@@ -237,15 +270,16 @@ class WellOperators(OperatorsSuper):
 
         """ Delta operator for reaction """
         for i in range(self.nc):
-            values[self.KIN_OP + i] = mass_source[i]
+            # fluid/solid mass source: dt [day] n_c [kmol/m3.day] (kmol/m3)
+            values[self.KIN_OP + i] = self.property.mass_source[i]
 
         """ Gravity and Capillarity operators """
         # E3-> gravity
-        for j in range(self.nph):
-            values[self.GRAV_OP + j] = rho[j]
+        for j in range(self.np_fl):
+            values[self.GRAV_OP + j] = self.property.dens[j]
 
         # E5_> porosity
-        values[self.PORO_OP] = phi
+        values[self.PORO_OP] = 1.
 
         if self.thermal:
             self.evaluate_thermal(state, values)
@@ -267,9 +301,9 @@ class SinglePhaseGeomechanicsOperators(OperatorsBase):
         :return: updated value for operators, stored in values
         """
 
-        _, _, _, rho, _, self.mu, _, _, _ = self.property.evaluate(state)
-        values[0] = rho[0]
-        values[1] = rho[0] / self.mu[0]
+        self.property.evaluate(state)
+        values[0] = self.property.dens[0]
+        values[1] = self.property.dens[0] / self.property.mu[0]
 
         return 0
 
@@ -279,7 +313,9 @@ class RateOperators(operator_set_evaluator_iface):
         super().__init__()
 
         self.nc = property_container.nc
+        self.nc_fl = property_container.nc_fl
         self.nph = property_container.nph
+        self.np_fl = property_container.np_fl
         self.n_ops = property_container.nph
 
         self.property = property_container
@@ -294,26 +330,26 @@ class RateOperators(operator_set_evaluator_iface):
         for i in range(self.n_ops):
             values[i] = 0
 
-        ph, sat, x, rho, rho_m, mu, kr, pc, mass_source = self.property.evaluate(state)
+        self.property.evaluate(state)
 
-        flux = np.zeros(self.nc)
+        flux = np.zeros(self.nc_fl)
         # step-1
-        for j in ph:
-            for i in range(self.nc):
-                flux[i] += rho_m[j] * kr[j] * x[j][i] / mu[j]
+        for j in self.property.ph:
+            for i in range(self.nc_fl):
+                flux[i] += self.property.dens_m[j] * self.property.kr[j] * self.property.x[j][i] / self.property.mu[j]
         # step-2
         flux_sum = np.sum(flux)
 
-        #(sat_sc, rho_m_sc) = self.property.evaluate_at_cond(1, self.flux/flux_sum)
-        sat_sc = sat
-        rho_m_sc = rho_m
+        # (sat_sc, dens_m_sc) = self.property.evaluate_at_cond(1, self.flux/flux_sum)
+        sat_sc = self.property.sat[:self.np_fl]
+        dens_m_sc = self.property.dens_m[:self.np_fl]
 
         # step-3
-        total_density = np.sum(sat_sc * rho_m_sc)
+        total_density = np.sum(sat_sc * dens_m_sc)
         # step-4
-        for j in ph:
-            values[j] = rho_m[j] * kr[j] / mu[j]
-            #sat_sc[j] * flux_sum / total_density
+        for j in self.property.ph:
+            values[j] = self.property.dens_m[j] * self.property.kr[j] / self.property.mu[j]
+            # sat_sc[j] * flux_sum / total_density
 
         # print(state, values)
         return 0

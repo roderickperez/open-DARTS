@@ -807,7 +807,7 @@ engine_base::prepare_dj_dx(vec_3d q, vec_3d q_inj,
 	std::vector<std::vector<value_t>>  q_Q;
 	std::vector<value_t> rate_diff;
 	q_Q.clear();
-	index_t ww = 0;
+	index_t ww = 0, idx_well = 0;
 
 
     if (objfun_prod_phase_rate)
@@ -979,13 +979,24 @@ engine_base::prepare_dj_dx(vec_3d q, vec_3d q_inj,
         ms_well* w;
         for (std::string well_ : prod_well_name)
         {
-            for (ms_well* well : wells)
-            {
-                if (well->name == well_)
-                {
-                    w = well;
-                }
-            }
+            //for (ms_well* well : wells)
+            //{
+            //    if (well->name == well_)
+            //    {
+            //        w = well;
+            //    }
+            //}
+
+			// recover the well definition from forward simulation, e.g. control and constraints
+			idx_well = 0;
+			for (ms_well* well : wells)
+			{
+				if (well->name == well_)
+				{
+					w = &(well_control_arr[idx_sim_ts][idx_well]);
+				}
+				idx_well++;
+			}
 
             // find upstream state
             value_t p_diff = X[w->well_head_idx * w->n_block_size + w->P_VAR] - X[w->well_body_idx * w->n_block_size + w->P_VAR];
@@ -1076,13 +1087,24 @@ engine_base::prepare_dj_dx(vec_3d q, vec_3d q_inj,
         ms_well* w;
         for (std::string well_ : inj_well_name)
         {
-            for (ms_well* well : wells)
-            {
-                if (well->name == well_)
-                {
-                    w = well;
-                }
-            }
+            //for (ms_well* well : wells)
+            //{
+            //    if (well->name == well_)
+            //    {
+            //        w = well;
+            //    }
+            //}
+
+			// recover the well definition from forward simulation, e.g. control and constraints
+			idx_well = 0;
+			for (ms_well* well : wells)
+			{
+				if (well->name == well_)
+				{
+					w = &(well_control_arr[idx_sim_ts][idx_well]);
+				}
+				idx_well++;
+			}
 
 			// find upstream state
 			value_t p_diff = X[w->well_head_idx * w->n_block_size + w->P_VAR] - X[w->well_body_idx * w->n_block_size + w->P_VAR];
@@ -1166,13 +1188,24 @@ engine_base::prepare_dj_dx(vec_3d q, vec_3d q_inj,
         ms_well* w;
 		for (std::string well_ : BHP_well_name)
 		{
-            for (ms_well* well : wells)
-            {
-                if (well->name == well_)
-                {
-                    w = well;
-                }
-            }
+            //for (ms_well* well : wells)
+            //{
+            //    if (well->name == well_)
+            //    {
+            //        w = well;
+            //    }
+            //}
+
+			// recover the well definition from forward simulation, e.g. control and constraints
+			idx_well = 0;
+			for (ms_well* well : wells)
+			{
+				if (well->name == well_)
+				{
+					w = &(well_control_arr[idx_sim_ts][idx_well]);
+				}
+				idx_well++;
+			}
 
             // adding minus sign on "bhp_BHP" to move Temp_dj_dx to the right hand side of eq.(18) and eq.(19), Tian et al. 2015  https://doi.org/10.1016/j.petrol.2021.109911
 			// corresponding to ms_well::check_constraints
