@@ -18,9 +18,9 @@ accepted_dirs = ['2ph_comp', '2ph_comp_solid', '2ph_do', '2ph_do_thermal',
                  'CoaxWell'
                  ]
 
-test_dirs = ['1ph_1comp_poroelastic_analytics', '1ph_1comp_poroelastic_convergence']
+test_dirs_mech = ['1ph_1comp_poroelastic_analytics', '1ph_1comp_poroelastic_convergence']
 
-test_args = []
+test_args_mech = []
 for case in ['terzaghi', 'mandel', 'terzaghi_two_layers', 'bai']:
     for discr_name in ['mech_discretizer', 'pm_discretizer']:
         if case == 'bai' and discr_name == 'pm_discretizer':
@@ -28,8 +28,8 @@ for case in ['terzaghi', 'mandel', 'terzaghi_two_layers', 'bai']:
         for mesh in ['rect', 'wedge', 'hex']:
             if case == 'terzaghi_two_layers' and mesh == 'hex':
                 continue
-            test_args.append([case, discr_name, mesh])
-test_args = [test_args, [['']]]
+            test_args_mech.append([case, discr_name, mesh])
+test_args_mech = [test_args_mech, [['']]]
 
 accepted_dirs_adjoint = ['Adjoint_super_engine', 'Adjoint_mpfa']  # for adjoint test
 
@@ -118,19 +118,21 @@ if __name__ == '__main__':
 
     # discretizer tests
     n_total_discr = n_failed_discr = 0
-    n_total_discr, n_failed_discr = run_tests(model_dir, test_dirs=['cpg_sloping_fault'], test_args=[[['40'],['43']]], overwrite=overwrite)
+    test_args_cpg = [[['40'],['43'],['40_actnum'],['generate_5x3x4'],['generate_51x51x1']]]
+    n_total_discr, n_failed_discr = run_tests(model_dir, test_dirs=['cpg_sloping_fault'], test_args=test_args_cpg, overwrite=overwrite)
     n_failed += n_failed_discr
     n_total += n_total_discr
 
     # fracture network tests
     n_total_dfn = n_failed_dfn = 0
-    n_total_dfn, n_failed_dfn = run_tests(model_dir, test_dirs=['fracture_network'], test_args=[[['case_1']]], overwrite=overwrite)
+    test_args_dfn = [[['case_1']]]
+    n_total_dfn, n_failed_dfn = run_tests(model_dir, test_dirs=['fracture_network'], test_args=test_args_dfn, overwrite=overwrite)
     n_failed += n_failed_dfn
     n_total += n_total_dfn
 
     # poromechanic tests
     n_total_mech = n_failed_mech = 0
-    n_total_mech, n_failed_mech = run_tests(model_dir, test_dirs, test_args, overwrite)
+    n_total_mech, n_failed_mech = run_tests(model_dir, test_dirs_mech, test_args_mech, overwrite)
     n_failed += n_failed_mech
     n_total += n_total_mech
 

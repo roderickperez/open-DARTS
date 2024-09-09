@@ -30,29 +30,35 @@ def get_case_files(case: str):
 
 #####################################################
 class Model(CICDModel):
-    def __init__(self, discr_type='cpp', case='generate', n_points=100):
+    def __init__(self, discr_type='cpp', case='generate', grid_out_dir=None, n_points=100):
         super().__init__()
         self.n_points = n_points
         self.discr_type = discr_type
-        self.generate_grid = case == 'generate'
+        self.case = case
+        self.generate_grid = 'generate' in case
 
         if self.generate_grid:
-            self.nx = 51
-            self.ny = 51
-            self.nz = 1
-            self.dx = 4000. / self.nx
-            self.dy = self.dx
-            self.dz = 100. / self.nz
+            if case == 'generate_51x51x1':
+                self.nx = 51
+                self.ny = 51
+                self.nz = 1
+                self.dx = 4000. / self.nx
+                self.dy = self.dx
+                self.dz = 100. / self.nz
+                self.start_z = 2000  # top reservoir depth
+            elif case == 'generate_5x3x4':
+                self.nx = 5
+                self.ny = 3
+                self.nz = 4
+                self.start_z = 0  # top reservoir depth
+                # non-uniform layers thickness
+                self.dx = np.array([500, 200, 100, 300, 500])
+                self.dy = np.array([1000, 700, 300])
+                self.dz = np.array([100, 150, 180, 120])
             poro = 0.2
             permx = 100
             permy = 100
             permz = 10
-            start_z = 2000  # top reservoir depth
-            depth_1d = start_z + (0.5 + np.arange(self.nz)) * self.dz
-            # make 3d depth array
-            depth = np.array([])
-            for d in depth_1d:
-                depth = np.append(depth, np.zeros(self.nx * self.ny) + d)
         else:  # read from files
             gridfile, propfile, sch_fname = get_case_files(case)
             self.gridfile = gridfile
@@ -64,10 +70,15 @@ class Model(CICDModel):
 
         if discr_type == 'cpp':
             if self.generate_grid:
-                gridname = None; propname = None
-                #gridname = 'grid.grdecl'; propname = 'reservoir.in'  # uncomment if want to save generated grid to grdecl files
+                if grid_out_dir is None:
+                    gridname = None
+                    propname = None
+                else:  # save generated grid to grdecl files
+                    os.makedirs(grid_out_dir, exist_ok=True)
+                    gridname = os.path.join(grid_out_dir, 'grid.grdecl')
+                    propname = os.path.join(grid_out_dir, 'reservoir.in')
                 arrays = gen_cpg_grid(nx=self.nx, ny=self.ny, nz=self.nz,
-                                      dx=self.dx, dy=self.dy, dz=self.dz, start_z=start_z,
+                                      dx=self.dx, dy=self.dy, dz=self.dz, start_z=self.start_z,
                                       permx=permx, permy=permy, permz=permz, poro=poro,
                                       gridname=gridname, propname=propname)
             else:
@@ -82,12 +93,11 @@ class Model(CICDModel):
             self.reservoir.hcap[:] = hcap
             self.reservoir.conduction[:] = rcond
         elif discr_type == 'python':
-            if case == 'generate':
+            if self.generate_grid:
                 self.reservoir = StructReservoir(self.timer, nx=self.nx, ny=self.ny, nz=self.nz,
-                                                 dx=self.dx, dy=self.dy, dz=self.dz,
+                                                 dx=self.dx, dy=self.dy, dz=self.dz, start_z=self.start_z, depth=None,
                                                  permx=permx, permy=permy, permz=permz, poro=poro,
-                                                 hcap=hcap, rcond=rcond,
-                                                 depth=depth)
+                                                 hcap=hcap, rcond=rcond)
             else:
                 self.set_reservoir()
 
@@ -159,13 +169,17 @@ class Model(CICDModel):
         if not self.generate_grid:
             self.read_and_add_perforations(self.reservoir, sch_fname=self.sch_fname, verbose=True)
         else:
-            i1, j1 = self.nx//2 - int(500//self.dx), self.ny//2  # # I = 0.5 km to the left from the center
+            if self.case == 'generate_51x51x1':
+                i1, j1 = self.nx//2 - int(500//self.dx), self.ny//2  # I = 0.5 km to the left from the center
+                i2, j2 = self.nx//2 + int(500//self.dx), self.ny//2  # I = 0.5 km to the right from the center
+            elif self.case == 'generate_5x3x4':
+                i1, j1 = 1, 1
+                i2, j2 = 5, 3
+
             self.reservoir.add_well('PRD')
             for k in range(1, self.reservoir.nz+1):
                 self.reservoir.add_perforation('PRD', cell_index=(i1, j1, k), well_index=None, multi_segment=False,
                                                verbose=True)
-
-            i2, j2 = self.nx//2 + int(500//self.dx), self.ny//2  # I = 0.5 km to the right from the center
             self.reservoir.add_well('INJ')
             for k in range(1, self.reservoir.nz+1):
                 self.reservoir.add_perforation('INJ', cell_index=(i2, j2, k), well_index=None, multi_segment=False,
