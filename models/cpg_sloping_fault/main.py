@@ -124,6 +124,8 @@ def test(case: str):
 def check_performance_local(m, case, discr_type):
     import platform
 
+    os.makedirs('ref', exist_ok=True)
+
     pkl_suffix = ''
     if os.getenv('ODLS') != None and os.getenv('ODLS') == '0':
         pkl_suffix = '_iter'
