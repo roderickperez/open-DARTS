@@ -72,8 +72,8 @@ def test(case: str):
     export_vtk = True
 
     #discr_types_list = ['cpg']  # cpg reservoir
-    discr_types_list = ['struct']  # struct reservoir
-    #discr_types_list = ['cpg', 'struct']  # both
+    #discr_types_list = ['struct']  # struct reservoir
+    discr_types_list = ['cpg', 'struct']  # both
 
     # test grids
     #cases_list = [43] # 10x10x10 sloping fault
