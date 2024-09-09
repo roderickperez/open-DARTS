@@ -10,7 +10,7 @@ import os
 def run(discr_type : str, case: str, out_dir: str, dt : float, n_time_steps : int, export_vtk=False):
     print('Test started', 'discr_type:', discr_type, 'case:', case)
     redirect_darts_output(os.path.join(out_dir, 'run.log'))
-    m = Model(discr_type=discr_type, case=case)
+    m = Model(discr_type=discr_type, case=case, grid_out_dir=out_dir)
 
     m.init(output_folder=out_dir)
     m.save_data_to_h5(kind = 'solution')
@@ -120,6 +120,6 @@ def test(case: str):
     return 0, 0.0
 
 if __name__ == '__main__':
-    cases_list = ['generate', '40', '43', '40_actnum']
+    cases_list = ['generate_5x3x4', 'generate_51x51x1', '40', '43', '40_actnum']
     for case in cases_list:
         test(case)
