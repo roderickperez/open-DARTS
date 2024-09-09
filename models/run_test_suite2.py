@@ -19,7 +19,6 @@ accepted_dirs = ['2ph_comp', '2ph_comp_solid', '2ph_do', '2ph_do_thermal',
                  ]
 
 test_dirs_mech = ['1ph_1comp_poroelastic_analytics', '1ph_1comp_poroelastic_convergence']
-
 test_args_mech = []
 for case in ['terzaghi', 'mandel', 'terzaghi_two_layers', 'bai']:
     for discr_name in ['mech_discretizer', 'pm_discretizer']:
@@ -29,7 +28,14 @@ for case in ['terzaghi', 'mandel', 'terzaghi_two_layers', 'bai']:
             if case == 'terzaghi_two_layers' and mesh == 'hex':
                 continue
             test_args_mech.append([case, discr_name, mesh])
-test_args_mech = [test_args_mech, [['']]]
+test_args_mech = [test_args_mech, [['']]]  # no args for the convergence test
+
+test_dirs_cpg = ['cpg_sloping_fault']
+test_args_cpg = []
+for case in ['case_40', 'case_43', 'case_40_actnum', 'generate_5x3x4', 'generate_51x51x1']:
+    for physics_type in ['geothermal', 'dead_oil']:
+        test_args_cpg.append([case, physics_type])
+test_args_cpg = [test_args_cpg]
 
 accepted_dirs_adjoint = ['Adjoint_super_engine', 'Adjoint_mpfa']  # for adjoint test
 
@@ -118,8 +124,7 @@ if __name__ == '__main__':
 
     # discretizer tests
     n_total_discr = n_failed_discr = 0
-    test_args_cpg = [[['40'],['43'],['40_actnum'],['generate_5x3x4'],['generate_51x51x1']]]
-    n_total_discr, n_failed_discr = run_tests(model_dir, test_dirs=['cpg_sloping_fault'], test_args=test_args_cpg, overwrite=overwrite)
+    n_total_discr, n_failed_discr = run_tests(model_dir, test_dirs=test_dirs_cpg, test_args=test_args_cpg, overwrite=overwrite)
     n_failed += n_failed_discr
     n_total += n_total_discr
 
