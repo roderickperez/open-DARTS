@@ -50,7 +50,7 @@ class Model(CICDModel):
                 self.nx = 5
                 self.ny = 3
                 self.nz = 4
-                self.start_z = 0  # top reservoir depth
+                self.start_z = 1000  # top reservoir depth
                 # non-uniform layers thickness
                 self.dx = np.array([500, 200, 100, 300, 500])
                 self.dy = np.array([1000, 700, 300])
@@ -68,7 +68,7 @@ class Model(CICDModel):
         hcap = 2200
         rcond = 181.44
 
-        if discr_type == 'cpp':
+        if discr_type == 'cpg':
             if self.generate_grid:
                 if grid_out_dir is None:
                     gridname = None
@@ -92,7 +92,7 @@ class Model(CICDModel):
             self.reservoir.discretize()
             self.reservoir.hcap[:] = hcap
             self.reservoir.conduction[:] = rcond
-        elif discr_type == 'python':
+        elif discr_type == 'struct':
             if self.generate_grid:
                 self.reservoir = StructReservoir(self.timer, nx=self.nx, ny=self.ny, nz=self.nz,
                                                  dx=self.dx, dy=self.dy, dz=self.dz, start_z=self.start_z, depth=None,

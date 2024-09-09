@@ -52,7 +52,9 @@ def run(discr_type : str, case: str, out_dir: str, dt : float, n_time_steps : in
     time_data_report.to_excel(writer, sheet_name='time_data_report')
     writer.close()
 
-    return time_data_report
+    failed, sim_time = check_performance_local(m, case, discr_type)
+
+    return failed, sim_time, time_data_report
 
 #####################################################
 
@@ -69,9 +71,9 @@ def test(case: str):
 
     export_vtk = True
 
-    #discr_types_list = ['cpp']  # cpg reservoir
-    #discr_types_list = ['python']  # struct reservoir
-    discr_types_list = ['cpp', 'python']  # both
+    #discr_types_list = ['cpg']  # cpg reservoir
+    discr_types_list = ['struct']  # struct reservoir
+    #discr_types_list = ['cpg', 'struct']  # both
 
     # test grids
     #cases_list = [43] # 10x10x10 sloping fault
@@ -96,7 +98,7 @@ def test(case: str):
         for discr_type in discr_types_list:
             start = time.perf_counter()
             out_dir = discr_type + '_results_' + case
-            results[discr_type] = run(case=case, discr_type=discr_type, out_dir=out_dir, dt=dt, n_time_steps=n_time_steps,
+            failed, sim_time, results[discr_type] = run(case=case, discr_type=discr_type, out_dir=out_dir, dt=dt, n_time_steps=n_time_steps,
                                       export_vtk=export_vtk)
             end = time.perf_counter()
     elif mode == 'compare':
@@ -117,7 +119,32 @@ def test(case: str):
     plt.savefig(os.path.join(out_dir, 'well_temperature_' + case + '.png'))
     plt.close()
 
-    return 0, 0.0
+    return failed, sim_time
+
+def check_performance_local(m, case, discr_type):
+    import platform
+
+    pkl_suffix = ''
+    if os.getenv('ODLS') != None and os.getenv('ODLS') == '0':
+        pkl_suffix = '_iter'
+    file_name = os.path.join('ref', 'perf_' + platform.system().lower()[:3] + pkl_suffix +
+                             '_' + case + '_' + discr_type + '.pkl')
+    overwrite = 0
+    if os.getenv('UPLOAD_PKL') == '1':
+        overwrite = 1
+
+    is_plk_exist = os.path.isfile(file_name)
+
+    failed = m.check_performance(perf_file=file_name, overwrite=overwrite, pkl_suffix=pkl_suffix)
+
+    if not is_plk_exist or overwrite == '1':
+        m.save_performance_data(file_name=file_name, pkl_suffix=pkl_suffix)
+        return False, 0.0
+
+    if is_plk_exist:
+        return (failed > 0), -1.0 #data[-1]['simulation time']
+    else:
+        return False, -1.0
 
 if __name__ == '__main__':
     cases_list = ['generate_5x3x4', 'generate_51x51x1', '40', '43', '40_actnum']
