@@ -130,11 +130,11 @@ class StructDiscretizer:
             self.len_cell_zdir = self.convert_to_3d_array(dz, 'dz')
             self.volume = self.len_cell_xdir * self.len_cell_ydir * self.len_cell_zdir
 
-            self.centroids_all_cells = np.zeros((self.nx, self.ny, self.nz, 3)) # 3 - for x,y,z coordinates
+            self.centroids_all_cells = np.zeros((self.nz, self.ny, self.nx, 3)) # 3 - for x,y,z coordinates
             # fill z-coordinates using DZ
-            self.centroids_all_cells[:, :, 0, 2] = start_z + self.len_cell_zdir[:, :, 0] * 0.5  # nx*ny array of current layer's depths
+            self.centroids_all_cells[0, :, :, 2] = start_z + self.len_cell_zdir[:, :, 0] * 0.5  # nx*ny array of current layer's depths
             d_cumsum = self.len_cell_zdir.cumsum(axis=2)
-            self.centroids_all_cells[:, :, 1:, 2] = (d_cumsum[:, :, :-1] + d_cumsum[:, :, 1:]) * 0.5
+            self.centroids_all_cells[1:, :, :, 2] = (d_cumsum[:, :, :-1] + d_cumsum[:, :, 1:]) * 0.5
 
             # fill y-coordinates using DY
             self.centroids_all_cells[:, 0, :, 1] = self.len_cell_ydir[:, 0, :] * 0.5  # nx*nz array
@@ -142,9 +142,9 @@ class StructDiscretizer:
             self.centroids_all_cells[:, 1:, :, 1] = (d_cumsum[:, :-1, :] + d_cumsum[:, 1:, :]) * 0.5
 
             # fill x-coordinates using DX
-            self.centroids_all_cells[0, :, :, 0] = self.len_cell_xdir[0, :, :] * 0.5  # ny*nz array
+            self.centroids_all_cells[:, :, 0, 0] = self.len_cell_xdir[0, :, :] * 0.5  # ny*nz array
             d_cumsum = self.len_cell_xdir.cumsum(axis=0)
-            self.centroids_all_cells[1:, :, :, 0] = (d_cumsum[:-1, :, :] + d_cumsum[1:, :, :]) * 0.5
+            self.centroids_all_cells[:, :, 1:, 0] = (d_cumsum[:-1, :, :] + d_cumsum[1:, :, :]) * 0.5
 
         self.perm_x_cell = self.convert_to_3d_array(permx, 'permx')
         self.perm_y_cell = self.convert_to_3d_array(permy, 'permy')
