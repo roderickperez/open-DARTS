@@ -42,7 +42,7 @@ def check_performance_local(m, case):
     os.makedirs('ref', exist_ok=True)
 
     pkl_suffix = ''
-    if os.getenv('ODLS') != None and os.getenv('ODLS') == '0':
+    if os.getenv('ODLS') != None and os.getenv('ODLS') == '-a':
         pkl_suffix = '_iter'
     file_name = os.path.join('ref', 'perf_' + platform.system().lower()[:3] + pkl_suffix +
                              '_' + case + '.pkl')
