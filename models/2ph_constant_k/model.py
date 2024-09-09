@@ -254,7 +254,7 @@ class ModelProperties(PropertyContainer):
         # Call base class constructor
         self.nph = len(phases_name)
         # Mw = np.ones(self.nph)
-        super().__init__(phases_name, components_name, Mw, min_z, temperature=1.)
+        super().__init__(phases_name=phases_name, components_name=components_name, Mw=Mw, min_z=min_z, temperature=1.)
 
     def evaluate(self, state: value_vector):
         """
