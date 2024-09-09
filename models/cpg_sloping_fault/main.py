@@ -114,7 +114,7 @@ def test(case: str):
     plt.ylabel('Temperature prod well, C')
     plt.xlabel('years')
     plt.legend()
-    plt.savefig('well_temperature_' + case + '.png')
+    plt.savefig(os.path.join(out_dir, 'well_temperature_' + case + '.png'))
     plt.close()
 
     return 0, 0.0
