@@ -97,14 +97,14 @@ def test(case: str, physics_type : str):
     if mode == 'run':
         for discr_type in discr_types_list:
             start = time.perf_counter()
-            out_dir = discr_type + '_results_' + case
+            out_dir = 'results_' + discr_type + '_' + physics_type + '_' + case
             failed, sim_time, results[discr_type] = run(physics_type=physics_type, case=case,
                                                         discr_type=discr_type, out_dir=out_dir,
                                                         dt=dt, n_time_steps=n_time_steps, export_vtk=export_vtk)
             end = time.perf_counter()
     elif mode == 'compare':
         for discr_type in discr_types_list:
-            out_dir = discr_type + '_results_' + case
+            out_dir = 'results_' + discr_type + '_' + physics_type + '_' + case
             results[discr_type] = pd.read_pickle(os.path.join(out_dir, 'time_data_' + discr_type + '.pkl'))
 
     if physics_type == 'geothermal':
