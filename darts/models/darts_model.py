@@ -826,13 +826,6 @@ class DartsModel:
                 fp.write('%d\n' % i)
             self.processed_body_idxs = all_idxs
 
-    def save_matlab_map(self, name, np_arr):
-        """
-        Export data in Matlab format
-        """
-        import scipy.io
-        scipy.io.savemat(os.path.join(self.output_folder, name + '.mat'), dict(x=np_arr))
-
     # destructor to force to destroy all created C objects and free memory
     def __del__(self):
         for name in list(vars(self).keys()):
