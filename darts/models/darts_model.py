@@ -401,7 +401,7 @@ class DartsModel:
                      self.physics.engine.stat.n_newton_total, self.physics.engine.stat.n_newton_wasted,
                      self.physics.engine.stat.n_linear_total, self.physics.engine.stat.n_linear_wasted))
 
-    def run(self, days: float = None, restart_dt: float = 0., save_well_data : bool = True, save_solution_data : bool = False, verbose: bool = True):
+    def run(self, days: float = None, restart_dt: float = 0., save_well_data : bool = True, save_solution_data : bool = True, verbose: bool = True):
         """
         Method to run simulation for specified time. Optional argument to specify dt to restart simulation with.
 
@@ -413,7 +413,7 @@ class DartsModel:
         :type verbose: bool
         :param save_well_data: if True save states of well blocks at every time step to 'well_data.h5', default is True
         :type save_well_data: bool
-        :param save_solution_data: if True save states of all reservoir blocks at the end of run to 'solution.h5', default is False
+        :param save_solution_data: if True save states of all reservoir blocks at the end of run to 'solution.h5', default is True
         :type save_solution_data: bool
         """
         days = days if days is not None else self.runtime
