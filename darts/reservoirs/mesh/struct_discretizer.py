@@ -403,7 +403,8 @@ class StructDiscretizer:
         # find indices/directions of boundary cells - TODO
 
         # approximate normals
-        dr = self.centroids_all_cells[cell_p] - self.centroids_all_cells[cell_m]
+        centroids = np.reshape(self.centroids_all_cells, (-1, 3), order='F')
+        dr = centroids[cell_p] - centroids[cell_m]
         n = dr * geom_coef[:, np.newaxis]
 
         # unique elements & and starting positions of each element
