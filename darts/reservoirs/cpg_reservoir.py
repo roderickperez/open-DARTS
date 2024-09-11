@@ -780,13 +780,13 @@ def read_arrays(gridfile: str, propfile: str):
     zcorn_dims = n_cells_all * 8
     for a_name in arrays.keys():
         if a_name == 'SPECGRID':
-            assert arrays[a_name].shape != 3, 'Error: arrray ' + a_name + ' dimensions are not correct!'
+            assert arrays[a_name].shape[0] == 3, 'Error: arrray ' + a_name + ' dimensions are not correct!' + str(arrays[a_name].shape)
         elif a_name == 'COORD':
-            assert arrays[a_name].shape != coord_dims, 'Error: arrray ' + a_name + ' dimensions are not correct!'
+            assert arrays[a_name].shape == coord_dims, 'Error: arrray ' + a_name + ' dimensions are not correct!' + str(arrays[a_name].shape)
         elif a_name == 'ZCORN':
-            assert arrays[a_name].shape == zcorn_dims, 'Error: arrray ' + a_name + ' dimensions are not correct!'
+            assert arrays[a_name].shape == zcorn_dims, 'Error: arrray ' + a_name + ' dimensions are not correct!' + str(arrays[a_name].shape)
         else:
-            assert arrays[a_name].shape == n_cells_all, 'Error: arrray ' + a_name + ' dimensions are not correct!'
+            assert arrays[a_name].shape == n_cells_all, 'Error: arrray ' + a_name + ' dimensions are not correct!' + str(arrays[a_name].shape)
 
     return arrays
 
