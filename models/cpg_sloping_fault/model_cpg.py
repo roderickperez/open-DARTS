@@ -334,26 +334,33 @@ class Model(CICDModel):
             exit(1)
     def set_well_controls_geothermal(self):
         for i, w in enumerate(self.reservoir.wells):
-            if "INJ" in w.name:
-                if self.generate_grid:
-                    w.control = self.physics.new_rate_water_inj(7500, 300)  # 7500 m3/day, 300 K
-                    w.constraint = self.physics.new_bhp_water_inj(500, 300)  # 500 bars upper limit for bhp
-                else:
-                    w.control = self.physics.new_bhp_water_inj(250, 300)
-            else:
-                if self.generate_grid:
-                    w.control = self.physics.new_rate_water_prod(7500)
-                    w.constraint = self.physics.new_bhp_prod(50)
-                else:
-                    w.control = self.physics.new_bhp_prod(100)
+            if "INJ" in w.name:  # INJ well
+                # rate control
+                w.control = self.physics.new_rate_water_inj(7500, 300)  #  m3/day, K
+                w.constraint = self.physics.new_bhp_water_inj(500, 300)  # upper limit for bhp, bars
+                # BHP control
+                w.control = self.physics.new_bhp_water_inj(250, 300)  # bars
+            else:  # PROD well
+                # rate control
+                w.control = self.physics.new_rate_water_prod(7500)  #  m3/day
+                w.constraint = self.physics.new_bhp_prod(50)  # lower limit for bhp, bars
+                # BHP control
+                w.control = self.physics.new_bhp_prod(100)  # bars
 
     def set_well_controls_dead_oil(self):
         for i, w in enumerate(self.reservoir.wells):
-            if "INJ" in w.name:
-                w.control = self.physics.new_rate_inj(200, self.inj, 1)
-                w.constraint = self.physics.new_bhp_inj(450, self.inj)
-            else:
-                w.control = self.physics.new_bhp_prod(350)
+            if "INJ" in w.name:  # INJ well
+                # BHP control
+                w.control = self.physics.new_bhp_inj(450, self.inj)  # bars
+                # rate control
+                #w.control = self.physics.new_rate_inj(200, self.inj, 0)  # Kmol/day, composition, composition-index
+                #w.constraint = self.physics.new_bhp_inj(450, self.inj)   # bars, composition
+            else:  # PROD well
+                # BHP control
+                w.control = self.physics.new_bhp_prod(350)  # bars
+                # rate control
+                #w.control = self.physics.new_rate_prod(200)   # Kmol/day
+                #w.constraint = self.physics.new_bhp_prod(350) # bars
 
     #TODO: combine this function with save_few_keywords
     def save_cubes(self, fname, arr_list = [], arr_names = []):
