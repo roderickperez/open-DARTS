@@ -154,6 +154,9 @@ class Model(CICDModel):
             self.reservoir.discretize()
             self.reservoir.hcap[:] = hcap
             self.reservoir.conduction[:] = rcond
+            # add "open" boundaries
+            self.reservoir.set_boundary_volume(xz_minus=1e18, xz_plus=1e18, yz_minus=1e18, yz_plus=1e18)
+            self.reservoir.apply_volume_depth()
         elif discr_type == 'struct':
             if self.generate_grid:
                 self.reservoir = StructReservoir(self.timer, nx=self.nx, ny=self.ny, nz=self.nz,
@@ -162,6 +165,10 @@ class Model(CICDModel):
                                                  hcap=hcap, rcond=rcond)
             else:
                 self.set_reservoir()
+            self.reservoir.boundary_volumes['yz_minus'] = 1e18
+            self.reservoir.boundary_volumes['yz_plus'] = 1e18
+            self.reservoir.boundary_volumes['xz_minus'] = 1e18
+            self.reservoir.boundary_volumes['xz_plus'] = 1e18
 
         if self.physics_type == 'geothermal':
             self.set_physics_geothermal()
