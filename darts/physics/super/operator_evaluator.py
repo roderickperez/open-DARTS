@@ -119,9 +119,6 @@ class ReservoirOperators(OperatorsSuper):
         # E5_> porosity
         vec_values_as_np[self.PORO_OP] = self.phi_f
 
-        # E5_> fluid porosity
-        values[self.PORO_OP] = self.phi_f
-
         if self.thermal:
             self.evaluate_thermal(state, values)
 
