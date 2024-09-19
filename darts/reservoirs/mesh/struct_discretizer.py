@@ -134,7 +134,8 @@ class StructDiscretizer:
             # fill z-coordinates using DZ
             self.centroids_all_cells[:, :, 0, 2] = start_z + self.len_cell_zdir[:, :, 0] * 0.5  # nx*ny array of current layer's depths
             d_cumsum = self.len_cell_zdir.cumsum(axis=2)
-            self.centroids_all_cells[:, :, 1:, 2] = (d_cumsum[:, :, :-1] + d_cumsum[:, :, 1:]) * 0.5
+            self.centroids_all_cells[:, :, 1:, 2] = self.centroids_all_cells[:, :, 0, 2][:, :, np.newaxis] + \
+                                                     (d_cumsum[:, :, :-1] + d_cumsum[:, :, 1:]) * 0.5
 
             # fill y-coordinates using DY
             self.centroids_all_cells[:, 0, :, 1] = self.len_cell_ydir[:, 0, :] * 0.5  # nx*nz array
