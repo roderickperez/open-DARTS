@@ -71,7 +71,7 @@ class PropertyContainer(PropertyBase):
         self.pc = np.zeros(self.np_fl)
         self.enthalpy = np.zeros(self.nph)
         self.cond = np.zeros(self.nph)
-        self.dX = []
+        self.dQ = []
         self.mass_source = np.zeros(self.nc)
         self.energy_source = 0.
 
@@ -110,12 +110,12 @@ class PropertyContainer(PropertyBase):
 
         for ith_comp, zi in enumerate(vec_composition):
             if zi < self.min_z:
-                #print(vec_composition)
+                # print(vec_composition)
                 vec_composition[ith_comp] = self.min_z
                 count_corr += 1
                 check_vec[ith_comp] = 1
             elif zi > 1 - self.min_z:
-                #print(vec_composition)
+                # print(vec_composition)
                 vec_composition[ith_comp] = 1 - self.min_z
                 temp_sum += vec_composition[ith_comp]
             else:
@@ -142,7 +142,7 @@ class PropertyContainer(PropertyBase):
             self.sat[j] = (self.nu[j] / self.dens_m[j]) / Vtot
 
         return
-        
+
     def compute_saturation_full(self, state):
         pressure, temperature, zc = self.get_state(state)
         self.clean_arrays()
@@ -179,10 +179,10 @@ class PropertyContainer(PropertyBase):
         return ph
 
     def evaluate_mass_source(self, pressure, temperature, zc):
-        self.dX = np.zeros(len(self.kinetic_rate_ev))
+        self.dQ = np.zeros(len(self.kinetic_rate_ev))
 
         for j, reaction in self.kinetic_rate_ev.items():
-            dm, self.dX[j] = reaction.evaluate(pressure, temperature, self.x, zc[self.nc_fl + j])
+            dm, self.dQ[j] = reaction.evaluate(pressure, temperature, self.x, zc[self.nc_fl + j])
             self.mass_source += dm
 
         return self.mass_source
