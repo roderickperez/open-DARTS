@@ -195,8 +195,8 @@ class Model(THMCModel):
         well_names = ['PRD1', 'INJ1']
         self.well_cell_ids = []
         well_init_depth = l_min[2]
-        nodes = np.array(self.reservoir.discr_mesh.nodes, copy=False)
-        elems = np.array(self.reservoir.discr_mesh.elems, copy=False)
+        nodes = np.array(self.reservoir.discr_mesh.nodes)
+        elems = np.array(self.reservoir.discr_mesh.elems)
         for i, coord in enumerate(well_coords):
             ids = ((centroids[:, 0] - coord[0]) ** 2 + (centroids[:, 1] - coord[1]) ** 2).argsort()
             self.well_cell_ids.append(ids[:self.nz])
@@ -212,7 +212,7 @@ class Model(THMCModel):
                 dx = np.max(pts, axis=0)[0] - np.min(pts, axis=0)[0]
                 dy = np.max(pts, axis=0)[1] - np.min(pts, axis=0)[1]
                 dz = np.max(pts, axis=0)[2] - np.min(pts, axis=0)[2]
-                perm = np.array(self.reservoir.discr.perms[cell_id].values, copy=False)
+                perm = np.array(self.reservoir.discr.perms[cell_id].values)
                 mean_perm_xx = perm[0]
                 mean_perm_yy = perm[4]
                 mean_perm_zz = perm[8]
@@ -280,7 +280,7 @@ class ModelProperties(PropertyContainer):
         # Call base class constructor
         self.nph = len(phases_name)
         Mw = np.ones(self.nph)
-        super().__init__(phases_name, components_name, Mw, min_z, temperature=None)
+        super().__init__(phases_name=phases_name, components_name=components_name, Mw=Mw, min_z=min_z, temperature=None)
 
     def evaluate(self, state):
         """
