@@ -33,17 +33,19 @@ def run(physics_type : str, discr_type : str, case: str, out_dir: str, dt : floa
     # output center points to VTK
     from pyevtk.hl import pointsToVTK
     fname = os.path.join(out_dir, 'centers')
-    if discr_type == 'struct':
+    c = None
+    if discr_type == 'struct' and not m.reservoir.discretizer.is_cpg:
         c = m.reservoir.discretizer.centroids_all_cells
+        x, y, z = c[:, :, :, 0].flatten(), c[:, :, :, 1].flatten(), -c[:, :, :, 2].flatten()
     elif discr_type == 'cpg':
-        c_cpg = m.reservoir.centroids_all_cells[:m.reservoir.discr_mesh.n_cells].reshape((m.reservoir.nx, m.reservoir.ny, m.reservoir.nz))
-        c = np.zeros((m.reservoir.nx, m.reservoir.ny, m.reservoir.nz, 3))
-        for i in range(m.reservoir.nx):
-            for j in range(m.reservoir.ny):
-                for k in range(m.reservoir.nz):
-                    cv = c_cpg[i, j, k].values
-                    c[i, j, k, 0], c[i, j, k, 1], c[i, j, k, 2] = cv[0], cv[1], cv[2]
-    pointsToVTK(fname, c[:, :, :, 0].flatten(), c[:, :, :, 1].flatten(), -c[:, :, :, 2].flatten())
+        c_cpg = m.reservoir.centroids_all_cells[:m.reservoir.discr_mesh.n_cells]
+        c = np.zeros((m.reservoir.discr_mesh.n_cells, 3))
+        for i in range(m.reservoir.discr_mesh.n_cells):
+            cv = c_cpg[i].values
+            c[i, 0], c[i, 1], c[i, 2] = cv[0], cv[1], cv[2]  # x, y, z
+        x, y, z = c[:, 0].flatten(), c[:, 1].flatten(), -c[:, 2].flatten()
+    if c is not None:
+        pointsToVTK(fname, x, y, z)
 
     m.save_cubes(os.path.join(out_dir, 'res_last'))
     m.print_timers()
