@@ -342,15 +342,18 @@ class Model(DartsModel):
 
         # Interpolation and extrapolation setup
         pressure_interp = interp1d(unique_depths, p, kind='linear', fill_value='extrapolate')
-        composition_interp = interp1d(unique_depths, z, kind='linear', fill_value='extrapolate')
-
-        # Interpolate/extrapolate pressure and composition for all depths
         pressure = pressure_interp(depths)
-        composition = composition_interp(depths)
+
+        composition = np.zeros((len(depths), self.physics.nc))
+        # Interpolate each component of the composition vector independently
+        for i in range(self.physics.nc):
+            composition_interp = interp1d(unique_depths, z[:, i], kind='linear', fill_value='extrapolate')
+            composition[:, i] = composition_interp(depths)
 
         # Assign the interpolated/extrapolated values to the reservoir mesh
         np.asarray(self.reservoir.mesh.pressure)[:] = pressure
-        np.asarray(self.reservoir.mesh.composition)[:] = composition
+        self.reservoir.mesh.composition.resize((self.physics.nc - 1) * self.reservoir.mesh.n_blocks)
+        np.asarray(self.reservoir.mesh.composition)[:] = composition[:, :-1].flatten()
 
     def set_well_controls(self):
         injector = self.reservoir.get_well('I1')
