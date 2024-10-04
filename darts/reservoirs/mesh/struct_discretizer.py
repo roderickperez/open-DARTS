@@ -133,19 +133,21 @@ class StructDiscretizer:
             self.centroids_all_cells = np.zeros((self.nx, self.ny, self.nz, 3)) # 3 - for x,y,z coordinates
             # fill z-coordinates using DZ
             self.centroids_all_cells[:, :, 0, 2] = start_z + self.len_cell_zdir[:, :, 0] * 0.5  # nx*ny array of current layer's depths
-            distances = (self.len_cell_zdir[:, :, :-1] + self.len_cell_zdir[:, :, 1:]) * 0.5
+            distances_z = (self.len_cell_zdir[:, :, :-1] + self.len_cell_zdir[:, :, 1:]) * 0.5
             self.centroids_all_cells[:, :, 1:, 2] = self.centroids_all_cells[:, :, 0, 2][:, :, np.newaxis] + \
-                                                     np.cumsum(distances, axis=2)
+                                                     np.cumsum(distances_z, axis=2)
 
             # fill y-coordinates using DY
             self.centroids_all_cells[:, 0, :, 1] = self.len_cell_ydir[:, 0, :] * 0.5  # nx*nz array
-            d_cumsum = self.len_cell_ydir.cumsum(axis=1)
-            self.centroids_all_cells[:, 1:, :, 1] = (d_cumsum[:, :-1, :] + d_cumsum[:, 1:, :]) * 0.5
+            distances_y = (self.len_cell_ydir[:, :-1, :] + self.len_cell_ydir[:, 1:, :]) * 0.5
+            self.centroids_all_cells[:, 1:, :, 1] = self.centroids_all_cells[:, 0, :, 1][:, np.newaxis, :] + \
+                                                    np.cumsum(distances_y, axis=1)
 
             # fill x-coordinates using DX
             self.centroids_all_cells[0, :, :, 0] = self.len_cell_xdir[0, :, :] * 0.5  # ny*nz array
-            d_cumsum = self.len_cell_xdir.cumsum(axis=0)
-            self.centroids_all_cells[1:, :, :, 0] = (d_cumsum[:-1, :, :] + d_cumsum[1:, :, :]) * 0.5
+            distances_x = (self.len_cell_xdir[:-1, :, :] + self.len_cell_xdir[1:, :, :]) * 0.5
+            self.centroids_all_cells[1:, :, :, 0] = self.centroids_all_cells[0, :, :, 0][np.newaxis, :, :] + \
+                                                    np.cumsum(distances_x, axis=1)
 
         self.perm_x_cell = self.convert_to_3d_array(permx, 'permx')
         self.perm_y_cell = self.convert_to_3d_array(permy, 'permy')
