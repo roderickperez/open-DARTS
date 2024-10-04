@@ -338,11 +338,11 @@ def test_linear_multilinear_nx():
                              res_arrays=[out_type_1d, out_type_2d])
 
 
-test_linear_multilinear_obl_points()
-test_linear_multilinear_components()
-test_linear_multilinear_nx()
+# test_linear_multilinear_obl_points()
+# test_linear_multilinear_components()
+# test_linear_multilinear_nx()
 
-# run(itor_type='linear', itor_mode='adaptive', obl_points=128, n_comps=14, reservoir_type='1D', nx=1000, is_barycentric=False, vtk_output=True)
+run(itor_type='linear', itor_mode='adaptive', obl_points=128, n_comps=3, reservoir_type='SPE10_20_40_40', nx=100, is_barycentric=False, vtk_output=True)
 # run(itor_type='linear', itor_mode='adaptive', obl_points=128, n_comps=16, reservoir_type='1D', nx=100, is_barycentric=False, vtk_output=True)
 # run(itor_type='linear', itor_mode='adaptive', obl_points=128, n_comps=14, reservoir_type='1D', nx=4000, is_barycentric=False, vtk_output=True)
 

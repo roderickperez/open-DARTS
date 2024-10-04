@@ -3,6 +3,7 @@ from darts.models.darts_model import DartsModel
 from darts.engines import sim_params, value_vector, index_vector
 from darts.tools.keyword_file_tools import load_single_keyword
 import numpy as np
+from scipy.interpolate import interp1d
 import os
 
 from darts.physics.super.physics import Compositional
@@ -61,7 +62,7 @@ class Model(DartsModel):
             self.nz = 1
             self.reservoir = StructReservoir(self.timer, nx=self.nx, ny=self.ny, nz=self.nz, dx=1000. / self.nx, dy=1000. / self.nx, dz=1, permx=100, permy=100, permz=100,
                                         poro=0.3, depth=1000)
-            self.well_cell_id = [[1, 1], [self.nx, self.nx]]
+            self.well_cell_id = [[1, 1], [self.nx, self.ny]]
         else: # SPE10
             # read properties
             self.nx, self.ny, self.nz = [int(n) for n in self.reservoir_type.split('_')[1:]]
@@ -75,14 +76,17 @@ class Model(DartsModel):
             foot2meter = 0.3048
             Lx, Ly, Lz = np.array([960., 2080., 160.]) * foot2meter # feet to meters
             dx, dy, dz = Lx / self.nx, Ly / self.ny, Lz / self.nz
-            depth = -12000 * foot2meter + Lz
+            depth = -12000 * foot2meter# + Lz
+
+            porosity[:,:,:] = 0.2
+            permeability[:,:,:,:] = 100.
 
             self.reservoir = StructReservoir(self.timer, nx=self.nx, ny=self.ny, nz=self.nz,
                                                          dx=dx, dy=dy, dz=dz,
                                                          permx=permeability[:,:,:,0],
                                                          permy=permeability[:,:,:,1],
                                                          permz=permeability[:,:,:,2],
-                                                         poro=porosity, depth=depth)
+                                                         poro=porosity, start_z=depth)
 
 
             # find well cells
@@ -91,7 +95,7 @@ class Model(DartsModel):
 
             # extend initial pressure array for well bodies/heads
             n_wells = len(self.well_cell_id)
-            self.p_init = np.append(self.p_init, 2 * n_wells * [depth])
+            self.p_init = np.append(self.p_init, 2 * n_wells * [np.mean(self.p_init)])
 
         return
     # for i in range(self.physics.nc - 1):
@@ -220,13 +224,133 @@ class Model(DartsModel):
             assert(axes_max.size == n_comps)
 
         # axes_max = None
-
+        max_p = 1.5 * np.max(self.p_init)
         self.physics = Compositional(self.components, phases, self.timer, n_points=self.obl_points,
                                      min_p=40, max_p=200, min_z=self.zero/10, max_z=1-self.zero/10, cache=False,
                                      axes_max=axes_max)
         self.physics.add_property_region(property_container)
         
         return
+
+    def get_equilibrium_distribution(self, depths, p_top, max_iters=3):
+        # Constants
+        depths = np.sort(depths)[::-1]
+        props = self.physics.reservoir_operators[0].property
+        R = 8.314  # J/(mol·K)
+        g = 9.81  # m/s²
+        T = 320 # props.temperature  # Reservoir temperature in Kelvin
+
+        # Given Data
+        M_i = np.array(props.Mw)  # Molar weights of components (kg/mol)
+        K_i = np.array(props.flash_ev.K_values)  # Equilibrium ratios (dimensionless)
+        z_i0 = np.array(self.ini_comp)  # Initial overall mole fractions
+        # Precompute exponential terms for efficiency
+        exp_term = lambda dz: np.exp(M_i * g * dz / (R * T))
+        z_top = self.reservoir.global_data['start_z']
+
+        # Initialization lists to store results
+        pressures = []  # Pressure at each depth
+        z_i = []  # Overall composition at each depth
+        x_i = []  # Liquid phase mole fractions at each depth
+        y_i = []  # Vapor phase mole fractions at each depth
+        S_L = []  # Liquid saturation at each depth
+        S_V = []  # Vapor saturation at each depth
+
+        # Perform initial flash calculation at z=0
+        dz = depths[-1] - z_top
+
+        p_prev = p_top
+        p_new = p_prev
+        z_new = z_i0 * exp_term(dz)
+        z_new /= np.sum(z_new)
+        state = [p_new] + list(z_new)[:-1]
+        props.evaluate(state)
+
+        i = 0
+        while i < max_iters:
+            # Compute bulk density
+            rho_bulk = np.sum(props.sat * props.dens)
+
+            # Update pressure
+            p_new = p_prev + rho_bulk * g * dz / 1.e+5
+
+            z_new = z_i0 * exp_term(dz)
+            z_new /= np.sum(z_new)
+            state = [p_new] + list(z_new)[:-1]
+            props.evaluate(state)
+            i += 1
+
+        print('depth=' + str(depths[0]) + ' p=' + str(p_new) + ' z=' + str(z_new) + ' sat=' + str(props.sat))
+
+        pressures.append(p_new)
+        z_i.append(z_new)
+        S_L.append(props.sat[1])
+        S_V.append(props.sat[0])
+        x_i.append(props.x[1])
+        y_i.append(props.x[0])
+
+        # Iterative Computation
+        for k in range(1, depths.size):
+            dz = depths[k-1] - depths[k]
+            p_prev = pressures[-1]
+            p_new = p_prev
+            z_new = z_i[-1] * exp_term(dz)
+            z_new /= np.sum(z_new)
+            state = [p_new] + list(z_new)[:-1]
+            props.evaluate(state)
+
+            i = 0
+            while i < max_iters:
+                # Compute bulk density
+                rho_bulk = np.sum(props.sat * props.dens)
+
+                # Update pressure
+                p_new = p_prev + rho_bulk * g * dz / 1.e+5
+
+                z_new = z_i[-1] * exp_term(dz)
+                z_new /= np.sum(z_new)
+                state = [p_new] + list(z_new)[:-1]
+                props.evaluate(state)
+                i += 1
+
+            print('depth=' + str(depths[k]) + ' p=' + str(p_new) + ' z=' + str(z_new) + ' sat=' + str(props.sat))
+
+            pressures.append(p_new)
+            z_i.append(z_new)
+            S_L.append(props.sat[1])
+            S_V.append(props.sat[0])
+            x_i.append(props.x[1])
+            y_i.append(props.x[0])
+
+
+        # Convert lists to arrays for further analysis or plotting
+        pressures = np.array(pressures)
+        z_i = np.array(z_i)
+        x_i = np.array(x_i)
+        y_i = np.array(y_i)
+        S_L = np.array(S_L)
+        S_V = np.array(S_V)
+
+        return pressures, z_i
+
+    def set_initial_conditions(self, initial_values: dict = None, gradient: dict = None):
+        depths = np.asarray(self.reservoir.mesh.depth)
+        unique_depths = np.unique(depths)
+
+        # Get equilibrium distributions
+        p, z = self.get_equilibrium_distribution(depths=unique_depths, p_top=np.min(self.p_init))
+
+        # Interpolation and extrapolation setup
+        pressure_interp = interp1d(unique_depths, p, kind='linear', fill_value='extrapolate')
+        composition_interp = interp1d(unique_depths, z, kind='linear', fill_value='extrapolate')
+
+        # Interpolate/extrapolate pressure and composition for all depths
+        pressure = pressure_interp(depths)
+        composition = composition_interp(depths)
+
+        # Assign the interpolated/extrapolated values to the reservoir mesh
+        np.asarray(self.reservoir.mesh.pressure)[:] = pressure
+        np.asarray(self.reservoir.mesh.composition)[:] = composition
 
     def set_well_controls(self):
         injector = self.reservoir.get_well('I1')
