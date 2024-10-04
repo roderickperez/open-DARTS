@@ -284,11 +284,11 @@ class ModelProperties(PropertyContainer):
             self.mu[j] = self.viscosity_ev[self.phases_name[j]].evaluate(pressure, temperature, self.x[j, :], self.dens[j])  # output in [cp]
         self.compute_saturation(self.ph)
 
-        self.pc = self.capillary_pressure_ev.evaluate(self.sat)
+        self.pc = np.array(self.capillary_pressure_ev.evaluate(self.sat))
 
         for j in self.ph:
             self.kr[j] = self.rel_perm_ev[self.phases_name[j]].evaluate(self.sat[j])
-            self.pc = [0, 0]
+            self.pc = np.array([0, 0])
 
         mass_source = self.evaluate_mass_source(pressure, temperature, zc)
 
