@@ -380,6 +380,12 @@ class DartsModel:
 
                 dt = min(dt * self.params.mult_ts, self.params.max_ts)
 
+                # if the current dt almost covers the rest time amount needed to reach the stop_time, add the rest
+                # to not allow the next time step be smaller than min_ts
+                if np.fabs(t + dt - stop_time) < self.params.min_ts:
+                    dt = stop_time - t
+                    dt = min(dt, self.params.max_ts)
+
                 if t + dt > stop_time:
                     dt = stop_time - t
                 else:
@@ -445,6 +451,12 @@ class DartsModel:
                           % (ts, t, dt, self.physics.engine.n_newton_last_dt, self.physics.engine.n_linear_last_dt))
 
                 dt = min(dt * self.params.mult_ts, self.params.max_ts)
+
+                # if the current dt almost covers the rest time amount needed to reach the stop_time, add the rest
+                # to not allow the next time step be smaller than min_ts
+                if np.fabs(t + dt - stop_time) < self.params.min_ts:
+                    dt = stop_time - t
+                    dt = min(dt, self.params.max_ts)
 
                 if t + dt > stop_time:
                     dt = stop_time - t
