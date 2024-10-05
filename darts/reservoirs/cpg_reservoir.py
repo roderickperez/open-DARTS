@@ -39,8 +39,11 @@ sys.path.insert(0, os.path.join(parentdir2, 'python'))
 class CPG_Reservoir(ReservoirBase):
     def __init__(self, timer: timer_node, arrays=None, faultfile: str = None, minpv: float = 0., cache: bool = False):
         """
-        Class constructor for UnstructReservoir class
-        :param arrays: dictionary of numpy arrays with grid and props
+        Class constructor for CPG_Reservoir class (corner-point geometry)
+        :param arrays: dictionary of numpy arrays with grid (COORD, ZCORN, ACTNUM) and props (PORO, PERMX, PERMY, PERMZ)
+        :param faultfile: file name with fault locations (IJK) and fault transmicssibility multipliers
+        :param minpv: cells with poro volume smaller than minpv will be set inactive
+        :param cache:
         """
         super().__init__(timer, cache)
 
@@ -675,11 +678,112 @@ class CPG_Reservoir(ReservoirBase):
         self.depth[:] = self.depth_all_cells
         self.volume[:] = self.volume_all_cells
 
+    def read_and_add_perforations(self, sch_fname, verbose: bool = False):
+        '''
+        read COMPDAT from SCH file in Eclipse format, add wells and perforations
+        note: uses only I,J,K1,K2 and optionally WellIndex parameters from the COMPDAT keyword
+        :param: sch_fname - path to file
+        '''
+        if sch_fname is None:
+            return
+        print('reading wells (COMPDAT) from', sch_fname)
+        well_dia = 0.152
+        well_rad = well_dia / 2
+
+        keep_reading = True
+        prev_well_name = ''
+        with open(sch_fname) as f:
+            while keep_reading:
+                buff = f.readline()
+                if 'COMPDAT' in buff:
+                    while True:  # be careful here
+                        buff = f.readline()
+                        if len(buff) != 0:
+                            CompDat = buff.split()
+                            wname = CompDat[0].strip('"').strip("'")  # remove quotas (" and ')
+                            if len(CompDat) != 0 and '/' != wname:  # skip the empty line and '/' line
+                                # define well
+                                if wname == prev_well_name:
+                                    pass
+                                else:
+                                    reservoir.add_well(wname)
+                                    prev_well_name = wname
+                                # define perforation
+                                i1 = int(CompDat[1])
+                                j1 = int(CompDat[2])
+                                k1 = int(CompDat[3])
+                                k2 = int(CompDat[4])
+
+                                well_index = None
+                                if len(CompDat) > 7:
+                                    if CompDat[7] != '*':
+                                        well_index = float(CompDat[7])
+
+                                for k in range(k1, k2 + 1):
+                                    reservoir.add_perforation(wname, cell_index=(i1, j1, k), well_radius=well_rad,
+                                                              well_index=well_index, well_indexD=well_indexD,
+                                                              multi_segment=False, verbose=verbose)
+
+                            if len(CompDat) != 0 and '/' == CompDat[0]:
+                                keep_reading = False
+                                break
+        print('WELLS read from SCH file:', len(reservoir.wells))
+
+    def create_vtk_wells(self, output_directory: str):
+        import vtk
+        well_vtk_filename = os.path.join(output_directory, 'wells.vtk')
+        # Append multiple cylinders into one polydata
+        appendFilter = vtk.vtkAppendPolyData()
+
+        def create_tube(center, prolongation=1000):
+            # Create points for the polyline
+            points = vtk.vtkPoints()
+            points.InsertNextPoint(center[0], center[1], center[2] - prolongation)  # Point 1
+            points.InsertNextPoint(center[0], center[1], center[2] + prolongation)  # Point 2
+
+            # Create a polyline that connects the points
+            lines = vtk.vtkCellArray()
+            line = vtk.vtkPolyLine()
+            line.GetPointIds().SetNumberOfIds(2)  # Number of points
+            line.GetPointIds().SetId(0, 0)
+            line.GetPointIds().SetId(1, 1)
+            lines.InsertNextCell(line)
+
+            # Create a polydata to hold the points and the polyline
+            polyData = vtk.vtkPolyData()
+            polyData.SetPoints(points)
+            polyData.SetLines(lines)
+
+            # Apply vtkTubeFilter to create a tube around the polyline
+            tubeFilter = vtk.vtkTubeFilter()
+            tubeFilter.SetInputData(polyData)
+            tubeFilter.SetRadius(35)  # Tube radius
+            tubeFilter.SetNumberOfSides(50)  # Smoothness of the tube
+            tubeFilter.Update()
+
+            return tubeFilter.GetOutput()
+
+        for w in self.wells:
+            for p in w.perforations:
+                well_block, res_block_local, well_index, well_indexD = p
+                c = self.centroids_all_cells[res_block_local].values
+                cyl = create_tube(c)
+                appendFilter.AddInputData(cyl)
+                break  # use only the first perf
+
+        # Update the append filter to combine the polydata
+        appendFilter.Update()
+
+        # Write the cylinders to a VTK file
+        writer = vtk.vtkPolyDataWriter()
+        writer.SetFileName(well_vtk_filename)
+        writer.SetInputConnection(appendFilter.GetOutputPort())
+        writer.Write()
 
 #####################################################################
 
 def save_array(arr: np.array, fname: str, keyword: str, local_to_global: np.array, global_to_local: np.array, mode='w',
-               make_full=True):
+               make_full=True, inactive_value='min'):
     '''
     writes numpy array of n_active_cell size to text file in GRDECL format with n_cells_total
     :param arr: numpy array to write
@@ -687,10 +791,12 @@ def save_array(arr: np.array, fname: str, keyword: str, local_to_global: np.arra
     :param keyword: keyword for array
     :param actnum: actnum array
     :param mode: 'w' to rewrite the file or 'a' to append
+    :param make_full: set this to True if passing arr only in active cells, and to False if it as already nx*ny*nz
+    :param inactive_value: if 'min' the value in inactive cells will be set to arr.min(), otherwise to the specified val
     :return: None
     '''
     if make_full:
-        arr_full = make_full_cube(arr, local_to_global, global_to_local)
+        arr_full = make_full_cube(arr, local_to_global, global_to_local, inactive_value)
     else:
         arr_full = arr
     with open(fname, mode) as f:
@@ -706,7 +812,7 @@ def save_array(arr: np.array, fname: str, keyword: str, local_to_global: np.arra
         print('Array saved to file', fname, ' (keyword ' + keyword + ')')
 
 
-def make_full_cube(cube: np.array, local_to_global: np.array, global_to_local: np.array):
+def make_full_cube(cube: np.array, local_to_global: np.array, global_to_local: np.array, inactive_value='min'):
     '''
     returns 1d-array of size nx*ny*nz, filled with zeros where actnum is zero
     :param cube: 1d-array of size n_active_cells
@@ -715,7 +821,11 @@ def make_full_cube(cube: np.array, local_to_global: np.array, global_to_local: n
     '''
     if global_to_local.size == cube.size:
         return cube
-    cube_full = np.zeros(global_to_local.size)
+    if inactive_value == 'min':
+        inactive_value_ = cube.min()
+    else:
+        inactive_value_ = inactive_value
+    cube_full = np.zeros(global_to_local.size) + inactive_value_
     cube_full[local_to_global] = cube
     return cube_full
 
@@ -774,6 +884,9 @@ def read_arrays(gridfile: str, propfile: str):
         arrays['ACTNUM'] = np.ones(arrays['SPECGRID'].prod(), dtype=np.int32)
         print('No ACTNUM found in input files. ACTNUM=1 will be used')
 
+    return arrays
+
+def check_arrays(arrays):
     # check dims of loaded arrays
     nx, ny, nz = arrays['SPECGRID']
     n_cells_all =  nx * ny * nz
@@ -788,9 +901,6 @@ def read_arrays(gridfile: str, propfile: str):
             assert arrays[a_name].shape == zcorn_dims, 'Error: arrray ' + a_name + ' dimensions are not correct!' + str(arrays[a_name].shape)
         else:
             assert arrays[a_name].shape == n_cells_all, 'Error: arrray ' + a_name + ' dimensions are not correct!' + str(arrays[a_name].shape)
-
-    return arrays
-
 
 def make_burden_layers(number_of_burden_layers: int, initial_thickness: float, property_dictionary,
                        burden_layer_prop_value=1e-5):
