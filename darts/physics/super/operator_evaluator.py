@@ -150,6 +150,7 @@ class ReservoirOperators(OperatorsSuper):
         # solid enthalpy: s_j [-] rho_mj [kmol/m3] H_j [kJ/kmol] (kJ/m3)
         vec_values_as_np[self.ACC_OP + self.nc] += self.compr * self.phi_s * \
             np.sum(self.property.sat[self.np_fl:self.np_fl + self.ns] * self.property.dens_m[self.np_fl:self.np_fl + self.ns] * self.property.enthalpy[self.np_fl:self.np_fl + self.ns])
+        # Enthalpy to internal energy conversion
         vec_values_as_np[self.ACC_OP + self.nc] -= self.compr * 100 * pressure
 
         """ Beta operator represents flux term: """
