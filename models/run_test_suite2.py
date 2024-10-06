@@ -17,7 +17,6 @@ accepted_dirs = ['2ph_comp', '2ph_comp_solid', '2ph_do', '2ph_do_thermal',
                  'GeoRising',
                  'CoaxWell'
                  ]
-accepted_dirs = []
 
 test_dirs_mech = ['1ph_1comp_poroelastic_analytics', '1ph_1comp_poroelastic_convergence']
 test_args_mech = []
