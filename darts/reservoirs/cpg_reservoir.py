@@ -107,7 +107,13 @@ class CPG_Reservoir(ReservoirBase):
         tran = mpfa_tran[::2][ids]
         tranD = mpfa_tranD[::2][ids]
 
-        # self.discretizer.write_tran_cube('tran_cpg.grdecl', 'nnc_cpg.txt')
+        print('tran  mean=', tran.mean(),  'tran  max=', tran.max())
+        print('tranD mean=', tranD.mean(), 'tranD max=', tranD.max())
+        max_tran = 1e3
+        #tran[tran > max_tran] = max_tran
+        tranD[tranD > max_tran] = max_tran
+
+        #self.discretizer.write_tran_cube('tran_cpg.grdecl', 'nnc_cpg.txt')
         if self.faultfile is not None:
             self.apply_fault_mult(self.faultfile, cell_m, cell_p, mpfa_tran, ids)
             # self.discretizer.write_tran_cube('tran_faultmult.grdecl', 'nnc_faultmult.txt')
