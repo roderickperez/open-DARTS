@@ -109,9 +109,8 @@ class CPG_Reservoir(ReservoirBase):
 
         print('tran  mean=', tran.mean(),  'tran  max=', tran.max())
         print('tranD mean=', tranD.mean(), 'tranD max=', tranD.max())
-        max_tran = 1e3
-        #tran[tran > max_tran] = max_tran
-        tranD[tranD > max_tran] = max_tran
+        #max_tranD = 1e3
+        #tranD[tranD > max_tranD] = max_tranD
 
         #self.discretizer.write_tran_cube('tran_cpg.grdecl', 'nnc_cpg.txt')
         if self.faultfile is not None:
