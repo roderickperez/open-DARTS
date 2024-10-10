@@ -18,7 +18,7 @@ class Model(DartsModel):
         # Call base class constructor
         super().__init__()
 
-        self.nx = nx
+        self.nz = nx
         self.obl_points = obl_points
         self.discr_type = 'tpfa'
         self.reservoir_type = reservoir_type
@@ -52,9 +52,12 @@ class Model(DartsModel):
     def set_reservoir(self):
         if self.reservoir_type == '1D':
             self.p_init = 100.
-            self.ny = self.nz = 1
-            self.reservoir = StructReservoir(self.timer, nx=self.nx, ny=self.ny, nz=self.nz, dx=1000. / self.nx, dy=1, dz=1, permx=100, permy=100, permz=100,
-                                        poro=0.3, depth=1000)
+            self.ny = self.nx = 1
+            dz = 10
+            depth = np.linspace(1000, 1000 + self.nz * dz, self.nz)
+            self.reservoir = StructReservoir(self.timer, nx=self.nx, ny=self.ny, nz=self.nz, dx=1000. / self.nx,
+                                             dy=1, dz=dz, permx=100, permy=100, permz=100, poro=0.3, depth=depth,
+                                             start_z=depth[0])
             self.well_cell_id = [[1, 1], [self.nx, 1]]
         elif self.reservoir_type == '2D':
             self.p_init = 100.
@@ -76,7 +79,7 @@ class Model(DartsModel):
             foot2meter = 0.3048
             Lx, Ly, Lz = np.array([960., 2080., 160.]) * foot2meter # feet to meters
             dx, dy, dz = Lx / self.nx, Ly / self.ny, Lz / self.nz
-            depth = -12000 * foot2meter# + Lz
+            depth = 12000 * foot2meter# + Lz
 
             porosity[:,:,:] = 0.2
             permeability[:,:,:,:] = 100.
@@ -101,11 +104,11 @@ class Model(DartsModel):
     # for i in range(self.physics.nc - 1):
     #     self.initial_values[self.components[i]][0] = self.inj_stream[i]
     def set_wells(self):
-        self.reservoir.add_well("I1")
-        self.reservoir.add_well("P1")
-        for k in range(1, self.nz + 1):
-            self.reservoir.add_perforation("I1", cell_index=(self.well_cell_id[0][0], self.well_cell_id[0][1], k))
-            self.reservoir.add_perforation("P1", cell_index=(self.well_cell_id[1][0], self.well_cell_id[1][1], k))
+        # self.reservoir.add_well("I1")
+        # self.reservoir.add_well("P1")
+        # for k in range(1,2): #, self.nz + 1):
+        #     self.reservoir.add_perforation("I1", cell_index=(self.well_cell_id[0][0], self.well_cell_id[0][1], k))
+        #     self.reservoir.add_perforation("P1", cell_index=(self.well_cell_id[1][0], self.well_cell_id[1][1], k))
         return
 
     def set_physics(self):
@@ -116,7 +119,7 @@ class Model(DartsModel):
         n_comps = len(self.components)
         self.inj_comp = [1. - (n_comps - 1) * 0.001] + (n_comps - 1) * [0.001]
         if n_comps == 3:
-            self.ini_comp = [0.005, 0.550, 0.445]
+            self.ini_comp = [0.89, 0.1, 0.01]
         elif n_comps == 4:
             self.ini_comp = [0.005, 0.500, 0.300, 0.195]
         elif n_comps == 6:
@@ -233,6 +236,42 @@ class Model(DartsModel):
         return
 
     def get_equilibrium_distribution(self, depths, p_top, max_iters=3):
+        pressures = []  # Pressure at each depth
+        z_i = []  # Overall composition at each depth
+
+        z_new = np.array(self.ini_comp, copy=True)
+        dz = 0.008
+        g = 9.81
+        p_new = p_top
+        props = self.physics.reservoir_operators[0].property
+        d_prev = depths[0]
+        p_prev = p_new
+        pressures.append(p_new)
+        z_i.append(z_new.copy())
+
+        for d in depths[1:]:
+            z_new[0] = z_new[0] - dz
+            z_new[-1] = z_new[-1] + dz
+
+            for i in range(5):
+                state = [p_new] + list(z_new)[:-1]
+                props.evaluate(state)
+                rho_bulk = np.sum(props.sat * props.dens)
+
+                # Update pressure
+                p_new = p_prev + rho_bulk * g * (d - d_prev) / 1.e+5
+
+            pressures.append(p_new)
+            z_i.append(z_new.copy())
+            p_prev = p_new
+            d_prev = d
+
+        pressures = np.array(pressures)
+        z_i = np.array(z_i)
+
+        return pressures, z_i
+
+    def get_equilibrium_distribution_(self, depths, p_top, max_iters=3):
         # Constants
         depths = np.sort(depths)[::-1]
         props = self.physics.reservoir_operators[0].property
@@ -361,8 +400,9 @@ class Model(DartsModel):
 
         zero = self.physics.axes_min[1]
         if self.reservoir_type == '1D':
-            injector.control = self.physics.new_rate_inj(0.5, self.inj_stream, 0)
-            producer.control = self.physics.new_bhp_prod(50.)
+            #injector.control = self.physics.new_rate_inj(0.5, self.inj_stream, 0)
+            #producer.control = self.physics.new_bhp_prod(50.)
+            z = 1
         elif self.reservoir_type == '2D':
             injector.control = self.physics.new_rate_inj(20., self.inj_stream, 0)
             producer.control = self.physics.new_bhp_prod(50.)
