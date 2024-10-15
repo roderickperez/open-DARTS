@@ -151,6 +151,8 @@ class StructDiscretizer:
                 d_cumsum = self.len_cell_xdir.cumsum(axis=0)
                 self.centroids_all_cells[1:, :, :, 0] = (d_cumsum[:-1, :, :] + d_cumsum[1:, :, :]) * 0.5
 
+            self.centroids_all_cells = np.reshape(self.centroids_all_cells, (self.nx * self.ny * self.nz, 3), order='F')
+
         self.perm_x_cell = self.convert_to_3d_array(permx, 'permx')
         self.perm_y_cell = self.convert_to_3d_array(permy, 'permy')
         self.perm_z_cell = self.convert_to_3d_array(permz, 'permz')
