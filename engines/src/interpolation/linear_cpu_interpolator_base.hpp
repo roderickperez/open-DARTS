@@ -64,10 +64,16 @@ public:
     int interpolate_with_derivatives(const std::vector<double> &points, const std::vector<int> &points_idxs,
                                      std::vector<double> &interp_values, std::vector<double> &derivatives) override;
 
+    /**
+     * @brief Structure that stores pre-processed information 
+     *        required to perform linear interpolation on Delaunay triangulated of hypercube.
+     */
     struct Delaunay
     {
       Delaunay() {};
+      /// inverses of transformation matrices to barycentric coordinates
       std::vector<linalg::Matrix<double>> barycentric_matrices;
+      /// Delaunay triangulation structure from scipy.spatial
       pybind11::object tri;
     };
 

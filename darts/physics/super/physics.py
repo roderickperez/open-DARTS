@@ -23,6 +23,7 @@ class Compositional(PhysicsBase):
         This is the constructor of the Compositional Physics class.
 
         It defines the OBL grid for P-z or P-T-z compositional simulation.
+        Use axes_min, axes_max, n_axes_points to define non-uniform OBL properties for different compositions.
 
         :param components: List of components
         :type components: list
@@ -42,12 +43,12 @@ class Compositional(PhysicsBase):
         :type thermal: bool
         :param cache: Switch to cache operator values
         :type cache: bool
-        :param axes_min: Minimum bounds of OBL axes
-        :type axes_min: list or np.ndarray
-        :param axes_max: Maximum bounds of OBL axes
-        :type axes_max: list or np.ndarray
-        :param n_axes_points: Number of points over OBL axes
-        :type n_axes_points: list or np.ndarray
+        :param axes_min: (optional) Minimum bounds of OBL axes
+        :type axes_min: (optional) list or np.ndarray
+        :param axes_max: (optional) Maximum bounds of OBL axes
+        :type axes_max: (optional) list or np.ndarray
+        :param n_axes_points: (optional) Number of points over OBL axes
+        :type n_axes_points: (optional) list or np.ndarray
         """
         # Define nc, nph and (iso)thermal
         nc = len(components)

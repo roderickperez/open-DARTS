@@ -123,9 +123,10 @@ struct interpolator_exposer
   // the specification seriously affect build time and binary size
   void expose(py::module &m)
   {
-    // we expose uint32 and uint64 adaptive interpolators by default
+    // do not expose multilinear for higher dimensions, as it becomes inefficient
     if constexpr (N_DIMS <= 12)
     {
+      // we expose uint32 and uint64 adaptive interpolators by default
       expose_class<uint32_t, double, multilinear_adaptive_cpu_interpolator<uint32_t, double, N_DIMS, N_OPS>>(m, "multilinear_adaptive_cpu_interpolator");
       expose_class<uint64_t, double, multilinear_adaptive_cpu_interpolator<uint64_t, double, N_DIMS, N_OPS>>(m, "multilinear_adaptive_cpu_interpolator");
     }
