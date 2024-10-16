@@ -29,7 +29,8 @@ class OperatorsSuper(OperatorsBase):
         self.GRAV_OP = self.RE_INTER_OP + 3  # gravity operator - nph
         self.PC_OP = self.RE_INTER_OP + 3 + self.nph  # capillary operator - nph
         self.PORO_OP = self.RE_INTER_OP + 3 + 2 * self.nph  # porosity operator - 1
-        self.n_ops = self.PORO_OP + 1
+        self.ENTH_OP = self.PORO_OP + 1  # enthalpy operator - nph
+        self.n_ops = self.ENTH_OP + self.nph
 
     def print_operators(self, state: value_vector, values: value_vector):
         """Method for printing operators, grouped"""
@@ -185,6 +186,9 @@ class ReservoirOperators(OperatorsSuper):
         values[self.RE_TEMP_OP] = temperature
         # E3-> rock conduction
         values[self.ROCK_COND] = 1 / self.compr  # multiplied by rock cond inside engine
+        # Phase enthalpy
+        for j in range(self.nph):
+            values[self.ENTH_OP + j] = self.property.enthalpy[j]
 
         return 0
 
