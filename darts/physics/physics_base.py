@@ -370,6 +370,41 @@ class PhysicsBase:
                 print("Writing point data for ", type(itor).__name__, 'to', filename)
                 pickle.dump(itor.point_data, fp, protocol=4)
 
+    def body_path_start(self, output_folder):
+        """
+        Function that prepare hypercube output demonstrating occupancy of state space (for adaptive interpolators)
+
+        :param output_folder: folder to write output to
+        """
+        if not os.path.exists(output_folder):
+            os.mkdir(output_folder)
+
+        with open(os.path.join(output_folder, 'body_path.txt'), "w") as fp:
+            itor = self.acc_flux_itor[0]
+            self.processed_body_idxs = set()
+            for id in range(self.n_vars):
+                fp.write('%d %lf %lf %s\n' % (self.n_axes_points[id],
+                                              self.axes_min[id],
+                                              self.axes_max[id],
+                                              self.vars[id]))
+            fp.write('Body Index Data\n')
+
+    def body_path_add_bodys(self, output_folder, time):
+        """
+        Function performs hypercube output demonstrating occupancy of state space (for adaptive interpolators)
+
+        :param output_folder: folder to write output to
+        :param time: current time
+        """
+        with open(os.path.join(output_folder, 'body_path.txt'), "a") as fp:
+            fp.write('T=%lf\n' % time)
+            itor = self.acc_flux_itor[0]
+            all_idxs = set(itor.get_hypercube_indexes())
+            new_idxs = all_idxs - self.processed_body_idxs
+            for i in new_idxs:
+                fp.write('%d\n' % i)
+            self.processed_body_idxs = all_idxs
+
     def __del__(self):
         # first write cache
         if self.cache:
