@@ -376,23 +376,13 @@ class Model(DartsModel):
         depths = np.asarray(self.reservoir.mesh.depth)
         unique_depths = np.unique(depths)
 
-        # Get equilibrium distributions
+        # get equilibrium distributions
         p, z = self.get_equilibrium_distribution(depths=unique_depths, p_top=np.min(self.p_init))
 
-        # Interpolation and extrapolation setup
-        pressure_interp = interp1d(unique_depths, p, kind='linear', fill_value='extrapolate')
-        pressure = pressure_interp(depths)
+        initial_distribution = {var: z[:, i] for i, var in enumerate(self.physics.vars[1:])}
+        initial_distribution['pressure'] = p
 
-        composition = np.zeros((len(depths), self.physics.nc))
-        # Interpolate each component of the composition vector independently
-        for i in range(self.physics.nc):
-            composition_interp = interp1d(unique_depths, z[:, i], kind='linear', fill_value='extrapolate')
-            composition[:, i] = composition_interp(depths)
-
-        # Assign the interpolated/extrapolated values to the reservoir mesh
-        np.asarray(self.reservoir.mesh.pressure)[:] = pressure
-        self.reservoir.mesh.composition.resize((self.physics.nc - 1) * self.reservoir.mesh.n_blocks)
-        np.asarray(self.reservoir.mesh.composition)[:] = composition[:, :-1].flatten()
+        self.set_initial_conditions_from_depth_table(depth=unique_depths, initial_distribution=initial_distribution)
 
     def set_well_controls(self):
         injector = self.reservoir.get_well('I1')
