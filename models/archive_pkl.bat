@@ -1,13 +1,19 @@
 rem %4 -- $CI_COMMIT_REF_NAME
-set commit=%1
-set odls=%2
+set odls=%1
+set gpu=%2
 
 set fname=pkl_win.zip
 echo %fname%
 
-set pklname="perf_win"
+set pklnamebase="perf_win"
 if "%odls%"=="-a" (
-    set pklname=%pklname%"_iter"
+    set pklname=%pklnamebase%"_iter"
+) else (
+    set pklname=%pklnamebase%"_odls"
+)
+
+if "%gpu%"=="1" (
+    set pklname=%pklnamebase%"_gpu"
 )
 
 rem # delete pkls from previous pipeline run
