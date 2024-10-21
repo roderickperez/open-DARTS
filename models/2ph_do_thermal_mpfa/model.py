@@ -36,8 +36,8 @@ class Model(CICDModel):
 
         self.timer.node["initialization"].stop()
 
-    def init(self):
-        DartsModel.init(self, discr_type=self.discr_type)
+    def init(self, platform='cpu'):
+        DartsModel.init(self, discr_type=self.discr_type, platform=platform)
 
     def set_reservoir(self, mesh_file):
         self.reservoir = UnstructReservoir(self.discr_type, mesh_file, n_vars=self.physics.n_vars)
