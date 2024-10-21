@@ -303,6 +303,13 @@ def run_thermoporoelastic_convergence_study_peclet_number(mesh='rect'):
     plt.show()
 
 def run_test(args: list = [], platform='cpu'):
+    try:
+        # if compiled with OpenMP, set to run with 1 thread, as mech tests are not working in the multithread version yet
+        from darts.engines import set_num_threads
+        set_num_threads(1)
+    except:
+        pass
+
     n_res = [3, 3, 3, 3, 3]
     discretizers = ['pm_discretizer', 'mech_discretizer', 'mech_discretizer', 'mech_discretizer', 'mech_discretizer']
     modes = ['poroelastic', 'poroelastic', 'poroelastic', 'thermoporoelastic', 'thermoporoelastic']

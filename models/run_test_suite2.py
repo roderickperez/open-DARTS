@@ -197,8 +197,7 @@ if __name__ == '__main__':
     engines_pbi()
     package_pbi()
 
-    # set single thread in case of MT version to match the performance characteristics
-    os.environ['OMP_NUM_THREADS'] = '1'
+    os.environ['OMP_NUM_THREADS'] = '4'
 
     # cpu/gpu
     platform = 'cpu'
@@ -213,7 +212,7 @@ if __name__ == '__main__':
         
     # run larger set of models (takes longer)
     test_all_models = False
-    if os.getenv('TEST_ALL') != None and os.getenv('TEST_ALL') == '1':
+    if os.getenv('TEST_ALL_MODELS') != None and os.getenv('TEST_ALL_MODELS') == '1':
         test_all_models = True
 
     iter_solvers = False
