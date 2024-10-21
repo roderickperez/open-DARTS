@@ -64,6 +64,9 @@ def for_each_model(root_path, model_procedure, accepted_paths=[], excluded_paths
     n_fails = 0
     if len(accepted_paths) != 0:
         for x in accepted_paths:
+            if 'mpfa' in  x:
+                nt = os.environ['OMP_NUM_THREADS']
+                os.environ['OMP_NUM_THREADS'] = '1'
             # set as failed by default - if model run fails with exception,ret_value remains equal to 1
             ret_value = Value("i", 1, lock=False)
             p = Process(target=spawn_process_function, args=(x, model_procedure,ret_value), )
@@ -71,6 +74,8 @@ def for_each_model(root_path, model_procedure, accepted_paths=[], excluded_paths
             p.join(timeout=7200)
             p.terminate()
             n_fails += ret_value.value
+            if 'mpfa' in  x:
+                os.environ['OMP_NUM_THREADS'] = nt
     else:
         for x in p.iterdir():
             if x.is_dir() and (str(x)[0] != '.'):
@@ -85,12 +90,6 @@ def for_each_model(root_path, model_procedure, accepted_paths=[], excluded_paths
 
 
 def for_each_model_adjoint(root_path, model_procedure, accepted_paths=[], excluded_paths=[], timeout=120):
-    # if __name__ == '__main__':
-
-    # set_start_method('spawn')  # it is already spawned in the function "for_each_model"
-
-    # null = open(os.devnull, 'w')
-    # orig_stdout = sys.stdout
 
     # set working directory to folder which contains tests
     os.chdir(root_path)
@@ -101,6 +100,9 @@ def for_each_model_adjoint(root_path, model_procedure, accepted_paths=[], exclud
     n_fails = 0
     if len(accepted_paths) != 0:
         for x in accepted_paths:
+            if 'mpfa' in  x:
+                nt = os.environ['OMP_NUM_THREADS']
+                os.environ['OMP_NUM_THREADS'] = '1'
             # set as failed by default - if model run fails with exception,ret_value remains equal to 1
             ret_value = Value("i", 1, lock=False)
             starting_time = time.time()
@@ -114,6 +116,8 @@ def for_each_model_adjoint(root_path, model_procedure, accepted_paths=[], exclud
                 print('OK, \t%.2f s' % (ending_time - starting_time))
             else:
                 print('FAIL, \t%.2f s' % (ending_time - starting_time))
+            if 'mpfa' in  x:
+                os.environ['OMP_NUM_THREADS'] = nt
     else:
         for x in p.iterdir():
             if x.is_dir() and (str(x)[0] != '.'):
