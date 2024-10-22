@@ -20,7 +20,7 @@ class ModelPropertiesDeadOil(PropertyContainer):
 
     def run_flash(self, pressure, temperature, zc):
         # two-phase flash - assume water phase is always present and water component last
-        ph = [0, 1]
+        ph = np.array([0, 1])
         for i in ph:
             self.x[i, i] = 1
         self.nu = zc

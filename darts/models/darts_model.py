@@ -4,6 +4,7 @@ import xarray as xr
 import h5py
 import os
 import numpy as np
+from scipy.interpolate import interp1d
 
 from darts.reservoirs.reservoir_base import ReservoirBase
 from darts.physics.physics_base import PhysicsBase
@@ -58,7 +59,7 @@ class DartsModel:
 
     def init(self, discr_type: str = 'tpfa', platform: str = 'cpu', restart: bool = False,
              verbose: bool = False, output_folder: str = None, itor_mode: str = 'adaptive',
-             itor_type: str = 'multilinear'):
+             itor_type: str = 'multilinear', is_barycentric: bool = False):
         """
         Function to initialize the model, which includes:
         - initialize well (perforation) position
@@ -82,6 +83,8 @@ class DartsModel:
         :type itor_mode: str
         :param itor_type: specifies either 'linear' or 'multilinear' interpolator
         :type itor_type: str
+        :param is_barycentric: Flag which turn on barycentric interpolation on Delaunay simplices
+        :type is_barycentric: bool
         """
         # Initialize reservoir and Mesh object
         assert self.reservoir is not None, "Reservoir object has not been defined"
@@ -91,7 +94,7 @@ class DartsModel:
         # Initialize physics and Engine object
         assert self.physics is not None, "Physics object has not been defined"
         self.physics.init_physics(discr_type=discr_type, platform=platform, verbose=verbose,
-                                  itor_mode=itor_mode, itor_type=itor_type)
+                                  itor_mode=itor_mode, itor_type=itor_type, is_barycentric=is_barycentric)
         if platform == 'gpu':
             self.params.linear_type = sim_params.gpu_gmres_cpr_amgx_ilu
 
@@ -238,12 +241,13 @@ class DartsModel:
         initial_values = initial_values if initial_values is not None else self.initial_values
         gradient = gradient if gradient is not None else (self.gradient if hasattr(self, 'gradient') else None)
 
+        self.reservoir.mesh.composition.resize(self.reservoir.mesh.n_blocks * (self.physics.nc - 1))
+
         for i, variable in enumerate(self.physics.vars):
             # Check if variable exists in initial values dictionary
             if variable not in initial_values.keys():
                 raise RuntimeError("Primary variable {} was not assigned initial values.".format(variable))
 
-            self.reservoir.mesh.composition.resize(self.reservoir.mesh.n_blocks * (self.physics.nc - 1))
             if variable == 'pressure':
                 values = np.array(self.reservoir.mesh.pressure, copy=False)
             elif variable == 'temperature':
@@ -271,6 +275,40 @@ class DartsModel:
                 values.fill(initial_value)
 
         return
+
+    def set_initial_conditions_from_depth_table(self, depth, initial_distribution: dict):
+        """
+        Function to set initial conditions from given distribution of properties over depth.
+
+        :param depth: depth
+        :param initial_distribution: initial distributions of unknowns over depth,
+                                    must have keys equal to self.physics.vars
+        :type initial_distribution: dict
+        """
+
+        # all depths
+        depths = np.asarray(self.reservoir.mesh.depth)
+
+        # adjust the size of composition array in c++
+        self.reservoir.mesh.composition.resize(self.reservoir.mesh.n_blocks * (self.physics.nc - 1))
+
+        z_counter = 0
+        nz_vars = self.physics.n_vars - 1
+        for variable in self.physics.vars:
+            if variable not in initial_distribution.keys():
+                raise RuntimeError("Primary variable {} was not assigned initial values.".format(variable))
+
+            values_foo = interp1d(depth, initial_distribution[variable], kind='linear', fill_value='extrapolate')
+
+            if variable == 'pressure':
+                np.asarray(self.reservoir.mesh.pressure)[:] = values_foo(depths)
+            elif variable == 'temperature':
+                np.asarray(self.reservoir.mesh.temperature)[:] = values_foo(depths)
+            elif variable == 'enthalpy':
+                np.asarray(self.reservoir.mesh.enthalpy)[:] = values_foo(depths)
+            else:           # compositions
+                np.asarray(self.reservoir.mesh.composition)[z_counter::nz_vars] = values_foo(depths)
+                z_counter += 1
 
     def set_boundary_conditions(self):
         """
@@ -407,7 +445,8 @@ class DartsModel:
                      self.physics.engine.stat.n_newton_total, self.physics.engine.stat.n_newton_wasted,
                      self.physics.engine.stat.n_linear_total, self.physics.engine.stat.n_linear_wasted))
 
-    def run(self, days: float = None, restart_dt: float = 0., save_well_data : bool = True, save_solution_data : bool = True, verbose: bool = True):
+    def run(self, days: float = None, restart_dt: float = 0., save_well_data : bool = True, save_solution_data : bool = True, 
+            log_3d_body_path: bool = False, verbose: bool = True):
         """
         Method to run simulation for specified time. Optional argument to specify dt to restart simulation with.
 
@@ -421,6 +460,8 @@ class DartsModel:
         :type save_well_data: bool
         :param save_solution_data: if True save states of all reservoir blocks at the end of run to 'solution.h5', default is True
         :type save_solution_data: bool
+        :param log_3d_body_path: hypercube output
+        :type verbose: bool
         """
         days = days if days is not None else self.runtime
 
@@ -438,6 +479,9 @@ class DartsModel:
         self.prev_dt = dt
 
         ts = 0
+
+        if log_3d_body_path:
+            self.physics.body_path_start(output_folder=self.output_folder)
 
         while t < stop_time:
             converged = self.run_timestep(dt, t, verbose)
@@ -462,7 +506,10 @@ class DartsModel:
                     dt = stop_time - t
                 else:
                     self.prev_dt = dt
-                
+
+                if log_3d_body_path:
+                    self.physics.body_path_add_bodys(output_folder=self.output_folder, time=t)
+
                 if save_well_data:
                     self.save_data_to_h5(kind='well')
 

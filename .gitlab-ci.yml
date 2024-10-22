@@ -702,6 +702,10 @@ test-windows-3.7-ODLS:
         - echo "run_test_suite2 returned" $?
         - ./archive_pkl.sh $ODLS $TEST_GPU
         - cd ..
+        # test interpolators
+        - cd tests/engines/src/interpolation
+        - python test_interpolation.py
+        - cd ../../../..
         # test discretizer
         - cd discretizer/tests/compare_discretizers
         - python main.py
@@ -780,6 +784,10 @@ test-windows-3.7-ODLS:
         - python run_test_suite2.py LOG
         - .\archive_pkl.bat $env:ODLS $env:TEST_GPU
         - cd ..
+        # test interpolators
+        - cd tests\engines\src\interpolation
+        - python test_interpolation.py
+        - cd ..\..\..\..
         # test discretizer
         - cd discretizer\tests\compare_discretizers
         - python main.py

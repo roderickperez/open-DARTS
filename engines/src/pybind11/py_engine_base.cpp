@@ -26,6 +26,7 @@ void pybind_engine_base (py::module &m)
 		.def_readwrite("RHS", &engine_base::RHS) \
 		.def_readwrite("t", &engine_base::t) \
 		.def_readwrite("op_vals_arr", &engine_base::op_vals_arr) \
+		.def_readwrite("op_ders_arr", &engine_base::op_ders_arr) \
 		.def_readwrite("timer", &engine_base::timer) \
 		.def_readwrite("CFL_max", &engine_base::CFL_max) \
 		.def_readwrite("n_newton_last_dt", &engine_base::n_newton_last_dt) \
