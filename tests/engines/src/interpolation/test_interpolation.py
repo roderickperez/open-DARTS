@@ -49,7 +49,7 @@ def get_interpolator_name(algorithm, mode, platform, precision, n_dims, n_ops):
     return itor_name
 def test_interpolator_convergence(itor_type, itor_mode, n_dim, is_barycentric: bool = None, norm = None):
     zero = 1.e-9
-    n_ops = 6 * n_dim + 10
+    n_ops = 6 * n_dim + 12
     axes_min = n_dim * [-1 - zero]
     axes_max = n_dim * [1 + zero]
     evaluator = Nonlinear(n_dim, n_ops)
