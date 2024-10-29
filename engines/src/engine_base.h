@@ -81,6 +81,7 @@ public:
 
 		print_linear_system = false;
 		output_counter = 0;
+		is_fickian_energy_transport_on = true;
 	};
 
 	~engine_base()
@@ -257,6 +258,9 @@ public:
 	
 	index_t output_counter;
 	bool print_linear_system;
+
+	// switch on/off heat fluxes related to Fickian mass transport
+	bool is_fickian_energy_transport_on;
 
 	// statistics
 	value_t CFL_max; // maximum value of CFL for last Jacobian assebly

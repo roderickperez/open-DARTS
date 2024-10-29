@@ -69,6 +69,16 @@ public:
   // Define extra class property stoichiometric coefficient of the reaction (now hard coded, but has to become input?, maybe required to be placed somewhere else?):
   std::vector<index_t> stoich_coef;
 
+  // mass fluxes
+  std::vector<value_t> darcy_fluxes;
+  std::vector<value_t> diffusion_fluxes;
+  std::vector<value_t> dispersion_fluxes;
+  // energy fluxes
+  std::vector<value_t> heat_darcy_advection_fluxes;
+  std::vector<value_t> heat_diffusion_advection_fluxes;
+  std::vector<value_t> heat_dispersion_advection_fluxes;
+  std::vector<value_t> fourier_fluxes;
+
   // number of variables per jacobian matrix block
   const static uint16_t N_VARS_SQ = N_VARS * N_VARS;
 

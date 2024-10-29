@@ -45,6 +45,7 @@ void pybind_engine_base (py::module &m)
 		.def_readwrite("darcy_velocities", &engine_base::darcy_velocities) \
 		.def_readwrite("molar_weights", &engine_base::molar_weights) \
 		.def_readwrite("dispersivity", &engine_base::dispersivity) \
+		.def_readwrite("is_fickian_energy_transport_on", &engine_base::is_fickian_energy_transport_on) \
 		.def("add_value_to_Q", &engine_base::add_value_to_Q)  \
 		.def("clear_Q", &engine_base::clear_Q)  \
 		.def("calc_adjoint_gradient_dirac_all", &engine_base::calc_adjoint_gradient_dirac_all, py::call_guard<py::gil_scoped_release>())  \

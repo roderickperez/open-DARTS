@@ -47,7 +47,6 @@ int engine_super_cpu<NC, NP, THERMAL>::init(conn_mesh *mesh_, std::vector<ms_wel
   }
 
 
-
   // prepare dg_dx_n_temp for adjoint method
   if (opt_history_matching)
   {
@@ -64,6 +63,18 @@ int engine_super_cpu<NC, NP, THERMAL>::init(conn_mesh *mesh_, std::vector<ms_wel
 
 
   engine_base::init_base<N_VARS>(mesh_, well_list_, acc_flux_op_set_list_, params_, timer_);
+
+  // mass fluxes
+  darcy_fluxes.resize(NC * NP * mesh->n_conns);
+  diffusion_fluxes.resize(NP * NC * mesh->n_conns);
+
+  // energy fluxes
+  if (THERMAL)
+  {
+    heat_darcy_advection_fluxes.resize(NP * mesh->n_conns);
+    heat_diffusion_advection_fluxes.resize(NP * NC * mesh->n_conns);
+    fourier_fluxes.resize((NP + 1) * mesh->n_conns);
+  }
 
   return 0;
 }
@@ -92,6 +103,16 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
     // for reconstruction of phase velocities
     if (!mesh->velocity_appr.empty() && darcy_velocities.empty())
         darcy_velocities.resize(n_res_blocks * NP * ND);
+
+    if (!mesh->velocity_appr.empty() && !dispersivity.empty())
+    {
+      if (dispersion_fluxes.empty())
+        dispersion_fluxes.resize(NP * NC * mesh->n_conns);
+
+      if (THERMAL && heat_dispersion_advection_fluxes.empty())
+        heat_dispersion_advection_fluxes.resize(NP * NC * mesh->n_conns);
+    }
+
     std::fill(darcy_velocities.begin(), darcy_velocities.end(), 0.0);
 
     // if velocity reconstruction enabled, also provide molar weights
@@ -103,6 +124,9 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
         exit(-1);
       }
     }
+
+    // fill fourier_fluxes with zeros
+    std::fill(fourier_fluxes.begin(), fourier_fluxes.end(), 0.0);
 
     CFL_max = 0;
 
@@ -128,6 +152,11 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
     value_t phase_presence_mult;
     index_t cell_conn_idx, cell_conn_num;
     std::array<value_t, NP> phase_fluxes;
+    
+    // fluxes for output
+    value_t *cur_darcy_fluxes, *cur_diffusion_fluxes, *cur_dispersion_fluxes;
+    value_t *cur_heat_darcy_advection_fluxes, *cur_heat_diffusion_advection_fluxes, 
+            *cur_heat_dispersion_advection_fluxes, *cur_fourier_fluxes;
 
     int connected_with_well;
 
@@ -187,6 +216,16 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
             // skip diagonal
             if (i == j)
                 continue;
+
+            // fluxes for current connection
+            cur_darcy_fluxes = &darcy_fluxes[NP * NC * conn_idx];
+            cur_diffusion_fluxes = &diffusion_fluxes[NP * NC * conn_idx];
+            if constexpr (THERMAL)
+            {
+              cur_heat_darcy_advection_fluxes = &heat_darcy_advection_fluxes[NP * conn_idx];
+              cur_heat_diffusion_advection_fluxes = &heat_diffusion_advection_fluxes[NP * NC * conn_idx];
+              cur_fourier_fluxes = &fourier_fluxes[(NP + 1) * conn_idx];
+            }
 
             value_t trans_mult = 1;
             value_t trans_mult_der_i[N_VARS];
@@ -258,11 +297,14 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
                         if (c < NC)
                         {
                             CFL_out[c] -= phase_p_diff * c_flux; // subtract negative value of flux
-                            if (molar_weights.size())
+                            if (!molar_weights.empty())
                             phase_fluxes[p] += op_vals_arr[i * N_OPS + FLUX_OP + p * NE + c] * molar_weights[NC * op_num[i] + c];
+                            cur_darcy_fluxes[p * NC + c] = -phase_p_diff * c_flux;
                         }
+                        else
+                          cur_fourier_fluxes[p] -= phase_p_diff * c_flux;
 
-                        RHS[i * N_VARS + c] -= phase_p_diff * c_flux; // flux operators only
+                        RHS[i * N_VARS + c] -= phase_p_diff * c_flux; // flux operators 
                         for (uint8_t v = 0; v < N_VARS; v++)
                         {
                             Jac[diag_idx + c * N_VARS + v] -= (phase_gamma_p_diff * op_ders_arr[(i * N_OPS + FLUX_OP + p * NE + c) * N_VARS + v] +
@@ -289,10 +331,13 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
 
                         if (c < NC)
                         {
-                            CFL_in[c] += phase_p_diff * c_flux;
-                            if (molar_weights.size())
+                          CFL_in[c] += phase_p_diff * c_flux;
+                          if (!molar_weights.empty())
                             phase_fluxes[p] += op_vals_arr[j * N_OPS + FLUX_OP + p * NE + c] * molar_weights[NC * op_num[j] + c];
+                          cur_darcy_fluxes[p * NC + c] = -phase_p_diff * c_flux;
                         }
+                        else
+                          cur_fourier_fluxes[p] -= phase_p_diff * c_flux;
 
                         RHS[i * N_VARS + c] -= phase_p_diff * c_flux; // flux operators only
                         for (uint8_t v = 0; v < N_VARS; v++)
@@ -333,6 +378,7 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
                                                                                           mesh->poro[j] * op_vals_arr[j * N_OPS + UPSAT_OP + p]) / 2;
 
                         RHS[i * N_VARS + c] -= diff_mob_ups_m * grad_con; // diffusion term
+                        cur_diffusion_fluxes[p * NC + c] = -diff_mob_ups_m * grad_con;
 
                         // Add diffusion terms to Jacobian:
                         for (uint8_t v = 0; v < N_VARS; v++)
@@ -343,33 +389,36 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
                 Jac[diag_idx + c * N_VARS + v] -= grad_con * dt * phase_presence_mult * mesh->tranD[conn_idx] * mesh->poro[i] * op_ders_arr[(i * N_OPS + UPSAT_OP + p) * N_VARS + v] / 2;
                 Jac[jac_idx + c * N_VARS + v] -= grad_con * dt * phase_presence_mult * mesh->tranD[conn_idx] * mesh->poro[j] * op_ders_arr[(j * N_OPS + UPSAT_OP + p) * N_VARS + v] / 2;
               }
-
-                        // respective heat flux
-                        if constexpr (THERMAL)
+                        if (is_fickian_energy_transport_on)
                         {
+                          // respective heat flux
+                          if constexpr (THERMAL)
+                          {
                             if (c < NC)
                             {
-                                value_t avg_enthalpy = (op_vals_arr[i * N_OPS + ENTH_OP + p] + op_vals_arr[j * N_OPS + ENTH_OP + p]) / 2.;
-                                RHS[i * N_VARS + NC] -= avg_enthalpy * diff_mob_ups_m * grad_con;
+                              value_t avg_enthalpy = (op_vals_arr[i * N_OPS + ENTH_OP + p] + op_vals_arr[j * N_OPS + ENTH_OP + p]) / 2.;
+                              RHS[i * N_VARS + NC] -= avg_enthalpy * diff_mob_ups_m * grad_con;
+                              cur_heat_diffusion_advection_fluxes[p * NC + c] = -avg_enthalpy * diff_mob_ups_m * grad_con;
 
-                                for (uint8_t v = 0; v < N_VARS; v++)
-                                {
-                                    Jac[diag_idx + NC * N_VARS + v] += avg_enthalpy * diff_mob_ups_m * op_ders_arr[(i * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
-                                    Jac[jac_idx + NC * N_VARS + v] -= avg_enthalpy * diff_mob_ups_m * op_ders_arr[(j * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
+                              for (uint8_t v = 0; v < N_VARS; v++)
+                              {
+                                Jac[diag_idx + NC * N_VARS + v] += avg_enthalpy * diff_mob_ups_m * op_ders_arr[(i * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
+                                Jac[jac_idx + NC * N_VARS + v] -= avg_enthalpy * diff_mob_ups_m * op_ders_arr[(j * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
 
-                    Jac[diag_idx + NC * N_VARS + v] -= avg_enthalpy * grad_con * dt * phase_presence_mult * mesh->tranD[conn_idx] * mesh->poro[i] * op_ders_arr[(i * N_OPS + UPSAT_OP + p) * N_VARS + v] / 2;
-                    Jac[jac_idx + NC * N_VARS + v] -= avg_enthalpy * grad_con * dt * phase_presence_mult * mesh->tranD[conn_idx] * mesh->poro[j] * op_ders_arr[(j * N_OPS + UPSAT_OP + p) * N_VARS + v] / 2;
+                                Jac[diag_idx + NC * N_VARS + v] -= avg_enthalpy * grad_con * dt * phase_presence_mult * mesh->tranD[conn_idx] * mesh->poro[i] * op_ders_arr[(i * N_OPS + UPSAT_OP + p) * N_VARS + v] / 2;
+                                Jac[jac_idx + NC * N_VARS + v] -= avg_enthalpy * grad_con * dt * phase_presence_mult * mesh->tranD[conn_idx] * mesh->poro[j] * op_ders_arr[(j * N_OPS + UPSAT_OP + p) * N_VARS + v] / 2;
 
-                                    Jac[diag_idx + NC * N_VARS + v] -= op_ders_arr[(i * N_OPS + ENTH_OP + p) * N_VARS + v] * diff_mob_ups_m * grad_con / 2;
-                                    Jac[jac_idx + NC * N_VARS + v] -= op_ders_arr[(j * N_OPS + ENTH_OP + p) * N_VARS + v] * diff_mob_ups_m * grad_con / 2;
-                                }
+                                Jac[diag_idx + NC * N_VARS + v] -= op_ders_arr[(i * N_OPS + ENTH_OP + p) * N_VARS + v] * diff_mob_ups_m * grad_con / 2;
+                                Jac[jac_idx + NC * N_VARS + v] -= op_ders_arr[(j * N_OPS + ENTH_OP + p) * N_VARS + v] * diff_mob_ups_m * grad_con / 2;
+                              }
                             }
+                          }
                         }
                     }
                 }
 
                 // assemble velocities, dispersion is assembled in a separate loop as it requires multiple velocities
-                if (velocity_appr.size())
+                if (!velocity_appr.empty())
                 {
                     index_t vel_idx = ND * velocity_offset[i];
                     for (uint8_t p = 0; p < NP; p++)
@@ -389,6 +438,7 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
 
                 // rock heat transfers flows from cell i to j
                 RHS[i * N_VARS + NC] -= t_diff * (gamma_t_i * op_vals_arr[i * N_OPS + ROCK_COND] + gamma_t_j * op_vals_arr[j * N_OPS + ROCK_COND]) / 2;
+                cur_fourier_fluxes[NP] = -t_diff * (gamma_t_i * op_vals_arr[i * N_OPS + ROCK_COND] + gamma_t_j * op_vals_arr[j * N_OPS + ROCK_COND]) / 2;
                 for (uint8_t v = 0; v < N_VARS; v++)
                 {
                     Jac[diag_idx + NC * N_VARS + v] -= t_diff * gamma_t_i * op_ders_arr[(i * N_OPS + ROCK_COND) * N_VARS + v] / 2;
@@ -442,10 +492,11 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
     CFL_max = CFL_max_local;
 #endif
 
-  // dispersion
-    if (velocity_appr.size() && dispersivity.size())
+    // dispersion
+    if (!velocity_appr.empty() && !dispersivity.empty())
     {
         value_t avg_dispersivity;
+        value_t *cur_dispersion_fluxes, *cur_heat_dispersion_advection_fluxes;
         std::array<value_t, ND> avg_velocity;
 
         for (index_t i = 0; i < n_res_blocks; ++i)
@@ -469,6 +520,10 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
 
                 if (i == j)
                   continue;
+
+                cur_dispersion_fluxes = &dispersion_fluxes[NP * NC * conn_idx];
+                if constexpr (THERMAL)
+                  cur_heat_dispersion_advection_fluxes = &heat_dispersion_advection_fluxes[NP * NC * conn_idx];
 
                 if (j < n_res_blocks)
                 {
@@ -500,6 +555,7 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
                             value_t disp = dt * avg_dispersivity * mesh->tranD[conn_idx] * vel_norm;
 
                             RHS[i * N_VARS + c] -= disp * grad_con; // diffusion term
+                            cur_dispersion_fluxes[p * NC + c] = -disp * grad_con;
 
                             // Add diffusion terms to Jacobian:
                             for (uint8_t v = 0; v < N_VARS; v++)
@@ -509,18 +565,22 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
                             }
 
                             // respective heat fluxes
-                            if constexpr (THERMAL)
+                            if (is_fickian_energy_transport_on)
                             {
+                              if constexpr (THERMAL)
+                              {
                                 RHS[i * N_VARS + NC] -= avg_enthalpy * disp * grad_con;
+                                cur_heat_dispersion_advection_fluxes[p * NC + c] = -avg_enthalpy * disp * grad_con;
 
                                 for (uint8_t v = 0; v < N_VARS; v++)
                                 {
-                                    Jac[diag_idx + NC * N_VARS + v] += avg_enthalpy * disp * op_ders_arr[(i * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
-                                    Jac[jac_idx + NC * N_VARS + v] -= avg_enthalpy * disp * op_ders_arr[(j * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
+                                  Jac[diag_idx + NC * N_VARS + v] += avg_enthalpy * disp * op_ders_arr[(i * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
+                                  Jac[jac_idx + NC * N_VARS + v] -= avg_enthalpy * disp * op_ders_arr[(j * N_OPS + GRAD_OP + p * NE + c) * N_VARS + v];
 
-                                    Jac[diag_idx + NC * N_VARS + v] -= op_ders_arr[(i * N_OPS + ENTH_OP + p) * N_VARS + v] * disp * grad_con / 2;
-                                    Jac[jac_idx + NC * N_VARS + v] -= op_ders_arr[(j * N_OPS + ENTH_OP + p) * N_VARS + v] * disp * grad_con / 2;
+                                  Jac[diag_idx + NC * N_VARS + v] -= op_ders_arr[(i * N_OPS + ENTH_OP + p) * N_VARS + v] * disp * grad_con / 2;
+                                  Jac[jac_idx + NC * N_VARS + v] -= op_ders_arr[(j * N_OPS + ENTH_OP + p) * N_VARS + v] * disp * grad_con / 2;
                                 }
+                              }
                             }
                         }
                     }
