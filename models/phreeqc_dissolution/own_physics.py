@@ -1,6 +1,5 @@
 from darts.engines import *
 from own_operator_evaluator import my_own_acc_flux_etor, my_own_rate_evaluator, my_own_comp_etor, my_own_results_etor
-from own_properties import *
 
 from darts.engines import *
 from darts.physics.physics_base import PhysicsBase

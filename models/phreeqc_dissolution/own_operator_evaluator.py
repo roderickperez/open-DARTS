@@ -123,7 +123,7 @@ class my_own_acc_flux_etor(operator_set_evaluator_iface):
         rho_t = rho_w * sw + rho_s * ss + rho_g * sg
 
         # Kinetic reaction rate
-        kin_rate = self.property.kin_rate_ev.evaluate(kin_state, ss, rho_s, self.min_z, self.kin_fact)
+        kin_rate = self.property.kinetic_rate_ev.evaluate(kin_state, ss, rho_s, self.min_z, self.kin_fact)
 
         nc = self.input_data.num_comp
         nph = 2
