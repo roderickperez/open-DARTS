@@ -406,28 +406,39 @@ class DartsModel:
 
         ts = 0
 
-        while t < stop_time:
-            converged = self.run_timestep(dt, t, verbose)
+        epsilon = 1e-13
+        while t < stop_time - epsilon:
+            # determine the current timestep, ensuring it does not exceed remaining_time
+            current_dt = min(dt, stop_time - t)
+
+            converged = self.run_timestep(current_dt, t, verbose)
 
             if converged:
-                t += dt
+                t += current_dt
+                self.physics.engine.t = t
                 ts += 1
                 if verbose:
                     print("# %d \tT = %3g\tDT = %2g\tNI = %d\tLI=%d"
-                          % (ts, t, dt, self.physics.engine.n_newton_last_dt, self.physics.engine.n_linear_last_dt))
+                          % (ts, t, current_dt, self.physics.engine.n_newton_last_dt, self.physics.engine.n_linear_last_dt))
 
-                dt = min(dt * self.params.mult_ts, self.params.max_ts)
+                # save previous timestep
+                self.prev_dt = current_dt
 
-                # if the current dt almost covers the rest time amount needed to reach the stop_time, add the rest
-                # to not allow the next time step be smaller than min_ts
-                if np.fabs(t + dt - stop_time) < self.params.min_ts:
-                    dt = stop_time - t
-                    dt = min(dt, self.params.max_ts)
-
-                if t + dt > stop_time:
-                    dt = stop_time - t
+                # if the remaining time after this step is less than min_ts, set dt to cover the rest
+                remaining_time = stop_time - t
+                if remaining_time <= self.params.min_ts:
+                    if remaining_time > 0:
+                        dt = remaining_time
+                    else:
+                        break
                 else:
-                    self.prev_dt = dt
+                    dt = min(current_dt * self.params.mult_ts, self.params.max_ts, remaining_time)
+
+                if log_3d_body_path:
+                    self.physics.body_path_add_bodys(output_folder=self.output_folder, time=t)
+
+                if save_well_data:
+                    self.save_data_to_h5(kind='well')
 
             else:
                 dt /= self.params.mult_ts
@@ -483,29 +494,33 @@ class DartsModel:
         if log_3d_body_path and not hasattr(self.physics, 'processed_body_idxs'):
             self.physics.body_path_start(output_folder=self.output_folder)
 
-        while t < stop_time:
-            converged = self.run_timestep(dt, t, verbose)
+        epsilon = 1e-13
+        while t < stop_time - epsilon:
+            # determine the current timestep, ensuring it does not exceed remaining_time
+            current_dt = min(dt, stop_time - t)
+
+            converged = self.run_timestep(current_dt, t, verbose)
 
             if converged:
-                t += dt
+                t += current_dt
                 self.physics.engine.t = t
                 ts += 1
                 if verbose:
                     print("# %d \tT = %3g\tDT = %2g\tNI = %d\tLI=%d"
-                          % (ts, t, dt, self.physics.engine.n_newton_last_dt, self.physics.engine.n_linear_last_dt))
+                          % (ts, t, current_dt, self.physics.engine.n_newton_last_dt, self.physics.engine.n_linear_last_dt))
 
-                dt = min(dt * self.params.mult_ts, self.params.max_ts)
+                # save previous timestep
+                self.prev_dt = current_dt
 
-                # if the current dt almost covers the rest time amount needed to reach the stop_time, add the rest
-                # to not allow the next time step be smaller than min_ts
-                if np.fabs(t + dt - stop_time) < self.params.min_ts:
-                    dt = stop_time - t
-                    dt = min(dt, self.params.max_ts)
-
-                if t + dt > stop_time:
-                    dt = stop_time - t
+                # if the remaining time after this step is less than min_ts, set dt to cover the rest
+                remaining_time = stop_time - t
+                if remaining_time <= self.params.min_ts:
+                    if remaining_time > 0:
+                        dt = remaining_time
+                    else:
+                        break
                 else:
-                    self.prev_dt = dt
+                    dt = min(current_dt * self.params.mult_ts, self.params.max_ts, remaining_time)
 
                 if log_3d_body_path:
                     self.physics.body_path_add_bodys(output_folder=self.output_folder, time=t)
