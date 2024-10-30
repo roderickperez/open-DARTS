@@ -1,0 +1,104 @@
+# import os
+# os.environ["OMP_NUM_THREADS"] = "1"
+from model import Model
+from darts.engines import redirect_darts_output
+import pandas as pd
+import numpy as np
+from matplotlib import pyplot as plt
+from matplotlib import rcParams
+plt.rc('xtick',labelsize=16)
+plt.rc('ytick',labelsize=16)
+plt.rc('legend',fontsize=16)
+plt.rcParams['text.usetex'] = True
+plt.rcParams['text.latex.preamble'] = r'\usepackage{color}'
+
+def run(max_ts, nx=100):
+    redirect_darts_output('log.txt')
+
+    # Create model
+    m = Model(nx=nx)
+    m.sol_filename = 'nx' + str(nx) + '.h5'
+
+    # Initialize simulations
+    m.init()
+
+    # Initialization check
+    _, poro, _ = m.evaluate_porosity()
+    volume = np.array(m.reservoir.mesh.volume, copy=False)
+    total_pv = np.sum(volume[:m.reservoir.n] * poro) * 1e6
+    print('Total pore volume:', total_pv, 'cm3')
+
+    # Run Python
+    # hours = 0.095785 / 10
+    # runtime = hours / 24
+    # runtime = 0.0266070668369519 / 2 * 1e-2
+    m.params.max_ts = max_ts
+    # plot(m)
+    m.run(0.01)
+    # plot(m)
+    for i in range(20):
+        m.run(0.1)
+        # plot(m)
+
+    # Print some statistics
+    print('\nNegative composition occurrence:', m.physics.acc_flux_etor.counter, '\n')
+
+    # Plot porosity
+    # ----------------------------------------------------------------------------------------------------------------------
+    _, poro, _ = m.evaluate_porosity()
+
+    m.print_timers()
+    m.print_stat()
+
+    time_data = pd.DataFrame.from_dict(m.physics.engine.time_data)
+    time_data.to_pickle("darts_time_data.pkl")
+    time_data.to_csv('darts_time_data.csv')
+
+    plot(m)
+
+def plot(m):
+    Xm = np.copy(m.physics.engine.X[:m.reservoir.n*m.physics.n_components])
+    _, poro, _ = m.evaluate_porosity()
+
+    n_plots = 3
+    fig, ax = plt.subplots(nrows=n_plots, sharex=True, figsize=(6, 11))
+
+    x = m.reservoir.discretizer.centroids_all_cells[:,0]
+    n_cells = m.reservoir.n
+    n_vars = m.physics.n_components
+    ax[0].plot(x, Xm[0:n_cells*n_vars:n_vars], color='b', label=m.physics.vars[0])
+    ax1 = ax[1].twinx()
+    colors = ['b', 'r', 'g', 'm', 'y', 'orange']
+
+    for i in [1,4]: # Solid / O
+        ax[1].plot(x, Xm[i:n_cells*n_vars:n_vars], color=colors[i-1], label=m.physics.vars[i])
+    for i in [2,3]: # Ca / C
+        ax1.plot(x, Xm[i:n_cells*n_vars:n_vars], color=colors[i-1], label=m.physics.vars[i])
+    ax[2].plot(x, poro, color=colors[n_vars], label='porosity')
+
+    t = round(m.physics.engine.t, 4)
+    ax[0].text(0.21, 0.9, 'time = ' + str(t) + ' days',
+               fontsize=16, rotation='horizontal', transform=fig.transFigure)
+    ax[0].set_ylabel('pressure, bar', fontsize=16)
+    ax[n_plots - 1].set_xlabel('distance, x', fontsize=16)
+    ax[1].set_ylabel(r'$\textcolor{blue}{Solid}$ and $\textcolor{red}{O}$ concentrations', fontsize=16)
+    ax[2].set_ylabel('porosity', fontsize=16)
+    ax1.set_ylabel(r'$\textcolor{green}{Ca}$ and $\textcolor{magenta}{C}$ concentrations', fontsize=16)
+    # ax[1].set_ylabel(r'\textcolor[rgb]{0,0,1}{Solid} and \textcolor[rgb]{1,0,0}{O} concentrations', fontsize=16)
+
+    ax[0].set_ylim(99.99, 100.3)
+    ax[1].set_ylim(-0.01, 0.5)
+    ax[2].set_ylim(-0.01, 1.01)
+    ax1.set_ylim(-0.001, 0.03)
+    ax[0].legend(loc='upper right', prop={'size': 16}, framealpha=0.9)
+    ax[1].legend(loc='upper left', prop={'size': 16}, framealpha=0.9)
+    ax[2].legend(loc='upper right', prop={'size': 16}, framealpha=0.9)
+    ax1.legend(loc='upper right', prop={'size': 16}, framealpha=0.9)
+    fig.tight_layout()
+    fig.savefig('time_' + str(t) + '.png')
+
+    plt.show()
+
+# run(nx=100, max_ts=6.e-4)
+run(nx=200, max_ts=5.e-4)
+# run(nx=1000, max_ts=2.e-4)
