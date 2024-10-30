@@ -202,7 +202,7 @@ class Model(DartsModel):
         initial_composition = self.initial_comp
 
         nb = self.reservoir.mesh.n_blocks
-        nc = self.physics.n_components
+        nc = self.physics.nc
 
         # set initial pressure
         pressure = np.array(self.reservoir.mesh.pressure, copy=False)
@@ -240,11 +240,11 @@ class Model(DartsModel):
         poro = np.zeros(self.reservoir.n)
         values = value_vector([0] * 2)
         if Xm is None:
-            Xm = np.copy(self.physics.engine.X[:self.reservoir.n*self.physics.n_components])
+            Xm = np.copy(self.physics.engine.X[:self.reservoir.n*self.physics.nc])
 
         for i in range(self.reservoir.n):
             state = value_vector(
-                Xm[i * self.physics.n_components:i * self.physics.n_components + self.physics.n_components])
+                Xm[i * self.physics.nc:i * self.physics.nc + self.physics.nc])
             self.physics.results_itor.evaluate(state, values)
             poro[i] = 1 - values[0]
 

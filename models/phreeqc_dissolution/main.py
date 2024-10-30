@@ -36,9 +36,10 @@ def run(max_ts, nx=100):
     # plot(m)
     m.run(0.01)
     # plot(m)
-    for i in range(20):
-        m.run(0.1)
-        # plot(m)
+    for i in range(8):
+        m.run(days=0.1, restart_dt=max_ts)
+        if i > 0: m.params.first_ts = max_ts
+        plot(m)
 
     # Print some statistics
     print('\nNegative composition occurrence:', m.physics.acc_flux_etor.counter, '\n')
@@ -50,14 +51,10 @@ def run(max_ts, nx=100):
     m.print_timers()
     m.print_stat()
 
-    time_data = pd.DataFrame.from_dict(m.physics.engine.time_data)
-    time_data.to_pickle("darts_time_data.pkl")
-    time_data.to_csv('darts_time_data.csv')
-
     plot(m)
 
 def plot(m):
-    Xm = np.copy(m.physics.engine.X[:m.reservoir.n*m.physics.n_components])
+    Xm = np.copy(m.physics.engine.X[:m.reservoir.n*m.physics.nc])
     _, poro, _ = m.evaluate_porosity()
 
     n_plots = 3
@@ -65,7 +62,7 @@ def plot(m):
 
     x = m.reservoir.discretizer.centroids_all_cells[:,0]
     n_cells = m.reservoir.n
-    n_vars = m.physics.n_components
+    n_vars = m.physics.nc
     ax[0].plot(x, Xm[0:n_cells*n_vars:n_vars], color='b', label=m.physics.vars[0])
     ax1 = ax[1].twinx()
     colors = ['b', 'r', 'g', 'm', 'y', 'orange']
@@ -94,8 +91,9 @@ def plot(m):
     ax[1].legend(loc='upper left', prop={'size': 16}, framealpha=0.9)
     ax[2].legend(loc='upper right', prop={'size': 16}, framealpha=0.9)
     ax1.legend(loc='upper right', prop={'size': 16}, framealpha=0.9)
+
     fig.tight_layout()
-    fig.savefig('time_' + str(t) + '.png')
+    fig.savefig(f'time_{t}.png')
 
     plt.show()
 
