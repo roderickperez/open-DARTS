@@ -480,7 +480,7 @@ class DartsModel:
 
         ts = 0
 
-        if log_3d_body_path:
+        if log_3d_body_path and not hasattr(self.physics, 'processed_body_idxs'):
             self.physics.body_path_start(output_folder=self.output_folder)
 
         while t < stop_time:
@@ -719,7 +719,7 @@ class DartsModel:
             for j, variable in enumerate(var_names):
                 property_array[variable][k, :] = X[k, :nb, j]
 
-            if output_properties is not None:
+            if output_properties is not None and len(output_properties) > 0:
                 state = value_vector(np.stack([property_array[var][k] for var in var_names]).T.flatten())
                 values = value_vector(np.zeros(n_ops * nb))
                 values_numpy = np.array(values, copy=False)

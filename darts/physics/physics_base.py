@@ -380,7 +380,6 @@ class PhysicsBase:
             os.mkdir(output_folder)
 
         with open(os.path.join(output_folder, 'body_path.txt'), "w") as fp:
-            itor = self.acc_flux_itor[0]
             self.processed_body_idxs = set()
             for id in range(self.n_vars):
                 fp.write('%d %lf %lf %s\n' % (self.n_axes_points[id],
