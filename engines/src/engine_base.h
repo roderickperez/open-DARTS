@@ -81,6 +81,7 @@ public:
 
 		print_linear_system = false;
 		output_counter = 0;
+		newton_update_coefficient = 1.0;
 	};
 
 	~engine_base()
@@ -264,6 +265,8 @@ public:
 	double newton_residual_last_dt;
 	double well_residual_last_dt;
 	int linear_solver_error_last_dt;
+
+	value_t newton_update_coefficient; // Newton update coefficient for line search
 
 	timer_node *timer;
 	timer_node full_step_timer;
