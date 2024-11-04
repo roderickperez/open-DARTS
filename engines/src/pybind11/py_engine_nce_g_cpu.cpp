@@ -18,12 +18,7 @@ struct engine_nce_g_exposer
     py::class_<engine_nce_g_cpu<NC, NP>, engine_base>(m, ("engine_nce_g_cpu" + std::to_string(NC) + "_" + std::to_string(NP)).c_str(),
       ("Thermal enthalpy-based CPU simulator engine class for " + std::to_string(NC) + " components " + std::to_string(NP) + " phases with gravity").c_str())
       .def(py::init<>())
-      .def("init", (int (engine_nce_g_cpu<NC, NP>::*)(conn_mesh*, std::vector<ms_well*> &, std::vector<operator_set_gradient_evaluator_iface*> &, sim_params*, timer_node*)) & engine_nce_g_cpu<NC, NP>::init, "Initialize simulator by mesh, tables and wells", py::keep_alive<1, 5>()) \
-      .def_readwrite("e_dim", &engine_nce_g_cpu<NC, NP>::e_dim) \
-      .def_readwrite("p_dim", &engine_nce_g_cpu<NC, NP>::p_dim) \
-      .def_readwrite("m_dim", &engine_nce_g_cpu<NC, NP>::m_dim)
-      .def_readwrite("scale_rows", &engine_nce_g_cpu<NC, NP>::scale_rows) \
-      .def_readwrite("scale_dimless", &engine_nce_g_cpu<NC, NP>::scale_dimless);
+      .def("init", (int (engine_nce_g_cpu<NC, NP>::*)(conn_mesh*, std::vector<ms_well*> &, std::vector<operator_set_gradient_evaluator_iface*> &, sim_params*, timer_node*)) & engine_nce_g_cpu<NC, NP>::init, "Initialize simulator by mesh, tables and wells", py::keep_alive<1, 5>());
 
 #ifdef WITH_GPU
     py::class_<engine_nce_g_gpu<NC, NP>, engine_base>(m, ("engine_nce_g_gpu" + std::to_string(NC) + "_" + std::to_string(NP)).c_str(),

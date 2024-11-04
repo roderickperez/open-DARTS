@@ -32,11 +32,8 @@ class engine_nce_g_cpu : public engine_base
 {
 private:
   // utilities for scaling and better conditionining of Jacobian
-  void dimensionalize_rows();
   void make_dimensionless();
   void dimensionalize_unknowns();
-  // maximum absolute values in rows of jacobian
-  std::vector<value_t> max_row_values;
 
 public:
   // number of components
@@ -98,8 +95,5 @@ public:
   double H2O_MW = 18.01528;
 
   int solve_linear_equation();
-
-  bool scale_dimless, scale_rows;
-  value_t e_dim, m_dim, p_dim;
 };
 #endif

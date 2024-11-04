@@ -430,7 +430,7 @@ engine_nce_g_cpu<NC, NP>::solve_linear_equation()
 
   // row-wise scaling
   if (scale_rows)
-	dimensionalize_rows();
+	dimensionalize_rows<N_VARS>();
 
   timer->node["linear solver setup"].start();
   r_code = linear_solver->setup(Jacobian);
@@ -485,58 +485,6 @@ engine_nce_g_cpu<NC, NP>::solve_linear_equation()
 	n_linear_last_dt += linear_solver->get_n_iters();
   }
   return 0;
-}
-
-template <uint8_t NC, uint8_t NP>
-void 
-engine_nce_g_cpu<NC, NP>::dimensionalize_rows()
-{
-  const index_t n_blocks = mesh->n_blocks;
-  value_t* Jac = Jacobian->get_values();
-  const index_t* rows = Jacobian->get_rows_ptr();
-  index_t csr_idx_start, csr_idx_end;
-  value_t tmp;
-
-  // maximum values
-  std::fill_n(max_row_values.data(), n_blocks * N_VARS, 0.0);
-  for (index_t i = 0; i < n_blocks; i++)
-  {
-	csr_idx_start = rows[i];
-	csr_idx_end = rows[i + 1];
-	for (index_t j = csr_idx_start; j < csr_idx_end; j++)
-	{
-	  for (uint8_t c = 0; c < N_VARS; c++)
-	  {
-		for (uint8_t v = 0; v < N_VARS; v++)
-		{
-		  tmp = fabs(Jac[j * N_VARS_SQ + c * N_VARS + v]);
-		  if (max_row_values[i * N_VARS + c] < tmp)
-			max_row_values[i * N_VARS + c] = tmp;
-		}
-	  }
-	}
-  }
-
-  // scaling
-  for (index_t i = 0; i < n_blocks; i++)
-  {
-	csr_idx_start = rows[i];
-	csr_idx_end = rows[i + 1];
-	for (index_t j = csr_idx_start; j < csr_idx_end; j++)
-	{
-	  for (uint8_t c = 0; c < N_VARS; c++)
-	  {
-		for (uint8_t v = 0; v < N_VARS; v++)
-		{
-		  Jac[j * N_VARS_SQ + c * N_VARS + v] /= max_row_values[i * N_VARS + c];
-		}
-	  }
-	}
-	for (uint8_t c = 0; c < N_VARS; c++)
-	{
-	  RHS[i * N_VARS + c] /= max_row_values[i * N_VARS + c];
-	}
-  }
 }
 
 template <uint8_t NC, uint8_t NP>

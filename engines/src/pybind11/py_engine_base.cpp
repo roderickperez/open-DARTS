@@ -46,6 +46,11 @@ void pybind_engine_base (py::module &m)
 		.def_readwrite("molar_weights", &engine_base::molar_weights) \
 		.def_readwrite("dispersivity", &engine_base::dispersivity) \
 		.def_readwrite("newton_update_coefficient", &engine_base::newton_update_coefficient) \
+		.def_readwrite("e_dim", &engine_base::e_dim) \
+		.def_readwrite("p_dim", &engine_base::p_dim) \
+		.def_readwrite("m_dim", &engine_base::m_dim) \
+		.def_readwrite("scale_rows", &engine_base::scale_rows) \
+		.def_readwrite("scale_dimless", &engine_base::scale_dimless) \
 		.def("add_value_to_Q", &engine_base::add_value_to_Q)  \
 		.def("clear_Q", &engine_base::clear_Q)  \
 		.def("calc_adjoint_gradient_dirac_all", &engine_base::calc_adjoint_gradient_dirac_all, py::call_guard<py::gil_scoped_release>())  \

@@ -176,6 +176,59 @@ public:
 
 	virtual int test_spmv(int n_timer, int kernel_number = 0, int dump_result = 0);
 
+	/// @brief row-wise scaling of Jacobian by maximum value
+	template<uint16_t N_VARS>
+	void dimensionalize_rows()
+	{
+	  constexpr uint16_t N_VARS_SQ = N_VARS * N_VARS;
+	  const index_t n_blocks = mesh->n_blocks;
+	  value_t* Jac = Jacobian->get_values();
+	  const index_t* rows = Jacobian->get_rows_ptr();
+	  index_t csr_idx_start, csr_idx_end;
+	  value_t tmp;
+
+	  // maximum values
+	  std::fill_n(max_row_values.data(), n_blocks * N_VARS, 0.0);
+	  for (index_t i = 0; i < n_blocks; i++)
+	  {
+		csr_idx_start = rows[i];
+		csr_idx_end = rows[i + 1];
+		for (index_t j = csr_idx_start; j < csr_idx_end; j++)
+		{
+		  for (uint8_t c = 0; c < N_VARS; c++)
+		  {
+			for (uint8_t v = 0; v < N_VARS; v++)
+			{
+			  tmp = fabs(Jac[j * N_VARS_SQ + c * N_VARS + v]);
+			  if (max_row_values[i * N_VARS + c] < tmp)
+				max_row_values[i * N_VARS + c] = tmp;
+			}
+		  }
+		}
+	  }
+
+	  // scaling
+	  for (index_t i = 0; i < n_blocks; i++)
+	  {
+		csr_idx_start = rows[i];
+		csr_idx_end = rows[i + 1];
+		for (index_t j = csr_idx_start; j < csr_idx_end; j++)
+		{
+		  for (uint8_t c = 0; c < N_VARS; c++)
+		  {
+			for (uint8_t v = 0; v < N_VARS; v++)
+			{
+			  Jac[j * N_VARS_SQ + c * N_VARS + v] /= max_row_values[i * N_VARS + c];
+			}
+		  }
+		}
+		for (uint8_t c = 0; c < N_VARS; c++)
+		{
+		  RHS[i * N_VARS + c] /= max_row_values[i * N_VARS + c];
+		}
+	  }
+	};
+	
 	/// @} // end of Methods
 
 	// properties
@@ -274,7 +327,14 @@ public:
 
 	std::string engine_name;
 
+	// flags to apply dimension-based and row-wise scaling respectively
+	bool scale_dimless, scale_rows;
 
+	// dimensions for scaling
+	value_t e_dim, t_dim, m_dim, p_dim;
+
+	// maximum absolute values in rows of jacobian
+	std::vector<value_t> max_row_values;
 
 
 
