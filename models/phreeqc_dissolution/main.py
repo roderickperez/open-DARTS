@@ -42,7 +42,7 @@ def run(max_ts, nx=100):
         plot(m)
 
     # Print some statistics
-    print('\nNegative composition occurrence:', m.physics.acc_flux_etor.counter, '\n')
+    print('\nNegative composition occurrence:', m.physics.reservoir_operators[0].counter, '\n')
 
     # Plot porosity
     # ----------------------------------------------------------------------------------------------------------------------

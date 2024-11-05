@@ -1,8 +1,8 @@
 from darts.engines import *
-from own_operator_evaluator import my_own_acc_flux_etor, my_own_rate_evaluator, my_own_comp_etor, my_own_results_etor
+from own_operator_evaluator import my_own_acc_flux_etor, my_own_comp_etor, my_own_rate_evaluator
 
 from darts.engines import *
-from darts.physics.physics_base import PhysicsBase
+from darts.physics.super.physics import Compositional
 
 import numpy as np
 import pickle
@@ -10,15 +10,12 @@ import hashlib
 import os
 
 # Define our own operator evaluator class
-class OwnPhysicsClass(PhysicsBase):
+class OwnPhysicsClass(Compositional):
     def __init__(self, timer, elements, n_points, min_p, max_p, min_z, input_data_struct, properties,
                  platform='cpu', itor_type='multilinear', itor_mode='adaptive', itor_precision='d', cache=True):
         # Obtain properties from user input during initialization:
-        self.min_z = min_z
-        self.elements = elements
-        self.thermal = False
-
-        nc = len(self.elements)
+        self.input_data_struct = input_data_struct
+        nc = len(elements)
         NE = nc
         vars = ["p"] + elements[:-1]
         phases = ['vapor', 'liquid']
@@ -27,62 +24,50 @@ class OwnPhysicsClass(PhysicsBase):
         n_axes_points = index_vector([n_points] * n_vars)
         n_axes_min = value_vector([min_p] + [min_z] * (nc - 1))
         n_axes_max = value_vector([max_p] + [1 - min_z] * (nc - 1))
-        n_ops = NE + n_phases * NE + n_phases + n_phases * NE + NE + 3 + 2 * n_phases + 1 + n_phases
 
-        super().__init__(variables=vars, nc=nc, phases=phases, n_ops=n_ops,
+        super().__init__(components=elements, phases=phases, n_points=n_points, thermal=False,
+                         min_p=min_p, max_p=max_p, min_z=min_z, max_z=1-min_z,
                          axes_min=n_axes_min, axes_max=n_axes_max, n_axes_points=n_axes_points,
                          timer=timer, cache=cache)
+        self.vars = vars
 
-        # Initialize main evaluator
-        self.acc_flux_etor = my_own_acc_flux_etor(input_data_struct, properties)
+    def set_operators(self):
+        for region in self.regions:
+            self.reservoir_operators[region] = my_own_acc_flux_etor(self.input_data_struct, self.property_containers[region])
+            self.property_operators[region] = my_own_comp_etor(self.input_data_struct, self.property_containers[region])
+        self.rate_operators = my_own_rate_evaluator(self.property_containers[0], self.input_data_struct.temperature, self.input_data_struct.c_r)
+
+    def set_interpolators(self, platform='cpu', itor_type='multilinear', itor_mode='adaptive',
+                          itor_precision='d', is_barycentric: bool = False):
+        region = 0
 
         # Create actual accumulation and flux interpolator:
-        self.acc_flux_itor = self.create_interpolator(evaluator=self.acc_flux_etor,
+        self.acc_flux_itor = self.create_interpolator(evaluator=self.reservoir_operators[region],
                                                       timer_name='reservoir interpolation',
                                                       n_ops=self.n_ops, platform=platform,
                                                       algorithm=itor_type, mode=itor_mode,
-                                                      precision=itor_precision)
+                                                      precision=itor_precision, is_barycentric=is_barycentric)
 
         # ==============================================================================================================
-
-        # Create initialization evaluator
-        self.comp_etor = my_own_comp_etor(input_data_struct.pressure_init, properties.init_flash_ev)
-
-        self.n_axes_points2 = index_vector([2 * n_points] * self.n_vars)
-        self.n_axes_min2 = value_vector([0] + [min_z] * (self.nc - 1))
-        self.n_axes_max2 = value_vector([1] + [1 - min_z] * (self.nc - 1))
-
-        self.comp_itor = self.create_interpolator_old(self.comp_etor, self.n_vars, 2, self.n_axes_points2,
-                                                  self.n_axes_min2, self.n_axes_max2, platform=platform,
+        # Create initialization & porosity evaluator
+        self.n_axes_points2 = index_vector([2 * self.n_axes_points[0]] * (self.n_vars + 1))
+        self.axes_min2 = value_vector([self.axes_min[0]] + [self.axes_min[1]] * self.n_vars)
+        self.axes_max2 = value_vector([self.axes_max[0]] + [self.axes_max[1]] * self.n_vars)
+        self.comp_itor = self.create_interpolator_old(self.property_operators[region], self.n_vars + 1, 2, self.n_axes_points2,
+                                                  self.axes_min2, self.axes_max2, platform=platform,
                                                   algorithm=itor_type, mode=itor_mode,
                                                   precision=itor_precision)
+        self.create_itor_timers(self.comp_itor, 'comp interpolation')
 
         # ==============================================================================================================
-
-        # Create results evaluator
-        self.results_etor = my_own_results_etor(input_data_struct, properties)
-
-        # Initialize results interpolator
-        self.results_itor = self.create_interpolator_old(self.results_etor, self.n_vars, self.nph, self.n_axes_points2,
-                                                     self.axes_min, self.axes_max, platform=platform,
-                                                     algorithm=itor_type, mode=itor_mode,
-                                                     precision=itor_precision)
-
-        # ==============================================================================================================
-
-        # Create rate evaluator and interpolator:
-        self.rate_etor = my_own_rate_evaluator(properties, input_data_struct.temperature, input_data_struct.c_r)
-
-        self.rate_itor = self.create_interpolator_old(self.rate_etor, self.n_vars, self.nph, self.n_axes_points,
+        # Create rate interpolator:
+        self.rate_itor = self.create_interpolator_old(self.rate_operators, self.n_vars, self.nph, self.n_axes_points,
                                                   self.axes_min, self.axes_max, platform=platform,
                                                   algorithm=itor_type, mode=itor_mode,
                                                   precision=itor_precision)
-
-        self.create_itor_timers(self.acc_flux_itor, 'reservoir interpolation')
-        self.create_itor_timers(self.comp_itor, 'comp interpolation')
-        self.create_itor_timers(self.results_itor, 'results interpolation')
         self.create_itor_timers(self.rate_itor, 'rate interpolation')
 
+    def define_well_controls(self):
         # define well control factories
         # Injection wells (upwind method requires both bhp and inj_stream for bhp controlled injection wells):
         self.new_bhp_inj = lambda bhp, inj_stream: bhp_inj_well_control(bhp, value_vector(inj_stream))
@@ -100,36 +85,6 @@ class OwnPhysicsClass(PhysicsBase):
         self.new_rate_oil_prod = lambda rate: rate_prod_well_control(self.phases, 1, self.nc,
                                                                      self.nc,
                                                                      rate, self.rate_itor)
-
-        self.new_acc_flux_itor = lambda new_acc_flux_etor: \
-            acc_flux_itor_name(new_acc_flux_etor, self.acc_flux_etor.axis_points,
-                               self.acc_flux_etor.axis_min, self.acc_flux_etor.axis_max)
-
-    # Define some class methods:
-    def init_wells(self, wells):
-        for w in wells:
-            assert isinstance(w, ms_well)
-            w.init_rate_parameters(self.n_vars, self.n_ops, self.phases, self.rate_itor)
-
-    def set_engine(self, discr_type: str = 'tpfa', platform: str = 'cpu'):
-        """
-        Function to set :class:`engine_super` object.
-
-        :param discr_type: Type of discretization, 'tpfa' (default) or 'mpfa'
-        :type discr_type: str
-        :param platform: Switch for CPU/GPU engine, 'cpu' (default) or 'gpu'
-        :type platform: str
-        """
-        if discr_type == 'mpfa':
-            if self.thermal:
-                return eval("engine_super_mp_%s%d_%d_t" % (platform, self.nc, self.nph))()
-            else:
-                return eval("engine_super_mp_%s%d_%d" % (platform, self.nc, self.nph))()
-        else:
-            if self.thermal:
-                return eval("engine_super_%s%d_%d_t" % (platform, self.nc, self.nph))()
-            else:
-                return eval("engine_super_%s%d_%d" % (platform, self.nc, self.nph))()
 
     def create_interpolator_old(self, evaluator: operator_set_evaluator_iface, n_dims: int, n_ops: int,
                             axes_n_points: index_vector, axes_min: value_vector, axes_max: value_vector,
@@ -200,7 +155,3 @@ class OwnPhysicsClass(PhysicsBase):
                 print("Writing point data for ", type(itor).__name__)
                 pickle.dump(itor.point_data, fp, protocol=4)
         return itor
-
-    def set_interpolators(self, platform='cpu', itor_type='multilinear', itor_mode='adaptive', itor_precision='d',
-                          is_barycentric: bool=False):
-        pass

@@ -77,7 +77,7 @@ class Model(DartsModel):
         self.max_z = 1 - self.obl_min
 
         # Rate annihilation matrix
-        E = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        self.E = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
                       [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0],
                       [0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0],
                       [1, 0, 1, 2, 3, 3, 3, 0, 1, 3, 0],
@@ -92,13 +92,14 @@ class Model(DartsModel):
                                             self.pressure_init, self.c_r, self.kin_fact)
 
         # Create property containers:
-        self.property_container = ModelProperties(phases_name=self.phases, components_name=self.elements,
+        property_container = ModelProperties(phases_name=self.phases, components_name=self.elements,
                                                   Mw=Mw, min_z=self.comp_min, temperature=self.temperature)
 
         # Create instance of (own) physics class:
         self.physics = OwnPhysicsClass(self.timer, self.elements, self.n_points, self.min_p, self.max_p,
-                                       self.min_z, input_data_struct, self.property_container)
+                                       self.min_z, input_data_struct, property_container)
 
+        self.physics.add_property_region(property_container, 0)
         # Compute injection stream
         mole_water, mole_co2 = calculate_injection_stream(1.1, 0.1, self.temperature, self.pressure_init)
         mole_fraction_water, mole_fraction_co2 = get_mole_fractions(mole_water, mole_co2)
@@ -106,45 +107,8 @@ class Model(DartsModel):
         # Define injection stream composition,
         # ['H2O', 'H+', 'OH-', 'CO2', 'HCO3-', 'CO3-2', 'CaCO3', 'Ca+2', 'CaOH+', 'CaHCO3+', 'Solid']
         self.inj_stream_components = np.array([mole_fraction_water, 0, 0, mole_fraction_co2, 0, 0, 0, 0, 0, 0, 0])
-        self.inj_stream = convert_composition(self.inj_stream_components, E)
+        self.inj_stream = convert_composition(self.inj_stream_components, self.E)
         self.inj_stream = correct_composition(self.inj_stream, self.comp_min)
-
-        # ====================================== Initialize reservoir composition ======================================
-        print('\nInitializing compositions...')
-
-        # Component-defined composition of a non-solid phase (pure water here)
-        self.initial_comp_components = np.array([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-        self.solid_frac = np.zeros(len(self.solid_sat))
-        self.initial_comp = np.zeros((self.nx * self.ny * self.nz + 4, self.num_vars - 1))
-
-        # Interpolated values of non-solid volume (second value always 0 due to no (5,1) interpolator)
-        values = value_vector([0] * 2)
-
-        # Iterate over solid saturation and call interpolator
-        for i in range(len(self.solid_sat)):
-            # There are 5 values in the state
-            composition_full = convert_composition(self.initial_comp_components, E)
-            composition = correct_composition(composition_full, self.comp_min)
-            init_state = value_vector(np.hstack((self.solid_sat[i], composition)))
-
-            # Call interpolator
-            self.physics.comp_itor.evaluate(init_state, values)
-
-            # Assemble initial composition
-            self.solid_frac[i] = values[0]
-            initial_comp_with_solid = np.multiply(composition_full, 1 - self.solid_frac[i])
-            initial_comp_with_solid[0] = self.solid_frac[i]
-            self.initial_comp[i, :] = correct_composition(initial_comp_with_solid, self.comp_min)
-
-        # Define initial composition for wells
-        for i in range(self.nx * self.ny * self.nz, self.nx * self.ny * self.nz + 2):
-            self.initial_comp[i, :] = np.array(self.inj_stream)
-
-        for i in range(self.nx * self.ny * self.nz + 2, self.nx * self.ny * self.nz + 4):
-            self.initial_comp[i, :] = np.array(self.initial_comp[0, :])
-
-        print('\tNegative composition occurrence while initializing:', self.physics.comp_etor.counter, '\n')
-        # ====================================== Initialize reservoir composition ======================================
 
         # Some newton parameters for non-linear solution:
         self.params.first_ts = 1e-7
@@ -178,6 +142,58 @@ class Model(DartsModel):
                                          dz=self.dz, permx=self.const_perm, permy=self.const_perm,
                                          permz=self.const_perm, poro=self.poro, depth=self.depth)
 
+    def set_initial_conditions(self):
+        # ====================================== Initialize reservoir composition ======================================
+        print('\nInitializing compositions...')
+
+        # Component-defined composition of a non-solid phase (pure water here)
+        self.initial_comp_components = np.array([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        self.solid_frac = np.zeros(len(self.solid_sat))
+        self.initial_comp = np.zeros((self.nx * self.ny * self.nz + 4, self.num_vars - 1))
+
+        # Interpolated values of non-solid volume (second value always 0 due to no (5,1) interpolator)
+        values = value_vector([0] * 2)
+
+        # Iterate over solid saturation and call interpolator
+        for i in range(len(self.solid_sat)):
+            # There are 5 values in the state
+            composition_full = convert_composition(self.initial_comp_components, self.E)
+            composition = correct_composition(composition_full, self.comp_min)
+            init_state = value_vector(np.hstack((self.physics.input_data_struct.pressure_init, self.solid_sat[i], composition)))
+
+            # Call interpolator
+            self.physics.comp_itor.evaluate(init_state, values)
+
+            # Assemble initial composition
+            self.solid_frac[i] = values[0]
+            initial_comp_with_solid = np.multiply(composition_full, 1 - self.solid_frac[i])
+            initial_comp_with_solid[0] = self.solid_frac[i]
+            self.initial_comp[i, :] = correct_composition(initial_comp_with_solid, self.comp_min)
+
+        # Define initial composition for wells
+        for i in range(self.nx * self.ny * self.nz, self.nx * self.ny * self.nz + 2):
+            self.initial_comp[i, :] = np.array(self.inj_stream)
+
+        for i in range(self.nx * self.ny * self.nz + 2, self.nx * self.ny * self.nz + 4):
+            self.initial_comp[i, :] = np.array(self.initial_comp[0, :])
+
+        print('\tNegative composition occurrence while initializing:', self.physics.property_operators[0].counter, '\n')
+
+        initial_pressure = self.pressure_init
+        initial_composition = self.initial_comp
+
+        nb = self.reservoir.mesh.n_blocks
+        nc = self.physics.nc
+
+        # set initial pressure
+        pressure = np.array(self.reservoir.mesh.pressure, copy=False)
+        pressure.fill(initial_pressure)
+
+        # set initial composition
+        self.reservoir.mesh.composition.resize(nb * (nc - 1))
+        composition = np.array(self.reservoir.mesh.composition, copy=False)
+        for c in range(nc - 1):
+            composition[c::nc-1] = initial_composition[:, c]
 
     def set_wells(self):
         d_w = 1.5
@@ -195,24 +211,6 @@ class Model(DartsModel):
             self.reservoir.add_perforation(well_name='P1', cell_index=(self.nx, 1, 1), multi_segment=False,
                                            verbose=True, well_radius=r_w, well_index=well_index,
                                            well_indexD=well_index)
-
-    # Initialize reservoir and set boundary conditions:
-    def set_initial_conditions(self):
-        initial_pressure = self.pressure_init
-        initial_composition = self.initial_comp
-
-        nb = self.reservoir.mesh.n_blocks
-        nc = self.physics.nc
-
-        # set initial pressure
-        pressure = np.array(self.reservoir.mesh.pressure, copy=False)
-        pressure.fill(initial_pressure)
-
-        # set initial composition
-        self.reservoir.mesh.composition.resize(nb * (nc - 1))
-        composition = np.array(self.reservoir.mesh.composition, copy=False)
-        for c in range(nc - 1):
-            composition[c::nc-1] = initial_composition[:, c]
 
     def set_boundary_conditions(self):
         # New boundary condition by adding wells:
@@ -243,13 +241,13 @@ class Model(DartsModel):
             Xm = np.copy(self.physics.engine.X[:self.reservoir.n*self.physics.nc])
 
         for i in range(self.reservoir.n):
-            state = value_vector(
-                Xm[i * self.physics.nc:i * self.physics.nc + self.physics.nc])
-            self.physics.results_itor.evaluate(state, values)
-            poro[i] = 1 - values[0]
+            state = value_vector([Xm[i * self.physics.nc]] + [0.] + \
+                                 list(Xm[i * self.physics.nc+1:i * self.physics.nc + self.physics.nc]))
+            self.physics.comp_itor.evaluate(state, values)
+            poro[i] = 1 - values[1]
 
         poro_diff = poro - poro_init
-        print('\tNegative composition while evaluating results:', self.physics.results_etor.counter, '\n')
+        print('\tNegative composition while evaluating results:', self.physics.property_operators[0].counter, '\n')
         return poro_init, poro, poro_diff
 
     def plot_1d(self, map_data, name):

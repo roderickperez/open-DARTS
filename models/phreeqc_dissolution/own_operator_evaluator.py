@@ -279,94 +279,44 @@ class my_own_rate_evaluator(operator_set_evaluator_iface):
         # multiplied with a pressure difference one obtains actual volumetric flow rate)
         return 0
 
-
 # Define our own operator evaluator class for initialization
-class my_own_comp_etor(operator_set_evaluator_iface):
-    def __init__(self, pressure, flash_ev):
-        super().__init__()  # Initialize base-class
-        self.pressure = pressure
-        self.flash_ev = flash_ev
+class my_own_comp_etor(my_own_acc_flux_etor):
+    def __init__(self, input_data, properties):
+        super().__init__(input_data, properties)  # Initialize base-class
+        self.pressure_init = input_data.pressure_init
         self.non_solid_mole = 1000
         self.counter = 0
 
-    def comp_out_of_bounds(self, vec_composition):
-        # Check if composition sum is above 1 or element comp below 0, i.e. if point is unphysical:
-        temp_sum = 0
-        count_corr = 0
-        check_vec = np.zeros((len(vec_composition),))
-
-        for ith_comp in range(len(vec_composition)):
-            if vec_composition[ith_comp] < self.min_z:
-                vec_composition[ith_comp] = self.min_z
-                count_corr += 1
-                check_vec[ith_comp] = 1
-            elif vec_composition[ith_comp] > 1 - self.min_z:
-                vec_composition[ith_comp] = 1 - self.min_z
-                temp_sum += vec_composition[ith_comp]
-            else:
-                temp_sum += vec_composition[ith_comp]
-
-        for ith_comp in range(len(vec_composition)):
-            if check_vec[ith_comp] != 1:
-                vec_composition[ith_comp] = vec_composition[ith_comp] / temp_sum * (1 - count_corr * self.min_z)
-        return vec_composition
-
     def evaluate(self, state, values):
         state_np = state.to_numpy()
-        values_np = state.to_numpy()
-        state_np = np.asarray(state)
-        zc = np.append(state_np[1:], 1 - np.sum(state_np[1:]))
+        values_np = values.to_numpy()
+        pressure = state_np[0]
+        # state_np[1] is solid saturation (volume fraction)
+        sol_saturation = state_np[1]
 
         # Check for negative composition occurrence
+        zc = np.append(state_np[2:], 1 - np.sum(state_np[2:]))
         if (zc < 0).any():
             self.counter += 1
             zc_copy = np.array(zc)
             zc_copy = self.comp_out_of_bounds(zc_copy)
-            flash_state = np.hstack((self.pressure, self.non_solid_mole, zc_copy))
-        else:
-            flash_state = np.hstack((self.pressure, self.non_solid_mole, zc))
-
-        # Perform Flash procedure here:
-        non_sol_volume = self.flash_ev.evaluate(flash_state)    # m3
-
-        # state_np[0] is solid saturation (volume fraction)
-        total_volume = non_sol_volume / (1 - state_np[0])
-        sol_volume = total_volume * state_np[0]          # m3
-        sol_mole = sol_volume * (1 + 1e-6 * (self.pressure - 1)) * 2710 / 0.1000869
-        sol = sol_mole / (sol_mole + self.non_solid_mole)
-        values[0] = sol
-
-        return 0
-
-
-# Define results evaluator
-class my_own_results_etor(my_own_acc_flux_etor):
-    def __init__(self, input_data, properties):
-        super().__init__(input_data, properties)
-
-    def evaluate(self, state, values):
-        # Composition vector and pressure from state:
-        state_np = state.to_numpy()
-        values_np = state.to_numpy()
-        pressure = state_np[0]
-        zc = np.append(state_np[1:], 1 - np.sum(state_np[1:]))
-
-        # # # ================================ Flash ================================ # # #
-        # Check for negative composition occurrence
-        if (zc < 0).any():
-            self.counter += 1
-
-            zc_copy = np.array(zc)
-            for i in range(len(zc_copy)):
-                if zc_copy[i] < 0:
-                    zc_copy[i] = 0
-            zc_copy = np.divide(zc_copy, np.sum(zc_copy))
-
+            init_flash_state = np.hstack((self.pressure_init, self.non_solid_mole, zc_copy))
             flash_state = np.append(pressure, zc_copy)
         else:
+            init_flash_state = np.hstack((self.pressure_init, self.non_solid_mole, zc))
             flash_state = np.append(pressure, zc)
 
-        # Perform Flash procedure here:
+        # init flash, for initial properties
+        non_sol_volume = self.property.init_flash_ev.evaluate(init_flash_state)    # m3
+
+        # initial composition
+        sol_volume = non_sol_volume * sol_saturation / (1 - sol_saturation)         # m3
+        sol_mole = sol_volume * (1 + 1e-6 * (self.pressure_init - 1)) * 2710 / 0.1000869
+        sol = sol_mole / (sol_mole + self.non_solid_mole)
+        values_np[0] = sol
+
+        # porosity
+        # normal flash, for other properties
         vap, _, _, rho_phases, _ = self.property.flash_ev.evaluate(flash_state)
 
         # NOTE: z_CaCO3 = zc[0] = 1 - V - L (since only CaCO3 appears in solid phase)
@@ -379,7 +329,6 @@ class my_own_results_etor(my_own_acc_flux_etor):
         rho_w = rho_phases['aq']
         rho_g = rho_phases['gas']
         rho_s = (1 + 1e-6 * (pressure - 1)) * 2710 / 0.1000869 / 1000
-        # # # ================================ Flash ================================ # # #
 
         # Get saturations
         if vap > 0:
@@ -387,5 +336,5 @@ class my_own_results_etor(my_own_acc_flux_etor):
         else:
             ss = sol / rho_s / (liq / rho_w + sol / rho_s)
 
-        values[0] = ss
+        values_np[1] = ss
         return 0
