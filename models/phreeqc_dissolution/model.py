@@ -48,9 +48,25 @@ class Model(DartsModel):
         # Measure time spend on reading/initialization
         self.timer.node["initialization"].start()
 
-        # setup reservoir
         self.set_reservoir(nx=nx)
+        self.set_physics()
 
+        # Some newton parameters for non-linear solution:
+        self.params.first_ts = 1e-7
+        self.params.max_ts = 1e-4
+
+        self.params.tolerance_newton = 1e-3
+        self.params.tolerance_linear = 1e-4
+        self.params.max_i_newton = 20
+        self.params.max_i_linear = 50
+        self.params.newton_type = sim_params.newton_local_chop
+        self.params.newton_params[0] = 0.2
+        # self.params.norm_type = 1
+
+        self.runtime = 1
+        self.timer.node["initialization"].stop()
+
+    def set_physics(self):
         # some properties
         self.temperature = 323.15           # K
         self.pressure_init = 100            # bar
@@ -70,9 +86,9 @@ class Model(DartsModel):
         self.elements = ['Solid', 'Ca', 'C', 'O', 'H']
         Mw = [-1e+5] * 5 # dummy array
         self.num_vars = len(self.elements)
-        self.n_points = 201
-        self.min_p = 95
-        self.max_p = 105
+        self.n_points = 501
+        self.min_p = 99
+        self.max_p = 103
         self.min_z = self.obl_min
         self.max_z = 1 - self.obl_min
 
@@ -85,7 +101,6 @@ class Model(DartsModel):
 
         # Several parameters related to kinetic reactions:
         stoich_matrix = np.array([-1, 1, 1, 3, 0])
-        trans_mult_exp = 4
 
         # Create instance of data-structure for simulation (and chemical) input parameters:
         input_data_struct = MyOwnDataStruct(len(self.elements), self.comp_min, self.temperature, stoich_matrix,
@@ -100,6 +115,10 @@ class Model(DartsModel):
                                        self.min_z, input_data_struct, property_container)
 
         self.physics.add_property_region(property_container, 0)
+
+        # set transmissibility exponent power
+        self.params.trans_mult_exp = 4
+
         # Compute injection stream
         mole_water, mole_co2 = calculate_injection_stream(1.1, 0.1, self.temperature, self.pressure_init)
         mole_fraction_water, mole_fraction_co2 = get_mole_fractions(mole_water, mole_co2)
@@ -109,22 +128,6 @@ class Model(DartsModel):
         self.inj_stream_components = np.array([mole_fraction_water, 0, 0, mole_fraction_co2, 0, 0, 0, 0, 0, 0, 0])
         self.inj_stream = convert_composition(self.inj_stream_components, self.E)
         self.inj_stream = correct_composition(self.inj_stream, self.comp_min)
-
-        # Some newton parameters for non-linear solution:
-        self.params.first_ts = 1e-7
-        self.params.max_ts = 1e-4
-
-        self.params.tolerance_newton = 1e-3
-        self.params.tolerance_linear = 1e-4
-        self.params.max_i_newton = 20
-        self.params.max_i_linear = 50
-        self.params.newton_type = sim_params.newton_local_chop
-        self.params.newton_params[0] = 0.2
-        self.params.trans_mult_exp = trans_mult_exp
-        # self.params.norm_type = 1
-
-        self.runtime = 1
-        self.timer.node["initialization"].stop()
 
     def set_reservoir(self, nx):
         self.nx = nx

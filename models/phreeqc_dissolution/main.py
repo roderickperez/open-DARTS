@@ -28,10 +28,6 @@ def run(max_ts, nx=100):
     total_pv = np.sum(volume[:m.reservoir.n] * poro) * 1e6
     print('Total pore volume:', total_pv, 'cm3')
 
-    # Run Python
-    # hours = 0.095785 / 10
-    # runtime = hours / 24
-    # runtime = 0.0266070668369519 / 2 * 1e-2
     m.params.max_ts = max_ts
     # plot(m)
     m.run(0.01)
@@ -97,6 +93,6 @@ def plot(m):
 
     plt.show()
 
-# run(nx=100, max_ts=6.e-4)
-run(nx=200, max_ts=5.e-4)
-# run(nx=1000, max_ts=2.e-4)
+# run(nx=100, max_ts=2.e-3)
+run(nx=200, max_ts=1.e-3)
+# run(nx=500, max_ts=5.e-4)

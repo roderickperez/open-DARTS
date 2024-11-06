@@ -53,18 +53,30 @@ class OwnPhysicsClass(Compositional):
         self.n_axes_points2 = index_vector([2 * self.n_axes_points[0]] * (self.n_vars + 1))
         self.axes_min2 = value_vector([self.axes_min[0]] + [self.axes_min[1]] * self.n_vars)
         self.axes_max2 = value_vector([self.axes_max[0]] + [self.axes_max[1]] * self.n_vars)
-        self.comp_itor = self.create_interpolator_old(self.property_operators[region], self.n_vars + 1, 2, self.n_axes_points2,
-                                                  self.axes_min2, self.axes_max2, platform=platform,
-                                                  algorithm=itor_type, mode=itor_mode,
-                                                  precision=itor_precision)
+        self.comp_itor = self.create_interpolator_old(evaluator=self.property_operators[region],
+                                                      n_dims=self.n_vars + 1,
+                                                      n_ops=2,
+                                                      axes_n_points=self.n_axes_points2,
+                                                      axes_min=self.axes_min2,
+                                                      axes_max=self.axes_max2,
+                                                      platform=platform,
+                                                      algorithm=itor_type,
+                                                      mode=itor_mode,
+                                                      precision=itor_precision)
         self.create_itor_timers(self.comp_itor, 'comp interpolation')
 
         # ==============================================================================================================
         # Create rate interpolator:
-        self.rate_itor = self.create_interpolator_old(self.rate_operators, self.n_vars, self.nph, self.n_axes_points,
-                                                  self.axes_min, self.axes_max, platform=platform,
-                                                  algorithm=itor_type, mode=itor_mode,
-                                                  precision=itor_precision)
+        self.rate_itor = self.create_interpolator_old(evaluator=self.rate_operators,
+                                                      n_dims=self.n_vars,
+                                                      n_ops=self.nph,
+                                                      axes_n_points=self.n_axes_points,
+                                                      axes_min=self.axes_min,
+                                                      axes_max=self.axes_max,
+                                                      platform=platform,
+                                                      algorithm=itor_type,
+                                                      mode=itor_mode,
+                                                      precision=itor_precision)
         self.create_itor_timers(self.rate_itor, 'rate interpolation')
 
     def define_well_controls(self):
