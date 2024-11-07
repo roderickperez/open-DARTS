@@ -129,6 +129,15 @@ class Model(DartsModel):
         self.inj_stream = convert_composition(self.inj_stream_components, self.E)
         self.inj_stream = correct_composition(self.inj_stream, self.comp_min)
 
+        # prepare arrays for evaluation of properties
+        nb = self.nx * self.ny * self.nz
+        n_vars = self.physics.n_vars
+        self.prop_states = value_vector([0.] * nb * (n_vars + 1))
+        self.prop_states_np = np.asarray(self.prop_states)
+        self.prop_values = value_vector([0.] * 2 * nb)
+        self.prop_values_np = np.asarray(self.prop_values)
+        self.prop_dvalues = value_vector([0.] * 2 * nb * n_vars)
+
     def set_reservoir(self, nx):
         self.nx = nx
         self.ny = 1
@@ -234,24 +243,24 @@ class Model(DartsModel):
         self.op_num = np.array(self.reservoir.mesh.op_num, copy=False)
         self.op_num[self.reservoir.mesh.n_res_blocks:] = len(self.op_list) - 1
 
-    def evaluate_porosity(self, Xm = None):
+    def evaluate_porosity(self):
         # Initial porosity
-        poro_init = 1 - self.solid_sat
+        # poro_init = 1 - self.solid_sat
+        nb = self.nx * self.ny * self.nz
+        n_vars = self.physics.n_vars
 
-        poro = np.zeros(self.reservoir.n)
-        values = value_vector([0] * 2)
-        if Xm is None:
-            Xm = np.copy(self.physics.engine.X[:self.reservoir.n*self.physics.nc])
+        X = np.asarray(self.physics.engine.X)
+        self.prop_states_np[0::n_vars + 1] = X[0:nb * n_vars:n_vars]
+        for i in range(n_vars):
+            self.prop_states_np[i+2::n_vars + 1] = X[i+1:nb * n_vars:n_vars]
 
-        for i in range(self.reservoir.n):
-            state = value_vector([Xm[i * self.physics.nc]] + [0.] + \
-                                 list(Xm[i * self.physics.nc+1:i * self.physics.nc + self.physics.nc]))
-            self.physics.comp_itor.evaluate(state, values)
-            poro[i] = 1 - values[1]
+        region = 0
+        self.physics.comp_itor.evaluate_with_derivatives(self.prop_states, self.physics.engine.region_cell_idx[region],
+                                                         self.prop_values, self.prop_dvalues)
+        poro = 1. - self.prop_values_np[1::2]
 
-        poro_diff = poro - poro_init
         print('\tNegative composition while evaluating results:', self.physics.property_operators[0].counter, '\n')
-        return poro_init, poro, poro_diff
+        return poro
 
     def plot_1d(self, map_data, name):
         """

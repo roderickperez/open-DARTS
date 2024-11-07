@@ -23,7 +23,7 @@ def run(max_ts, nx=100):
     m.init()
 
     # Initialization check
-    _, poro, _ = m.evaluate_porosity()
+    poro = m.evaluate_porosity()
     volume = np.array(m.reservoir.mesh.volume, copy=False)
     total_pv = np.sum(volume[:m.reservoir.n] * poro) * 1e6
     print('Total pore volume:', total_pv, 'cm3')
@@ -40,10 +40,6 @@ def run(max_ts, nx=100):
     # Print some statistics
     print('\nNegative composition occurrence:', m.physics.reservoir_operators[0].counter, '\n')
 
-    # Plot porosity
-    # ----------------------------------------------------------------------------------------------------------------------
-    _, poro, _ = m.evaluate_porosity()
-
     m.print_timers()
     m.print_stat()
 
@@ -51,7 +47,7 @@ def run(max_ts, nx=100):
 
 def plot(m):
     Xm = np.copy(m.physics.engine.X[:m.reservoir.n*m.physics.nc])
-    _, poro, _ = m.evaluate_porosity()
+    poro = m.evaluate_porosity()
 
     n_plots = 3
     fig, ax = plt.subplots(nrows=n_plots, sharex=True, figsize=(6, 11))
