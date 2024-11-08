@@ -1,7 +1,7 @@
 # from reservoir import StructReservoir
-from conversions import convert_composition, correct_composition, calculate_injection_stream, \
+from phreeqc_dissolution.conversions import convert_composition, correct_composition, calculate_injection_stream, \
     get_mole_fractions, convert_rate, bar2atm
-from own_physics import OwnPhysicsClass
+from phreeqc_dissolution.physics import PhreeqcDissolution
 
 from darts.models.darts_model import DartsModel
 from darts.reservoirs.struct_reservoir import StructReservoir
@@ -111,7 +111,7 @@ class Model(DartsModel):
                                                   Mw=Mw, min_z=self.comp_min, temperature=self.temperature)
 
         # Create instance of (own) physics class:
-        self.physics = OwnPhysicsClass(self.timer, self.elements, self.n_points, self.min_p, self.max_p,
+        self.physics = PhreeqcDissolution(self.timer, self.elements, self.n_points, self.min_p, self.max_p,
                                        self.min_z, input_data_struct, property_container)
 
         self.physics.add_property_region(property_container, 0)
@@ -261,27 +261,6 @@ class Model(DartsModel):
 
         print('\tNegative composition while evaluating results:', self.physics.property_operators[0].counter, '\n')
         return poro
-
-    def plot_1d(self, map_data, name):
-        """
-        Function to plot the 1d parameter.
-        :param map_data: data array
-        :param name: parameter name
-        """
-        import plotly.graph_objs as go
-        import numpy as np
-
-        nx = self.reservoir.nx
-        fig = go.Figure()
-        data = [go.Scatter(x=np.linspace(0, 1, nx), y=map_data[1:nx])]
-        fig.add_trace(data[0])
-        fig.update_layout(
-            xaxis_title="X block",
-            yaxis_title=name,
-            font=dict(size=12)
-        )
-        fig.show()
-        # plotly.offline.plot(data, filename='%s_surf.html' % name)
 
 class ModelProperties(PropertyContainer):
     def __init__(self, phases_name, components_name, Mw, nc_sol=0, np_sol=0, min_z=1e-11, rock_comp=1e-6,

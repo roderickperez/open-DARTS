@@ -1,5 +1,5 @@
 from darts.physics.operators_base import OperatorsBase
-from conversions import bar2pa
+from phreeqc_dissolution.conversions import bar2pa
 from darts.engines import *
 import CoolProp.CoolProp as CP
 import os.path as osp

@@ -89,6 +89,6 @@ def plot(m):
 
     plt.show()
 
-# run(nx=100, max_ts=2.e-3)
-run(nx=200, max_ts=1.e-3)
-# run(nx=500, max_ts=5.e-4)
+# run(nx=100, max_ts=1.e-2)
+run(nx=200, max_ts=1.e-2)
+# run(nx=500, max_ts=4.e-3)

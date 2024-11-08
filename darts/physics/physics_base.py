@@ -220,6 +220,8 @@ class PhysicsBase:
             w.init_rate_parameters(self.n_vars, self.n_ops, self.phases, self.rate_itor)
 
     def create_interpolator(self, evaluator: operator_set_evaluator_iface, timer_name: str, n_ops: int,
+                            n_vars: int = None, n_axes_points: index_vector = None,
+                            axes_min: value_vector = None, axes_max: value_vector = None,
                             algorithm: str = 'multilinear', mode: str = 'adaptive',
                             platform: str = 'cpu', precision: str = 'd', region: str = '',
                             is_barycentric: bool = False):
@@ -230,6 +232,16 @@ class PhysicsBase:
         :type evaluator: darts.engines.operator_set_evaluator_iface
         :param timer_name: Name of timer object
         :type timer_name: str
+        :param n_vars: Number of OBL axes
+        :type n_vars: int
+        :param n_ops: Number of operators
+        :type n_ops: int
+        :param n_axes_points: Number of points along OBL axes
+        :type n_axes_points: index_vector
+        :param axes_min: Minimal bounds of OBL axes
+        :type axes_min: value_vector
+        :param axes_max: Maximal bounds of OBL axes
+        :type axes_max: value_vector
         :param algorithm: interpolator type:
             'multilinear' (default) - piecewise multilinear generalization of piecewise bilinear interpolation on rectangles;
             'linear' - a piecewise linear generalization of piecewise linear interpolation on triangles
@@ -252,15 +264,25 @@ class PhysicsBase:
         :param is_barycentric: Flag which turn on barycentric interpolation on Delaunay simplices
         :type is_barycentric: bool
         """
+        # check input OBL props
+        if n_vars is None:
+            n_vars = self.n_vars
+        if n_axes_points is None:
+            n_axes_points = self.n_axes_points
+        if axes_min is None:
+            axes_min = self.axes_min
+        if axes_max is None:
+            axes_max = self.axes_max
+
         # verify then inputs are valid
-        assert len(self.n_axes_points) == self.n_vars
-        assert len(self.axes_min) == self.n_vars
-        assert len(self.axes_max) == self.n_vars
-        for n_p in self.n_axes_points:
+        assert len(n_axes_points) == n_vars
+        assert len(axes_min) == n_vars
+        assert len(axes_max) == n_vars
+        for n_p in n_axes_points:
             assert n_p > 1
 
         # calculate object name using 32 bit index type (i)
-        n_dims = self.n_vars
+        n_dims = n_vars
         itor_name = "%s_%s_%s_interpolator_i_%s_%d_%d" % (algorithm,
                                                           mode,
                                                           platform,
@@ -273,26 +295,26 @@ class PhysicsBase:
         # try to create itor with 32-bit index type first (kinda a bit faster)
         try:
             if algorithm == 'linear':
-                itor = eval(itor_name)(evaluator, self.n_axes_points, self.axes_min, self.axes_max, is_barycentric)
+                itor = eval(itor_name)(evaluator, n_axes_points, axes_min, axes_max, is_barycentric)
             else:
-                itor = eval(itor_name)(evaluator, self.n_axes_points, self.axes_min, self.axes_max)
+                itor = eval(itor_name)(evaluator, n_axes_points, axes_min, axes_max)
         except (ValueError, NameError):
             # 32-bit index type did not succeed: either total amount of points is out of range or has not been compiled
             # try 64 bit now raising exception this time if goes wrong:
-            if np.prod(np.array(self.n_axes_points), dtype=np.float64) < np.iinfo(np.int64).max:
+            if np.prod(np.array(n_axes_points), dtype=np.float64) < np.iinfo(np.int64).max:
                 itor_name = itor_name.replace('interpolator_i', 'interpolator_l')
             else:
                 itor_name = itor_name.replace('interpolator_i', 'interpolator_ll')
             try:
                 if algorithm == 'linear':
-                    itor = eval(itor_name)(evaluator, self.n_axes_points, self.axes_min, self.axes_max, is_barycentric)
+                    itor = eval(itor_name)(evaluator, n_axes_points, axes_min, axes_max, is_barycentric)
                 else:
-                    itor = eval(itor_name)(evaluator, self.n_axes_points, self.axes_min, self.axes_max)
+                    itor = eval(itor_name)(evaluator, n_axes_points, axes_min, axes_max)
             except (ValueError, NameError):
                 # if 64-bit index also failed, probably the combination of required n_ops and n_dims
                 # was not instantiated/exposed. In this case substitute general implementation of interpolator
-                itor = eval("multilinear_adaptive_cpu_interpolator_general")(evaluator, self.n_axes_points,
-                                                                             self.axes_min, self.axes_max, n_dims, n_ops)
+                itor = eval("multilinear_adaptive_cpu_interpolator_general")(evaluator, n_axes_points,
+                                                                             axes_min, axes_max, n_dims, n_ops)
                 general = True
 
         if self.cache:
@@ -302,7 +324,7 @@ class PhysicsBase:
             if general:
                 itor_cache_signature += "_general_"
             for dim in range(n_dims):
-                itor_cache_signature += "_%d_%e_%e" % (self.n_axes_points[dim], self.axes_min[dim], self.axes_max[dim])
+                itor_cache_signature += "_%d_%e_%e" % (n_axes_points[dim], axes_min[dim], axes_max[dim])
             # compute signature hash to uniquely identify itor parameters and load correct cache
             itor_cache_signature_hash = str(hashlib.md5(itor_cache_signature.encode()).hexdigest())
             itor_cache_filename = 'obl_point_data_' + itor_cache_signature_hash + '.pkl'
