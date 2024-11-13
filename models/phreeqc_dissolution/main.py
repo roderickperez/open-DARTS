@@ -29,13 +29,13 @@ def run(max_ts, nx=100):
     print('Total pore volume:', total_pv, 'cm3')
 
     m.params.max_ts = max_ts
-    # plot(m)
+    # plot_profiles(m)
     m.run(0.01)
-    # plot(m)
+    # plot_profiles(m)
     for i in range(8):
         m.run(days=0.1, restart_dt=max_ts)
         if i > 0: m.params.first_ts = max_ts
-        plot(m)
+        plot_profiles(m)
 
     # Print some statistics
     print('\nNegative composition occurrence:', m.physics.reservoir_operators[0].counter, '\n')
@@ -43,9 +43,7 @@ def run(max_ts, nx=100):
     m.print_timers()
     m.print_stat()
 
-    plot(m)
-
-def plot(m):
+def plot_profiles(m):
     Xm = np.copy(m.physics.engine.X[:m.reservoir.n*m.physics.nc])
     poro = m.evaluate_porosity()
 

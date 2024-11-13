@@ -279,6 +279,8 @@ class ModelProperties(PropertyContainer):
             self.comp_min = comp_min
             self.phreeqc = IPhreeqc()
             self.load_database("phreeqc.dat")
+            # self.phreeqc.phreeqc.OutputFileOn = True
+            # self.phreeqc.phreeqc.SelectedOutputFileOn = True
 
             self.phreeqc_template = """
             USER_PUNCH
