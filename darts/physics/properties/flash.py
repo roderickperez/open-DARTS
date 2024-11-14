@@ -17,7 +17,7 @@ class Flash:
         pass
 
     def get_flash_results(self):
-        return self.x
+        return self
 
 
 class SinglePhase(Flash):
