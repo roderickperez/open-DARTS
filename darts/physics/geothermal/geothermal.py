@@ -140,7 +140,7 @@ class GeothermalPHProperties(GeothermalPropertiesBase):
         self.phases = ["water", "steam"]
 
     def run_flash(self, pressure, enthalpy):
-        _ = self.flash_ev.evaluate_PH(pressure, enthalpy)
+        _ = self.flash_ev.evaluate(pressure, enthalpy)
         flash_results = self.flash_ev.get_flash_results()
         self.nu = np.array(flash_results.nu)
         self.x = np.array(flash_results.X).reshape(self.nph, self.nc)
