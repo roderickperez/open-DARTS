@@ -1,6 +1,6 @@
 import numpy as np
 from darts.engines import value_vector
-from darts.physics.property_base import PropertyBase
+from darts.physics.base.property_base import PropertyBase
 from darts.physics.properties.flash import Flash
 from darts.physics.properties.basic import ConstFunc, RockCompactionEvaluator, RockEnergyEvaluator
 
@@ -168,12 +168,9 @@ class PropertyContainer(PropertyBase):
         self.nu = np.array(flash_results.nu)
         self.x = np.array(flash_results.X).reshape(self.np_fl, self.nc_fl)
 
-        ph = []
-        for j in range(self.np_fl):
-            if self.nu[j] > 0:
-                ph.append(j)
+        ph = np.array([j for j in range(self.np_fl) if self.nu[j] > 0])
 
-        if len(ph) == 1:
+        if ph.size == 1:
             self.x[ph[0]] = zc
 
         return ph

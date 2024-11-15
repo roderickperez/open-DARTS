@@ -10,7 +10,7 @@ from scipy.interpolate import griddata
 
 
 class StructReservoir(ReservoirBase):
-    def __init__(self, timer: timer_node, nx: int, ny: int, nz: int, dx, dy, dz, permx, permy, permz, poro, depth,
+    def __init__(self, timer: timer_node, nx: int, ny: int, nz: int, dx, dy, dz, permx, permy, permz, poro, depth=None, start_z=0,
                  rcond=0, hcap=0, actnum=1, global_to_local=0, op_num=0, coord=0, zcorn=0, is_cpg=False, cache=False):
         """
         Class constructor method
@@ -26,6 +26,8 @@ class StructReservoir(ReservoirBase):
         :param permy: permeability of the reservoir blocks in the y-direction (scalar or vector form) [mD]
         :param permz: permeability of the reservoir blocks in the z-direction (scalar or vector form) [mD]
         :param poro: porosity of the reservoir blocks
+        :param depth: nx*ny*nz array of depths in KJI-order (I is the fastest index). If None, will be computed based on geometry (start_z and dz)
+        :param start_z: top reservoir depth (a single float value or nx*ny values)
         :param actnum: attribute of activity of the reservoir blocks (all are active by default)
         :param global_to_local: one can define arbitrary indexing (mapping from global to local) for local
           arrays. Default indexing is by X (fastest),then Y, and finally Z (slowest)
@@ -50,7 +52,7 @@ class StructReservoir(ReservoirBase):
         permx = self.convert_to_3d_array(permx)
         permy = self.convert_to_3d_array(permy)
         permz = self.convert_to_3d_array(permz)
-        self.global_data = {'dx': dx, 'dy': dy, 'dz': dz,
+        self.global_data = {'dx': dx, 'dy': dy, 'dz': dz, 'start_z' : start_z,
                             'poro': poro, 'permx': permx, 'permy': permy, 'permz': permz, 'rcond': rcond, 'hcap': hcap,
                             'depth': depth, 'actnum': actnum, 'op_num': op_num,
                             }
@@ -81,6 +83,9 @@ class StructReservoir(ReservoirBase):
 
         volume = self.discretizer.calc_volumes()
         self.global_data['volume'] = volume
+
+        if self.global_data['depth'] is None: # pick z coordinates from the centers, and change the order from KJI to IJK
+            self.global_data['depth'] = self.discretizer.centroids_all_cells[:, :, :, 2].flatten(order='F')
 
         # apply actnum filter if needed - all arrays providing a value for a single grid block should be passed
         arrs = [self.global_data['poro'], self.global_data['rcond'], self.global_data['hcap'],
@@ -225,7 +230,23 @@ class StructReservoir(ReservoirBase):
                 data = data * np.ones((self.nx, self.ny, self.nz))
         else:
             if data.ndim == 1:
-                assert data.size == self.n, "size is %s instead of %s" % (data.size, self.n)
+
+                # make 3d array if 1d array is passed with lenght nx or ny or nz
+                data_array = np.zeros((self.nx, self.ny, self.nz))
+                if data.size == self.nz:
+                    for k in range(self.nz):
+                        data_array[:, :, k] = data[k]
+                    data = data_array
+                elif data.size == self.ny:
+                    for j in range(self.ny):
+                        data_array[:, j, :] = data[j]
+                    data = data_array
+                elif data.size == self.nx:
+                    for i in range(self.nx):
+                        data_array[i, :, :] = data[i]
+                    data = data_array
+                else:
+                    assert data.size == self.n, "size is %s instead of %s" % (data.size, self.n)
                 data = np.reshape(data, (self.nx, self.ny, self.nz), order='F')
             else:
                 assert data.shape == (self.nx, self.ny, self.nz), "shape is %s instead of %s" % (data.shape, (self.nx, self.ny, self.nz))
@@ -381,7 +402,7 @@ class StructReservoir(ReservoirBase):
                     self.vtkobj.VTK_Grids.GetCellData().RemoveArray('cellNormals')
         return
 
-    def output_to_vtk(self, ith_step: int, t: float, output_directory: str, prop_idxs: dict, data: np.ndarray):
+    def output_to_vtk(self, ith_step: int, time_steps : float, output_directory: str, prop_names: list, data: dict):
         """
         Function to export results of structured reservoir at timestamp t into `.vtk` format.
 
@@ -391,10 +412,10 @@ class StructReservoir(ReservoirBase):
         :type t: float
         :param output_directory: Path to save .vtk file
         :type output_directory: str
-        :param prop_idxs: Dictionary of properties with data array indices for output
-        :type prop_idxs: dict
+        :param prop_names: List of keys for properties
+        :type prop_names: list
         :param data: Data for output
-        :type data: np.ndarray
+        :type data: dict
         """
         from pyevtk.hl import gridToVTK
         from pyevtk.vtk import VtkGroup
@@ -404,37 +425,41 @@ class StructReservoir(ReservoirBase):
         if not self.vtk_initialized:
             self.init_vtk(output_directory)
 
-        vtk_file_name = output_directory + '/solution_ts{}'.format(ith_step)
+        for ts, t in enumerate(time_steps):
+            if len(time_steps) == 1:
+                vtk_file_name = output_directory + '/solution_ts{}'.format(ith_step)
+            else:
+                vtk_file_name = output_directory + '/solution_ts{}'.format(ts)
 
-        cell_data = {}
-        for prop, idx in prop_idxs.items():
-            local_data = data[idx, :]
-            global_array = np.ones(self.discretizer.nodes_tot, dtype=local_data.dtype) * np.nan
-            global_array[self.discretizer.local_to_global] = local_data
-            cell_data[prop] = global_array
+            cell_data = {}
+            for prop_name in prop_names:
+                local_data = data[prop_name][ts]
+                global_array = np.ones(self.discretizer.nodes_tot, dtype=local_data.dtype) * np.nan
+                global_array[self.discretizer.local_to_global] = local_data
+                cell_data[prop_name] = global_array
 
-        if self.vtk_grid_type == 0:
-            vtk_file_name = gridToVTK(vtk_file_name, self.vtk_x, self.vtk_y, self.vtk_z, cellData=cell_data)
-        else:
-            for key, value in cell_data.items():
-                self.vtkobj.AppendScalarData(key, cell_data[key][self.global_data['actnum'] == 1])
+            if self.vtk_grid_type == 0:
+                vtk_file_name = gridToVTK(vtk_file_name, self.vtk_x, self.vtk_y, self.vtk_z, cellData=cell_data)
+            else:
+                for key, value in cell_data.items():
+                    self.vtkobj.AppendScalarData(key, cell_data[key][self.global_data['actnum'] == 1])
 
-            vtk_file_name = self.vtkobj.Write2VTU(vtk_file_name)
-            if len(self.vtk_filenames_and_times) == 0:
-                for key, data in self.global_data.items():
-                    self.vtkobj.VTK_Grids.GetCellData().RemoveArray(key)
-                self.vtkobj.VTK_Grids.GetCellData().RemoveArray('cellNormals')
+                vtk_file_name = self.vtkobj.Write2VTU(vtk_file_name)
+                if len(self.vtk_filenames_and_times) == 0:
+                    for key, data in self.global_data.items():
+                        self.vtkobj.VTK_Grids.GetCellData().RemoveArray(key)
+                    self.vtkobj.VTK_Grids.GetCellData().RemoveArray('cellNormals')
 
-        # in order to have correct timesteps in Paraview, write down group file
-        # since the library in use (pyevtk) requires the group file to call .save() method in the end,
-        # and does not support reading, track all written files and times and re-write the complete
-        # group file every time
+            # in order to have correct timesteps in Paraview, write down group file
+            # since the library in use (pyevtk) requires the group file to call .save() method in the end,
+            # and does not support reading, track all written files and times and re-write the complete
+            # group file every time
 
-        self.vtk_filenames_and_times[vtk_file_name] = t
-        vtk_group = VtkGroup('solution')
-        for fname, t in self.vtk_filenames_and_times.items():
-            vtk_group.addFile(fname, t)
-        vtk_group.save()
+            self.vtk_filenames_and_times[vtk_file_name] = t
+            vtk_group = VtkGroup('solution')
+            for fname, t in self.vtk_filenames_and_times.items():
+                vtk_group.addFile(fname, t)
+            vtk_group.save()
 
     def generate_vtk_grid(self, strict_vertical_layers=True, compute_depth_by_dz_sum=True):
         # interpolate 2d array using grid (xx, yy) and specified method
