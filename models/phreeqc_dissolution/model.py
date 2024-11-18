@@ -111,8 +111,9 @@ class Model(DartsModel):
                                                   Mw=Mw, min_z=self.comp_min, temperature=self.temperature)
 
         # Create instance of (own) physics class:
-        self.physics = PhreeqcDissolution(self.timer, self.elements, self.n_points, self.min_p, self.max_p,
-                                       self.min_z, input_data_struct, property_container)
+        self.physics = PhreeqcDissolution(timer=self.timer, elements=self.elements, n_points=self.n_points, 
+                                          min_p=self.min_p, max_p=self.max_p, min_z=self.min_z, 
+                                          input_data_struct=input_data_struct, properties=property_container)
 
         self.physics.add_property_region(property_container, 0)
 
@@ -136,7 +137,7 @@ class Model(DartsModel):
         self.prop_states_np = np.asarray(self.prop_states)
         self.prop_values = value_vector([0.] * 2 * nb)
         self.prop_values_np = np.asarray(self.prop_values)
-        self.prop_dvalues = value_vector([0.] * 2 * nb * n_vars)
+        self.prop_dvalues = value_vector([0.] * 2 * nb * (n_vars + 1))
 
     def set_reservoir(self, nx):
         self.nx = nx
