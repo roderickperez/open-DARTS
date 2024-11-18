@@ -4,6 +4,7 @@ from darts.physics.base.physics_base import PhysicsBase
 
 from darts.physics.base.operators_base import PropertyOperators
 from darts.physics.super.operator_evaluator import ReservoirOperators, WellOperators, RateOperators, MassFluxOperators
+from darts.physics.super.initialize import Initialize
 
 
 class Compositional(PhysicsBase):
@@ -161,10 +162,8 @@ class Compositional(PhysicsBase):
         # set initial pressure
         p = np.array(mesh.pressure, copy=False)
         pressure = states['pressure']
-        if not hasattr(pressure, "__len__"):
+        if not hasattr(pressure, "__len__") or len(pressure) == nb:
             p.fill(pressure)
-        elif len(pressure) == nb:
-            p[:] = pressure
         else:
             # INTERPOLATE STATES
             assert depths is not None, "Depths for interpolation have not been specified"
@@ -180,10 +179,8 @@ class Compositional(PhysicsBase):
             assert 'temperature' in states.keys(), "Temperature has not been specified"
             T = np.array(mesh.temperature, copy=False)
             temperature = states['temperature']
-            if not hasattr(temperature, "__len__"):
+            if not hasattr(temperature, "__len__") or len(temperature) == nb:
                 T.fill(temperature)
-            elif len(temperature) == nb:
-                T[:] = temperature
             else:
                 # INTERPOLATE STATES
                 assert depths is not None, "Depths for interpolation have not been specified"
@@ -211,8 +208,8 @@ class Compositional(PhysicsBase):
                     dzc = zc[idx + 1] - zc[idx]
                     comp[(self.nc-1) * ith_cell + c] = zc[idx] + dzc * (ith_depth - depths[idx]) * dz_inv
 
-    def set_nonuniform_initial_conditions(self, mesh: conn_mesh, depths: list, initialize, primary_specs: dict,
-                                          secondary_specs: dict, boundary_state: dict, bc_idx: int, state0: dict):
+    def calc_nonuniform_initial_conditions(self, mesh: conn_mesh, depths: list, initialize: Initialize,
+                                           primary_specs: dict, secondary_specs: dict, boundary_state: dict, bc_idx: int, state0: dict):
         """
         Function to initialize domain at equilibrium state
         """
@@ -224,7 +221,7 @@ class Compositional(PhysicsBase):
         X = ini.solve(X0)
 
         # Interpolate depths in mesh with X to obtain states
-        states = {var: X[i::self.n_vars] for i, var in enumerate(self.vars)}
+        states = {var: X[i::self.n_vars] if len(depths) > 1 else X[i] for i, var in enumerate(self.vars)}
         self.set_initial_conditions(mesh, states, depths)
 
     def set_nonuniform_initial_conditions(self, mesh: conn_mesh,
