@@ -302,7 +302,7 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
                             cur_darcy_fluxes[p * NC + c] = -phase_p_diff * c_flux / dt;
                         }
                         else
-                          cur_heat_darcy_advection_fluxes[p] -= phase_p_diff * c_flux / dt;
+                          cur_heat_darcy_advection_fluxes[p] = -phase_p_diff * c_flux / dt;
 
                         RHS[i * N_VARS + c] -= phase_p_diff * c_flux; // flux operators 
                         for (uint8_t v = 0; v < N_VARS; v++)
@@ -337,7 +337,7 @@ int engine_super_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
                           cur_darcy_fluxes[p * NC + c] = -phase_p_diff * c_flux / dt;
                         }
                         else
-                          cur_heat_darcy_advection_fluxes[p] -= phase_p_diff * c_flux / dt;
+                          cur_heat_darcy_advection_fluxes[p] = -phase_p_diff * c_flux / dt;
 
                         RHS[i * N_VARS + c] -= phase_p_diff * c_flux; // flux operators only
                         for (uint8_t v = 0; v < N_VARS; v++)
