@@ -4,13 +4,16 @@ from model import Model
 from darts.engines import redirect_darts_output
 import pandas as pd
 import numpy as np
+
+# matplotlib
+import matplotlib
+matplotlib.use('pgf')
+matplotlib.rc('pgf', texsystem='pdflatex', preamble=r'\usepackage{color}')
 from matplotlib import pyplot as plt
 from matplotlib import rcParams
 plt.rc('xtick',labelsize=16)
 plt.rc('ytick',labelsize=16)
 plt.rc('legend',fontsize=16)
-plt.rcParams['text.usetex'] = True
-plt.rcParams['text.latex.preamble'] = r'\usepackage{color}'
 
 def run(max_ts, nx=100):
     redirect_darts_output('log.txt')
@@ -68,9 +71,9 @@ def plot_profiles(m):
                fontsize=16, rotation='horizontal', transform=fig.transFigure)
     ax[0].set_ylabel('pressure, bar', fontsize=16)
     ax[n_plots - 1].set_xlabel('distance, x', fontsize=16)
-    ax[1].set_ylabel(r'$\textcolor{blue}{Solid}$ and $\textcolor{red}{O}$ concentrations', fontsize=16)
+    ax[1].set_ylabel(r'\textcolor{blue}{Solid} and \textcolor{magenta}{O} concentrations', fontsize=16)
     ax[2].set_ylabel('porosity', fontsize=16)
-    ax1.set_ylabel(r'$\textcolor{green}{Ca}$ and $\textcolor{magenta}{C}$ concentrations', fontsize=16)
+    ax1.set_ylabel(r'\textcolor{red}{Ca} and \textcolor{green}{C} concentrations', fontsize=16)
     # ax[1].set_ylabel(r'\textcolor[rgb]{0,0,1}{Solid} and \textcolor[rgb]{1,0,0}{O} concentrations', fontsize=16)
 
     ax[0].set_ylim(99.99, 100.3)
