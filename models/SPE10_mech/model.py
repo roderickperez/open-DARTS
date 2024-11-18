@@ -5,6 +5,7 @@ from darts.engines import value_vector, sim_params
 from darts.tools.keyword_file_tools import load_single_keyword
 
 import numpy as np
+import os
 
 from darts.physics.super.property_container import PropertyContainer
 from darts.physics.properties.flash import SinglePhase
@@ -18,7 +19,7 @@ from reservoir import UnstructReservoirCustom
 
 class Model(THMCModel):
     def __init__(self, model_folder, physics_type='dead_oil', uniform_props=False):
-        self.model_folder = model_folder
+        self.model_folder = os.path.join('meshes', model_folder)
         self.uniform_props = uniform_props
         self.physics_type = physics_type
         self.discretizer_name = 'mech_discretizer'
@@ -33,7 +34,10 @@ class Model(THMCModel):
 
     def set_solver_params(self):
         super().set_solver_params()
-        self.params.linear_type = sim_params.cpu_gmres_fs_cpr # cpu_gmres_fs_cpr # cpu_superlu
+        if os.getenv('ODLS') != None and os.getenv('ODLS') == '-a':
+            self.params.linear_type = sim_params.cpu_gmres_fs_cpr
+        else:
+            self.params.linear_type = sim_params.cpu_superlu
         self.params.first_ts = 0.0001
         self.params.mult_ts = 2
         self.params.max_ts = 5
@@ -195,8 +199,8 @@ class Model(THMCModel):
         well_names = ['PRD1', 'INJ1']
         self.well_cell_ids = []
         well_init_depth = l_min[2]
-        nodes = np.array(self.reservoir.discr_mesh.nodes, copy=False)
-        elems = np.array(self.reservoir.discr_mesh.elems, copy=False)
+        nodes = np.array(self.reservoir.discr_mesh.nodes)
+        elems = np.array(self.reservoir.discr_mesh.elems)
         for i, coord in enumerate(well_coords):
             ids = ((centroids[:, 0] - coord[0]) ** 2 + (centroids[:, 1] - coord[1]) ** 2).argsort()
             self.well_cell_ids.append(ids[:self.nz])
@@ -212,7 +216,7 @@ class Model(THMCModel):
                 dx = np.max(pts, axis=0)[0] - np.min(pts, axis=0)[0]
                 dy = np.max(pts, axis=0)[1] - np.min(pts, axis=0)[1]
                 dz = np.max(pts, axis=0)[2] - np.min(pts, axis=0)[2]
-                perm = np.array(self.reservoir.discr.perms[cell_id].values, copy=False)
+                perm = np.array(self.reservoir.discr.perms[cell_id].values)
                 mean_perm_xx = perm[0]
                 mean_perm_yy = perm[4]
                 mean_perm_zz = perm[8]
@@ -280,7 +284,7 @@ class ModelProperties(PropertyContainer):
         # Call base class constructor
         self.nph = len(phases_name)
         Mw = np.ones(self.nph)
-        super().__init__(phases_name, components_name, Mw, min_z, temperature=None)
+        super().__init__(phases_name=phases_name, components_name=components_name, Mw=Mw, min_z=min_z, temperature=None)
 
     def evaluate(self, state):
         """
@@ -300,7 +304,7 @@ class ModelProperties(PropertyContainer):
         for i in range(self.nph):
             self.x[i, i] = 1
 
-        self.ph = [0, 1]
+        self.ph = np.array([0, 1], dtype=np.intp)
 
         for j in self.ph:
             # molar weight of mixture

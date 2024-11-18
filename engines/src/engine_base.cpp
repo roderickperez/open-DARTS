@@ -807,7 +807,7 @@ engine_base::prepare_dj_dx(vec_3d q, vec_3d q_inj,
 	std::vector<std::vector<value_t>>  q_Q;
 	std::vector<value_t> rate_diff;
 	q_Q.clear();
-	index_t ww = 0;
+	index_t ww = 0, idx_well = 0;
 
 
     if (objfun_prod_phase_rate)
@@ -979,13 +979,24 @@ engine_base::prepare_dj_dx(vec_3d q, vec_3d q_inj,
         ms_well* w;
         for (std::string well_ : prod_well_name)
         {
-            for (ms_well* well : wells)
-            {
-                if (well->name == well_)
-                {
-                    w = well;
-                }
-            }
+            //for (ms_well* well : wells)
+            //{
+            //    if (well->name == well_)
+            //    {
+            //        w = well;
+            //    }
+            //}
+
+			// recover the well definition from forward simulation, e.g. control and constraints
+			idx_well = 0;
+			for (ms_well* well : wells)
+			{
+				if (well->name == well_)
+				{
+					w = &(well_control_arr[idx_sim_ts][idx_well]);
+				}
+				idx_well++;
+			}
 
             // find upstream state
             value_t p_diff = X[w->well_head_idx * w->n_block_size + w->P_VAR] - X[w->well_body_idx * w->n_block_size + w->P_VAR];
@@ -1076,13 +1087,24 @@ engine_base::prepare_dj_dx(vec_3d q, vec_3d q_inj,
         ms_well* w;
         for (std::string well_ : inj_well_name)
         {
-            for (ms_well* well : wells)
-            {
-                if (well->name == well_)
-                {
-                    w = well;
-                }
-            }
+            //for (ms_well* well : wells)
+            //{
+            //    if (well->name == well_)
+            //    {
+            //        w = well;
+            //    }
+            //}
+
+			// recover the well definition from forward simulation, e.g. control and constraints
+			idx_well = 0;
+			for (ms_well* well : wells)
+			{
+				if (well->name == well_)
+				{
+					w = &(well_control_arr[idx_sim_ts][idx_well]);
+				}
+				idx_well++;
+			}
 
 			// find upstream state
 			value_t p_diff = X[w->well_head_idx * w->n_block_size + w->P_VAR] - X[w->well_body_idx * w->n_block_size + w->P_VAR];
@@ -1166,13 +1188,24 @@ engine_base::prepare_dj_dx(vec_3d q, vec_3d q_inj,
         ms_well* w;
 		for (std::string well_ : BHP_well_name)
 		{
-            for (ms_well* well : wells)
-            {
-                if (well->name == well_)
-                {
-                    w = well;
-                }
-            }
+            //for (ms_well* well : wells)
+            //{
+            //    if (well->name == well_)
+            //    {
+            //        w = well;
+            //    }
+            //}
+
+			// recover the well definition from forward simulation, e.g. control and constraints
+			idx_well = 0;
+			for (ms_well* well : wells)
+			{
+				if (well->name == well_)
+				{
+					w = &(well_control_arr[idx_sim_ts][idx_well]);
+				}
+				idx_well++;
+			}
 
             // adding minus sign on "bhp_BHP" to move Temp_dj_dx to the right hand side of eq.(18) and eq.(19), Tian et al. 2015  https://doi.org/10.1016/j.petrol.2021.109911
 			// corresponding to ms_well::check_constraints
@@ -1883,7 +1916,6 @@ void engine_base::apply_composition_correction_(std::vector<value_t> &X, std::ve
 	index_t nb = mesh->n_blocks;
 	index_t n_corrected = 0, c_min;
 
-
 	for (index_t i = 0; i < nb; i++)
 	{
 		last_z = 1;
@@ -1908,20 +1940,26 @@ void engine_base::apply_composition_correction_(std::vector<value_t> &X, std::ve
 				last_dz += dX[i * n_vars + z_var + c]; // find update for the last component
 			last_z -= last_dz; // find old_z = new_z - dX for last component
 
-			// compute fraction of update to be at min_zc
-			double frac = (min_zc - last_z) / (last_dz); 
-			for (char c = 0; c < nc - 1; c++)
-				dX[i * n_vars + z_var + c] *= frac; 
-			n_corrected++;
+			if (last_dz != 0)
+			{
+			  // compute fraction of update to be at min_zc
+			  double frac = (min_zc - last_z) / (last_dz);
+			  for (char c = 0; c < nc - 1; c++)
+				dX[i * n_vars + z_var + c] *= frac;
+			  n_corrected++;
+			}
 		}
 		else if (c_min >= 0)
 		{
 			// compute fraction of update to be at min_zc 
 			double frac = -(min_zc - X[i * n_vars + z_var + c_min]) / (dX[i * n_vars + z_var + c_min]);
-			// correct update to be at min_zc for the smallest component
-			for (char c = 0; c < nc - 1; c++)
+			if (dX[i * n_vars + z_var + c_min]  != 0)
+			{
+			  // correct update to be at min_zc for the smallest component
+			  for (char c = 0; c < nc - 1; c++)
 				dX[i * n_vars + z_var + c] *= frac;
-			n_corrected++;
+			  n_corrected++;
+			}
 		}
 	}
 

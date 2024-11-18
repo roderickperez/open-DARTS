@@ -7,6 +7,7 @@ set testing=false
 set wheel=false
 set bos_solvers_artifact=false
 set bos_solvers_dir=""
+set iter_solvers=false
 set MT=true
 set skip_req=false
 set config=Release
@@ -25,8 +26,8 @@ if "%option%"=="-m" set MT=true & goto parse_args
 if "%option%"=="-r" set skip_req=true & goto parse_args
 if "%option%"=="-d" set config=%1 & shift & goto parse_args
 if "%option%"=="-j" set NT=%1 & shift & goto parse_args
-if "%option%"=="-a" set bos_solvers_artifact=true & goto parse_args
-if "%option%"=="-b" set bos_solvers_dir=%1 & shift & goto parse_args
+if "%option%"=="-a" set bos_solvers_artifact=true & set iter_solvers=true & goto parse_args
+if "%option%"=="-b" set bos_solvers_dir=%1 & set iter_solvers=true & shift & goto parse_args
 goto parse_args
 
 :process_input
@@ -40,7 +41,7 @@ if %bos_solvers_artifact%==true (
   )
 )
 REM ODLS version does not support OpenMP yet
-if %bos_solvers_artifact%==false (
+if %iter_solvers%==false (
   if %MT%==true (
     echo Waring: ODLS version does not support OpenMP yet. Switched to the sequentional build.
     set MT=false
@@ -58,17 +59,17 @@ echo - Report configuration of this script: DONE!
 REM ----------------------------------------------------------------
 
 del darts\*.pyd 2> NUL
-
+rmdir /s /q dist 2> NUL
+  
 if %clean_mode%==true (
   echo - Cleaning up
   rmdir /s /q build 2> NUL
-  rmdir /s /q dist 2> NUL
   goto :eof
 )
 
 if %skip_req%==false (
   echo - Update submodules: START
-  rmdir /s /q thirdparty\eigen thirdparty\pybind11 thirdparty\MshIO
+  rmdir /s /q thirdparty\eigen thirdparty\pybind11 thirdparty\MshIO thirdparty\hypre
   git submodule update --recursive --init || goto :error
   echo - Update submodules: DONE!
 
@@ -82,6 +83,12 @@ if %skip_req%==false (
   cmake -D CMAKE_INSTALL_PREFIX=../../install ../../eigen/ > ../../../make_eigen.log || goto :error
   msbuild INSTALL.vcxproj /p:Configuration=Release /p:Platform=x64 -maxCpuCount:%NT% >> ../../../make_eigen.log || goto :error
   cd ..\..
+
+  rem -- Install Hypre
+  cd hypre\src\cmbuild
+  cmake -D HYPRE_BUILD_TESTS=ON -D HYPRE_BUILD_EXAMPLES=ON -D HYPRE_WITH_MPI=OFF -D CMAKE_INSTALL_PREFIX=../../../install .. > ../../../../make_hypre.log || goto :error
+  msbuild INSTALL.vcxproj /p:Configuration=Release /p:Platform=x64 -maxCpuCount:8 >> ../../../../make_hypre.log || goto :error
+  cd ..\..\..\
 
   echo -- Install SuperLU
   cd SuperLU_5.2.1
@@ -117,7 +124,7 @@ REM build and install
 msbuild openDARTS.sln /p:Configuration=%config% /p:Platform=x64 -maxCpuCount:%NT% > ../make_darts.log || goto :error
 msbuild INSTALL.vcxproj /p:Configuration=%config% /p:Platform=x64 -maxCpuCount:%NT% || goto :error
 
-if %testing%==true ctest -C %config% 
+if %testing%==true ctest -C %config%  || goto :error
 
 cd ..
 echo ========================================================================

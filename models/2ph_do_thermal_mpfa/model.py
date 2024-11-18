@@ -36,8 +36,8 @@ class Model(CICDModel):
 
         self.timer.node["initialization"].stop()
 
-    def init(self):
-        DartsModel.init(self, discr_type=self.discr_type)
+    def init(self, platform='cpu'):
+        DartsModel.init(self, discr_type=self.discr_type, platform=platform)
 
     def set_reservoir(self, mesh_file):
         self.reservoir = UnstructReservoir(self.discr_type, mesh_file, n_vars=self.physics.n_vars)
@@ -160,7 +160,7 @@ class ModelProperties(PropertyContainer):
         # Call base class constructor
         self.nph = len(phases_name)
         Mw = np.ones(self.nph)
-        super().__init__(phases_name, components_name, Mw, min_z, temperature=None)
+        super().__init__(phases_name, components_name, Mw=Mw, min_z=min_z, temperature=None)
 
     def evaluate(self, state):
         """
@@ -180,7 +180,7 @@ class ModelProperties(PropertyContainer):
         for i in range(self.nph):
             self.x[i, i] = 1
 
-        self.ph = [0, 1]
+        self.ph = np.array([0, 1], dtype=np.intp)
 
         for j in self.ph:
             # molar weight of mixture

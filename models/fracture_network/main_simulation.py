@@ -9,11 +9,13 @@ import shutil
 from datetime import datetime
 from darts.tools.plot_darts import plot_temp_darts
 import pickle
+from darts.input.input_data import InputData
+from set_case import set_input_data
 
-def run_simulation(input_data):
-    print('Running simulation for case', input_data['case_name'])
+def run_simulation(idata : InputData, platform : str ='cpu'):
+    print('Running simulation for case', idata.geom['case_name'])
 
-    output_directory = 'sol_' + input_data['case_name']
+    output_directory = 'sol_' + idata.geom['case_name']
 
     # rename output dir if exists
     if os.path.exists(output_directory):
@@ -26,9 +28,9 @@ def run_simulation(input_data):
 
     redirect_darts_output(os.path.join(output_directory, 'out.log'))
 
-    m = Model(input_data)
+    m = Model(idata)
 
-    m.init(verbose=True, output_folder = output_directory)
+    m.init(verbose=True, output_folder = output_directory, platform=platform)
 
     # Specify some other time-related properties (NOTE: all time parameters are in [days])
     size_report_step = 60  # Size of the reporting step 
@@ -36,8 +38,7 @@ def run_simulation(input_data):
     output_vtk_period = 12  # output each output_vtk_period-th step results to tk
 
     m.save_data_to_h5(kind = 'solution')
-    m.output_to_vtk(ith_step=0, output_directory=m.output_folder, binary_filename=m.output_folder+'/solution.h5')
-    # m.output_to_vtk(ith_step=0, output_directory=output_directory)
+    m.output_to_vtk(ith_step=0, output_directory=output_directory)
 
     sim_time = 0.
     m.print_range(sim_time, part='cells')
@@ -49,8 +50,7 @@ def run_simulation(input_data):
         m.save_data_to_h5(kind='solution')
 
         if ith_step % output_vtk_period == 0:
-            m.output_to_vtk(ith_step=ith_step+1, output_directory=m.output_folder, binary_filename=m.output_folder + '/solution.h5')
-            # m.output_to_vtk(ith_step=ith_step+1, output_directory=output_directory)
+            m.output_to_vtk(ith_step=ith_step+1, output_directory=output_directory)
 
         sim_time += size_report_step
         m.print_range(sim_time, part='cells')
@@ -68,6 +68,8 @@ def run_simulation(input_data):
 
     pkl_fname = os.path.join(output_directory, 'time_data.pkl')
     pickle.dump(time_data, open(pkl_fname, 'wb'))
+
+    return m
 
 if __name__ == "__main__":
 
