@@ -70,7 +70,7 @@ int interpolator_base::evaluate_with_derivatives(const std::vector<double> &stat
                                                  std::vector<double> &derivatives)
 {
     // check consistency of input arrays
-    assert(values.size() == n_dims * derivatives.size());
+    assert(n_dims * values.size() == derivatives.size());
     assert(states.size() > (*std::max_element(states_idxs.begin(), states_idxs.end())) * n_dims);
 
     timer->start();
