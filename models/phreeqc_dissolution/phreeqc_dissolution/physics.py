@@ -35,7 +35,7 @@ class PhreeqcDissolution(Compositional):
         for region in self.regions:
             self.reservoir_operators[region] = my_own_acc_flux_etor(self.input_data_struct, self.property_containers[region])
             self.property_operators[region] = my_own_comp_etor(self.input_data_struct, self.property_containers[region])
-        self.rate_operators = my_own_rate_evaluator(self.property_containers[0], self.input_data_struct.temperature, self.input_data_struct.c_r)
+        self.rate_operators = my_own_rate_evaluator(self.property_containers[0], self.input_data_struct.temperature)
 
     def set_interpolators(self, platform='cpu', itor_type='multilinear', itor_mode='adaptive',
                           itor_precision='d', is_barycentric: bool = False):

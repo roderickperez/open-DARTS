@@ -17,7 +17,6 @@ class my_own_acc_flux_etor(OperatorsBase):
         self.temperature = input_data.temperature
         self.exp_w = input_data.exp_w
         self.exp_g = input_data.exp_g
-        self.c_r = input_data.c_r
         self.kin_fact = input_data.kin_fact
         self.property = properties
         self.counter = 0
@@ -89,7 +88,7 @@ class my_own_acc_flux_etor(OperatorsBase):
             mu_g = 0.05
 
         # in kmol/m3
-        rho_s = (1 + self.c_r * (pressure - 1)) * 2710 / 100.0869
+        rho_s = self.property.density_ev['solid'].evaluate(pressure) / self.property.Mw['Solid'] / 1000.
         # # # ================================ Flash ================================ # # #
 
         # Get saturations
@@ -114,7 +113,7 @@ class my_own_acc_flux_etor(OperatorsBase):
         self.rho_m = np.array([rho_g, rho_w])
         self.kr = np.array([kr_g, kr_w])
         self.mu = np.array([mu_g, mu_w])
-        self.compr = 1 + self.c_r * (pressure - 1)
+        self.compr = self.property.rock_compr_ev.evaluate(pressure)
         self.sat = np.array([sg_norm, sw_norm])
 
         # Total density
@@ -183,6 +182,7 @@ class my_own_comp_etor(my_own_acc_flux_etor):
         super().__init__(input_data, properties)  # Initialize base-class
         self.non_solid_mole = 1000
         self.counter = 0
+        self.props_name = ['z_solid', 's_solid']
 
     def evaluate(self, state, values):
         state_np = state.to_numpy()
@@ -208,7 +208,7 @@ class my_own_comp_etor(my_own_acc_flux_etor):
 
         # initial composition
         sol_volume = non_sol_volume * sol_saturation / (1 - sol_saturation)         # m3
-        sol_mole = sol_volume * (1 + 1e-6 * (pressure - 1)) * 2710 / 0.1000869
+        sol_mole = sol_volume * self.property.density_ev['solid'].evaluate(pressure) / self.property.Mw['Solid']
         sol = sol_mole / (sol_mole + self.non_solid_mole)
         values_np[0] = sol
 
@@ -225,7 +225,7 @@ class my_own_comp_etor(my_own_acc_flux_etor):
         # Note: officially three phases are present now
         rho_w = rho_phases['aq']
         rho_g = rho_phases['gas']
-        rho_s = (1 + 1e-6 * (pressure - 1)) * 2710 / 0.1000869 / 1000
+        rho_s = self.property.density_ev['solid'].evaluate(pressure) / self.property.Mw['Solid'] / 1000
 
         # Get saturations
         if vap > 0:
@@ -238,12 +238,11 @@ class my_own_comp_etor(my_own_acc_flux_etor):
 
 class my_own_rate_evaluator(operator_set_evaluator_iface):
     # Simplest class existing to mankind:
-    def __init__(self, properties, temperature, c_r):
+    def __init__(self, properties, temperature):
         # Initialize base-class
         super().__init__()
         self.property = properties
         self.temperature = temperature
-        self.c_r = c_r
 
     def comp_out_of_bounds(self, vec_composition):
         # Check if composition sum is above 1 or element comp below 0, i.e. if point is unphysical:
@@ -306,7 +305,7 @@ class my_own_rate_evaluator(operator_set_evaluator_iface):
             mu_g = 16.14e-6 * 1000     # Pa * s, for 50 C
 
         # in kmol/m3
-        rho_s = (1 + self.c_r * (pressure - 1)) * 2710 / 0.1000869 / 1000
+        rho_s = self.property.density_ev['solid'].evaluate(pressure) / self.property.Mw['Solid'] / 1000
         # # # ================================ Flash ================================ # # #
 
         # Get saturations

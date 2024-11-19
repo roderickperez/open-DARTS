@@ -5,7 +5,11 @@ from phreeqc_dissolution.physics import PhreeqcDissolution
 
 from darts.models.darts_model import DartsModel
 from darts.reservoirs.struct_reservoir import StructReservoir
+
 from darts.physics.super.property_container import PropertyContainer
+from darts.physics.properties.density import DensityBasic
+from darts.physics.properties.basic import ConstFunc
+
 from darts.engines import *
 
 import numpy as np
@@ -22,11 +26,11 @@ except ImportError:
 # Definition of your input parameter data structure,
 # change as you see fit (when you need more constant values, etc.)!!
 class MyOwnDataStruct:
-    def __init__(self, nc, zmin, temp, stoich_matrix, pressure_init, c_r, kin_fact,  exp_w=1, exp_g=1):
+    def __init__(self, nc, zmin, temp, stoich_matrix, pressure_init, kin_fact,  exp_w=1, exp_g=1):
         """
         Data structure class which holds various input parameters for simulation
         :param nc: number of components used in simulation
-        :param zmin: actual 0 used for composition (ussualy >0, around some small epsilon)
+        :param zmin: actual 0 used for composition (usually >0, around some small epsilon)
         :param temp: temperature
         """
         self.num_comp = nc
@@ -36,19 +40,18 @@ class MyOwnDataStruct:
         self.exp_w = exp_w
         self.exp_g = exp_g
         self.pressure_init = pressure_init
-        self.c_r = c_r
         self.kin_fact = kin_fact
 
 # Actual Model class creation here!
 class Model(DartsModel):
-    def __init__(self, nx):
+    def __init__(self, domain, nx):
         # Call base class constructor
         super().__init__()
 
         # Measure time spend on reading/initialization
         self.timer.node["initialization"].start()
 
-        self.set_reservoir(nx=nx)
+        self.set_reservoir(domain=domain, nx=nx)
         self.set_physics()
 
         # Some newton parameters for non-linear solution:
@@ -70,13 +73,11 @@ class Model(DartsModel):
         # some properties
         self.temperature = 323.15           # K
         self.pressure_init = 100            # bar
+
         self.inj_rate = convert_rate(0.153742)     # input: ml/min; output: m3/day
-        self.c_r = 1e-6
-        # self.kin_fact = (1 + self.c_r * (self.pressure_init - 1)) * 2710 / 0.1000869 * np.mean(self.solid_sat)
-        self.kin_fact = 1
+
         self.comp_min = 1e-11
         self.obl_min = self.comp_min / 10
-        self.solid_sat = np.ones(self.nx) * 0.7
 
         # Several parameters here related to components used, OBL limits, and injection composition:
         self.cell_property = ['pressure', 'H2O', 'H+', 'OH-', 'CO2', 'HCO3-', 'CO3-2', 'CaCO3', 'Ca+2', 'CaOH+',
@@ -84,7 +85,7 @@ class Model(DartsModel):
         self.phases = ['liq', 'gas']
         self.components = ['H2O', 'H+', 'OH-', 'CO2', 'HCO3-', 'CO3-2', 'CaCO3', 'Ca+2', 'CaOH+', 'CaHCO3+', 'Solid']
         self.elements = ['Solid', 'Ca', 'C', 'O', 'H']
-        Mw = [-1e+5] * 5 # dummy array
+        Mw = {'Solid': 0.1000869, 'Ca': 0.040078, 'C': 0.0120096, 'O': 0.015999, 'H': 0.001007} # molar weights in kg/mol
         self.num_vars = len(self.elements)
         self.n_points = 501
         self.min_p = 99
@@ -102,13 +103,20 @@ class Model(DartsModel):
         # Several parameters related to kinetic reactions:
         stoich_matrix = np.array([-1, 1, 1, 3, 0])
 
-        # Create instance of data-structure for simulation (and chemical) input parameters:
-        input_data_struct = MyOwnDataStruct(len(self.elements), self.comp_min, self.temperature, stoich_matrix,
-                                            self.pressure_init, self.c_r, self.kin_fact)
-
         # Create property containers:
         property_container = ModelProperties(phases_name=self.phases, components_name=self.elements,
                                                   Mw=Mw, min_z=self.comp_min, temperature=self.temperature)
+        rock_compressibility = 1e-6
+        property_container.rock_compr_ev = ConstFunc(rock_compressibility)
+        property_container.density_ev['solid'] = DensityBasic(compr=rock_compressibility, dens0=2710., p0=1.)
+
+        # self.kin_fact = self.property.density_ev['solid'].evaluate(pressure) / self.property.Mw['Solid'] * np.mean(self.solid_sat)
+        self.kin_fact = 1
+
+        # Create instance of data-structure for simulation (and chemical) input parameters:
+        input_data_struct = MyOwnDataStruct(nc=len(self.elements), zmin=self.comp_min, temp=self.temperature,
+                                            stoich_matrix=stoich_matrix, pressure_init=self.pressure_init,
+                                            kin_fact=self.kin_fact)
 
         # Create instance of (own) physics class:
         self.physics = PhreeqcDissolution(timer=self.timer, elements=self.elements, n_points=self.n_points, 
@@ -116,9 +124,6 @@ class Model(DartsModel):
                                           input_data_struct=input_data_struct, properties=property_container)
 
         self.physics.add_property_region(property_container, 0)
-
-        # set transmissibility exponent power
-        self.params.trans_mult_exp = 4
 
         # Compute injection stream
         mole_water, mole_co2 = calculate_injection_stream(1.1, 0.1, self.temperature, self.pressure_init)
@@ -131,7 +136,7 @@ class Model(DartsModel):
         self.inj_stream = correct_composition(self.inj_stream, self.comp_min)
 
         # prepare arrays for evaluation of properties
-        nb = self.nx * self.ny * self.nz
+        nb = np.prod(self.domain_cells)
         n_vars = self.physics.n_vars
         self.prop_states = value_vector([0.] * nb * (n_vars + 1))
         self.prop_states_np = np.asarray(self.prop_states)
@@ -139,30 +144,59 @@ class Model(DartsModel):
         self.prop_values_np = np.asarray(self.prop_values)
         self.prop_dvalues = value_vector([0.] * 2 * nb * (n_vars + 1))
 
-    def set_reservoir(self, nx):
-        self.nx = nx
-        self.ny = 1
-        self.nz = 1
-        self.dx = 0.1 / nx      # m
-        self.dy = 0.001000      # m
-        self.dz = 0.058905      # m
-        self.volume = self.dx * self.dy * self.dz
-        self.depth = 1                      # m
-        self.poro = 1                       # [-]
-        self.const_perm = 1.25e4 * self.poro ** 4
+    def set_reservoir(self, domain, nx):
+        self.domain = domain
 
-        self.reservoir = StructReservoir(self.timer, nx=self.nx, ny=self.ny, nz=self.nz, dx=self.dx, dy=self.dy,
-                                         dz=self.dz, permx=self.const_perm, permy=self.const_perm,
-                                         permz=self.const_perm, poro=self.poro, depth=self.depth)
+        if self.domain == '1D':
+            # grid
+            self.domain_sizes = np.array([0.1, 0.001, 0.058905])
+            self.domain_cells = np.array([nx, 1, 1])
+            self.cell_sizes = self.domain_sizes / self.domain_cells
+
+            # properties
+            depth = 1                      # m
+            self.poro = 1                            # [-]
+            self.params.trans_mult_exp = 4
+            perm = 1.25e4 * self.poro ** self.params.trans_mult_exp
+            self.solid_sat = np.ones(self.domain_cells[0]) * 0.7
+
+        elif self.domain == '2D':
+            # grid
+            self.domain_sizes = np.array([0.09, 0.09, 0.006])
+            self.domain_cells = np.array([nx, nx, 1])
+            self.cell_sizes = self.domain_sizes / self.domain_cells
+
+            # properties
+            depth = 1                      # m
+            self.poro = 1                       # [-]
+            self.params.trans_mult_exp = 4
+            perm = 1.25e4 * self.poro ** self.params.trans_mult_exp
+
+            # porosity
+            poro = 0.28 + np.random.uniform(-0.1, 0.1, np.prod(self.domain_cells))
+            poro[poro < 1.e-4] = 1.e-4
+            poro[poro > 1 - 1.e-4] = 1 - 1.e-4
+            self.solid_sat = 1 - poro
+        else:
+            print(f'domain={self.domain} is not supported')
+            exit(-1)
+
+        self.volume = np.prod(self.cell_sizes)
+        self.reservoir = StructReservoir(self.timer,
+                                         nx=self.domain_cells[0], ny=self.domain_cells[1], nz=self.domain_cells[2],
+                                         dx=self.cell_sizes[0], dy=self.cell_sizes[1], dz=self.cell_sizes[2],
+                                         permx=perm, permy=perm, permz=perm, poro=self.poro, depth=depth)
 
     def set_initial_conditions(self):
         # ====================================== Initialize reservoir composition ======================================
         print('\nInitializing compositions...')
 
+        n_matrix = np.prod(self.domain_cells)
+
         # Component-defined composition of a non-solid phase (pure water here)
         self.initial_comp_components = np.array([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
         self.solid_frac = np.zeros(len(self.solid_sat))
-        self.initial_comp = np.zeros((self.nx * self.ny * self.nz + 4, self.num_vars - 1))
+        self.initial_comp = np.zeros((n_matrix + 4, self.num_vars - 1))
 
         # Interpolated values of non-solid volume (second value always 0 due to no (5,1) interpolator)
         values = value_vector([0] * 2)
@@ -184,10 +218,10 @@ class Model(DartsModel):
             self.initial_comp[i, :] = correct_composition(initial_comp_with_solid, self.comp_min)
 
         # Define initial composition for wells
-        for i in range(self.nx * self.ny * self.nz, self.nx * self.ny * self.nz + 2):
+        for i in range(n_matrix, n_matrix + 2):
             self.initial_comp[i, :] = np.array(self.inj_stream)
 
-        for i in range(self.nx * self.ny * self.nz + 2, self.nx * self.ny * self.nz + 4):
+        for i in range(n_matrix + 2, n_matrix + 4):
             self.initial_comp[i, :] = np.array(self.initial_comp[0, :])
 
         print('\tNegative composition occurrence while initializing:', self.physics.property_operators[0].counter, '\n')
@@ -214,14 +248,14 @@ class Model(DartsModel):
         well_index = 5
 
         self.reservoir.add_well("I1", wellbore_diameter=d_w)
-        for idx in range(self.ny):
-            self.reservoir.add_perforation(well_name='I1', cell_index=(1, 1, 1), multi_segment=False,
+        for idx in range(self.domain_cells[1]):
+            self.reservoir.add_perforation(well_name='I1', cell_index=(1, idx + 1, 1), multi_segment=False,
                                            verbose=True, well_radius=r_w, well_index=well_index,
                                            well_indexD=well_index)
 
         self.reservoir.add_well("P1", wellbore_diameter=d_w)
-        for idx in range(self.ny):
-            self.reservoir.add_perforation(well_name='P1', cell_index=(self.nx, 1, 1), multi_segment=False,
+        for idx in range(self.domain_cells[1]):
+            self.reservoir.add_perforation(well_name='P1', cell_index=(self.domain_cells[0], idx + 1, 1), multi_segment=False,
                                            verbose=True, well_radius=r_w, well_index=well_index,
                                            well_indexD=well_index)
 
@@ -247,7 +281,7 @@ class Model(DartsModel):
     def evaluate_porosity(self):
         # Initial porosity
         # poro_init = 1 - self.solid_sat
-        nb = self.nx * self.ny * self.nz
+        nb = np.prod(self.domain_cells)
         n_vars = self.physics.n_vars
 
         X = np.asarray(self.physics.engine.X)
@@ -263,10 +297,30 @@ class Model(DartsModel):
         print('\tNegative composition while evaluating results:', self.physics.property_operators[0].counter, '\n')
         return poro
 
+    def output_properties(self, output_properties: list = None, timestep: int = None) -> tuple:
+        timesteps = [timestep] if timestep is not None else [0]
+        if output_properties is None:
+            prop_names = self.physics.property_operators[next(iter(self.physics.property_operators))].props_name
+        else:
+            prop_names = output_properties
+
+        X = np.asarray(self.physics.engine.X)
+        nb = np.prod(self.domain_cells)
+        nv = self.physics.n_vars
+        nops = len(prop_names)
+
+        # unknowns
+        property_array = {var: np.array([X[i:nb * nv:nv]]) for i, var in enumerate(self.physics.vars)}
+        # properties
+        for i, prop in enumerate(prop_names):
+            property_array[prop] = np.array([self.prop_values_np[i::nops]])
+
+        return timesteps, property_array
+
 class ModelProperties(PropertyContainer):
-    def __init__(self, phases_name, components_name, Mw, nc_sol=0, np_sol=0, min_z=1e-11, rock_comp=1e-6,
-                 rate_ann_mat=None, temperature=None):
-        super().__init__(phases_name, components_name, Mw, nc_sol, np_sol, min_z, rock_comp, rate_ann_mat, temperature)
+    def __init__(self, phases_name, components_name, Mw, nc_sol=0, np_sol=0, min_z=1e-11, rate_ann_mat=None, temperature=None):
+        super().__init__(phases_name=phases_name, components_name=components_name, Mw=Mw, nc_sol=nc_sol, np_sol=np_sol,
+                         min_z=min_z, rate_ann_mat=rate_ann_mat, temperature=temperature)
 
         # Define custom evaluators
         self.flash_ev = self.CustomFlash(self.temperature, self.min_z)
@@ -279,7 +333,9 @@ class ModelProperties(PropertyContainer):
             self.temperature = temperature - 273.15
             self.comp_min = comp_min
             self.phreeqc = IPhreeqc()
-            self.load_database("phreeqc.dat")
+            self.load_database(self.phreeqc, "phreeqc.dat")
+            self.pitzer = IPhreeqc()
+            self.load_database(self.pitzer, "pitzer.dat")
             # self.phreeqc.phreeqc.OutputFileOn = True
             # self.phreeqc.phreeqc.SelectedOutputFileOn = True
 
@@ -311,9 +367,9 @@ class ModelProperties(PropertyContainer):
             END
             """
 
-        def load_database(self, db_path):
+        def load_database(self, database, db_path):
             try:
-                self.phreeqc.load_database(db_path)
+                database.load_database(db_path)
             except Exception as e:
                 warnings.warn(f"Failed to load '{db_path}': {e}.", Warning)
 
@@ -348,8 +404,8 @@ class ModelProperties(PropertyContainer):
             calcium_mole = calcium
             return water_mass, hydrogen_mole, oxygen_mole, carbon_mole, calcium_mole
 
-        def interpret_results(self):
-            results_array = np.array(self.phreeqc.get_selected_output_array()[2])
+        def interpret_results(self, database):
+            results_array = np.array(database.get_selected_output_array()[2])
 
             # Interpret aqueous phase
             hydrogen_mole_aq = results_array[5]
@@ -384,9 +440,13 @@ class ModelProperties(PropertyContainer):
             return vap, x, y, rho_phases, kin_state
 
         def evaluate(self, state):
+            # extract pressure
             pressure_atm = bar2atm(state[0])
+            # extract composition
             comp = self.get_composition(state)
+            # calculate amount of moles of each component in 1000 moles of mixture
             hydrogen, oxygen, carbon, calcium = self.get_moles(comp)
+            # adjust oxygen and hydrogen moles for water formation
             water_mass, hydrogen_mole, oxygen_mole, carbon_mole, calcium_mole = self.generate_input(hydrogen, oxygen,
                                                                                                     carbon, calcium)
             # Generate and execute PHREEQC input
@@ -402,10 +462,14 @@ class ModelProperties(PropertyContainer):
 
             try:
                 self.phreeqc.run_string(input_string)
+                vap, x, y, rho_phases, kin_state = self.interpret_results(self.phreeqc)
             except Exception as e:
                 warnings.warn(f"Failed to run PHREEQC: {e}", Warning)
+                print(f'p={state[0]}, Ca={calcium_mole}, C={carbon_mole}, O={oxygen_mole}, H={hydrogen_mole}')
+                self.pitzer.run_string(input_string)
+                vap, x, y, rho_phases, kin_state = self.interpret_results(self.pitzer)
 
-            vap, x, y, rho_phases, kin_state = self.interpret_results()
+
             vap = vap * (1 - state[1])
             return vap, x, y, rho_phases, kin_state
 
@@ -495,6 +559,10 @@ class ModelProperties(PropertyContainer):
             hydrogen_act = kin_state['Act(H+)']
             KTa = k25a * np.exp((-Eaa / R) * (1 / self.temperature - 1 / 298.15)) * hydrogen_act ** na
             KTn = k25n * np.exp((-Ean / R) * (1 / self.temperature - 1 / 298.15))
+
+            # # [kmol/d]
+            # kinetic_rate = -specific_sa * (
+            #         (solid_saturation * rho_s * 1000) ** n) * (KTa + KTn) * (1 - sat_ratio) / (kin_fact ** (n - 1)) * 86.400
 
             # [mol/s]
             kinetic_rate = -specific_sa * solid_saturation * (rho_s * 1000) * (KTa + KTn) * (1 - sat_ratio ** p) ** q

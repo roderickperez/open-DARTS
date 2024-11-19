@@ -15,11 +15,11 @@ plt.rc('xtick',labelsize=16)
 plt.rc('ytick',labelsize=16)
 plt.rc('legend',fontsize=16)
 
-def run(max_ts, nx=100):
+def run(domain, max_ts, nx=100):
     redirect_darts_output('log.txt')
 
     # Create model
-    m = Model(nx=nx)
+    m = Model(domain=domain, nx=nx)
     m.sol_filename = 'nx' + str(nx) + '.h5'
 
     # Initialize simulations
@@ -32,13 +32,21 @@ def run(max_ts, nx=100):
     print('Total pore volume:', total_pv, 'cm3')
 
     m.params.max_ts = max_ts
-    # plot_profiles(m)
+
+    if domain == '1D':
+        plot_profiles(m)
+    else:
+        m.output_to_vtk(ith_step=0)
+
     m.run(0.01)
     # plot_profiles(m)
     for i in range(8):
         m.run(days=0.1, restart_dt=max_ts)
         if i > 0: m.params.first_ts = max_ts
-        plot_profiles(m)
+        if domain == '1D':
+            plot_profiles(m)
+        else:
+            m.output_to_vtk(ith_step=i + 1)
 
     # Print some statistics
     print('\nNegative composition occurrence:', m.physics.reservoir_operators[0].counter, '\n')
@@ -70,11 +78,10 @@ def plot_profiles(m):
     ax[0].text(0.21, 0.9, 'time = ' + str(t) + ' days',
                fontsize=16, rotation='horizontal', transform=fig.transFigure)
     ax[0].set_ylabel('pressure, bar', fontsize=16)
-    ax[n_plots - 1].set_xlabel('distance, x', fontsize=16)
-    ax[1].set_ylabel(r'\textcolor{blue}{Solid} and \textcolor{magenta}{O} concentrations', fontsize=16)
+    ax[n_plots - 1].set_xlabel('distance, m', fontsize=16)
+    ax[1].set_ylabel(r'\textcolor{blue}{z$_{CaCO3}$} and \textcolor{magenta}{z$_O$}', fontsize=20)
     ax[2].set_ylabel('porosity', fontsize=16)
-    ax1.set_ylabel(r'\textcolor{red}{Ca} and \textcolor{green}{C} concentrations', fontsize=16)
-    # ax[1].set_ylabel(r'\textcolor[rgb]{0,0,1}{Solid} and \textcolor[rgb]{1,0,0}{O} concentrations', fontsize=16)
+    ax1.set_ylabel(r'\textcolor{red}{z$_{Ca}$} and \textcolor{green}{z$_C$}', fontsize=20)
 
     ax[0].set_ylim(99.99, 100.3)
     ax[1].set_ylim(-0.01, 0.5)
@@ -88,8 +95,12 @@ def plot_profiles(m):
     fig.tight_layout()
     fig.savefig(f'time_{t}.png')
 
-    plt.show()
+    # plt.show()
 
-# run(nx=100, max_ts=1.e-2)
-run(nx=200, max_ts=1.e-2)
-# run(nx=500, max_ts=4.e-3)
+# 1D
+# run(domain='1D', nx=100, max_ts=1.e-2)
+# run(domain='1D', nx=200, max_ts=1.e-2)
+# run(domain='1D', nx=500, max_ts=4.e-3)
+
+# 2D
+run(domain='2D', nx=10, max_ts=1.e-2)
