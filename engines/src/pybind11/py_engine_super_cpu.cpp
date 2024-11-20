@@ -27,15 +27,7 @@ struct engine_super_exposer
     long_name += "CPU simulator engine for " + std::to_string(NC) + " components and " + std::to_string(NP) + " phases with diffusion and kinetic reaction";
     py::class_<engine_super_cpu<NC, NP, THERMAL>, engine_base>(m, short_name.c_str(), long_name.c_str())   \
       .def(py::init<>()) \
-      .def("init", (int (engine_super_cpu<NC, NP, THERMAL>::*)(conn_mesh*, std::vector<ms_well*> &, std::vector<operator_set_gradient_evaluator_iface*> &, sim_params*, timer_node*)) & engine_super_cpu<NC, NP, THERMAL>::init, "Initialize simulator by mesh, tables and wells", py::keep_alive<1, 5>()) \
-      .def_readwrite("darcy_fluxes", &engine_super_cpu<NC, NP, THERMAL>::darcy_fluxes) \
-      .def_readwrite("diffusion_fluxes", &engine_super_cpu<NC, NP, THERMAL>::diffusion_fluxes) \
-      .def_readwrite("dispersion_fluxes", &engine_super_cpu<NC, NP, THERMAL>::dispersion_fluxes) \
-      .def_readwrite("heat_darcy_advection_fluxes", &engine_super_cpu<NC, NP, THERMAL>::heat_darcy_advection_fluxes) \
-      .def_readwrite("heat_diffusion_advection_fluxes", &engine_super_cpu<NC, NP, THERMAL>::heat_diffusion_advection_fluxes) \
-      .def_readwrite("heat_dispersion_advection_fluxes", &engine_super_cpu<NC, NP, THERMAL>::heat_dispersion_advection_fluxes) \
-      .def_readwrite("fourier_fluxes", &engine_super_cpu<NC, NP, THERMAL>::fourier_fluxes);
-
+      .def("init", (int (engine_super_cpu<NC, NP, THERMAL>::*)(conn_mesh*, std::vector<ms_well*> &, std::vector<operator_set_gradient_evaluator_iface*> &, sim_params*, timer_node*)) & engine_super_cpu<NC, NP, THERMAL>::init, "Initialize simulator by mesh, tables and wells", py::keep_alive<1, 5>());
 	}
 };
 

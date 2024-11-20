@@ -52,6 +52,13 @@ void pybind_engine_base (py::module &m)
 		.def_readwrite("scale_rows", &engine_base::scale_rows) \
 		.def_readwrite("scale_dimless", &engine_base::scale_dimless) \
 		.def_readwrite("is_fickian_energy_transport_on", &engine_base::is_fickian_energy_transport_on) \
+		.def_readwrite("darcy_fluxes", &engine_base::darcy_fluxes) \
+		.def_readwrite("diffusion_fluxes", &engine_base::diffusion_fluxes) \
+		.def_readwrite("dispersion_fluxes", &engine_base::dispersion_fluxes) \
+		.def_readwrite("heat_darcy_advection_fluxes", &engine_base::heat_darcy_advection_fluxes) \
+		.def_readwrite("heat_diffusion_advection_fluxes", &engine_base::heat_diffusion_advection_fluxes) \
+		.def_readwrite("heat_dispersion_advection_fluxes", &engine_base::heat_dispersion_advection_fluxes) \
+		.def_readwrite("fourier_fluxes", &engine_base::fourier_fluxes) \
 		.def("add_value_to_Q", &engine_base::add_value_to_Q)  \
 		.def("clear_Q", &engine_base::clear_Q)  \
 		.def("calc_adjoint_gradient_dirac_all", &engine_base::calc_adjoint_gradient_dirac_all, py::call_guard<py::gil_scoped_release>())  \

@@ -41,11 +41,12 @@ int engine_nce_g_cpu<NC, NP>::init(conn_mesh *mesh_, std::vector<ms_well *> &wel
 		(static_cast<csr_matrix<N_VARS>*>(dg_dx_n_temp))->init(mesh_->n_blocks, mesh_->n_blocks, N_VARS, mesh_->n_conns + mesh_->n_blocks);
 	}
 
-
-
-
-
+	
     engine_base::init_base<N_VARS>(mesh_, well_list_, acc_flux_op_set_list_, params_, timer_);
+
+	darcy_fluxes.resize(NC * NP * mesh->n_conns);
+	heat_darcy_advection_fluxes.resize(NP * mesh->n_conns);
+	fourier_fluxes.resize((NP + 1) * mesh->n_conns);
 
 	max_row_values.resize(n_vars * mesh->n_blocks);
 
@@ -91,6 +92,10 @@ int engine_nce_g_cpu<NC, NP>::assemble_jacobian_array(value_t dt, std::vector<va
         value_t t_diff, gamma_t_diff;
 
         numa_set(Jac, 0, rows[start] * N_VARS_SQ, rows[end] * N_VARS_SQ);
+
+		// fluxes for output
+		value_t *cur_darcy_fluxes;
+		value_t *cur_heat_darcy_advection_fluxes, *cur_fourier_fluxes;
 
         for (index_t i = start; i < end; i++)
         {
@@ -139,6 +144,11 @@ int engine_nce_g_cpu<NC, NP>::assemble_jacobian_array(value_t dt, std::vector<va
                 if (i == j)
                     continue;
 
+				// fluxes for current connection
+				cur_darcy_fluxes = &darcy_fluxes[NP * NC * conn_idx];
+				cur_heat_darcy_advection_fluxes = &heat_darcy_advection_fluxes[NP * conn_idx];
+				cur_fourier_fluxes = &fourier_fluxes[(NP + 1) * conn_idx];
+
                 p_diff = X[j * N_VARS + P_VAR] - X[i * N_VARS + P_VAR];
                 t_diff = op_vals_arr[j * N_OPS + FE_TEMP_OP] - op_vals_arr[i * N_OPS + FE_TEMP_OP];
                 gamma_t_diff = tranD[conn_idx] * dt * t_diff;
@@ -159,6 +169,7 @@ int engine_nce_g_cpu<NC, NP>::assemble_jacobian_array(value_t dt, std::vector<va
                             value_t c_flux = tran[conn_idx] * dt * op_vals_arr[i * N_OPS + FLUX_OP + p * NC + c];
 
                             RHS[i * N_VARS + c] -= phase_gamma_p_diff * op_vals_arr[i * N_OPS + FLUX_OP + p * NC + c]; // flux operators only
+							cur_darcy_fluxes[p * NC + c] = -phase_gamma_p_diff * op_vals_arr[i * N_OPS + FLUX_OP + p * NC + c] / dt;
 
                             for (uint8_t v = 0; v < N_VARS; v++)
                             {
@@ -179,6 +190,7 @@ int engine_nce_g_cpu<NC, NP>::assemble_jacobian_array(value_t dt, std::vector<va
 
                         // energy outflow
                         RHS[i * N_VARS + E_VAR] -= phase_gamma_p_diff * op_vals_arr[i * N_OPS + FE_FLUX_OP + p]; // energy flux
+						cur_heat_darcy_advection_fluxes[p] = -phase_gamma_p_diff * op_vals_arr[i * N_OPS + FE_FLUX_OP + p] / dt;
                         value_t phase_e_flux = tran[conn_idx] * dt * op_vals_arr[i * N_OPS + FE_FLUX_OP + p];
 
                         for (uint8_t v = 0; v < N_VARS; v++)
@@ -206,6 +218,7 @@ int engine_nce_g_cpu<NC, NP>::assemble_jacobian_array(value_t dt, std::vector<va
                         {
                             value_t c_flux = tran[conn_idx] * dt * op_vals_arr[j * N_OPS + FLUX_OP + p * NC + c];
                             RHS[i * N_VARS + c] -= phase_gamma_p_diff * op_vals_arr[j * N_OPS + FLUX_OP + p * NC + c]; // flux operators only
+							cur_darcy_fluxes[p * NC + c] = -phase_gamma_p_diff * op_vals_arr[j * N_OPS + FLUX_OP + p * NC + c] / dt;
 
                             for (uint8_t v = 0; v < N_VARS; v++)
                             {
@@ -222,7 +235,8 @@ int engine_nce_g_cpu<NC, NP>::assemble_jacobian_array(value_t dt, std::vector<va
 
                         // energy flux
                         RHS[i * N_VARS + E_VAR] -= phase_gamma_p_diff * op_vals_arr[j * N_OPS + FE_FLUX_OP + p]; // energy flux operator
-                        value_t phase_e_flux = tran[conn_idx] * dt * op_vals_arr[j * N_OPS + FE_FLUX_OP + p];
+						cur_heat_darcy_advection_fluxes[p] = -phase_gamma_p_diff * op_vals_arr[j * N_OPS + FE_FLUX_OP + p] / dt;
+						value_t phase_e_flux = tran[conn_idx] * dt * op_vals_arr[j * N_OPS + FE_FLUX_OP + p];
                         for (uint8_t v = 0; v < N_VARS; v++)
                         {
                             Jac[jac_idx + NC * N_VARS + v] -= phase_gamma_p_diff * op_ders_arr[(j * N_OPS + FE_FLUX_OP + p) * N_VARS + v];
@@ -245,6 +259,7 @@ int engine_nce_g_cpu<NC, NP>::assemble_jacobian_array(value_t dt, std::vector<va
                     value_t local_cond_dt = tranD[conn_idx] * dt * (op_vals_arr[i * N_OPS + FE_COND_OP] * mesh->poro[i] + op_vals_arr[i * N_OPS + RE_COND_OP] * (1 - mesh->poro[i]) * mesh->rock_cond[i]);
 
                     RHS[i * N_VARS + NC] -= local_cond_dt * t_diff;
+					cur_fourier_fluxes[NP] = -local_cond_dt * t_diff / dt;
                     for (uint8_t v = 0; v < N_VARS; v++)
                     {
                         // conduction part derivative
@@ -262,6 +277,7 @@ int engine_nce_g_cpu<NC, NP>::assemble_jacobian_array(value_t dt, std::vector<va
                     value_t local_cond_dt = tranD[conn_idx] * dt * (op_vals_arr[j * N_OPS + FE_COND_OP] * mesh->poro[j] + op_vals_arr[j * N_OPS + RE_COND_OP] * (1 - mesh->poro[j]) * mesh->rock_cond[j]);
 
                     RHS[i * N_VARS + NC] -= local_cond_dt * t_diff;
+					cur_fourier_fluxes[NP] = -local_cond_dt * t_diff / dt;
                     for (uint8_t v = 0; v < N_VARS; v++)
                     {
                         // conduction part derivative

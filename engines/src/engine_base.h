@@ -340,10 +340,15 @@ public:
 	// maximum absolute values in rows of jacobian
 	std::vector<value_t> max_row_values;
 
-
-
-
-
+	// mass fluxes
+	std::vector<value_t> darcy_fluxes;
+	std::vector<value_t> diffusion_fluxes;
+	std::vector<value_t> dispersion_fluxes;
+	// energy fluxes
+	std::vector<value_t> heat_darcy_advection_fluxes;
+	std::vector<value_t> heat_diffusion_advection_fluxes;
+	std::vector<value_t> heat_dispersion_advection_fluxes;
+	std::vector<value_t> fourier_fluxes;
 
 	// adjoint method--------------------------------------------------------------------------------------
 
