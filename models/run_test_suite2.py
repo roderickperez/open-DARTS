@@ -210,7 +210,9 @@ if __name__ == '__main__':
     engines_pbi()
     package_pbi()
 
-    os.environ['OMP_NUM_THREADS'] = '4'
+    # multithreaded run can be enabled by setting OMP_NUM_THREADS environment variable
+    if os.getenv('OMP_NUM_THREADS') == None:  
+        os.environ['OMP_NUM_THREADS'] = '1'
 
     # cpu/gpu
     platform = 'cpu'
