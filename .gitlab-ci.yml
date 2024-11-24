@@ -644,6 +644,7 @@ upload_wheels:
     dependencies:
         # get the wheels from the build stage
         - build-linux-3.9
+        - build-windows-3.9
 
 upload_wheels_odls:
     stage: deploy
@@ -663,6 +664,7 @@ upload_wheels_odls:
     dependencies:
         # get the wheels from the build stage
         - build-linux-3.9-ODLS
+        - build-windows-3.9-ODLS
         
 ###################################################################################
 
