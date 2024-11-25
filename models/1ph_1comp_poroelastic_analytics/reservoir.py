@@ -30,14 +30,6 @@ def get_mesh_filename(mesh='rect', suffix='', prop=''):
         mesh_filename = 'meshes/wedge'
     elif mesh == 'hex':
         mesh_filename = 'meshes/hexahedron'
-    elif mesh == 'box':
-        mesh_filename = 'meshes/box_' + prop
-    elif mesh == 'cylinder':
-        mesh_filename = 'meshes/cylinder_' + prop
-    elif mesh == 'cylinderfine':
-        mesh_filename = 'meshes/cylinderfine_' + prop
-    elif mesh == 'cylinder_jacket':
-        mesh_filename = 'meshes/core_unstr_jacket'
     return mesh_filename + suffix + '.msh'
 
 # Definitions for the unstructured reservoir class:
