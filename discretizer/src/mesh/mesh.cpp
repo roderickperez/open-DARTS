@@ -199,7 +199,7 @@ void Mesh::gmsh_mesh_reading(string filename, const PhysicalTags& tags)
 	index_t node_id, pos;
 	if (elems.size() != num_of_elements)
 	  {
-		std::cout << "elems.size" << elems.size() << " != num_of_elements" << num_of_elements << "\n";
+		std::cout << "elems.size " << elems.size() << " != num_of_elements " << num_of_elements << "\n";
 		exit(1);
 	  }
 	for (index_t i = 0; i < num_of_elements; i++)
