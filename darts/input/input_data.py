@@ -69,6 +69,15 @@ class InitialSolution():
         self.initial_displacements = None  #  [U_x, U_y, U_z] [m]
         self.initial_composition = None
 
+class MeshData():
+    '''
+    tags
+    '''
+    def __init__(self):
+        self.bnd_tags = None
+        self.matrix_tags = None
+        self.mesh_filename = None
+        
 class WellControlsConst():
     '''
     constant well controls during the simulation
@@ -95,7 +104,6 @@ class Wells():
     def __init__(self):
         self.controls = WellControlsConst()
 
-
 class OBLParams():
     '''
     OBL range, number of points
@@ -109,6 +117,13 @@ class OBLParams():
         self.max_t = None
         self.min_z = None
         self.max_z = None
+
+class Simulation():
+    '''
+
+    '''
+    def __init__(self):
+        self.time_steps = None
 
 class OtherProps():
     '''
@@ -129,6 +144,9 @@ class InputData():
         self.obl = OBLParams()
         self.initial = InitialSolution(init_type)
         self.wells = Wells()
+        self.mesh = MeshData()
+        self.boundary = None
+        self.sim = Simulation()
         self.other = OtherProps()
         
     def check(self):
@@ -138,7 +156,7 @@ class InputData():
             sub_obj = self.__getattribute__(k)
             if not hasattr(sub_obj, '__dict__'):
                 continue
-            if k == 'initial':  # do not check initial currently #TODO
+            if k in ['initial', 'mesh', 'sim']:  # do not check initial currently #TODO
                 continue
             for k2 in sub_obj.__dict__.keys(): #  loop over the attributes in sub object
                 value = sub_obj.__getattribute__(k2)
@@ -166,11 +184,11 @@ class InputData():
         can be later used in operations. If some of props are not initialized (i.e. =None) they will be skipped.
         :return:
         '''
-        non_region_objects = ['fluid', 'wells', 'obl']  # skip those
+        no_array_obj = ['fluid', 'obl', 'mesh', 'initial', 'wells', 'other']
         # count number of regions (one value per region)
         max_n_regions = 1
         for k in self.__dict__.keys():  #  loop over the attributes (self.rock, ..)
-            if k in non_region_objects:
+            if k in no_array_obj:
                 continue
             sub_obj = self.__getattribute__(k)
             if not hasattr(sub_obj, '__dict__'):
@@ -183,7 +201,7 @@ class InputData():
                     max_n_regions = value.size
         # make arrays from scalar fields
         for k in self.__dict__.keys():  # loop over the attributes (self.rock, self.fluid, ..)
-            if k in non_region_objects:
+            if k in no_array_obj:
                 continue
             sub_obj = self.__getattribute__(k)
             if not hasattr(sub_obj, '__dict__'):
