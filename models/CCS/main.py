@@ -17,10 +17,26 @@ m.set_reservoir()
 zero = 1e-10
 m.set_physics(zero, n_points=1001, temperature=None)
 
-m.initial_values = {"pressure": 100.,
-                    "H2O": 0.99995,
-                    "temperature": 350.
-                    }
+if 1:
+    def set_initial_conditions():
+        dz = m.reservoir.global_data['dz'][0, 0, :]
+        boundary_idx = 10
+
+        # zH2O = 1
+        primary_specs = {'H2O': 1-zero}
+        secondary_specs = {}
+        boundary_state = {'H2O': 1-zero, 'pressure': 100., 'temperature': 350.}
+
+        from darts.physics.super.initialize import Initialize
+        m.physics.calc_nonuniform_initial_conditions(m.reservoir.mesh, dz, Initialize, primary_specs, secondary_specs,
+                                                     boundary_state, boundary_idx)
+
+    m.set_initial_conditions = set_initial_conditions
+else:
+    m.initial_values = {"pressure": 100.,
+                        "H2O": 0.99995,
+                        "temperature": 350.
+                        }
 m.inj_stream = [0.00005]
 m.inj_stream += [350.] if m.physics.thermal else []
 m.p_inj = 100.
