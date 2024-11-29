@@ -1,4 +1,4 @@
-from darts.physics.operators_base import OperatorsBase
+from darts.physics.base.operators_base import OperatorsBase
 from phreeqc_dissolution.conversions import bar2pa
 from darts.engines import *
 import CoolProp.CoolProp as CP
@@ -68,7 +68,7 @@ class my_own_acc_flux_etor(OperatorsBase):
             flash_state = np.append(pressure, zc)
 
         # Perform Flash procedure here:
-        vap, x, y, rho_phases, kin_state = self.property.flash_ev.evaluate(flash_state)
+        vap, x, y, rho_phases, kin_state, non_sol_volume = self.property.flash_ev.evaluate(flash_state)
 
         # NOTE: z_CaCO3 = zc[-1] = 1 - V - L (since only CaCO3 appears in solid phase)
         sol = zc[0]
@@ -197,24 +197,18 @@ class my_own_comp_etor(my_own_acc_flux_etor):
             self.counter += 1
             zc_copy = np.array(zc)
             zc_copy = self.comp_out_of_bounds(zc_copy)
-            init_flash_state = np.hstack((pressure, self.non_solid_mole, zc_copy))
             flash_state = np.append(pressure, zc_copy)
         else:
-            init_flash_state = np.hstack((pressure, self.non_solid_mole, zc))
             flash_state = np.append(pressure, zc)
-
-        # init flash, for initial properties
-        non_sol_volume = self.property.init_flash_ev.evaluate(init_flash_state)    # m3
+        # porosity
+        # normal flash, for other properties
+        vap, _, _, rho_phases, _, non_sol_volume  = self.property.flash_ev.evaluate(flash_state)
 
         # initial composition
         sol_volume = non_sol_volume * sol_saturation / (1 - sol_saturation)         # m3
         sol_mole = sol_volume * self.property.density_ev['solid'].evaluate(pressure) / self.property.Mw['Solid']
         sol = sol_mole / (sol_mole + self.non_solid_mole)
         values_np[0] = sol
-
-        # porosity
-        # normal flash, for other properties
-        vap, _, _, rho_phases, _ = self.property.flash_ev.evaluate(flash_state)
 
         # NOTE: z_CaCO3 = zc[0] = 1 - V - L (since only CaCO3 appears in solid phase)
         sol = zc[0]
@@ -285,7 +279,7 @@ class my_own_rate_evaluator(operator_set_evaluator_iface):
             flash_state = np.append(pressure, zc)
 
         # Perform Flash procedure here:
-        vap, x, y, rho_phases, _ = self.property.flash_ev.evaluate(flash_state)
+        vap, x, y, rho_phases, _, _ = self.property.flash_ev.evaluate(flash_state)
 
         # NOTE: z_CaCO3 = zc[-1] = 1 - V - L (since only CaCO3 appears in solid phase)
         sol = zc[0]

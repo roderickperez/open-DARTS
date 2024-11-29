@@ -55,7 +55,7 @@ class Model(DartsModel):
         self.set_physics()
 
         # Some newton parameters for non-linear solution:
-        self.params.first_ts = 1e-7
+        self.params.first_ts = 1e-5
         self.params.max_ts = 1e-4
 
         self.params.tolerance_newton = 1e-3
@@ -74,10 +74,10 @@ class Model(DartsModel):
         self.temperature = 323.15           # K
         self.pressure_init = 100            # bar
 
-        self.inj_rate = convert_rate(0.153742)     # input: ml/min; output: m3/day
+        self.inj_rate = 0.0 # convert_rate(0.153742)     # input: ml/min; output: m3/day
 
-        self.comp_min = 1e-11
-        self.obl_min = self.comp_min / 10
+        self.min_z = 1e-11
+        self.obl_min = self.min_z / 10
 
         # Several parameters here related to components used, OBL limits, and injection composition:
         self.cell_property = ['pressure', 'H2O', 'H+', 'OH-', 'CO2', 'HCO3-', 'CO3-2', 'CaCO3', 'Ca+2', 'CaOH+',
@@ -85,13 +85,13 @@ class Model(DartsModel):
         self.phases = ['liq', 'gas']
         self.components = ['H2O', 'H+', 'OH-', 'CO2', 'HCO3-', 'CO3-2', 'CaCO3', 'Ca+2', 'CaOH+', 'CaHCO3+', 'Solid']
         self.elements = ['Solid', 'Ca', 'C', 'O', 'H']
+        self.fc_mask = np.array([False, True, True, True, True], dtype=bool)
         Mw = {'Solid': 0.1000869, 'Ca': 0.040078, 'C': 0.0120096, 'O': 0.015999, 'H': 0.001007} # molar weights in kg/mol
         self.num_vars = len(self.elements)
-        self.n_points = 501
-        self.min_p = 99
-        self.max_p = 103
-        self.min_z = self.obl_min
-        self.max_z = 1 - self.obl_min
+        self.nc = len(self.elements)
+        self.n_points = self.nc * [501]
+        self.axes_min = [99] + [self.obl_min, self.obl_min, self.obl_min, self.obl_min]
+        self.axes_max = [103] + [0.8, 0.8, 0.8, 0.9]
 
         # Rate annihilation matrix
         self.E = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
@@ -104,8 +104,8 @@ class Model(DartsModel):
         stoich_matrix = np.array([-1, 1, 1, 3, 0])
 
         # Create property containers:
-        property_container = ModelProperties(phases_name=self.phases, components_name=self.elements,
-                                                  Mw=Mw, min_z=self.comp_min, temperature=self.temperature)
+        property_container = ModelProperties(phases_name=self.phases, components_name=self.elements, Mw=Mw,
+                                             min_z=self.obl_min, temperature=self.temperature, fc_mask=self.fc_mask)
         rock_compressibility = 1e-6
         property_container.rock_compr_ev = ConstFunc(rock_compressibility)
         property_container.density_ev['solid'] = DensityBasic(compr=rock_compressibility, dens0=2710., p0=1.)
@@ -114,14 +114,14 @@ class Model(DartsModel):
         self.kin_fact = 1
 
         # Create instance of data-structure for simulation (and chemical) input parameters:
-        input_data_struct = MyOwnDataStruct(nc=len(self.elements), zmin=self.comp_min, temp=self.temperature,
+        input_data_struct = MyOwnDataStruct(nc=self.nc, zmin=self.obl_min, temp=self.temperature,
                                             stoich_matrix=stoich_matrix, pressure_init=self.pressure_init,
                                             kin_fact=self.kin_fact)
 
         # Create instance of (own) physics class:
         self.physics = PhreeqcDissolution(timer=self.timer, elements=self.elements, n_points=self.n_points, 
-                                          min_p=self.min_p, max_p=self.max_p, min_z=self.min_z, 
-                                          input_data_struct=input_data_struct, properties=property_container)
+                                          axes_min=self.axes_min, axes_max=self.axes_max,
+                                          input_data_struct=input_data_struct, properties=property_container, cache=False)
 
         self.physics.add_property_region(property_container, 0)
 
@@ -133,7 +133,7 @@ class Model(DartsModel):
         # ['H2O', 'H+', 'OH-', 'CO2', 'HCO3-', 'CO3-2', 'CaCO3', 'Ca+2', 'CaOH+', 'CaHCO3+', 'Solid']
         self.inj_stream_components = np.array([mole_fraction_water, 0, 0, mole_fraction_co2, 0, 0, 0, 0, 0, 0, 0])
         self.inj_stream = convert_composition(self.inj_stream_components, self.E)
-        self.inj_stream = correct_composition(self.inj_stream, self.comp_min)
+        self.inj_stream = correct_composition(self.inj_stream, self.min_z)
 
         # prepare arrays for evaluation of properties
         nb = np.prod(self.domain_cells)
@@ -205,7 +205,7 @@ class Model(DartsModel):
         for i in range(len(self.solid_sat)):
             # There are 5 values in the state
             composition_full = convert_composition(self.initial_comp_components, self.E)
-            composition = correct_composition(composition_full, self.comp_min)
+            composition = correct_composition(composition_full, self.min_z)
             init_state = value_vector(np.hstack((self.physics.input_data_struct.pressure_init, self.solid_sat[i], composition)))
 
             # Call interpolator
@@ -215,7 +215,7 @@ class Model(DartsModel):
             self.solid_frac[i] = values[0]
             initial_comp_with_solid = np.multiply(composition_full, 1 - self.solid_frac[i])
             initial_comp_with_solid[0] = self.solid_frac[i]
-            self.initial_comp[i, :] = correct_composition(initial_comp_with_solid, self.comp_min)
+            self.initial_comp[i, :] = correct_composition(initial_comp_with_solid, self.min_z)
 
         # Define initial composition for wells
         for i in range(n_matrix, n_matrix + 2):
@@ -318,20 +318,43 @@ class Model(DartsModel):
         return timesteps, property_array
 
 class ModelProperties(PropertyContainer):
-    def __init__(self, phases_name, components_name, Mw, nc_sol=0, np_sol=0, min_z=1e-11, rate_ann_mat=None, temperature=None):
+    def __init__(self, phases_name, components_name, Mw, nc_sol=0, np_sol=0, min_z=1e-11, rate_ann_mat=None,
+                 temperature=None, fc_mask=None):
         super().__init__(phases_name=phases_name, components_name=components_name, Mw=Mw, nc_sol=nc_sol, np_sol=np_sol,
                          min_z=min_z, rate_ann_mat=rate_ann_mat, temperature=temperature)
+        self.components_name = np.array(self.components_name)
+
+        # Define primary fluid constituents
+        if fc_mask is None:
+            self.fc_mask = self.nc * [True]
+        else:
+            self.fc_mask = fc_mask
+        self.fc_idx = {comp: i for i, comp in enumerate(self.components_name[self.fc_mask])}
 
         # Define custom evaluators
-        self.flash_ev = self.CustomFlash(self.temperature, self.min_z)
-        self.init_flash_ev = self.InitFlash(self.temperature, self.min_z)
+        self.flash_ev = self.CustomFlash(min_z=self.min_z, fc_mask=self.fc_mask, fc_idx=self.fc_idx, temperature=self.temperature)
         self.kinetic_rate_ev = self.CustomKineticRate(self.temperature, self.min_z)
         self.rel_perm_ev = {ph: self.CustomRelPerm(2) for ph in phases_name[:2]}  # Relative perm for first two phases
 
     class CustomFlash:
-        def __init__(self, temperature, comp_min):
-            self.temperature = temperature - 273.15
-            self.comp_min = comp_min
+        def __init__(self, min_z, fc_mask, fc_idx, temperature=None):
+            """
+            :param min_z: minimal composition value
+            :param fc_mask: boolean mask for extraction of fluid components from all components
+            :param fc_idx: dictionary for mapping names of fluid components to filtered (via mask) state
+            :param temperature: temperature for isothermal case
+            """
+            self.fc_mask = fc_mask
+            self.fc_idx = fc_idx
+
+            if temperature is None:
+                self.thermal = True
+            else:
+                self.thermal = False
+                self.temperature = temperature - 273.15
+            self.min_z = min_z
+            self.total_moles = 1000
+            self.molar_weight_h2o = 0.018016
             self.phreeqc = IPhreeqc()
             self.load_database(self.phreeqc, "phreeqc.dat")
             self.pitzer = IPhreeqc()
@@ -373,37 +396,6 @@ class ModelProperties(PropertyContainer):
             except Exception as e:
                 warnings.warn(f"Failed to load '{db_path}': {e}.", Warning)
 
-        @staticmethod
-        def get_moles(composition):
-            # Assume 1000 mol of solution
-            total_mole = 1000
-            hydrogen_mole = total_mole * composition[-1]
-            oxygen_mole = total_mole * composition[-2]
-            carbon_mole = total_mole * composition[-3]
-            calcium_mole = total_mole * composition[-4]
-            return hydrogen_mole, oxygen_mole, carbon_mole, calcium_mole
-
-        def get_composition(self, state):
-            comp = state[2:]
-            # comp[comp <= self.comp_min / 10] = 0
-            comp = np.divide(comp, np.sum(comp))
-            return comp
-
-        @staticmethod
-        def generate_input(*args):
-            hydrogen, oxygen, carbon, calcium = args[0], args[1], args[2], args[3]
-            if hydrogen / 2 <= oxygen:
-                water_mass = hydrogen / 2 * 0.018016
-                hydrogen_mole = 0
-                oxygen_mole = oxygen - hydrogen / 2
-            else:
-                water_mass = oxygen * 0.018016
-                hydrogen_mole = hydrogen - 2 * oxygen
-                oxygen_mole = 0
-            carbon_mole = carbon
-            calcium_mole = calcium
-            return water_mass, hydrogen_mole, oxygen_mole, carbon_mole, calcium_mole
-
         def interpret_results(self, database):
             results_array = np.array(database.get_selected_output_array()[2])
 
@@ -413,7 +405,7 @@ class ModelProperties(PropertyContainer):
             carbon_mole_aq = results_array[7]
             calcium_mole_aq = results_array[8]
 
-            volume_aq = results_array[9] / 1000  # m3
+            volume_aq = results_array[9] / 1000  # liters to m3
             total_mole_aq = (hydrogen_mole_aq + oxygen_mole_aq + carbon_mole_aq + calcium_mole_aq)  # mol
             rho_aq = total_mole_aq / volume_aq / 1000  # kmol/m3
 
@@ -437,109 +429,58 @@ class ModelProperties(PropertyContainer):
                          'Act(H+)': results_array[12],
                          'Act(CO2)': results_array[13],
                          'Act(H2O)': results_array[14]}
-            return vap, x, y, rho_phases, kin_state
+            return vap, x, y, rho_phases, kin_state, volume_aq
 
         def evaluate(self, state):
-            # extract pressure
+            # extract pressure and fluid composition
             pressure_atm = bar2atm(state[0])
-            # extract composition
-            comp = self.get_composition(state)
+            if self.thermal:
+                fluid_compostion = state[1:-1][self.fc_mask]
+            else:
+                fluid_compostion = state[1:][self.fc_mask]
+            fluid_compostion = np.divide(fluid_compostion, np.sum(fluid_compostion))
+
             # calculate amount of moles of each component in 1000 moles of mixture
-            hydrogen, oxygen, carbon, calcium = self.get_moles(comp)
+            fluid_moles = self.total_moles * fluid_compostion
+
             # adjust oxygen and hydrogen moles for water formation
-            water_mass, hydrogen_mole, oxygen_mole, carbon_mole, calcium_mole = self.generate_input(hydrogen, oxygen,
-                                                                                                    carbon, calcium)
+            init_h_moles, init_o_moles = fluid_moles[self.fc_idx['H']], fluid_moles[self.fc_idx['O']]
+            if init_h_moles / 2 <= init_o_moles:
+                water_mass = init_h_moles / 2 * self.molar_weight_h2o
+                fluid_moles[self.fc_idx['H']] = 0
+                fluid_moles[self.fc_idx['O']] = init_o_moles - init_h_moles / 2
+            else:
+                water_mass = init_o_moles * self.molar_weight_h2o
+                fluid_moles[self.fc_idx['H']] = init_h_moles - 2 * init_o_moles
+                fluid_moles[self.fc_idx['O']] = 0
             # Generate and execute PHREEQC input
             input_string = self.phreeqc_template.format(
                 temperature=self.temperature,
                 pressure=pressure_atm,
                 water_mass=water_mass,
-                hydrogen=hydrogen_mole,
-                oxygen=oxygen_mole,
-                carbon=carbon_mole,
-                calcium=calcium_mole
+                hydrogen=fluid_moles[self.fc_idx['H']],
+                oxygen=fluid_moles[self.fc_idx['O']],
+                carbon=fluid_moles[self.fc_idx['C']],
+                calcium=fluid_moles[self.fc_idx['Ca']]
             )
 
             try:
                 self.phreeqc.run_string(input_string)
-                vap, x, y, rho_phases, kin_state = self.interpret_results(self.phreeqc)
+                vap, x, y, rho_phases, kin_state, non_sol_volume = self.interpret_results(self.phreeqc)
             except Exception as e:
                 warnings.warn(f"Failed to run PHREEQC: {e}", Warning)
-                print(f'p={state[0]}, Ca={calcium_mole}, C={carbon_mole}, O={oxygen_mole}, H={hydrogen_mole}')
+                print(f"h20_mass={water_mass}, p={state[0]}, Ca={fluid_moles[self.fc_idx['Ca']]}, C={fluid_moles[self.fc_idx['C']]}, O={fluid_moles[self.fc_idx['O']]}, H={fluid_moles[self.fc_idx['H']]}")
                 self.pitzer.run_string(input_string)
-                vap, x, y, rho_phases, kin_state = self.interpret_results(self.pitzer)
+                vap, x, y, rho_phases, kin_state, non_sol_volume = self.interpret_results(self.pitzer)
 
 
             vap = vap * (1 - state[1])
-            return vap, x, y, rho_phases, kin_state
-
-    class InitFlash(CustomFlash):
-        def __init__(self, temperature, comp_min):
-            super().__init__(temperature, comp_min)
-
-        @staticmethod
-        def get_moles(comp_data):
-            # Assume 1000 mol of solution
-            total_mole = comp_data[-1]
-            hydrogen_mole = total_mole * comp_data[-2]
-            oxygen_mole = total_mole * comp_data[-3]
-            carbon_mole = total_mole * comp_data[-4]
-            calcium_mole = total_mole * comp_data[-5]
-            return hydrogen_mole, oxygen_mole, carbon_mole, calcium_mole
-
-        def evaluate(self, state):
-            # Convert pressure to atm
-            pressure_atm = bar2atm(state[0])
-
-            # Normalize the non-solid composition values
-            non_solid_composition = np.divide(state[3:], np.sum(state[3:]))
-            comp_data = np.hstack((non_solid_composition, state[1]))
-
-            # Calculate moles for each element based on comp_data
-            hydrogen, oxygen, carbon, calcium = self.get_moles(comp_data)
-            water_mass, hydrogen_mole, oxygen_mole, carbon_mole, calcium_mole = self.generate_input(
-                hydrogen, oxygen, carbon, calcium
-            )
-
-            # Create and run the input string using phreeqpy
-            input_string = f"""
-            USER_PUNCH
-            -headings	Vol_aq(L)
-            10 PUNCH	SOLN_VOL
-
-            SELECTED_OUTPUT
-                -selected_out    true
-                -user_punch      true
-                -reset           false
-                -high_precision  true
-            SOLUTION 1
-                temp      {self.temperature:.2f}
-                pressure  {pressure_atm:.4f}
-                pH        7 charge
-                -water    {water_mass:.3f} # kg
-            REACTION 1
-                H         {hydrogen_mole:.8f}
-                O         {oxygen_mole:.8f}
-                C         {carbon_mole:.8f}
-                Ca        {calcium_mole:.8f}
-                1
-            END
-            """
-
-            try:
-                # Run PHREEQC with the formatted input string
-                self.phreeqc.run_string(input_string)
-            except Exception as e:
-                warnings.warn(f"Failed to run PHREEQC: {e}", Warning)
-
-            # Retrieve the non-solid volume output from PHREEQC
-            non_solid_volume = np.array(self.phreeqc.get_selected_output_array()[2]) / 1000  # Convert to m3
-            return non_solid_volume
+            return vap, x, y, rho_phases, kin_state, non_sol_volume
 
     class CustomKineticRate:
-        def __init__(self, temperature, comp_min):
+        def __init__(self, temperature, min_z):
             self.temperature = temperature
-            self.comp_min = comp_min
+            self.min_z = min_z
 
         def evaluate(self, kin_state, solid_saturation, rho_s, min_z, kin_fact):
             # Define constants

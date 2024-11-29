@@ -11,7 +11,7 @@ import os
 
 # Define our own operator evaluator class
 class PhreeqcDissolution(Compositional):
-    def __init__(self, timer, elements, n_points, min_p, max_p, min_z, input_data_struct, properties,
+    def __init__(self, timer, elements, n_points, axes_min, axes_max, input_data_struct, properties,
                  platform='cpu', itor_type='multilinear', itor_mode='adaptive', itor_precision='d', cache=True):
         # Obtain properties from user input during initialization:
         self.input_data_struct = input_data_struct
@@ -19,15 +19,10 @@ class PhreeqcDissolution(Compositional):
         NE = nc
         vars = ["p"] + elements[:-1]
         phases = ['vapor', 'liquid']
-        n_phases = len(phases)
-        n_vars = len(vars)
-        n_axes_points = index_vector([n_points] * n_vars)
-        n_axes_min = value_vector([min_p] + [min_z] * (nc - 1))
-        n_axes_max = value_vector([max_p] + [1 - min_z] * (nc - 1))
 
         super().__init__(components=elements, phases=phases, n_points=n_points, thermal=False,
-                         min_p=min_p, max_p=max_p, min_z=min_z, max_z=1-min_z,
-                         axes_min=n_axes_min, axes_max=n_axes_max, n_axes_points=n_axes_points,
+                         min_p=axes_min[0], max_p=axes_max[0], min_z=axes_min[1], max_z=1-axes_min[1],
+                         axes_min=axes_min, axes_max=axes_max, n_axes_points=n_points,
                          timer=timer, cache=cache)
         self.vars = vars
 

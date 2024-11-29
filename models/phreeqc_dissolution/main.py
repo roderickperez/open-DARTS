@@ -4,6 +4,7 @@ from model import Model
 from darts.engines import redirect_darts_output
 import pandas as pd
 import numpy as np
+from phreeqc_dissolution.conversions import convert_rate
 
 # matplotlib
 import matplotlib
@@ -40,13 +41,27 @@ def run(domain, max_ts, nx=100):
 
     m.run(0.01)
     # plot_profiles(m)
+    ts_counter = 0
     for i in range(8):
         m.run(days=0.1, restart_dt=max_ts)
         if i > 0: m.params.first_ts = max_ts
         if domain == '1D':
             plot_profiles(m)
         else:
-            m.output_to_vtk(ith_step=i + 1)
+            m.output_to_vtk(ith_step=ts_counter + 1)
+            ts_counter += 1
+
+    m.inj_rate = convert_rate(0.153742)
+    m.reservoir.wells[0].control = m.physics.new_rate_oil_inj(m.inj_rate, m.inj_stream)
+
+    for i in range(8):
+        m.run(days=0.1, restart_dt=max_ts)
+        if i > 0: m.params.first_ts = max_ts
+        if domain == '1D':
+            plot_profiles(m)
+        else:
+            m.output_to_vtk(ith_step=ts_counter + 1)
+            ts_counter += 1
 
     # Print some statistics
     print('\nNegative composition occurrence:', m.physics.reservoir_operators[0].counter, '\n')
@@ -99,8 +114,8 @@ def plot_profiles(m):
 
 # 1D
 # run(domain='1D', nx=100, max_ts=1.e-2)
-# run(domain='1D', nx=200, max_ts=1.e-2)
+run(domain='1D', nx=200, max_ts=1.e-2)
 # run(domain='1D', nx=500, max_ts=4.e-3)
 
 # 2D
-run(domain='2D', nx=10, max_ts=1.e-2)
+# run(domain='2D', nx=10, max_ts=1.e-2)
