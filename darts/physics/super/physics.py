@@ -145,6 +145,44 @@ class Compositional(PhysicsBase):
                                                                       self.n_vars, rate, self.rate_itor)
         return
 
+    def set_uniform_initial_conditions(self, mesh: conn_mesh,
+                                       uniform_pressure: float, uniform_composition: list, uniform_temp: float = None):
+        """
+        Function to set uniform initial conditions.
+
+        :param mesh: Mesh object
+        :type mesh:
+        :param uniform_pressure: Uniform pressure setting
+        :type uniform_pressure: float
+        :param uniform_composition: Uniform composition setting
+        :type uniform_composition: list
+        :param uniform_temp: Uniform temperature setting, default is None for isothermal
+        :type uniform_temp: float
+        """
+        assert isinstance(mesh, conn_mesh)
+
+        nb = mesh.n_blocks
+        """ Uniform Initial conditions """
+        # set initial pressure
+        pressure = np.array(mesh.pressure, copy=False)
+        pressure.fill(uniform_pressure)
+
+        # if thermal, set initial temperature
+        if uniform_temp is not None:
+            temperature = np.array(mesh.temperature, copy=False)
+            temperature.fill(uniform_temp)
+
+        # set initial composition
+        mesh.composition.resize(nb * (self.nc - 1))
+        composition = np.array(mesh.composition, copy=False)
+        # composition[:] = np.array(uniform_composition)
+        if self.nc == 2:
+            for c in range(self.nc - 1):
+                composition[c::(self.nc - 1)] = uniform_composition[:]
+        else:
+            for c in range(self.nc - 1):  # Denis
+                composition[c::(self.nc - 1)] = uniform_composition[c]
+
     def set_initial_conditions(self, mesh: conn_mesh, states: dict, depths: list = None):
         """
         Function to set uniform initial conditions.
