@@ -15,12 +15,12 @@ class Initialize:
         self.depths = np.cumsum(dz) + dz[0] * 0.5
         self.nb = len(self.depths)
 
-        # Add evaluators of phase saturations, rhoT and df (if kinetic reactions are defined)
+        # Add evaluators of phase saturations, rhoT and dX (if kinetic reactions are defined)
         property_container = physics.property_containers[0]
         self.props = {}
         self.props.update({'s' + ph: lambda j=j: property_container.sat[j] for j, ph in enumerate(physics.phases)})
         self.props.update({'rhoT': lambda: np.sum(property_container.sat * property_container.dens)})
-        self.props.update({'dQ' + str(k): lambda k=k: property_container.dQ[k]
+        self.props.update({'dX' + str(k): lambda k=k: property_container.dX[k]
                            for k, kr in enumerate(property_container.kinetic_rate_ev)})
 
         self.props_idxs = {prop: i for i, prop in enumerate(self.props.keys())}
