@@ -246,18 +246,6 @@ class Compositional(PhysicsBase):
                     dzc = zc[idx + 1] - zc[idx]
                     comp[(self.nc-1) * ith_cell + c] = zc[idx] + dzc * (ith_depth - depths[idx]) * dz_inv
 
-    def calc_nonuniform_initial_conditions(self, mesh: conn_mesh, dz: list, initialize: Initialize,
-                                           primary_specs: dict, secondary_specs: dict, boundary_state: dict, bc_idx: int):
-        """
-        Function to initialize domain at equilibrium state
-        """
-        ini = initialize(self, dz)
-        ini.set_specs(primary_specs, secondary_specs)
-        X = ini.solve(boundary_state=boundary_state, bc_idx=bc_idx)
-
-        # Interpolate depths in mesh with X to obtain states
-        states = {var: X[i::self.n_vars] if len(dz) > 1 else X[i] for i, var in enumerate(self.vars)}
-        self.set_initial_conditions(mesh, states, ini.depths + np.amin(mesh.depth))
 
     def set_nonuniform_initial_conditions(self, mesh: conn_mesh,
                                         input_pressure, input_composition, input_temperature = None):

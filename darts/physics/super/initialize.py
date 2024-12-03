@@ -4,16 +4,21 @@ from darts.physics.base.operators_base import PropertyOperators
 
 
 class Initialize:
-    def __init__(self, physics, dz: list):
+    def __init__(self, physics, depth_bottom: float, depth_top: float, boundary_state: dict, nb: int = 100):
         self.physics = physics
         self.vars = physics.vars
         self.var_idxs = {var: i for i, var in enumerate(physics.vars)}
         self.nv = len(self.vars)
         self.thermal = ('temperature' in self.vars)
 
-        self.dz = dz
-        self.depths = np.cumsum(dz) + dz[0] * 0.5
-        self.nb = len(self.depths)
+        # check input and create depths
+        assert(depth_bottom > depth_top)
+        assert(boundary_state['depth'] <= depth_bottom and boundary_state['depth'] >= depth_top)
+        self.nb = nb
+        self.depths = np.linspace(start=depth_top, stop=depth_bottom, num=nb)
+        self.boundary_state = boundary_state
+        self.bc_idx = (np.fabs(self.depths - boundary_state['depth'])).argmin()
+        self.depths[self.bc_idx] = boundary_state['depth']
 
         # Add evaluators of phase saturations, rhoT and df (if kinetic reactions are defined)
         property_container = physics.property_containers[0]
@@ -47,20 +52,20 @@ class Initialize:
 
         return values, derivs
 
-    def solve(self, bc_idx: int, boundary_state: dict, dTdh: float = 0.03):
+    def solve(self, dTdh: float = 0.03):
         if self.thermal:
-            self.T = lambda i: boundary_state['temperature'] + (self.depths[i] - self.depths[bc_idx]) * dTdh
+            self.T = lambda i: self.boundary_state['temperature'] + (self.depths[i] - self.depths[self.bc_idx]) * dTdh
 
         # Set state in known cell
         X = np.zeros((self.nb, self.nv))
-        X[bc_idx] = np.array([boundary_state[v] for v in self.vars])
+        X[self.bc_idx] = np.array([self.boundary_state[v] for v in self.vars])
 
         # Solve cells from specified cell upwards
-        for i in range(bc_idx, 0, -1):
+        for i in range(self.bc_idx, 0, -1):
             self.solve_cell(X, cell_idx=i-1, downward=False)
 
         # Solve cells from specified cell downwards
-        for i in range(bc_idx, self.nb-1):
+        for i in range(self.bc_idx, self.nb-1):
             self.solve_cell(X, cell_idx=i+1, downward=True)
 
         return X.flatten()
@@ -68,38 +73,37 @@ class Initialize:
     def solve_cell(self, X: np.ndarray, cell_idx: int, downward: bool = True, max_iter: int = 100):
         # Find neighbouring cell for which state is known
         if downward:
-            known_idx = cell_idx-1
-            gravity_sign = 1  # pressure increases in downward direction
+            known_idx = cell_idx - 1
         else:
-            known_idx = cell_idx+1
-            gravity_sign = -1  # pressure decreases in upward direction
+            known_idx = cell_idx + 1
 
+        n_vars = self.nv - self.thermal
         values0, _ = self.evaluate(X[known_idx])
-        gh0 = 9.81 * self.dz[known_idx] * 1e-5
-        gh1 = 9.81 * self.dz[cell_idx] * 1e-5
+        gh0 = 9.81 * self.depths[known_idx] * 1e-5
+        gh1 = 9.81 * self.depths[cell_idx] * 1e-5
 
         # Solve nonlinear unknowns
         # Initialize using same composition, recalculate pressure and evaluate temperature gradient
-        X[cell_idx, 0] = X[known_idx, 0] + gravity_sign * values0[self.props_idxs['rhoT']] * gh0
+        X[cell_idx, 0] = X[known_idx, 0] + values0[self.props_idxs['rhoT']] * (gh1 - gh0)
         X[cell_idx, 1:] = X[known_idx, 1:]
         if self.thermal:
             X[cell_idx, -1] = self.T(cell_idx)
 
+        rhoT_idx = self.props_idxs['rhoT']
         for it in range(max_iter):
             # nc variables for pressure and nc-1 compositions, temperature is calculated from gradient
-            res = np.zeros(self.nv-1)
-            Jac = np.zeros((self.nv-1, self.nv-1))
+            res = np.zeros(n_vars)
+            Jac = np.zeros((n_vars, n_vars))
 
             # Evaluate operators and derivatives at current state Xi
             values1, derivs1 = self.evaluate(X[cell_idx])
 
             # Pressure equation
-            rhoT_idx = self.props_idxs['rhoT']
-            mgh = gravity_sign * (values0[rhoT_idx] * gh0 + values1[rhoT_idx] * gh1) * 0.5
+            mgh = (values1[rhoT_idx] + values0[rhoT_idx]) * (gh1 - gh0) / 2
             res[0] = X[known_idx, 0] + mgh - X[cell_idx, 0]
             Jac[0, 0] -= 1.
-            for j in range(self.nv-1):
-                Jac[0, j] += gravity_sign * derivs1[rhoT_idx * self.nv + j] * 0.5 * gh1
+            for j in range(n_vars):
+                Jac[0, j] += derivs1[rhoT_idx * self.nv + j] * (gh1 - gh0) / 2
 
             # Specification equation
             for j1, (var, spec) in enumerate(self.primary_specs.items()):
@@ -116,12 +120,12 @@ class Initialize:
                 res_idx = j1 + j2 + 1
                 res[res_idx] = values1[prop_idx] - spec[cell_idx]
 
-                for jj in range(self.nv-1):
+                for jj in range(n_vars):
                     Jac[res_idx, jj] = derivs1[prop_idx * self.nv + jj]
             j2 = len(self.secondary_specs)
 
             dX = np.linalg.solve(Jac, res)
-            X[cell_idx, :self.nv-1] -= dX
+            X[cell_idx, :n_vars] -= dX
 
             if np.linalg.norm(res) < 1e-10:
                 return X
@@ -136,12 +140,14 @@ class Initialize:
     #         self.T = lambda i: boundary_state['temperature'] + (self.depths[i] - self.depths[bc_idx]) * dTdh
 
     def set_specs(self, primary_specs: dict = None, secondary_specs: dict = None):
-        for spec, values in primary_specs.items():
-            self.primary_specs[spec] = values if isinstance(values, (list, np.ndarray)) else np.ones(self.nb) * values
-            assert len(self.primary_specs[spec]) == self.nb, "Length of " + spec + " not compatible"
-        for spec, values in secondary_specs.items():
-            self.secondary_specs[spec] = values if isinstance(values, (list, np.ndarray)) else np.ones(self.nb) * values
-            assert len(self.secondary_specs[spec]) == self.nb, "Length of " + spec + " not compatible"
+        if primary_specs is not None:
+            for spec, values in primary_specs.items():
+                self.primary_specs[spec] = values if isinstance(values, (list, np.ndarray)) else np.ones(self.nb) * values
+                assert len(self.primary_specs[spec]) == self.nb, "Length of " + spec + " not compatible"
+        if secondary_specs is not None:
+            for spec, values in secondary_specs.items():
+                self.secondary_specs[spec] = values if isinstance(values, (list, np.ndarray)) else np.ones(self.nb) * values
+                assert len(self.secondary_specs[spec]) == self.nb, "Length of " + spec + " not compatible"
         assert len(self.primary_specs) + len(self.secondary_specs) >= self.nv - 2, \
             "Not enough variables specified for well-defined system of equations"
 

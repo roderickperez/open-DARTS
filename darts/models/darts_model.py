@@ -293,7 +293,7 @@ class DartsModel:
         self.reservoir.mesh.composition.resize(self.reservoir.mesh.n_blocks * (self.physics.nc - 1))
 
         z_counter = 0
-        nz_vars = self.physics.n_vars - 1
+        nz_vars = self.physics.nc - 1
         for variable in self.physics.vars:
             if variable not in initial_distribution.keys():
                 raise RuntimeError("Primary variable {} was not assigned initial values.".format(variable))
