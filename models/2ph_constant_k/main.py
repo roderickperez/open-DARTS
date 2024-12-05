@@ -116,7 +116,7 @@ def run(itor_mode, itor_type, obl_points, n_comps, reservoir_type, nx: int = Non
     redirect_darts_output('log.out')
 
     if n_comps == 3:
-        components = ['CO2', 'C1', 'C6']
+        components = ['CO2', 'C1', 'C4']
     elif n_comps == 4:
         components = ['CO2', 'C1', 'C4', 'C10']
     elif n_comps == 6:
