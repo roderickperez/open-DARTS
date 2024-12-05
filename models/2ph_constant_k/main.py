@@ -146,7 +146,8 @@ def run(itor_mode, itor_type, obl_points, n_comps, reservoir_type, nx: int = Non
         if vtk_output:
             n.output_to_vtk(ith_step=0)
         if reservoir_type != '2D':
-            n.params.first_ts = n.params.max_ts = 0.001
+            n.params.first_ts = 0.001
+            n.params.max_ts = 1.
             n.run(1.0, log_3d_body_path=log_3d_body_path)
             n.physics.engine.t = 0.0
             n.set_spe10_well_controls_initialized()
