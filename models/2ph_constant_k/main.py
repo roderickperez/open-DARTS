@@ -284,6 +284,7 @@ def write_performance_output(filename, param_arrays, res_arrays):
 def test_linear_multilinear_obl_points():
     n_repeat = 1
     n_runs = 9
+    nx = 300
     # 1D
     params1 = {'itor_type': 6 * ['linear'] + 3 * ['multilinear'],
               'itor_mode': n_runs * ['adaptive'],
@@ -291,7 +292,7 @@ def test_linear_multilinear_obl_points():
               'n_comps': n_runs * [6],
               'barycentric': 3 * [False] + 3 * [True] + 3 * [False],
               'reservoir_type': n_runs * ['1D'],
-              'nx': n_runs * [1000]}
+              'nx': n_runs * [nx]}
     out_type_1d = test_performance(params=params1, n_repeat=n_repeat)
     # 2D
     params2 = {'itor_type': 6 * ['linear'] + 3 * ['multilinear'],
@@ -300,14 +301,14 @@ def test_linear_multilinear_obl_points():
               'n_comps': n_runs * [6],
               'barycentric': 3 * [False] + 3 * [True] + 3 * [False],
               'reservoir_type': n_runs * ['2D'],
-              'nx': n_runs * [100]}
+              'nx': n_runs * [nx]}
     out_type_2d = test_performance(params=params2, n_repeat=n_repeat)
 
-    print('Linear vs Multilinear in 1D setup with nx=1000')
+    print(f'Linear vs Multilinear in 1D setup with nx={nx}')
     for key, val in out_type_1d.items():
         print(f'{key}: {val.flatten()}')
     print('\n')
-    print('Linear vs Multilinear in 2D setup with nx=ny=100')
+    print(f'Linear vs Multilinear in 2D setup with nx=ny={nx}')
     for key, val in out_type_2d.items():
         print(f'{key}: {val.flatten()}')
 
