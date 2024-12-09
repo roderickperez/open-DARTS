@@ -31,7 +31,7 @@ def find_ffmpeg():
 
 rcParams['animation.ffmpeg_path'] = find_ffmpeg()
 
-def animate_solution_1d(paths, n_cells, labels, lower_lims, upper_lims, video_fname='plot.mp4'):
+def animate_solution_1d_separate_plots(paths, n_cells, labels, lower_lims, upper_lims, video_fname='plot.mp4'):
     data0 = load_hdf5_to_dict(filename=paths[0] + 'solution.h5')['dynamic']
     n_cells_max = max(n_cells)
     c = [np.arange(n_cells_max, step=int(n_cells_max / n_cells[i])) for i in range(len(n_cells))]
@@ -158,7 +158,7 @@ def run(itor_mode, itor_type, obl_points, n_comps, reservoir_type, nx: int = Non
     if not os.path.exists(output_folder):
         os.mkdir(output_folder)
 
-    redirect_darts_output('log.out')
+    redirect_darts_output(os.path.join(output_folder, 'log.out'))
 
     if n_comps == 3:
         components = ['CO2', 'C1', 'C4']

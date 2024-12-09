@@ -100,8 +100,7 @@ class Model(DartsModel):
             self.p_init = np.append(self.p_init, 2 * n_wells * [np.mean(self.p_init)])
 
         return
-    # for i in range(self.physics.nc - 1):
-    #     self.initial_values[self.components[i]][0] = self.inj_stream[i]
+
     def set_wells(self):
         self.reservoir.add_well("I1")
         self.reservoir.add_well("P1")
@@ -422,7 +421,7 @@ class Model(DartsModel):
             injector.control = self.physics.new_rate_inj(1., self.inj_stream, 0)
             producer.control = self.physics.new_bhp_prod(50.)
         elif self.reservoir_type == '2D':
-            injector.control = self.physics.new_rate_inj(500., self.inj_stream, 0)
+            injector.control = self.physics.new_rate_inj(300., self.inj_stream, 0)
             producer.control = self.physics.new_bhp_prod(50.)
         else:
             injector.control = self.physics.new_rate_inj(1., self.inj_stream, 0)
