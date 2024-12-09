@@ -91,6 +91,51 @@ def animate_solution_1d(paths, n_cells, labels, lower_lims, upper_lims, video_fn
     anim.save(paths[0] + video_fname, writer=writervideo)
     plt.close(fig)
 
+def animate_solution_1d_single_plot(paths, n_cells, labels, lower_lim, upper_lim, video_fname='plot.mp4'):
+    data0 = load_hdf5_to_dict(filename=paths[0] + 'solution.h5')['dynamic']
+    n_cells_max = max(n_cells)
+    c = [np.arange(n_cells_max, step=int(n_cells_max / n_cells[i])) for i in range(len(n_cells))]
+    n_plots = len(data0['variable_names'])
+    n_steps = data0['time'].size  # number of saved snapshots
+    colors = ['b', 'r', 'g', 'm', 'c', 'y', 'k']
+    fig, ax = plt.subplots(figsize=(10, 7))
+
+    ax.set_xlabel('x, m', fontsize=14)
+    ax.set_ylabel('Composition', fontsize=14)
+    ax.set_ylim(lower_lim, upper_lim)
+
+    lines = []
+    for k, path in enumerate(paths):
+        for i in range(1, n_plots):
+            li, = ax.semilogy(c[k], data0['X'][0, :n_cells[k], i],
+                          linewidth=1, color=colors[i % len(colors)],
+                          linestyle='-', label=f"{data0['variable_names'][i]}")
+            lines.append(li)
+
+    ax.legend(loc='upper right', fontsize=10)
+    time_text = ax.text(0.02, 0.95, f"time = {round(data0['time'][0], 4)} days",
+                        fontsize=12, transform=ax.transAxes)
+
+    nt = n_steps  # number of updates
+
+    def animate(i):
+        for k, path in enumerate(paths):
+            each_ith = int(n_steps / nt)
+            ind = int(n_steps * i / n_steps)
+            if ind % each_ith == 0:
+                data = load_hdf5_to_dict(filename=path + 'solution.h5')['dynamic']
+                for j in range(n_plots - 1):
+                    lines[n_plots * k + j].set_data(c[k], data['X'][i, :n_cells[k], j + 1])
+                time_text.set_text(f"time = {round(data['time'][i], 4)} days")
+
+        return lines + [time_text]
+
+    anim = FuncAnimation(fig, animate, interval=100, repeat=True, frames=np.arange(1, n_steps))
+
+    writervideo = animation.FFMpegWriter(fps=1)
+    anim.save(paths[0] + video_fname, writer=writervideo)
+    plt.close(fig)
+
 def get_output_folder(itor_mode, itor_type, obl_points, n_comps, reservoir_type, nx: int = None, is_barycentric: bool = False):
     if nx is None:
         output_folder = 'output_' + itor_type + '_' + itor_mode + '_' + str(obl_points) + '_{}comp'.format(n_comps) + '_' + reservoir_type
@@ -139,20 +184,15 @@ def run(itor_mode, itor_type, obl_points, n_comps, reservoir_type, nx: int = Non
         print('{} is not a valid number of components'.format(n_comps))
         return
 
-    n = Model(obl_points=obl_points, components=components, reservoir_type=reservoir_type, nx=nx)
+    n = Model(obl_points=obl_points, components=components, reservoir_type=reservoir_type, nx=nx,
+              itor_mode=itor_mode, itor_type=itor_type, is_barycentric=is_barycentric)
     n.init(itor_mode=itor_mode, itor_type=itor_type, output_folder=output_folder, is_barycentric=is_barycentric)
 
     if reservoir_type != '1D':
         if vtk_output:
             n.output_to_vtk(ith_step=0)
-        if reservoir_type != '2D':
-            n.params.first_ts = 0.001
-            n.params.max_ts = 1.
-            n.run(1.0, log_3d_body_path=log_3d_body_path)
-            n.physics.engine.t = 0.0
-            n.set_spe10_well_controls_initialized()
 
-    for i in range(12):
+    for i in range(24):
         n.run(30.5, log_3d_body_path=log_3d_body_path)
         if reservoir_type != '1D' and vtk_output:
             n.output_to_vtk(ith_step=i + 1)
@@ -163,13 +203,11 @@ def run(itor_mode, itor_type, obl_points, n_comps, reservoir_type, nx: int = Non
 
     if reservoir_type == '1D' and vtk_output:
         # populate input lists for comparing multiple solutions
-        upper_lims = np.array([160, 1.01] + n.ini_comp[1:])
-        upper_lims[2:] *= 1.2
-        animate_solution_1d(paths=[output_folder + '/'],
+        animate_solution_1d_single_plot(paths=[output_folder + '/'],
                             labels=[itor_type + ', ' + itor_mode + ', N=' + str(nx)],
                             n_cells=[nx],
-                            lower_lims = [48.9] + (n_comps-1) * [-1.e-2],
-                            upper_lims = upper_lims)
+                            lower_lim=8.e-4,
+                            upper_lim=1.5 * n.ini_comp[1])
 
     return n.timer, n.physics.engine.stat
 
@@ -318,7 +356,7 @@ def test_linear_multilinear_nx():
     # 1D
     params1 = {'itor_type': 6 * ['linear'] + 3 * ['multilinear'],
               'itor_mode': n_runs * ['adaptive'],
-              'obl_points': n_runs * [100],
+              'obl_points': n_runs * [256],
               'n_comps': n_runs * [6],
               'barycentric': 3 * [False] + 3 * [True] + 3 * [False],
               'reservoir_type': n_runs * ['1D'],
@@ -327,7 +365,7 @@ def test_linear_multilinear_nx():
     # 2D
     params2 = {'itor_type': 6 * ['linear'] + 3 * ['multilinear'],
               'itor_mode': n_runs * ['adaptive'],
-              'obl_points': n_runs * [100],
+              'obl_points': n_runs * [256],
               'n_comps': n_runs * [6],
               'barycentric': 3 * [False] + 3 * [True] + 3 * [False],
               'reservoir_type': n_runs * ['2D'],
@@ -343,9 +381,14 @@ def test_linear_multilinear_nx():
 # test_linear_multilinear_components()
 # test_linear_multilinear_nx()
 
-run(itor_type='linear', itor_mode='adaptive', obl_points=128, n_comps=3, reservoir_type='1D', nx=100, is_barycentric=False, vtk_output=False)
-# run(itor_type='linear', itor_mode='adaptive', obl_points=128, n_comps=16, reservoir_type='1D', nx=100, is_barycentric=False, vtk_output=True)
-# run(itor_type='linear', itor_mode='adaptive', obl_points=128, n_comps=14, reservoir_type='1D', nx=4000, is_barycentric=False, vtk_output=True)
+n_comps = 6
+obl_points = 1024 # 128
+# 1D
+# run(itor_type='multilinear', itor_mode='adaptive', obl_points=obl_points, n_comps=n_comps, reservoir_type='1D', nx=100, is_barycentric=False, vtk_output=True)
+# 2D
+# run(itor_type='linear', itor_mode='adaptive', obl_points=obl_points, n_comps=n_comps, reservoir_type='2D', nx=100, is_barycentric=False, vtk_output=True)
+# SPE10
+# run(itor_type='linear', itor_mode='adaptive', obl_points=obl_points, n_comps=n_comps, reservoir_type='SPE10_20_40_40', is_barycentric=False, vtk_output=True)
 
 # n_comps = 14
 # paths = [get_output_folder(itor_type='linear', itor_mode='adaptive', obl_points=128, n_comps=n_comps, reservoir_type='1D', nx=100, is_barycentric=False) + '/',
@@ -354,7 +397,7 @@ run(itor_type='linear', itor_mode='adaptive', obl_points=128, n_comps=3, reservo
 # labels = ['nx=100', 'nx=1000', 'nx=4000']
 # upper_lims = np.array([140, 1.01] + [0.275, 0.125, 0.100, 0.075, 0.075, 0.065, 0.065, 0.060, 0.050, 0.040, 0.030, 0.020, 0.015])
 # upper_lims[2:] *= 1.2
-# animate_solution_1d(paths=paths,
+# animate_solution_1d_single_plot(paths=paths,
 #                     labels=labels,
 #                     n_cells=[100, 1000, 4000],
 #                     lower_lims=[48.9] + (n_comps-1) * [-1.e-2],
