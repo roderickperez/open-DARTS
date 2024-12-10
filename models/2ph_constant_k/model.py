@@ -15,15 +15,19 @@ from darts.physics.super.initialize import Initialize
 
 
 class Model(DartsModel):
-    def __init__(self, obl_points, reservoir_type, nx: int = None, components: list = []):
+    def __init__(self, obl_points, reservoir_type, nx: int = None, components: list = [], itor_type: str = 'multilinear',
+                 itor_mode: str = 'adaptive', is_barycentric: bool = False):
         # Call base class constructor
         super().__init__()
 
-        self.nz = nx
+        self.nx = nx
         self.obl_points = obl_points
         self.discr_type = 'tpfa'
         self.reservoir_type = reservoir_type
         self.components = components
+        self.itor_type = itor_type
+        self.itor_mode = itor_mode
+        self.is_barycentric = is_barycentric
 
         # Measure time spend on reading/initialization
         self.timer.node["initialization"].start()
@@ -36,8 +40,8 @@ class Model(DartsModel):
             max_ts_mult = 1.
         else:
             max_ts_mult = 5.
-        max_ts = min(5., max_ts_mult * 1000 / self.nx)
-        self.set_sim_params(first_ts=0.05, mult_ts=2, max_ts=max_ts, runtime=1000, tol_newton=1e-2, tol_linear=1e-3,
+        max_ts = min(4., max_ts_mult * 1000 / self.nx)
+        self.set_sim_params(first_ts=0.001, mult_ts=2, max_ts=max_ts, runtime=1000, tol_newton=1e-2, tol_linear=1e-3,
                             it_newton=10, it_linear=50, newton_type=sim_params.newton_local_chop)
         # self.params.linear_type = sim_params.cpu_superlu
 
@@ -53,19 +57,16 @@ class Model(DartsModel):
     def set_reservoir(self):
         if self.reservoir_type == '1D':
             self.p_init = 100.
-            self.ny = self.nx = 1
-            dz = 10
-            depth = np.linspace(1000, 1000 + self.nz * dz, self.nz)
+            self.ny = self.nz = 1
             self.reservoir = StructReservoir(self.timer, nx=self.nx, ny=self.ny, nz=self.nz, dx=1000. / self.nx,
-                                             dy=1, dz=dz, permx=100, permy=100, permz=100, poro=0.3, depth=depth,
-                                             start_z=depth[0])
+                                             dy=1, dz=1, permx=100, permy=100, permz=100, poro=0.3, depth=1000)
             self.well_cell_id = [[1, 1], [self.nx, 1]]
         elif self.reservoir_type == '2D':
             self.p_init = 100.
             self.ny = self.nx
             self.nz = 1
-            self.reservoir = StructReservoir(self.timer, nx=self.nx, ny=self.ny, nz=self.nz, dx=1000. / self.nx, dy=1000. / self.nx, dz=1, permx=100, permy=100, permz=100,
-                                        poro=0.3, depth=1000)
+            self.reservoir = StructReservoir(self.timer, nx=self.nx, ny=self.ny, nz=self.nz, dx=1000. / self.nx,
+                                             dy=1000. / self.nx, dz=1, permx=100, permy=100, permz=100, poro=0.3, depth=1000)
             self.well_cell_id = [[1, 1], [self.nx, self.ny]]
         else: # SPE10
             # read properties
@@ -99,8 +100,7 @@ class Model(DartsModel):
             self.p_init = np.append(self.p_init, 2 * n_wells * [np.mean(self.p_init)])
 
         return
-    # for i in range(self.physics.nc - 1):
-    #     self.initial_values[self.components[i]][0] = self.inj_stream[i]
+
     def set_wells(self):
         self.reservoir.add_well("I1")
         self.reservoir.add_well("P1")
@@ -117,7 +117,7 @@ class Model(DartsModel):
         n_comps = len(self.components)
         self.inj_comp = [1. - (n_comps - 1) * 0.001] + (n_comps - 1) * [0.001]
         if n_comps == 3:
-            self.ini_comp = [0.89, 0.1, 0.01]
+            self.ini_comp = [0.005, 0.550, 0.445]
         elif n_comps == 4:
             self.ini_comp = [0.005, 0.500, 0.300, 0.195]
         elif n_comps == 6:
@@ -209,8 +209,9 @@ class Model(DartsModel):
                                                ('oil', PhaseRelPerm("oil"))])
 
         """ Activate physics """
+        max_p = 500.
         if n_comps != 20:
-            axes_max = [150., 1.-self.zero/10, 0.7]
+            axes_max = [max_p, 1.-self.zero/10, 0.7]
             if n_comps > 3:
                 axes_max += [0.5]
             if n_comps > 4:
@@ -219,12 +220,11 @@ class Model(DartsModel):
                 axes_max += (n_comps - 5) * [0.2]
             assert(len(axes_max) == n_comps)
         else:
-            axes_max = np.array([200, 1-self.zero/10, 0.240, 0.120, 0.090, 0.070, 0.070, 0.060, 0.060, 0.050, 0.045,
+            axes_max = np.array([max_p, 1-self.zero/10, 0.240, 0.120, 0.090, 0.070, 0.070, 0.060, 0.060, 0.050, 0.045,
                                  0.040, 0.035, 0.030, 0.025, 0.020, 0.015, 0.010, 0.007, 0.005])
             axes_max[2:] *= 2
             assert(axes_max.size == n_comps)
 
-        max_p = 150.
         if self.reservoir_type != '1D' and self.reservoir_type != '2D':
             max_p = 1.4 * np.max(self.p_init)
             axes_max[0] = max_p
@@ -373,47 +373,44 @@ class Model(DartsModel):
         return pressures, z_i
 
     def set_initial_conditions(self, initial_values: dict = None, gradient: dict = None):
-        depths = np.asarray(self.reservoir.mesh.depth)
-        unique_depths = np.unique(depths)
 
-        # get equilibrium distributions
-        # p, z = self.get_equilibrium_distribution(depths=unique_depths, p_top=np.min(self.p_init))
-        # initial_distribution = {var: z[:, i] for i, var in enumerate(self.physics.vars[1:])}
-        # initial_distribution['pressure'] = p
+        if self.reservoir_type == '1D' or self.reservoir_type == '2D':
+            self.physics.set_uniform_initial_conditions(mesh=self.reservoir.mesh, uniform_pressure=self.p_init,
+                                                        uniform_composition=self.ini_comp)
+        else:
+            # get depths
+            depths = np.asarray(self.reservoir.mesh.depth)
+            min_depth = np.min(depths)
+            max_depth = np.max(depths)
 
-        props = self.physics.reservoir_operators[0].property
-        state = [np.mean(self.p_init)] + self.ini_comp
-        props.evaluate(state)
+            # calculate phase equilibrium for given uniform composition
+            props = self.physics.reservoir_operators[0].property
+            state = [np.mean(self.p_init)] + self.ini_comp
+            props.evaluate(state)
 
-        from darts.physics.super.initialize import Initialize
-        nc = self.physics.nc
-        # top boundary
-        boundary_state = {var: props.x[0, c] for c, var in enumerate(self.physics.components[:-1])}
-        boundary_state['depth'] = unique_depths.min()
-        boundary_state['temperature'] = 350.
-        boundary_state['pressure'] = np.min(self.p_init)
-        init = Initialize(self.physics, depth_bottom=unique_depths.max(), depth_top=unique_depths.min(),
-                          boundary_state=boundary_state, nb=self.reservoir.nz)
+            # run initialization over depth with specified GOC, pure liquid above, pure vapour under
+            from darts.physics.super.initialize import Initialize
+            nc = self.physics.nc
+            # top boundary
+            boundary_state = {var: props.x[0, c] for c, var in enumerate(self.physics.components[:-1])}
+            boundary_state['depth'] = min_depth
+            boundary_state['temperature'] = 350.
+            boundary_state['pressure'] = np.min(self.p_init)
+            init = Initialize(physics=self.physics, depth_bottom=max_depth, depth_top=min_depth, boundary_state=boundary_state,
+                              nb=self.reservoir.nz, algorithm=self.itor_type, mode=self.itor_mode, is_barycentric=self.is_barycentric)
+            # GOC
+            mid_depth = (min_depth + max_depth) / 2
+            z = np.zeros((init.depths.size, nc - 1))
+            z[init.depths < mid_depth, :] = props.x[0,:-1] # vapour is above GOC
+            z[init.depths >= mid_depth, :] = props.x[1,:-1] # liquid is below GOC
+            primary_specs = {var: z[:, i] for i, var in enumerate(self.physics.components[:-1])}
+            init.set_specs(primary_specs=primary_specs)
+            # run initialization
+            X = init.solve(dTdh = 0.).reshape((init.depths.size, self.physics.n_vars))
 
-        mid_depth = (unique_depths.max() + unique_depths.min()) / 2
-        z = np.zeros((init.depths.size, nc - 1))
-        z[init.depths < mid_depth, :] = props.x[0,:-1] # vapour is above GOC
-        z[init.depths >= mid_depth, :] = props.x[1,:-1] # liquid is below GOC
-        primary_specs = {var: z[:, i] for i, var in enumerate(self.physics.components[:-1])}
-
-        # x = np.zeros((init.depths.size, nc - 1))
-        # x[init.depths < mid_depth, :] = 1.0 - 10 * self.zero # vapour is higher
-        # s_gas = np.zeros(init.depths.size)
-        # s_gas[init.depths < mid_depth] = 1.0 - 10 * self.zero
-        # secondary_specs = {'x_gas_' + self.physics.vars[i + 1]: x[:, i] for i in range(nc - 1)}
-        # secondary_specs = {'sgas': s_gas}
-        init.set_specs(primary_specs=primary_specs)
-        # self.physics.calc_nonuniform_initial_conditions(self.reservoir.mesh, init, boundary_state)
-
-        X = init.solve(dTdh = 0.).reshape((init.depths.size, self.physics.n_vars))
-
-        self.set_initial_conditions_from_depth_table(depth=init.depths,
-                                                     initial_distribution={var: X[:, i] for i, var in enumerate(self.physics.vars)})
+            # assign initial condition with evaluated initialized properties
+            self.set_initial_conditions_from_depth_table(depth=init.depths,
+                                                         initial_distribution={var: X[:, i] for i, var in enumerate(self.physics.vars)})
 
     def set_well_controls(self):
         injector = self.reservoir.get_well('I1')
@@ -421,21 +418,16 @@ class Model(DartsModel):
 
         zero = self.physics.axes_min[1]
         if self.reservoir_type == '1D':
-            #injector.control = self.physics.new_rate_inj(0.5, self.inj_stream, 0)
-            #producer.control = self.physics.new_bhp_prod(50.)
-            z = 1
+            injector.control = self.physics.new_rate_inj(1., self.inj_stream, 0)
+            producer.control = self.physics.new_bhp_prod(50.)
         elif self.reservoir_type == '2D':
-            injector.control = self.physics.new_rate_inj(20., self.inj_stream, 0)
+            injector.control = self.physics.new_rate_inj(300., self.inj_stream, 0)
             producer.control = self.physics.new_bhp_prod(50.)
         else:
-            injector.control = self.physics.new_rate_inj(0., self.inj_stream, 0)
-            producer.control = self.physics.new_rate_prod(0., 0)
+            injector.control = self.physics.new_rate_inj(1., self.inj_stream, 0)
+            p_ref = np.asarray(self.reservoir.mesh.pressure).min()
+            producer.control = self.physics.new_bhp_prod(p_ref - 50.)
 
-    def set_spe10_well_controls_initialized(self):
-        injector = self.reservoir.get_well('I1')
-        producer = self.reservoir.get_well('P1')
-        injector.control = self.physics.new_rate_inj(20., self.inj_stream, 0)
-        producer.control = self.physics.new_bhp_prod(np.min(self.p_init) - 50.)
 
 class ModelProperties(PropertyContainer):
     def __init__(self, phases_name, components_name, Mw, min_z=1e-11, temperature = 1.):

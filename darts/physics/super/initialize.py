@@ -4,7 +4,8 @@ from darts.physics.base.operators_base import PropertyOperators
 
 
 class Initialize:
-    def __init__(self, physics, depth_bottom: float, depth_top: float, boundary_state: dict, nb: int = 100):
+    def __init__(self, physics, depth_bottom: float, depth_top: float, boundary_state: dict, nb: int = 100,
+                 algorithm: str = 'multilinear', mode: str = 'adaptive', is_barycentric: bool = False):
         self.physics = physics
         self.vars = physics.vars
         self.var_idxs = {var: i for i, var in enumerate(physics.vars)}
@@ -33,7 +34,8 @@ class Initialize:
         self.secondary_specs = {}
 
         self.etor = PropertyOperators(physics.property_containers[0], physics.thermal, self.props)
-        self.itor = physics.create_interpolator(self.etor, n_ops=physics.n_ops, timer_name='initialization itor')
+        self.itor = physics.create_interpolator(evaluator=self.etor, n_ops=physics.n_ops, timer_name='initialization itor',
+                                                algorithm=algorithm, mode=mode, is_barycentric=is_barycentric)
 
     def evaluate(self, Xi: int):
         """
