@@ -25,16 +25,13 @@ if 1:
         from darts.physics.super.initialize import Initialize
         # depth corresponding to boundary_idx = 10
         b_depth = m.reservoir.global_data['depth'].min() + (m.reservoir.global_data['depth'].max() - m.reservoir.global_data['depth'].min()) / 4.
-        boundary_state = {'depth': b_depth, 'H2O': 1 - zero, 'pressure': 100., 'temperature': 350.}
-        init = Initialize(physics=m.physics,
-                          depth_bottom=m.reservoir.global_data['depth'].max(),
-                          depth_top=m.reservoir.global_data['depth'].min(),
-                          boundary_state=boundary_state)
-        init.set_specs(primary_specs={'H2O': 1-zero}, secondary_specs={})
-        X = init.solve()
-        # m.physics.calc_nonuniform_initial_conditions(m.reservoir.mesh, dz, Initialize, primary_specs, secondary_specs,
-        #                                              boundary_state, boundary_idx)
-        m.set_initial_conditions_from_depth_table(depth=init.depths, \
+        boundary_state = {'H2O': 1 - zero, 'pressure': 100., 'temperature': 350.}
+        init = Initialize(physics=m.physics)
+        X = init.solve(depth_bottom=m.reservoir.global_data['depth'].max(),
+                       depth_top=m.reservoir.global_data['depth'].min(),
+                       depth_known=b_depth, boundary_state=boundary_state,
+                       primary_specs={'H2O': 1-zero}, secondary_specs={})
+        m.set_initial_conditions_from_depth_table(depth=init.depths,
                                                   initial_distribution={var: X[i::m.physics.n_vars] for i, var in enumerate(m.physics.vars)})
 
 

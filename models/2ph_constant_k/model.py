@@ -393,20 +393,18 @@ class Model(DartsModel):
             nc = self.physics.nc
             # top boundary
             boundary_state = {var: props.x[0, c] for c, var in enumerate(self.physics.components[:-1])}
-            boundary_state['depth'] = min_depth
             boundary_state['temperature'] = 350.
             boundary_state['pressure'] = np.min(self.p_init)
-            init = Initialize(physics=self.physics, depth_bottom=max_depth, depth_top=min_depth, boundary_state=boundary_state,
-                              nb=self.reservoir.nz, algorithm=self.itor_type, mode=self.itor_mode, is_barycentric=self.is_barycentric)
+            init = Initialize(physics=self.physics, algorithm=self.itor_type, mode=self.itor_mode, is_barycentric=self.is_barycentric)
             # GOC
             mid_depth = (min_depth + max_depth) / 2
             z = np.zeros((init.depths.size, nc - 1))
-            z[init.depths < mid_depth, :] = props.x[0,:-1] # vapour is above GOC
-            z[init.depths >= mid_depth, :] = props.x[1,:-1] # liquid is below GOC
+            z[init.depths < mid_depth, :] = props.x[0, :-1]  # vapour is above GOC
+            z[init.depths >= mid_depth, :] = props.x[1, :-1]  # liquid is below GOC
             primary_specs = {var: z[:, i] for i, var in enumerate(self.physics.components[:-1])}
-            init.set_specs(primary_specs=primary_specs)
             # run initialization
-            X = init.solve(dTdh = 0.).reshape((init.depths.size, self.physics.n_vars))
+            X = init.solve(depth_bottom=max_depth, depth_top=min_depth, depth_known=min_depth,
+                           nb=self.reservoir.nz, primary_specs=primary_specs, boundary_state=boundary_state, dTdh=0.).reshape((init.depths.size, self.physics.n_vars))
 
             # assign initial condition with evaluated initialized properties
             self.set_initial_conditions_from_depth_table(depth=init.depths,
