@@ -13,7 +13,7 @@ class Initialize:
         # Add evaluators of phase saturations, rhoT and dX (if kinetic reactions are defined)
         property_container = physics.property_containers[0]
         self.props = {}
-        self.props.update({'s' + ph: lambda j=j: property_container.sat[j] for j, ph in enumerate(physics.phases)})
+        self.props.update({'sat' + ph: lambda j=j: property_container.sat[j] for j, ph in enumerate(physics.phases)})
         self.props.update({'rhoT': lambda: np.sum(property_container.sat * property_container.dens)})
         self.props.update({'dX' + str(k): lambda k=k: property_container.dX[k]
                            for k, kr in enumerate(property_container.kinetic_rate_ev)})
@@ -23,7 +23,8 @@ class Initialize:
         self.secondary_specs = {}
 
         self.etor = PropertyOperators(physics.property_containers[0], physics.thermal, self.props)
-        self.itor = physics.create_interpolator(evaluator=self.etor, n_ops=physics.n_ops, timer_name='initialization itor',
+        self.itor = physics.create_interpolator(evaluator=self.etor, n_ops=physics.n_ops,
+                                                timer_name='initialization itor',
                                                 algorithm=algorithm, mode=mode, is_barycentric=is_barycentric)
 
     def evaluate(self, Xi: list):
@@ -61,8 +62,11 @@ class Initialize:
             for spec, values in secondary_specs.items():
                 self.secondary_specs[spec] = values if isinstance(values, (list, np.ndarray)) else np.ones(nb) * values
                 assert len(self.secondary_specs[spec]) == nb, "Length of " + spec + " not compatible"
-        assert len(self.primary_specs) + len(self.secondary_specs) >= self.nv - 2, \
-            "Not enough variables specified for well-defined system of equations"
+        for i in range(nb):
+            assert int(np.sum([not np.isnan(spec[i]) for spec in self.primary_specs.values()]) +
+                       np.sum([not np.isnan(spec[i]) for spec in
+                               self.secondary_specs.values()])) == self.nv - 1 - self.thermal, \
+                "Not enough variables specified for well-defined system of equations in block {}".format(i)
 
         # Define thermal gradient
         if self.thermal:
@@ -74,37 +78,47 @@ class Initialize:
 
         # Solve cells from specified cell upwards
         for i in range(bc_idx, 0, -1):
-            self.solve_cell(X, cell_idx=i-1, downward=False)
+            self.solve_cell(X, cell_idx=i - 1, downward=False)
 
         # Solve cells from specified cell downwards
-        for i in range(bc_idx, nb-1):
-            self.solve_cell(X, cell_idx=i+1, downward=True)
+        for i in range(bc_idx, nb - 1):
+            self.solve_cell(X, cell_idx=i + 1, downward=True)
 
         return X.flatten()
 
     def solve_state(self, Xi: list, primary_specs: dict = None, secondary_specs: dict = None, max_iter: int = 100):
-        assert len(primary_specs) + len(secondary_specs) == self.nv
+        assert int(np.sum([not np.isnan(np.float64(spec)) for spec in primary_specs.values()]) +
+                   np.sum([not np.isnan(np.float64(spec)) for spec in secondary_specs.values()])) == self.nv, \
+            "Not enough variables specified for well-defined system of equations".format(i)
+
         for it in range(max_iter):
             res = np.zeros(self.nv)
             Jac = np.zeros((self.nv, self.nv))
             values, derivs = self.evaluate(Xi)
 
             # Specification of primary variables
-            for j1, (var, spec) in enumerate(primary_specs.items()):
-                var_idx = self.var_idxs[var]
-                res[j1] = Xi[var_idx] - spec
-                Jac[j1, :] = 0.
-                Jac[j1, var_idx] = 1.
-            j1 = len(primary_specs)
+            j1 = 0
+            for var, spec in primary_specs.items():
+                if not np.isnan(np.float64(spec)):
+                    var_idx = self.var_idxs[var]
+                    Xi[var_idx] = spec
+
+                    res[j1] = Xi[var_idx] - spec
+                    Jac[j1, :] = 0.
+                    Jac[j1, var_idx] = 1.
+                    j1 += 1
 
             # Specification of secondary variables
-            for j2, (var, spec) in enumerate(secondary_specs.items()):
-                prop_idx = self.props_idxs[var]
-                res_idx = j1 + j2
-                res[res_idx] = values[prop_idx] - spec
+            j2 = 0
+            for var, spec in secondary_specs.items():
+                if not np.isnan(np.float64(spec)):
+                    prop_idx = self.props_idxs[var]
+                    res_idx = j1 + j2
+                    res[res_idx] = values[prop_idx] - spec
 
-                for jj in range(self.nv):
-                    Jac[res_idx, jj] = derivs[prop_idx * self.nv + jj]
+                    for jj in range(self.nv):
+                        Jac[res_idx, jj] = derivs[prop_idx * self.nv + jj]
+                    j2 += 1
 
             # Solve Newton step
             dX = np.linalg.solve(Jac, res)
@@ -149,23 +163,29 @@ class Initialize:
                 Jac[0, j] += derivs1[rhoT_idx * self.nv + j] * (gh1 - gh0) / 2
 
             # Specification equation
-            for j1, (var, spec) in enumerate(self.primary_specs.items()):
-                var_idx = self.var_idxs[var]
-                res_idx = j1 + 1
-                res[res_idx] = X[cell_idx, var_idx] - spec[cell_idx]
-                Jac[res_idx, :] = 0.
-                Jac[res_idx, var_idx] = 1.
-            j1 = len(self.primary_specs)
+            j1 = 0
+            for var, spec in self.primary_specs.items():
+                if not np.isnan(spec[cell_idx]):
+                    var_idx = self.var_idxs[var]
+                    X[cell_idx, var_idx] = spec[cell_idx]
+
+                    res_idx = j1 + 1
+                    res[res_idx] = X[cell_idx, var_idx] - spec[cell_idx]
+                    Jac[res_idx, :] = 0.
+                    Jac[res_idx, var_idx] = 1.
+                    j1 += 1
 
             # Specification of secondary variables
-            for j2, (var, spec) in enumerate(self.secondary_specs.items()):
-                prop_idx = self.props_idxs[var]
-                res_idx = j1 + j2 + 1
-                res[res_idx] = values1[prop_idx] - spec[cell_idx]
+            j2 = 0
+            for var, spec in self.secondary_specs.items():
+                if not np.isnan(spec[cell_idx]):
+                    prop_idx = self.props_idxs[var]
+                    res_idx = j1 + j2 + 1
+                    res[res_idx] = values1[prop_idx] - spec[cell_idx]
 
-                for jj in range(n_vars):
-                    Jac[res_idx, jj] = derivs1[prop_idx * self.nv + jj]
-            j2 = len(self.secondary_specs)
+                    for jj in range(n_vars):
+                        Jac[res_idx, jj] = derivs1[prop_idx * self.nv + jj]
+                    j2 += 1
 
             dX = np.linalg.solve(Jac, res)
             X[cell_idx, :n_vars] -= dX
