@@ -708,10 +708,11 @@ class DartsModel:
         n_vars = len(var_names)
         n_ops = self.physics.n_ops
         nb = self.reservoir.mesh.n_res_blocks
-        props = list(var_names) + output_properties if output_properties is not None else list(var_names)
-        property_array = {prop: np.zeros((len(timesteps), nb)) for prop in props}
+        props = list(var_names)
+        props += output_properties if output_properties is not None else []
         prop_idxs = [list(self.physics.property_containers[next(iter(self.physics.property_containers))].output_props.keys()).index(prop)
                      for prop in output_properties] if output_properties is not None else []
+        property_array = {prop: np.zeros((len(timesteps), nb)) for prop in props}
 
         # Loop over timesteps
         for k, timestep in enumerate(timesteps):
@@ -733,6 +734,42 @@ class DartsModel:
                     property_array[prop][k] = values_numpy[prop_idxs[j]::n_ops]
 
         return timesteps, property_array
+
+    def output_to_plt(self, output_properties: list = None, ith_step: int = None, lims: dict = None,
+                      output_directory: str = None, file_format: str = "pdf"):
+        """
+        Function to plot results with matplotlib.
+
+        :param output_properties: List of properties to plot, default is None which will pass all
+        :type output_properties: list
+        :param ith_step: i'th reporting step
+        :type ith_step: int
+        :param lims: Ranges of colorbars, default is empty
+        :type lims: dict
+        :param output_directory: Name to save file
+        :type output_directory: str
+        :param file_format: File format, pdf is default
+        :type file_format: str
+        """
+        # Set default output directory
+        if output_directory is None:
+            output_directory = self.output_folder
+
+        # Find properties to output
+        # If output_properties is None, all variables and properties from property_operators will be passed
+        props_name = output_properties if output_properties is not None else (
+            list(self.physics.property_operators[next(iter(self.physics.property_operators))].props_name))
+        props_name = [prop for prop in props_name if prop not in self.physics.vars]
+
+        timesteps, property_array = self.output_properties(output_properties=props_name, timestep=ith_step)
+
+        # Pass to Reservoir.plot() method
+        fig = self.reservoir.plot(data=property_array, output_props=output_properties, lims=lims)
+
+        import matplotlib.pyplot as plt
+        plt.savefig(output_directory + '/step' + str(ith_step) + '.' + file_format)
+
+        return fig
 
     def output_to_xarray(self, output_properties: list = None, timestep: int = None):
         """
