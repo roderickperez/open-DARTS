@@ -208,7 +208,7 @@ def plot_comparison0(params, path_prefix, pic_fname='comparison.png', L=1000):
     fig.savefig(os.path.join(path_prefix, pic_fname))
 
 def plot_comparison(params, path_prefix, pic_fname='comparison.png', L=1000, add_inset_figs=True):
-    lw = .7
+    lw = 1.
     fs_legend = 12
     colors = ['b', 'r', 'g', 'm', 'c', 'k']
     fig, ax = plt.subplots(figsize=(10, 7))
@@ -577,6 +577,12 @@ def run(itor_mode, itor_type, obl_points, n_comps, reservoir_type, nx: int = Non
     if reservoir_type != '1D':
         if vtk_output:
             n.output_to_vtk(ith_step=0)
+        if reservoir_type != '2D':
+            n.well_ids = []
+            for pt in n.pt_wells:
+                dist = np.linalg.norm(n.reservoir.discretizer.centroids_all_cells[:, :2] - pt, axis=1)
+                id_dist_sort = np.argsort(dist)
+                n.well_ids.append(id_dist_sort[:n.reservoir.nz])
 
     for i in range(24):
         n.run(30.5, log_3d_body_path=log_3d_body_path)
@@ -763,19 +769,19 @@ def test_linear_multilinear_nx():
                              param_arrays=[params1, params2],
                              res_arrays=[out_type_1d, out_type_2d])
 
-
 # test_linear_multilinear_obl_points()
 # test_linear_multilinear_components()
 # test_linear_multilinear_nx()
 
-n_comps = 6
-obl_points = 1024 # 128
+n_comps = 3
+obl_points = 1024 # 1024 # 128
+nx = 300
 # 1D
-# run(itor_type='multilinear', itor_mode='adaptive', obl_points=obl_points, n_comps=n_comps, reservoir_type='1D', nx=100, is_barycentric=False, vtk_output=True)
+# run(itor_type='multilinear', itor_mode='adaptive', obl_points=obl_points, n_comps=n_comps, reservoir_type='1D', nx=nx, is_barycentric=False, vtk_output=True)
 # 2D
-# run(itor_type='linear', itor_mode='adaptive', obl_points=obl_points, n_comps=n_comps, reservoir_type='2D', nx=100, is_barycentric=False, vtk_output=True)
+# run(itor_type='linear', itor_mode='adaptive', obl_points=obl_points, n_comps=n_comps, reservoir_type='2D', nx=nx, is_barycentric=True, vtk_output=False)
 # SPE10
-# run(itor_type='linear', itor_mode='adaptive', obl_points=obl_points, n_comps=n_comps, reservoir_type='SPE10_20_40_40', is_barycentric=False, vtk_output=True)
+run(itor_type='multilinear', itor_mode='adaptive', obl_points=obl_points, n_comps=n_comps, reservoir_type='SPE10_60_220_85', is_barycentric=False, vtk_output=True)
 
 # params = {'itor_type': ['multilinear', 'multilinear', 'linear', 'linear'],
 #            'itor_mode': 4 * ['adaptive'],
@@ -786,7 +792,7 @@ obl_points = 1024 # 128
 #            'nx': 4 * [300],
 #            'linestyles': ['-', '--', '-.', ':']}
 # plot_comparison(params=params, path_prefix='for_paper', pic_fname='obl_points_1d.png')
-
+#
 # params = {'itor_type': ['multilinear', 'multilinear', 'linear', 'linear'],
 #            'itor_mode': 4 * ['adaptive'],
 #            'obl_points': [1024] + 3 * [64],
