@@ -238,7 +238,10 @@ int linear_cpu_interpolator_base<index_t, N_DIMS, N_OPS>::interpolate(const std:
         weights[i] += mat(i, N_DIMS);
 
         // check consistency
-        assert(weights[i] >= 0.0 && weights[i] < 1.0 + EQUALITY_TOLERANCE);
+        if (weights[i] < -EQUALITY_TOLERANCE || weights[i] > 1.0 + EQUALITY_TOLERANCE)
+          printf("%d-th barycentric coordinate %f lies outside unit interval", i, weights[i]);
+
+        assert(weights[i] > -EQUALITY_TOLERANCE && weights[i] < 1.0 + EQUALITY_TOLERANCE);
       }
 
       // estimate points comprising the simplex
