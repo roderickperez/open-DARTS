@@ -2,6 +2,7 @@ from darts.models.darts_model import DartsModel
 from darts.engines import value_vector, sim_params, mech_operators, rsf_props, friction, contact_state, state_law, contact_solver, critical_stress, linear_solver_params
 from darts.reservoirs.unstruct_reservoir_mech import UnstructReservoirMech
 import numpy as np
+import os
 from darts.reservoirs.mesh.transcalc import TransCalculations as TC
 from darts.physics.mech.poroelasticity import Poroelasticity
 from darts.physics.super.property_container import PropertyContainer
@@ -13,6 +14,9 @@ from darts.input.input_data import InputData
 
 class THMCModel(DartsModel):
     def __init__(self, n_points=64, discretizer='mech_discretizer'):
+        if os.environ['OMP_NUM_THREADS'] != '1':
+            print('Geomechanical model does not support OpenMP yet. Please run with OMP_NUM_THREADS=1.')
+            exit()
         super().__init__()
         self.set_input_data()
         self.set_physics()
