@@ -19,28 +19,11 @@ struct __uint128_t : std::_Unsigned128
   constexpr __uint128_t(double x) : _Unsigned128(static_cast<int>(x)) {};
   constexpr __uint128_t(const std::_Unsigned128& x) : _Unsigned128(x) {}
 
-  // Add operator= to handle assignment from other types
-  __uint128_t& operator=(int x)
-  {
-    this->_Word[0] = x;
-    this->_Word[1] = 0;
+  __uint128_t& operator=(const _Unsigned128& other) {
+    this->_Word[0] = other._Word[0];
+    this->_Word[1] = other._Word[1];
     return *this;
-  };
-
-  __uint128_t& operator=(double x)
-  {
-    this->_Word[0] = static_cast<int>(x);
-    this->_Word[1] = 0;
-    return *this;
-  };
-
-  template <typename T>
-  __uint128_t& operator=(const T& other)
-  {
-    this->_Word[0] = static_cast<int>(other);
-    this->_Word[1] = 0;
-    return *this;
-  };
+  }
 
   template <typename T>
   operator T() const

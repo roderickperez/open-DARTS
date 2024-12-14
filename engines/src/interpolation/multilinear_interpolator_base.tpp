@@ -55,8 +55,8 @@ void multilinear_interpolator_base<index_t, value_t, N_DIMS, N_OPS>::get_point_c
 template <typename index_t, typename value_t, uint8_t N_DIMS, uint8_t N_OPS>
 void multilinear_interpolator_base<index_t, value_t, N_DIMS, N_OPS>::get_hypercube_points(index_t hypercube_idx, hypercube_points_index_t &hypercube_points)
 {
-  auto remainder_idx = hypercube_idx;
-  auto pwr = N_VERTS;
+  index_t remainder_idx = hypercube_idx;
+  index_t pwr = N_VERTS;
   hypercube_points.fill(0);
 
   for (auto i = 0; i < N_DIMS; ++i)
@@ -67,9 +67,9 @@ void multilinear_interpolator_base<index_t, value_t, N_DIMS, N_OPS>::get_hypercu
 
     pwr /= 2;
 
-    for (auto j = 0; j < N_VERTS; ++j)
+    for (uint64_t j = 0; j < N_VERTS; ++j)
     {
-      index_t zero_or_one = (j / pwr) % 2;
+      index_t zero_or_one = (static_cast<index_t>(j) / pwr) % 2;
       hypercube_points[j] += (axis_idx + zero_or_one) * axis_point_mult[i];
     }
   }
