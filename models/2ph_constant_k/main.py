@@ -578,13 +578,24 @@ def run(itor_mode, itor_type, obl_points, n_comps, reservoir_type, nx: int = Non
         if vtk_output:
             n.output_to_vtk(ith_step=0)
         if reservoir_type != '2D':
-            n.well_ids = []
-            for pt in n.pt_wells:
-                dist = np.linalg.norm(n.reservoir.discretizer.centroids_all_cells[:, :2] - pt, axis=1)
-                id_dist_sort = np.argsort(dist)
-                n.well_ids.append(id_dist_sort[:n.reservoir.nz])
+            n.set_wells_spe10()
 
     for i in range(24):
+        if reservoir_type.split('_')[0] == 'spe10':
+            ts_mult == 4.0 if  reservoir_type == 'spe10_20_40_40' else 1.0
+            t = n.physics.engine.t
+            if t < 70:
+                n.params.max_ts = ts_mult * 0.25
+            elif t < 100:
+                n.params.max_ts = ts_mult * 0.35
+            elif t < 400:
+                n.params.max_ts = ts_mult * 0.5
+            elif t < 2000:
+                n.params.max_ts = ts_mult * 1.0
+            else:
+                n.params.max_ts = ts_mult * 1.5
+
+
         n.run(30.5, log_3d_body_path=log_3d_body_path)
         if reservoir_type != '1D' and vtk_output:
             n.output_to_vtk(ith_step=i + 1)
