@@ -78,8 +78,10 @@ if %skip_req%==false (
   echo - Install requirements: START
   
   echo -- Install Eigen 3
-  mkdir -p build/eigen
-  cd build/eigen
+  mkdir build
+  cd build
+  mkdir eigen
+  cd eigen
   cmake -D CMAKE_INSTALL_PREFIX=../../install ../../eigen/ > ../../../make_eigen.log || goto :error
   msbuild INSTALL.vcxproj /p:Configuration=Release /p:Platform=x64 -maxCpuCount:%NT% >> ../../../make_eigen.log || goto :error
   cd ..\..
