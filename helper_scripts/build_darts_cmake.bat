@@ -76,12 +76,13 @@ if %skip_req%==false (
   cd thirdparty
 
   echo - Install requirements: START
-  rem echo -- Install Eigen 3
-  rem mkdir -p build/eigen
-  rem cd build/eigen
-  rem cmake -D CMAKE_INSTALL_PREFIX=../../install ../../eigen/ > ../../../make_eigen.log || goto :error
-  rem msbuild INSTALL.vcxproj /p:Configuration=Release /p:Platform=x64 -maxCpuCount:%NT% >> ../../../make_eigen.log || goto :error
-  rem cd ..\..
+  
+  echo -- Install Eigen 3
+  mkdir -p build/eigen
+  cd build/eigen
+  cmake -D CMAKE_INSTALL_PREFIX=../../install ../../eigen/ > ../../../make_eigen.log || goto :error
+  msbuild INSTALL.vcxproj /p:Configuration=Release /p:Platform=x64 -maxCpuCount:%NT% >> ../../../make_eigen.log || goto :error
+  cd ..\..
 
   rem -- Install Hypre
   cd hypre\src\cmbuild
