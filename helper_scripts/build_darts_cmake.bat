@@ -74,15 +74,15 @@ if %skip_req%==false (
   echo - Update submodules: DONE!
 
   echo - Install requirements: START
-  echo -- Install Eigen 3
-  cd thirdparty
-  mkdir build
-  cd build
-  mkdir eigen
-  cd eigen
-  cmake -D CMAKE_INSTALL_PREFIX=../../install ../../eigen/ > ../../../make_eigen.log || goto :error
-  msbuild INSTALL.vcxproj /p:Configuration=Release /p:Platform=x64 -maxCpuCount:%NT% >> ../../../make_eigen.log || goto :error
-  cd ..\..
+  rem echo -- Install Eigen 3
+  rem cd thirdparty
+  rem mkdir build
+  rem cd build
+  rem mkdir eigen
+  rem cd eigen
+  rem cmake -D CMAKE_INSTALL_PREFIX=../../install ../../eigen/ > ../../../make_eigen.log || goto :error
+  rem msbuild INSTALL.vcxproj /p:Configuration=Release /p:Platform=x64 -maxCpuCount:%NT% >> ../../../make_eigen.log || goto :error
+  rem cd ..\..
 
   rem -- Install Hypre
   cd hypre\src\cmbuild

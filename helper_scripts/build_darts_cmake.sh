@@ -112,13 +112,13 @@ else
         # Install requirements
         echo -e "\n- Install requirements: START \n"
 
-        echo -e "\n-- Install EIGEN 3 \n"
-        cd thirdparty
-        mkdir -p build/eigen
-        cd build/eigen
-        cmake -D CMAKE_INSTALL_PREFIX=../../install ../../eigen/  &> ../../../make_eigen.log
-        make install -j $NT &>> ../../../make_eigen.log
-        cd ../../
+        #echo -e "\n-- Install EIGEN 3 \n"
+        #cd thirdparty
+        #mkdir -p build/eigen
+        #cd build/eigen
+        #cmake -D CMAKE_INSTALL_PREFIX=../../install ../../eigen/  &> ../../../make_eigen.log
+        #make install -j $NT &>> ../../../make_eigen.log
+        #cd ../../
 
         echo -e "\n-- Install Hypre: START\n"
         cd hypre/src/cmbuild
