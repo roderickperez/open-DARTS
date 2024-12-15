@@ -641,7 +641,7 @@ upload_wheels:
         - ./helper_scripts/rename_whls.sh # rename linux whls to make uploadable to test-pypi
         - export wheel=`ls ./dist/*linux*`
         - smbclient -U $SMBLOGIN%$SMBPASS //$SMBNAME/darts-private-artifacts -c "put $wheel" -D=wheels_iter 
-        - cp wheel $GSEWHEELSPATH
+        #- cp $wheel $GSEWHEELSPATH
         - export wheel=`ls ./dist/*win*`
         - smbclient -U $SMBLOGIN%$SMBPASS //$SMBNAME/darts-private-artifacts -c "put $wheel" -D=wheels_iter
     dependencies:
@@ -661,9 +661,9 @@ upload_wheels_odls:
     script:
         - ./helper_scripts/rename_whls.sh # rename linux whls to make uploadable to test-pypi
         - export wheel=`ls ./dist/*linux*`
-        - smbclient -U $SMBLOGIN%$SMBPASS //$SMBNAME/darts-private-artifacts -c "put $wheel" -D=wheels_iter 
+        - smbclient -U $SMBLOGIN%$SMBPASS //$SMBNAME/darts-private-artifacts -c "put $wheel" -D=wheels_odls 
         - export wheel=`ls ./dist/*win*`
-        - smbclient -U $SMBLOGIN%$SMBPASS //$SMBNAME/darts-private-artifacts -c "put $wheel" -D=wheels_iter
+        - smbclient -U $SMBLOGIN%$SMBPASS //$SMBNAME/darts-private-artifacts -c "put $wheel" -D=wheels_odls
     dependencies:
         # get the wheels from the build stage
         - build-linux-3.9-ODLS
