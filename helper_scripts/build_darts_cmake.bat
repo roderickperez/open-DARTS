@@ -73,13 +73,12 @@ if %skip_req%==false (
   git submodule update --recursive --init || goto :error
   echo - Update submodules: DONE!
 
+  cd thirdparty
+
   echo - Install requirements: START
   rem echo -- Install Eigen 3
-  rem cd thirdparty
-  rem mkdir build
-  rem cd build
-  rem mkdir eigen
-  rem cd eigen
+  rem mkdir -p build/eigen
+  rem cd build/eigen
   rem cmake -D CMAKE_INSTALL_PREFIX=../../install ../../eigen/ > ../../../make_eigen.log || goto :error
   rem msbuild INSTALL.vcxproj /p:Configuration=Release /p:Platform=x64 -maxCpuCount:%NT% >> ../../../make_eigen.log || goto :error
   rem cd ..\..
