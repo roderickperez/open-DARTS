@@ -49,12 +49,13 @@ build-linux-3.9:
 
 build-linux-3.9-gpu: 
     rules:
-        - if: $TEST_GPU == "1"   
+        - if: $TEST_GPU_LINUX == "1"   
     extends: .build-linux-gpu
     variables:
         GIT_SUBMODULE_STRATEGY: recursive
         PY_VER: '3.9'       # for python image selection in .build-linux
         ODLS: '-a'
+        TEST_GPU: '1' 
 
 ###################################################################################
 build-linux-3.12-ODLS:
@@ -383,11 +384,12 @@ test-linux-3.9:
 
 test-linux-3.9-gpu:
     rules: 
-        - if: $TEST_GPU == "1"
+        - if: $TEST_GPU_LINUX == "1"
     extends: .test-linux-gpu
     variables:
         PY_VER: '3.9'
         ODLS: '-a'
+        TEST_GPU: '1'
     dependencies:
         - build-linux-3.9-gpu
       
