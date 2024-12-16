@@ -11,15 +11,19 @@ from darts.physics.properties.basic import ConstFunc
 from darts.physics.properties.density import DensityBasic
 from darts.physics.properties.enthalpy import EnthalpyBasic
 from darts.input.input_data import InputData
-from darts.engines import get_num_threads
 
 class THMCModel(DartsModel):
     def __init__(self, n_points=64, discretizer='mech_discretizer'):
-    
-        nt = get_num_threads()
+
+        try:
+            from darts.engines import get_num_threads
+            nt = get_num_threads()
+        except:
+            nt = 1
         if nt != 1:
             print('Geomechanical model does not support OpenMP yet. Please run with OMP_NUM_THREADS=1 or use darts.engines.set_num_threads(1).')
             exit()
+            
         super().__init__()
         self.set_input_data()
         self.set_physics()
