@@ -534,10 +534,19 @@ int engine_base::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_list_,
 		case sim_params::CPU_GMRES_CPR_AMG:
 		{
 			linear_solver = new linsolv_bos_gmres<N_VARS>;
-			linsolv_iface *cpr = new linsolv_bos_cpr<N_VARS>;
-			cpr->set_prec(new linsolv_bos_amg<1>);
-			linear_solver->set_prec(cpr);
-			linear_solver_type_str = "CPU_GMRES_CPR_AMG";
+			if constexpr (N_VARS > 1)
+			{
+			  linsolv_iface* cpr = new linsolv_bos_cpr<N_VARS>;
+			  cpr->set_prec(new linsolv_bos_amg<1>);
+			  linear_solver->set_prec(cpr);
+			  linear_solver_type_str = "CPU_GMRES_CPR_AMG";
+			}
+			else
+			{
+			  linear_solver->set_prec(new linsolv_bos_amg<1>);
+			  linear_solver_type_str = "CPU_GMRES_AMG";
+			}
+
 			break;
 		}
 #ifdef _WIN32
