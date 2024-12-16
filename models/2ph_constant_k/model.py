@@ -235,13 +235,13 @@ class Model(DartsModel):
         """ Activate physics """
         max_p = 500.
         if n_comps != 20:
-            axes_max = [max_p, 1.-self.zero/10, 0.7]
+            axes_max = [max_p, 1.-self.zero/10, 0.9]
             if n_comps > 3:
-                axes_max += [0.5]
+                axes_max += [0.7]
             if n_comps > 4:
                 axes_max += [0.5]
             if n_comps > 5:
-                axes_max += (n_comps - 5) * [0.2]
+                axes_max += (n_comps - 5) * [0.4]
             assert(len(axes_max) == n_comps)
         else:
             axes_max = np.array([max_p, 1-self.zero/10, 0.240, 0.120, 0.090, 0.070, 0.070, 0.060, 0.060, 0.050, 0.045,
@@ -251,6 +251,7 @@ class Model(DartsModel):
 
         if self.reservoir_type != '1D' and self.reservoir_type != '2D':
             max_p = 1.4 * np.max(self.p_init)
+            max_p = 500.0
             axes_max[0] = max_p
         self.physics = Compositional(self.components, phases, self.timer, n_points=self.obl_points,
                                      min_p=40, max_p=max_p, min_z=self.zero/10, max_z=1-self.zero/10, cache=False,
