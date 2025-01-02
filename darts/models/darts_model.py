@@ -422,7 +422,7 @@ class DartsModel:
                 # to not allow the next time step be smaller than min_ts
                 if np.fabs(t + dt - stop_time) < self.params.min_ts:
                     dt = stop_time - t
-                    dt = min(dt, self.params.max_ts)
+
 
                 if t + dt > stop_time:
                     dt = stop_time - t
@@ -464,7 +464,6 @@ class DartsModel:
         :type verbose: bool
         """
         days = days if days is not None else self.runtime
-
         # get current engine time
         t = self.physics.engine.t
         stop_time = t + days
@@ -475,7 +474,8 @@ class DartsModel:
         elif restart_dt > 0.:
             dt = restart_dt
         else:
-            dt = min(self.prev_dt * self.params.mult_ts, self.params.max_ts)
+
+            dt = min(self.prev_dt*self.params.mult_ts, days, self.params.max_ts)
         self.prev_dt = dt
 
         ts = 0
@@ -500,7 +500,6 @@ class DartsModel:
                 # to not allow the next time step be smaller than min_ts
                 if np.fabs(t + dt - stop_time) < self.params.min_ts:
                     dt = stop_time - t
-                    dt = min(dt, self.params.max_ts)
 
                 if t + dt > stop_time:
                     dt = stop_time - t
