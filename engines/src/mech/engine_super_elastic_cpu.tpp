@@ -1621,7 +1621,7 @@ int engine_super_elastic_cpu<NC, NP, THERMAL>::post_newtonloop(value_t deltat, v
 		converged *= 1;
 	}
 
-	dev_u = dev_p = dev_e = well_residual_last_dt = std::numeric_limits<value_t>::infinity();
+	dev_u = dev_p = dev_e = std::numeric_limits<value_t>::infinity();
 	fill(dev_z, dev_z + NC_, std::numeric_limits<value_t>::infinity());
 
 	if (!converged)
