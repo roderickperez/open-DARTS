@@ -173,7 +173,7 @@ class ReservoirBase:
 
     @abc.abstractmethod
     def output_to_plt(self, data: dict, output_props: list = None, lims: dict = None, fig=None, figsize: tuple = None,
-                      axs_shape: tuple = None, aspect_ratio: str = 'equal', logx: bool = False,
+                      axs_shape: tuple = None, aspect_ratio: str = 'equal', logx: bool = False, plot_zeros: bool = True,
                       cmap: str = 'jet', colorbar_loc: str = 'right'):
         """
         Method for plotting output using matplotlib library.
@@ -190,6 +190,7 @@ class ReservoirBase:
         :param axs_shape: Tuple of (rows, columns) for figure
         :param aspect_ratio: Aspect ratio ('equal', 'auto', or float), default is 'equal'
         :param logx: Bool to plot x-axis in logscale, default is False
+        :param plot_zeros: Bool to plot zero values, default is True
         :param cmap: plt.Colourmap, default is 'jet'
         :param colorbar_loc: Location of colorbar ('right' or 'bottom'), default is 'right'
         """

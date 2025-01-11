@@ -740,7 +740,8 @@ class DartsModel:
 
     def output_to_plt(self, output_properties: list = None, ith_step: int = None, lims: dict = None, fig=None,
                       figsize: tuple = None, axs_shape: tuple = None, aspect_ratio: str = 'equal', logx: bool = False,
-                      cmap: str = 'jet', colorbar_loc: str = 'right', output_directory: str = None, file_format: str = "pdf"):
+                      plot_zeros: bool = True, cmap: str = 'jet', colorbar_loc: str = 'right',
+                      output_directory: str = None, file_format: str = "pdf"):
         """
         Function to plot results with matplotlib.
 
@@ -755,6 +756,7 @@ class DartsModel:
         :param axs_shape: Tuple of (rows, columns) for figure
         :param aspect_ratio: Aspect ratio of plots ('equal', 'auto', or float), default is 'equal'
         :param logx: Bool to plot x-axis in logscale, default is False
+        :param plot_zeros: Bool to plot zero values, default is True
         :param cmap: plt.Colourmap, default is 'jet'
         :param colorbar_loc: Location of colorbar ('right' or 'bottom'), default is 'right'
         :param output_directory: Directory to save file
@@ -770,7 +772,7 @@ class DartsModel:
         # Pass to Reservoir.plot() method
         fig = self.reservoir.output_to_plt(data=property_array, output_props=output_properties, lims=lims, fig=fig,
                                            figsize=figsize, axs_shape=axs_shape, aspect_ratio=aspect_ratio, logx=logx,
-                                           cmap=cmap, colorbar_loc=colorbar_loc)
+                                           plot_zeros=plot_zeros, cmap=cmap, colorbar_loc=colorbar_loc)
 
         import matplotlib.pyplot as plt
         plt.savefig(output_directory + '/step' + str(ith_step) + '.' + file_format)

@@ -279,7 +279,7 @@ class StructReservoir(ReservoirBase):
         return dx, dy, dz
 
     def output_to_plt(self, data: dict, output_props: list = None, lims: dict = None, fig=None, figsize: tuple = None,
-                      axs_shape: tuple = None, aspect_ratio: str = 'equal', logx: bool = False,
+                      axs_shape: tuple = None, aspect_ratio: str = 'equal', logx: bool = False, plot_zeros: bool = True,
                       cmap: str = 'jet', colorbar_loc: str = 'right'):
         assert self.ndims <= 2, "No implementation exists for 3D StructReservoir"
         import matplotlib.pyplot as plt
@@ -298,6 +298,9 @@ class StructReservoir(ReservoirBase):
 
             for j, prop in enumerate(output_props):
                 ax = fig.axes[j]
+
+                if not plot_zeros:
+                    data[prop][data[prop][:] == 0.] = np.nan
 
                 if self.nx > 1:
                     x = self.discretizer.centroids_all_cells[:, 0]
@@ -327,6 +330,9 @@ class StructReservoir(ReservoirBase):
                 axs[j].set_title(prop)
                 if prop not in lims.keys():
                     lims[prop] = [None, None]
+
+                if not plot_zeros:
+                    data[prop][data[prop][:] == 0.] = np.nan
 
                 im = axs[j].pcolormesh(X, Y, data[prop][:].reshape(shape), cmap=cmap, vmin=lims[prop][0], vmax=lims[prop][1])
                 if self.nz > 1:
