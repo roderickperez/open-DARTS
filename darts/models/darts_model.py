@@ -517,7 +517,8 @@ class DartsModel:
                 if verbose:
                     print("Cut timestep to %2.10f" % dt)
                 if dt < self.params.min_ts:
-                    break
+                    print('Stop simulation. Reason: reached min. timestep', self.params.min_ts, 'dt=', dt)
+                    return -1
 
         # update current engine time
         self.physics.engine.t = stop_time
@@ -531,6 +532,7 @@ class DartsModel:
                   % (self.physics.engine.stat.n_timesteps_total, self.physics.engine.stat.n_timesteps_wasted,
                      self.physics.engine.stat.n_newton_total, self.physics.engine.stat.n_newton_wasted,
                      self.physics.engine.stat.n_linear_total, self.physics.engine.stat.n_linear_wasted))
+        return 0
 
     def run_timestep(self, dt: float, t: float, verbose: bool = True):
         """
@@ -580,6 +582,24 @@ class DartsModel:
 
         self.timer.node['simulation'].stop()
         return converged
+
+    def do_after_step(self):
+        '''
+        can be overrided by an user to be executed in the 'run_simulation()'
+        '''
+        pass
+
+    def run_simulation(self):
+        time = 0.0
+        for ith_step, dt in enumerate(self.idata.sim.time_steps):
+            self.set_well_controls(time=time)
+            ret = self.run(dt)
+            if ret != 0:
+                print('run() failed for the step=', ith_step, 'dt=', dt)
+                return 1
+            self.do_after_step()
+            time += dt
+        return 0
 
     def set_rhs_flux(self, t: float = None) -> np.ndarray:
         """
