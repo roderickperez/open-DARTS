@@ -2,11 +2,12 @@ import numpy as np
 import pandas as pd
 from scipy import interpolate
 
-from model_cpg import Model_CPG, fmt
 from darts.input.input_data import InputData
 from darts.engines import value_vector
 from darts.physics.deadoil import DeadOil, DeadOil2PFluidProps
 
+from model_cpg import Model_CPG, fmt
+from set_case import set_input_data
 
 class ModelDeadOil(Model_CPG):
     def __init__(self, case='generate', grid_out_dir=None):
@@ -63,21 +64,51 @@ class ModelDeadOil(Model_CPG):
         # call base-class function from dart to transfer self.initial_values to actual arrays used in computation
         super().set_initial_conditions()
 
-    def set_well_controls(self):
-        wctrl = self.idata.wells.controls
-        for i, w in enumerate(self.reservoir.wells):
-            if self.well_is_inj(w.name):  # INJ well
-                if wctrl.type == 'rate': # rate control
-                    w.control = self.physics.new_rate_inj(wctrl.inj_rate, wctrl.inj, wctrl.inj_comp_index)
-                    w.constraint = self.physics.new_bhp_inj(wctrl.inj_bhp_constraint, wctrl.inj)
-                elif wctrl.type == 'bhp': # BHP control
-                    w.control = self.physics.new_bhp_inj(wctrl.inj_bhp, wctrl.inj)
-            else:  # PROD well
-                if wctrl.type == 'rate': # rate control
-                    w.control = self.physics.new_rate_prod(wctrl.prod_rate, wctrl.inj_comp_index)
-                    w.constraint = self.physics.new_bhp_prod(wctrl.prod_bhp_constraint)
-                elif wctrl.type == 'bhp': # BHP control
-                    w.control = self.physics.new_bhp_prod(wctrl.prod_bhp)
+    def set_well_controls(self, time: float = 0., verbose=True):
+        '''
+        :param time: simulation time, [days]
+        :return:
+        '''
+        inj_stream_base = [self.physics.zero * 100]
+        eps_time = 1e-15
+        for w in self.reservoir.wells:
+            # find next well control in controls list for different timesteps
+            wctrl = None
+            for wctrl_t in self.idata.well_data.wells[w.name].controls:
+                if np.fabs(wctrl_t[0] - time) < eps_time:  # check time
+                    wctrl = wctrl_t[1]
+                    break
+            if wctrl is None:
+                continue
+            if wctrl.type == 'inj':  # INJ well
+                inj_stream = inj_stream_base
+                if self.physics.thermal:
+                    inj_stream += [wctrl.inj_bht]
+                if wctrl.mode == 'rate': # rate control
+                    w.control = self.physics.new_rate_inj(wctrl.rate, inj_stream, wctrl.comp_index)
+                    w.constraint = self.physics.new_bhp_inj(wctrl.bhp_constraint, inj_stream)
+                elif wctrl.mode == 'bhp': # BHP control
+                    w.control = self.physics.new_bhp_inj(wctrl.bhp, inj_stream)
+                else:
+                    print('Unknown well ctrl.mode', wctrl.mode)
+                    exit(1)
+            elif wctrl.type == 'prod':  # PROD well
+                if wctrl.mode == 'rate': # rate control
+                    w.control = self.physics.new_rate_prod(wctrl.rate, wctrl.comp_index)
+                    w.constraint = self.physics.new_bhp_prod(wctrl.bhp_constraint)
+                elif wctrl.mode == 'bhp': # BHP control
+                    w.control = self.physics.new_bhp_prod(wctrl.bhp)
+                else:
+                    print('Unknown well ctrl.mode', wctrl.mode)
+                    exit(1)
+            else:
+                print('Unknown well ctrl.type', wctrl.type)
+                exit(1)
+            if verbose:
+                print('set_well_controls: time=', time, 'well=', w.name, w.control, w.constraint)
+            assert w.control is not None, 'well control is not initialized!' + w.name
+            if verbose and w.constraint is not None and wctrl.mode == 'rate':
+                print('A constraint for the well ' + w.name + ' is not initialized!')
 
     def get_arrays(self):
         '''
@@ -116,32 +147,40 @@ class ModelDeadOil(Model_CPG):
 
     def set_input_data(self, case=''):
         self.idata = InputData(type_hydr='isothermal', type_mech='none', init_type='uniform')
+        set_input_data(self.idata, case)
 
         # this sets default properties
         self.idata.fluid = DeadOil2PFluidProps() #if twophase else DeadOil3PFluidProps
 
         # example - how to change the properties
         # self.idata.fluid.density['water'] = DensityBasic(compr=1e-5, dens0=1014)
-
         # well controls
-        wctrl = self.idata.wells.controls  # short name
+        wdata = self.idata.well_data
+        wells = wdata.wells  # short name
+        # set default injection composition
+        wdata.inj = value_vector([self.zero])  # injection composition - water
 
-        #wctrl.type = 'rate'
-        wctrl.type = 'bhp'
-
-        wctrl.inj = value_vector([self.zero])  # injection composition - water
-
-        if wctrl.type == 'bhp':
-            self.idata.wells.controls.inj_bhp = 250 # bars
-            self.idata.wells.controls.prod_bhp = 100 # bars
-        elif wctrl.type == 'rate':
-            self.idata.wells.controls.inj_rate = 200 # kmol/day
-            self.idata.wells.controls.inj_bhp_constraint = 300 # upper limit for bhp, bars
-            self.idata.wells.controls.prod_rate = 200 # kmol/day
-            self.idata.wells.controls.prod_bhp_constraint = 70 # lower limit for bhp, bars
-            # for the deadoil physics case
-            self.idata.wells.controls.inj_comp_index = 1
-        self.idata.wells.controls.inj_bht = 300  # K
+        if 'wbhp' in case:
+            for w in wells:
+                if self.well_is_inj(w):
+                    wdata.add_inj_bhp_control(name=w, bhp=250, comp_index=1, temperature=300)  # kmol/day | bars | K
+                else:  # prod
+                    wdata.add_prd_bhp_control(name=w, bhp=100)  # kmol/day | bars
+        elif 'wrate' in case:
+            for w in wells:
+                if self.well_is_inj(w): # inject water
+                    wdata.add_inj_rate_control(name=w, rate=1e6, comp_index=1, bhp_constraint=250)  # kmol/day | bars | K
+                else:  # prod
+                    wdata.add_prd_rate_control(name=w, rate=1e6, comp_index=0, bhp_constraint=100)  # kmol/day | bars
+        elif 'wperiodic' in case:
+            y2d = 365.25
+            for w in wells:
+                if self.well_is_inj(w): # inject water
+                    wdata.add_inj_rate_control(time=0*y2d, name=w, rate=1e5, comp_index=1, bhp_constraint=300)  # kmol/day | bars | K
+                    wdata.add_inj_rate_control(time=1*y2d, name=w, rate=1e6, comp_index=1, bhp_constraint=300)  # kmol/day | bars | K
+                else:  # prod
+                    wdata.add_prd_rate_control(time=0*y2d, name=w, rate=1e5, comp_index=0, bhp_constraint=70)  # kmol/day | bars
+                    wdata.add_prd_rate_control(time=1*y2d, name=w, rate=1e6, comp_index=0, bhp_constraint=70)  # kmol/day | bars
 
         self.idata.obl.n_points = 400
         self.idata.obl.zero = 1e-13
