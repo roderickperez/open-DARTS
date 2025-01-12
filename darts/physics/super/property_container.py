@@ -156,11 +156,21 @@ class PropertyContainer(PropertyBase):
         zc_norm = zc if not self.ns else zc[:self.nc_fl] / (1. - np.sum(zc[self.nc_fl:]))
 
         # Evaluates flash, then uses getter for nu and x - for compatibility with DARTS-flash
-        _ = self.flash_ev.evaluate(pressure, temperature, zc_norm)
+        error_output = self.flash_ev.evaluate(pressure, temperature, zc_norm)
         flash_results = self.flash_ev.get_flash_results()
         self.nu = np.array(flash_results.nu)
-        self.x = np.array(flash_results.X).reshape(self.np_fl, self.nc_fl)
+        try:
+            self.x = np.array(flash_results.X).reshape(self.np_fl, self.nc_fl)
+        except ValueError as e:
+            print(e.args[0], pressure, temperature, zc)
+            error_output += 1
 
+        # If any error has occurred inside the flash routine, try to run flash at slightly different conditions
+        if error_output > 0:
+            pressure += 0.01
+            return self.run_flash(pressure, temperature, zc)
+
+        # Set present phase idxs
         ph = np.array([j for j in range(self.np_fl) if self.nu[j] > 0])
 
         if ph.size == 1:
