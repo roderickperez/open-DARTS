@@ -707,20 +707,24 @@ class DartsModel:
         n_vars = len(var_names)
         n_ops = self.physics.n_ops
         nb = self.reservoir.mesh.n_res_blocks
-        props = list(var_names)
-        props += output_properties if output_properties is not None else []
-        prop_idxs = [list(self.physics.property_containers[next(iter(self.physics.property_containers))].output_props.keys()).index(prop)
-                     for prop in output_properties] if output_properties is not None else []
-        property_array = {prop: np.zeros((len(timesteps), nb)) for prop in props}
+
+        output_properties = output_properties if output_properties is not None else []
+        primary_props = [prop for prop in output_properties if prop in var_names]
+        primary_prop_idxs = {prop: list(var_names).index(prop) for prop in primary_props}
+        secondary_props = [prop for prop in output_properties if prop not in var_names]
+        secondary_prop_idxs = {prop: list(self.physics.property_containers[next(iter(self.physics.property_containers))].
+                                          output_props.keys()).index(prop) for prop in secondary_props}
+        property_array = {prop: np.zeros((len(timesteps), nb)) for prop in primary_props + secondary_props}
 
         # Loop over timesteps
         for k, timestep in enumerate(timesteps):
-            # Extract vector of states
-            for j, variable in enumerate(var_names):
-                property_array[variable][k, :] = X[k, :nb, j]
+            # Extract primary properties from X vector
+            for var_name, var_idx in primary_prop_idxs.items():
+                property_array[var_name][k] = X[k, :nb, var_idx]
 
-            if output_properties is not None:
-                state = value_vector(np.stack([property_array[var][k] for var in var_names]).T.flatten())
+            # Interpolate secondary properties
+            if secondary_props:
+                state = value_vector(np.stack([X[k, :nb, j] for j in range(n_vars)]).T.flatten())
                 values = value_vector(np.zeros(n_ops * nb))
                 values_numpy = np.array(values, copy=False)
                 dvalues = value_vector(np.zeros(n_ops * nb * n_vars))
@@ -729,14 +733,15 @@ class DartsModel:
                     prop_itor.evaluate_with_derivatives(state, self.physics.engine.region_cell_idx[i], values, dvalues)
                     i += 1
 
-                for j, prop in enumerate(output_properties):
-                    property_array[prop][k] = values_numpy[prop_idxs[j]::n_ops]
+                for prop_name, prop_idx in secondary_prop_idxs.items():
+                    property_array[prop_name][k] = values_numpy[prop_idx::n_ops]
 
         return timesteps, property_array
 
     def output_to_plt(self, output_properties: list = None, ith_step: int = None, lims: dict = None, fig=None,
                       figsize: tuple = None, axs_shape: tuple = None, aspect_ratio: str = 'equal', logx: bool = False,
-                      cmap: str = 'jet', colorbar_loc: str = 'right', output_directory: str = None, file_format: str = "pdf"):
+                      plot_zeros: bool = True, cmap: str = 'jet', colorbar_loc: str = 'right',
+                      output_directory: str = None, file_format: str = "pdf"):
         """
         Function to plot results with matplotlib.
 
@@ -751,6 +756,7 @@ class DartsModel:
         :param axs_shape: Tuple of (rows, columns) for figure
         :param aspect_ratio: Aspect ratio of plots ('equal', 'auto', or float), default is 'equal'
         :param logx: Bool to plot x-axis in logscale, default is False
+        :param plot_zeros: Bool to plot zero values, default is True
         :param cmap: plt.Colourmap, default is 'jet'
         :param colorbar_loc: Location of colorbar ('right' or 'bottom'), default is 'right'
         :param output_directory: Directory to save file
@@ -761,17 +767,12 @@ class DartsModel:
             output_directory = self.output_folder
 
         # Find properties to output
-        # If output_properties is None, all variables and properties from property_operators will be passed
-        props_name = output_properties if output_properties is not None else (
-            list(self.physics.property_operators[next(iter(self.physics.property_operators))].props_name))
-        props_name = [prop for prop in props_name if prop not in self.physics.vars]
-
-        timesteps, property_array = self.output_properties(output_properties=props_name, timestep=ith_step)
+        timesteps, property_array = self.output_properties(output_properties=output_properties, timestep=ith_step)
 
         # Pass to Reservoir.plot() method
         fig = self.reservoir.output_to_plt(data=property_array, output_props=output_properties, lims=lims, fig=fig,
                                            figsize=figsize, axs_shape=axs_shape, aspect_ratio=aspect_ratio, logx=logx,
-                                           cmap=cmap, colorbar_loc=colorbar_loc)
+                                           plot_zeros=plot_zeros, cmap=cmap, colorbar_loc=colorbar_loc)
 
         import matplotlib.pyplot as plt
         plt.savefig(output_directory + '/step' + str(ith_step) + '.' + file_format)
