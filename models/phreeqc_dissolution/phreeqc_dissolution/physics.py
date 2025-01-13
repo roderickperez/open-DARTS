@@ -39,26 +39,31 @@ class PhreeqcDissolution(Compositional):
         # Create actual accumulation and flux interpolator:
         self.acc_flux_itor = self.create_interpolator(evaluator=self.reservoir_operators[region],
                                                       timer_name='reservoir interpolation',
-                                                      n_ops=self.n_ops, platform=platform,
-                                                      algorithm=itor_type, mode=itor_mode,
-                                                      precision=itor_precision, is_barycentric=is_barycentric)
+                                                      n_vars=self.n_vars,
+                                                      n_ops=self.n_ops,
+                                                      n_axes_points=self.n_axes_points,
+                                                      axes_min=self.axes_min,
+                                                      axes_max=self.axes_max,
+                                                      platform=platform,
+                                                      algorithm=itor_type,
+                                                      mode=itor_mode,
+                                                      precision=itor_precision,
+                                                      is_barycentric=is_barycentric)
 
         # ==============================================================================================================
         # Create initialization & porosity evaluator
-        self.n_axes_points2 = index_vector([self.n_axes_points[0]] * (self.n_vars + 1))
-        self.axes_min2 = value_vector([self.axes_min[0]] + [self.axes_min[1]] * self.n_vars)
-        self.axes_max2 = value_vector([self.axes_max[0]] + [self.axes_max[1]] * self.n_vars)
         self.comp_itor = self.create_interpolator(evaluator=self.property_operators[region],
                                                   timer_name='comp %d interpolation' % region,
-                                                  n_vars=self.n_vars + 1,
+                                                  n_vars=self.n_vars,
                                                   n_ops=2,
-                                                  n_axes_points=self.n_axes_points2,
-                                                  axes_min=self.axes_min2,
-                                                  axes_max=self.axes_max2,
+                                                  n_axes_points=self.n_axes_points,
+                                                  axes_min=self.axes_min,
+                                                  axes_max=self.axes_max,
                                                   platform=platform,
                                                   algorithm=itor_type,
                                                   mode=itor_mode,
-                                                  precision=itor_precision)
+                                                  precision=itor_precision,
+                                                  is_barycentric = is_barycentric)
 
         # ==============================================================================================================
         # Create rate interpolator:
@@ -72,7 +77,8 @@ class PhreeqcDissolution(Compositional):
                                                   platform=platform,
                                                   algorithm=itor_type,
                                                   mode=itor_mode,
-                                                  precision=itor_precision)
+                                                  precision=itor_precision,
+                                                  is_barycentric = is_barycentric)
 
     def define_well_controls(self):
         # define well control factories

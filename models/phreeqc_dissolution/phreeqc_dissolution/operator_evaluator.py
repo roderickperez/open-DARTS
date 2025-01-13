@@ -7,7 +7,8 @@ import numpy as np
 
 physics_name = osp.splitext(osp.basename(__file__))[0]
 
-# Define our own operator evaluator class
+# Reservoir operators working with the following state:
+# state: (pressure, overall mineral molar fractions, overall fluid molar fractions)
 class my_own_acc_flux_etor(OperatorsBase):
     def __init__(self, input_data, properties):
         super().__init__(properties, thermal=properties.thermal)
@@ -50,74 +51,60 @@ class my_own_acc_flux_etor(OperatorsBase):
         :param values: values of the operators (used for storing the operator values)
         :return: updated value for operators, stored in values
         """
-        # Composition vector and pressure from state:
+        # state and values numpy vectors:
         state_np = state.to_numpy()
         values_np = state.to_numpy()
+
+        # pore pressure
         pressure = state_np[0]
+        # molar fractions
+        z = state_np[1: -1 if self.thermal else None]
+        z = np.append(z, 1 - np.sum(z))
 
-        zc = np.append(state_np[1:], 1 - np.sum(state_np[1:]))
+        # call flash:
+        nu_v, x, y, rho_phases, kin_state, _ = self.property.flash_ev.evaluate(state_np)
+        nu_v = nu_v * (1 - state_np[1]) # convert to overall molar fraction
+        nu_s = state_np[1]
+        nu_a = 1 - nu_v - nu_s
 
-        # # # ================================ Flash ================================ # # #
-        # Check for negative composition occurrence
-        if (zc < 0).any():
-            self.counter += 1
-            zc_copy = np.array(zc)
-            zc_copy = self.comp_out_of_bounds(zc_copy)
-            flash_state = np.append(pressure, zc_copy)
-        else:
-            flash_state = np.append(pressure, zc)
+        # molar densities in kmol/m3
+        rho_a, rho_v = rho_phases['aq'], rho_phases['gas']
+        rho_s = self.property.density_ev['solid'].evaluate(pressure) / self.property.Mw['Solid']
 
-        # Perform Flash procedure here:
-        vap, x, y, rho_phases, kin_state, non_sol_volume = self.property.flash_ev.evaluate(flash_state)
-
-        # NOTE: z_CaCO3 = zc[-1] = 1 - V - L (since only CaCO3 appears in solid phase)
-        sol = zc[0]
-
-        # Calculate liquid phase fraction:
-        liq = 1 - vap - sol
-
-        # Note: officially three phases are present now
-        rho_w = rho_phases['aq']
-        mu_w = CP.PropsSI('V', 'T', self.temperature, 'P|liquid', bar2pa(pressure), 'Water') * 1000
-
-        rho_g = rho_phases['gas']
-
+        # viscosities
+        mu_a = CP.PropsSI('V', 'T', self.temperature, 'P|liquid', bar2pa(pressure), 'Water') * 1000
         try:
-            mu_g = CP.PropsSI('V', 'T', self.temperature, 'P|gas', bar2pa(pressure), 'CarbonDioxide') * 1000
+            mu_v = CP.PropsSI('V', 'T', self.temperature, 'P|gas', bar2pa(pressure), 'CarbonDioxide') * 1000
         except ValueError:
-            mu_g = 0.05
-
-        # in kmol/m3
-        rho_s = self.property.density_ev['solid'].evaluate(pressure) / self.property.Mw['Solid'] / 1000.
-        # # # ================================ Flash ================================ # # #
-
+            mu_v = 0.05
+        
         # Get saturations
-        if vap > 0:
-            sg = vap / rho_g / (vap / rho_g + liq / rho_w + sol / rho_s)
-            sw = liq / rho_w / (vap / rho_g + liq / rho_w + sol / rho_s)
-            ss = sol / rho_s / (vap / rho_g + liq / rho_w + sol / rho_s)
+        if nu_v > 0:
+            sv = nu_v / rho_v / (nu_v / rho_v + nu_a / rho_a + nu_s / rho_s)
+            sa = nu_a / rho_a / (nu_v / rho_v + nu_a / rho_a + nu_s / rho_s)
+            ss = nu_s / rho_s / (nu_v / rho_v + nu_a / rho_a + nu_s / rho_s)
         else:
-            sg = 0
-            sw = liq / rho_w / (liq / rho_w + sol / rho_s)
-            ss = sol / rho_s / (liq / rho_w + sol / rho_s)
+            sv = 0
+            sa = nu_a / rho_a / (nu_a / rho_a + nu_s / rho_s)
+            ss = nu_s / rho_s / (nu_a / rho_a + nu_s / rho_s)
 
         # Need to normalize to get correct Brook-Corey relative permeability
-        sg_norm = sg / (sg + sw)
-        sw_norm = sw / (sg + sw)
+        sa_norm = sa / (sv + sa)
+        sv_norm = sv / (sv + sa)
 
-        kr_w = self.property.rel_perm_ev['liq'].evaluate(sw_norm)
-        kr_g = self.property.rel_perm_ev['gas'].evaluate(sg_norm)
+        kr_a = self.property.rel_perm_ev['liq'].evaluate(sa_norm)
+        kr_v = self.property.rel_perm_ev['gas'].evaluate(sv_norm)
 
         # all properties are in array, and can be separate
         self.x = np.array([y, x])
-        self.rho_m = np.array([rho_g, rho_w])
-        self.kr = np.array([kr_g, kr_w])
-        self.mu = np.array([mu_g, mu_w])
+        self.rho_m = np.array([rho_v, rho_a])
+        self.kr = np.array([kr_v, kr_a])
+        self.mu = np.array([mu_v, mu_a])
         self.compr = self.property.rock_compr_ev.evaluate(pressure)
-        self.sat = np.array([sg_norm, sw_norm])
+        self.sat = np.array([sv_norm, sa_norm])
 
         # Total density
-        rho_t = rho_w * sw + rho_s * ss + rho_g * sg
+        rho_t = rho_a * sa + rho_s * ss + rho_v * sv
 
         # Kinetic reaction rate
         kin_rate = self.property.kinetic_rate_ev.evaluate(kin_state, ss, rho_s, self.min_z, self.kin_fact)
@@ -129,12 +116,12 @@ class my_own_acc_flux_etor(OperatorsBase):
         #       al + bt        + gm + dlt + chi     + rock_temp por    + gr/cap  + por
         total = ne + ne * nph + nph + ne + ne * nph + 3 + 2 * nph + 1
 
-        values_np[:] = 0.
-
         """ CONSTRUCT OPERATORS HERE """
+        values_np[:] = 0.
+        
         """ Alpha operator represents accumulation term: """
         for i in range(nc):
-            values[i] = zc[i] * rho_t
+            values[i] = z[i] * rho_t
 
         """ Beta operator represents flux term: """
         for j in range(nph):
@@ -176,11 +163,12 @@ class my_own_acc_flux_etor(OperatorsBase):
 
         return 0
 
-# Define our own operator evaluator class for initialization
+# Operators required for initialization, to convert given volume fraction to molar one
+# state: (pressure, overall mineral volume fractions, fluid molar fractions)
 class my_own_comp_etor(my_own_acc_flux_etor):
     def __init__(self, input_data, properties):
         super().__init__(input_data, properties)  # Initialize base-class
-        self.non_solid_mole = 1000
+        self.fluid_mole = 1
         self.counter = 0
         self.props_name = ['z_solid', 's_solid']
 
@@ -188,46 +176,17 @@ class my_own_comp_etor(my_own_acc_flux_etor):
         state_np = state.to_numpy()
         values_np = values.to_numpy()
         pressure = state_np[0]
-        # state_np[1] is solid saturation (volume fraction)
-        sol_saturation = state_np[1]
+        ss = state_np[1]
 
-        # Check for negative composition occurrence
-        zc = np.append(state_np[2:], 1 - np.sum(state_np[2:]))
-        if (zc < 0).any():
-            self.counter += 1
-            zc_copy = np.array(zc)
-            zc_copy = self.comp_out_of_bounds(zc_copy)
-            flash_state = np.append(pressure, zc_copy)
-        else:
-            flash_state = np.append(pressure, zc)
-        # porosity
-        # normal flash, for other properties
-        vap, _, _, rho_phases, _, non_sol_volume  = self.property.flash_ev.evaluate(flash_state)
+        # initial flash
+        _, _, _, _, _, fluid_volume = self.property.initial_flash_ev.evaluate(state_np)
 
-        # initial composition
-        sol_volume = non_sol_volume * sol_saturation / (1 - sol_saturation)         # m3
-        sol_mole = sol_volume * self.property.density_ev['solid'].evaluate(pressure) / self.property.Mw['Solid']
-        sol = sol_mole / (sol_mole + self.non_solid_mole)
-        values_np[0] = sol
+        # evaluate molar fraction
+        solid_volume = fluid_volume * ss / (1 - ss)         # m3
+        solid_mole = solid_volume * self.property.density_ev['solid'].evaluate(pressure) / self.property.Mw['Solid']
+        nu_s = solid_mole / (solid_mole + self.fluid_mole)
+        values_np[0] = nu_s
 
-        # NOTE: z_CaCO3 = zc[0] = 1 - V - L (since only CaCO3 appears in solid phase)
-        sol = zc[0]
-
-        # Calculate liquid phase fraction:
-        liq = 1 - vap - sol
-
-        # Note: officially three phases are present now
-        rho_w = rho_phases['aq']
-        rho_g = rho_phases['gas']
-        rho_s = self.property.density_ev['solid'].evaluate(pressure) / self.property.Mw['Solid'] / 1000
-
-        # Get saturations
-        if vap > 0:
-            ss = sol / rho_s / (vap / rho_g + liq / rho_w + sol / rho_s)
-        else:
-            ss = sol / rho_s / (liq / rho_w + sol / rho_s)
-
-        values_np[1] = ss
         return 0
 
 class my_own_rate_evaluator(operator_set_evaluator_iface):
@@ -266,26 +225,9 @@ class my_own_rate_evaluator(operator_set_evaluator_iface):
         values_np = state.to_numpy()
         pressure = state_np[0]
 
-        zc = np.append(state_np[1:], 1 - np.sum(state_np[1:]))
-
-        # # # ================================ Flash ================================ # # #
-        # Check for negative composition occurrence
-        if (zc < 0).any():
-            self.counter += 1
-            zc_copy = np.array(zc)
-            zc_copy = self.comp_out_of_bounds(zc_copy)
-            flash_state = np.append(pressure, zc_copy)
-        else:
-            flash_state = np.append(pressure, zc)
-
+        # zc = np.append(state_np[2:], 1 - np.sum(state_np[1:]))
         # Perform Flash procedure here:
-        vap, x, y, rho_phases, _, _ = self.property.flash_ev.evaluate(flash_state)
-
-        # NOTE: z_CaCO3 = zc[-1] = 1 - V - L (since only CaCO3 appears in solid phase)
-        sol = zc[0]
-
-        # Calculate liquid phase fraction:
-        liq = 1 - vap - sol
+        vap, x, y, rho_phases, _, _ = self.property.flash_ev.evaluate(state_np)
 
         # Note: officially three phases are present now
         rho_w = rho_phases['aq']
@@ -298,35 +240,9 @@ class my_own_rate_evaluator(operator_set_evaluator_iface):
         except ValueError:
             mu_g = 16.14e-6 * 1000     # Pa * s, for 50 C
 
-        # in kmol/m3
-        rho_s = self.property.density_ev['solid'].evaluate(pressure) / self.property.Mw['Solid'] / 1000
-        # # # ================================ Flash ================================ # # #
-
-        # Get saturations
-        if vap > 0:
-            sg = vap / rho_g / (vap / rho_g + liq / rho_w + sol / rho_s)
-            sw = liq / rho_w / (vap / rho_g + liq / rho_w + sol / rho_s)
-            ss = sol / rho_s / (vap / rho_g + liq / rho_w + sol / rho_s)
-        else:
-            sg = 0
-            sw = liq / rho_w / (liq / rho_w + sol / rho_s)
-            ss = sol / rho_s / (liq / rho_w + sol / rho_s)
-
-        # Need to normalize to get correct Brook-Corey relative permeability
-        sg_norm = sg / (sg + sw)
-        sw_norm = sw / (sg + sw)
-
-        kr_w = self.property.rel_perm_ev['liq'].evaluate(sw_norm)
-        kr_g = self.property.rel_perm_ev['gas'].evaluate(sg_norm)
-
-        # Total density
-        rho_t = rho_w * sw + rho_s * ss + rho_g * sg
-
         # Easiest example, constant volumetric phase rate:
         values[0] = 0   # vapor phase
         values[1] = 1 / mu_w    # liquid phase
-        #values[1] = (rho_w * kr_w / mu_w + rho_g * kr_g / mu_g) / rho_t  #
-        # Usually some steps will be executed to estimate unit volumetric flow rate based on current state (when
-        # multiplied with a pressure difference one obtains actual volumetric flow rate)
+
         return 0
 
