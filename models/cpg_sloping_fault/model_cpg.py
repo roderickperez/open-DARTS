@@ -15,21 +15,18 @@ def fmt(x):
 #####################################################
 
 class Model_CPG(CICDModel):
-    def __init__(self, physics_type : str, case : str, grid_out_dir=None):
+    def __init__(self):
         super().__init__()
-        self.physics_type = physics_type
-        self.case = case
 
-        self.set_input_data(case=case)
-
+    def init_reservoir(self):
         if self.idata.generate_grid:
-            if grid_out_dir is None:
+            if self.idata.grid_out_dir is None:
                 self.idata.gridname = None
                 self.idata.propname = None
             else:  # save generated grid to grdecl files
-                os.makedirs(grid_out_dir, exist_ok=True)
-                self.idata.gridname = os.path.join(grid_out_dir, 'grid.grdecl')
-                self.idata.propname = os.path.join(grid_out_dir, 'reservoir.in')
+                os.makedirs(self.idata.grid_out_dir, exist_ok=True)
+                self.idata.gridname = os.path.join(self.idata.grid_out_dir, 'grid.grdecl')
+                self.idata.propname = os.path.join(self.idata.grid_out_dir, 'reservoir.in')
             arrays = gen_cpg_grid(nx=self.idata.geom.nx, ny=self.idata.geom.ny, nz=self.idata.geom.nz,
                                   dx=self.idata.geom.dx, dy=self.idata.geom.dy, dz=self.idata.geom.dz,
                                   start_z=self.idata.geom.start_z,
@@ -37,8 +34,7 @@ class Model_CPG(CICDModel):
                                   poro=self.idata.rock.poro,
                                   gridname=self.idata.gridname, propname=self.idata.propname)
         else:
-            # read grid and props.
-            # Use read_arrays(self.idata.gridfile, self.idata.gridfile) if all the data is in a single file
+            # read grid and rock properties
             arrays = read_arrays(self.idata.gridfile, self.idata.propfile)
             check_arrays(arrays)
             if self.physics_type == 'deadoil':  # set inactive cells with small porosity (isothermal case)
@@ -46,16 +42,13 @@ class Model_CPG(CICDModel):
             elif self.physics_type == 'geothermal':  # process cells with small poro (thermal case)
                 for arr in ['PORO', 'PERMX', 'PERMY', 'PERMZ']:
                     arrays[arr][arrays['PORO'] < self.idata.geom.min_poro] = self.idata.geom.min_poro
-            self.idata.geom.burden_layers = 4
 
-        if self.physics_type == 'geothermal':
+        if self.idata.geom.burden_layers > 0:
             # add over- and underburden layers
             make_burden_layers(number_of_burden_layers=self.idata.geom.burden_layers,
                                initial_thickness=self.idata.geom.burden_init_thickness,
                                property_dictionary=arrays,
                                burden_layer_prop_value=self.idata.rock.burden_prop)
-        else:
-            self.idata.geom.burden_layers = 0
 
         self.reservoir = CPG_Reservoir(self.timer, arrays, minpv=self.idata.geom.minpv)
         self.reservoir.discretize()

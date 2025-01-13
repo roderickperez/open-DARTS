@@ -64,6 +64,7 @@ def input_data_base(idata: InputData, case: str):
         idata.schfile = schfile
         # read from a file to idata.well_data.wells[well_name].perforations
         idata.well_data.read_and_add_perforations(idata.schfile)
+    idata.grid_out_dir = None  # output path for the generated grid and prop files
 
     # rock compressibility
     idata.rock.compressibility = 1e-5  # [1/bars]
@@ -72,7 +73,7 @@ def input_data_base(idata: InputData, case: str):
 
     #########################################################################
     # only for the thermal case (Geothermal physics):
-    geom.burden_layers = 0  # the number of additional (generated on-the-fly) overburden/underburden layers
+    geom.burden_layers = 4  # the number of additional (generated on-the-fly) overburden/underburden layers
     geom.burden_init_thickness = 10  # first over/under burden layer thickness, [m.]
     idata.rock.burden_prop = 1e-5  # perm and poro value for burden layers
 

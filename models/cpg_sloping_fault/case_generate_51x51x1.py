@@ -15,7 +15,7 @@ def input_data_case_51x51x1(idata: InputData, case: str):
     geom.dy = geom.dx
     geom.dz = 100. / geom.nz
     geom.start_z = 2000  # top reservoir depth
-    geom.burden_layers = 4  # the number of overburden layers (= the number of underburden layers), used only in the thermal case
+
     # vertical wells locations, 1-based indices
     if 'wperiodic' in case:
         well_data.add_well(name='W', loc_type='ijk', loc_ijk=(geom.nx // 2, geom.ny // 2, -1))

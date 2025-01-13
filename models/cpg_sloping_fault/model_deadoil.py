@@ -12,7 +12,7 @@ from set_case import set_input_data
 class ModelDeadOil(Model_CPG):
     def __init__(self, case='generate', grid_out_dir=None):
         self.zero = 1e-13
-        super().__init__(physics_type='dead_oil', case=case, grid_out_dir=grid_out_dir)
+        super().__init__()
 
     def set_physics(self):
         self.physics = DeadOil(self.idata, self.timer, thermal=False)
@@ -106,8 +106,11 @@ class ModelDeadOil(Model_CPG):
                 exit(1)
             if verbose:
                 print('set_well_controls: time=', time, 'well=', w.name, w.control, w.constraint)
-            assert w.control is not None, 'well control is not initialized!' + w.name
-            if verbose and w.constraint is not None and wctrl.mode == 'rate':
+
+        # check
+        for w in self.reservoir.wells:
+            assert w.control is not None, 'well control is not initialized for the well ' + w.name
+            if verbose and w.constraint is not None and 'rate' in str(type(w.control)):
                 print('A constraint for the well ' + w.name + ' is not initialized!')
 
     def get_arrays(self):
@@ -127,6 +130,7 @@ class ModelDeadOil(Model_CPG):
         return a
 
     def print_well_rate(self):
+        inj_well = None
         for i, w in enumerate(self.reservoir.wells):
             if self.well_is_inj(w.name):
                 inj_well = w
@@ -136,18 +140,23 @@ class ModelDeadOil(Model_CPG):
         years = np.array(time_data['time'])[-1] / 365.
         pr_col_name = time_data.filter(like=prod_well.name + ' : oil rate').columns.to_list()
         pp_col_name = time_data.filter(like=prod_well.name + ' : BHP').columns.to_list()
-        ir_col_name = time_data.filter(like=inj_well.name + ' : water rate').columns.to_list()
-        ip_col_name = time_data.filter(like=inj_well.name + ' : BHP').columns.to_list()
         rate_prod = np.array(time_data[pr_col_name])[-1][0]  # pick the last timestep value
         bhp_prod = np.array(time_data[pp_col_name])[-1][0]  # pick the last timestep value
-        bhp_inj = np.array(time_data[ip_col_name])[-1][0]  # pick the last timestep value
-        rate_inj = np.array(time_data[ir_col_name])[-1][0]  # pick the last timestep value
+        if inj_well is not None:
+            ir_col_name = time_data.filter(like=inj_well.name + ' : water rate').columns.to_list()
+            ip_col_name = time_data.filter(like=inj_well.name + ' : BHP').columns.to_list()
+            bhp_inj = np.array(time_data[ip_col_name])[-1][0]  # pick the last timestep value
+            rate_inj = np.array(time_data[ir_col_name])[-1][0]  # pick the last timestep value
+        else:
+            bhp_inj = rate_inj = 0.
         print(fmt(years), 'years:', 'OIL RATE_prod =', fmt(rate_prod), ' WATER RATE_inj =', fmt(rate_inj), 'BHP_prod =',
               fmt(bhp_prod), 'BHP_inj =', fmt(bhp_inj))
 
     def set_input_data(self, case=''):
         self.idata = InputData(type_hydr='isothermal', type_mech='none', init_type='uniform')
         set_input_data(self.idata, case)
+
+        self.idata.geom.burden_layers = 0
 
         # this sets default properties
         self.idata.fluid = DeadOil2PFluidProps() #if twophase else DeadOil3PFluidProps
