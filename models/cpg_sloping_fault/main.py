@@ -28,12 +28,17 @@ def run(physics_type : str, case: str, out_dir: str, export_vtk=True, redirect_l
         log_stream = redirect_all_output(log_filename)
 
     if physics_type == 'geothermal':
-        m = ModelGeothermal(case=case, grid_out_dir=out_dir, iapws_physics=True)
+        m = ModelGeothermal(iapws_physics=True)
     elif physics_type == 'deadoil':
-        m = ModelDeadOil(case=case, grid_out_dir=out_dir)
+        m = ModelDeadOil()
     else:
         print('Error: wrong physics specified:', physics_type)
         exit(1)
+    m.physics_type = physics_type
+
+    m.set_input_data(case=case)
+
+    m.init_reservoir()
 
     m.init(output_folder=out_dir, platform=platform)
     #m.reservoir.mesh.init_grav_coef(0)
@@ -227,19 +232,19 @@ if __name__ == '__main__':
 
     physics_list = []
     physics_list += ['geothermal']
-    #physics_list += ['deadoil']
+    physics_list += ['deadoil']
 
     cases_list = []
-    #cases_list += ['generate_5x3x4']
+    cases_list += ['generate_5x3x4']
     #cases_list += ['generate_51x51x1']
     #cases_list += ['generate_100x100x100']
-    cases_list += ['case_40x40x10']
+    #cases_list += ['case_40x40x10']
     #cases_list += ['brugge']
 
     well_controls = []
     well_controls += ['wrate']
-    #well_controls += ['wbhp']
-    #well_controls += ['wperiodic']
+    well_controls += ['wbhp']
+    well_controls += ['wperiodic']
 
     for physics_type in physics_list:
         for case_geom in cases_list:

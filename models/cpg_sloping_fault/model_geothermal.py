@@ -10,9 +10,9 @@ from model_cpg import Model_CPG, fmt
 
 
 class ModelGeothermal(Model_CPG):
-    def __init__(self, case='generate', grid_out_dir=None, iapws_physics: bool = True):
+    def __init__(self, iapws_physics: bool = True):
         self.iapws_physics = iapws_physics
-        super().__init__(physics_type='geothermal', case=case, grid_out_dir=grid_out_dir)
+        super().__init__()
 
     def set_physics(self):
         if self.iapws_physics:
@@ -72,8 +72,10 @@ class ModelGeothermal(Model_CPG):
                 exit(1)
             if verbose:
                 print('set_well_controls: time=', time, 'well=', w.name, w.control, w.constraint)
-            assert w.control is not None, 'well control is not initialized!' + w.name
-            if verbose and w.constraint is None and wctrl.mode == 'rate':
+        # check
+        for w in self.reservoir.wells:
+            assert w.control is not None, 'well control is not initialized for the well ' + w.name
+            if verbose and w.constraint is None and 'rate' in str(type(w.control)):
                 print('A constraint for the well ' + w.name + ' is not initialized!')
 
     def get_arrays(self):
@@ -135,6 +137,7 @@ class ModelGeothermal(Model_CPG):
         #init_type = 'uniform'
         init_type = 'gradient'
         self.idata = InputData(type_hydr='thermal', type_mech='none', init_type=init_type)
+
         set_input_data(self.idata, case)
 
         if self.iapws_physics:
