@@ -1,4 +1,3 @@
-from darts.engines import redirect_darts_output
 from darts.tools.plot_darts import *
 from darts.tools.logging import redirect_all_output, abort_redirection
 from model_geothermal import ModelGeothermal
@@ -7,7 +6,6 @@ from model_deadoil import ModelDeadOil
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import time
 import os, sys
 
 def run(physics_type : str, case: str, out_dir: str, dt : float, n_time_steps : int, export_vtk=True, redirect_log=False, platform='cpu'):
