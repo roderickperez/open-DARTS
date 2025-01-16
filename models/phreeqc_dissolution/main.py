@@ -59,15 +59,12 @@ def run(domain, max_ts, nx=100):
     m.print_timers()
     m.print_stat()
 
-def plot_profiles(m):
+def plot_profiles(m, plot_kinetics=False):
     n_cells = m.reservoir.n
     n_vars = m.physics.nc
     Xm = np.asarray(m.physics.engine.X[:n_cells * n_vars]).reshape(n_cells, n_vars)
     op_vals = np.asarray(m.physics.engine.op_vals_arr).reshape(m.reservoir.mesh.n_blocks, m.physics.n_ops)
     poro = op_vals[:m.reservoir.mesh.n_res_blocks, 39]
-    op_kin_rates = op_vals[:m.reservoir.mesh.n_res_blocks, 27:27 + n_vars]
-    op_sr = op_vals[:m.reservoir.mesh.n_res_blocks, 40]
-    op_actHp = op_vals[:m.reservoir.mesh.n_res_blocks, 41]
 
     n_plots = 3
     fig, ax = plt.subplots(nrows=n_plots, sharex=True, figsize=(6, 11))
@@ -110,7 +107,11 @@ def plot_profiles(m):
     # plt.show()
     plt.close(fig)
 
-    if True:
+    if plot_kinetics:
+        op_kin_rates = op_vals[:m.reservoir.mesh.n_res_blocks, 27:27 + n_vars]
+        op_sr = op_vals[:m.reservoir.mesh.n_res_blocks, 40]
+        op_actHp = op_vals[:m.reservoir.mesh.n_res_blocks, 41]
+
         ms = 4
         n = 5
         fig, ax = plt.subplots(nrows=3, sharex=True, figsize=(6, 12))

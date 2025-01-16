@@ -161,6 +161,9 @@ class my_own_acc_flux_etor(OperatorsBase):
         # E5_> porosity
         values[shift + 3 + 2 * nph] = 1 - ss
 
+        # values[shift + 3 + 2 * nph + 1] = kin_state['SR']
+        # values[shift + 3 + 2 * nph + 2] = kin_state['Act(H+)']
+
         return 0
 
 # Operators required for initialization, to convert given volume fraction to molar one
