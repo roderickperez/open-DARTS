@@ -541,10 +541,10 @@ class ModelProperties(PropertyContainer):
             # kinetic_rate = -specific_sa * (
             #         (solid_saturation * rho_s * 1000) ** n) * (KTa + KTn) * (1 - sat_ratio) / (kin_fact ** (n - 1)) * 86.400
 
-            # [mol/s]
+            # [mol/s/m3]
             kinetic_rate = -specific_sa * solid_saturation * (rho_s * 1000) * (KTa + KTn) * (1 - sat_ratio ** p) ** q
 
-            # [kmol/d]
+            # [kmol/d/m3]
             kinetic_rate *= 60 * 60 * 24 / 1000
             return kinetic_rate
 
