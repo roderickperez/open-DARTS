@@ -87,7 +87,7 @@ class PropertyContainer(PropertyBase):
         To obtain mole fractions of the fluid components, one needs to normalize zc* for the fluid components.
         """
         # Composition vector and pressure from state:
-        vec_state_as_np = state.to_numpy()
+        vec_state_as_np = np.asarray(state)
         pressure = vec_state_as_np[0]
 
         zc = np.append(vec_state_as_np[1:self.nc], 1 - np.sum(vec_state_as_np[1:self.nc]))
