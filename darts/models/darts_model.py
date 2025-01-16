@@ -406,39 +406,28 @@ class DartsModel:
 
         ts = 0
 
-        epsilon = 1e-13
-        while t < stop_time - epsilon:
-            # determine the current timestep, ensuring it does not exceed remaining_time
-            current_dt = min(dt, stop_time - t)
-
-            converged = self.run_timestep(current_dt, t, verbose)
+        while t < stop_time:
+            converged = self.run_timestep(dt, t, verbose)
 
             if converged:
-                t += current_dt
-                self.physics.engine.t = t
+                t += dt
                 ts += 1
                 if verbose:
                     print("# %d \tT = %3g\tDT = %2g\tNI = %d\tLI=%d"
-                          % (ts, t, current_dt, self.physics.engine.n_newton_last_dt, self.physics.engine.n_linear_last_dt))
+                          % (ts, t, dt, self.physics.engine.n_newton_last_dt, self.physics.engine.n_linear_last_dt))
 
-                # save previous timestep
-                self.prev_dt = current_dt
+                dt = min(dt * self.params.mult_ts, self.params.max_ts)
 
-                # if the remaining time after this step is less than min_ts, set dt to cover the rest
-                remaining_time = stop_time - t
-                if remaining_time <= self.params.min_ts:
-                    if remaining_time > 0:
-                        dt = remaining_time
-                    else:
-                        break
+                # if the current dt almost covers the rest time amount needed to reach the stop_time, add the rest
+                # to not allow the next time step be smaller than min_ts
+                if np.fabs(t + dt - stop_time) < self.params.min_ts:
+                    dt = stop_time - t
+
+
+                if t + dt > stop_time:
+                    dt = stop_time - t
                 else:
-                    dt = min(current_dt * self.params.mult_ts, self.params.max_ts, remaining_time)
-
-                if log_3d_body_path:
-                    self.physics.body_path_add_bodys(output_folder=self.output_folder, time=t)
-
-                if save_well_data:
-                    self.save_data_to_h5(kind='well')
+                    self.prev_dt = dt
 
             else:
                 dt /= self.params.mult_ts
@@ -475,7 +464,6 @@ class DartsModel:
         :type verbose: bool
         """
         days = days if days is not None else self.runtime
-
         # get current engine time
         t = self.physics.engine.t
         stop_time = t + days
@@ -486,41 +474,37 @@ class DartsModel:
         elif restart_dt > 0.:
             dt = restart_dt
         else:
-            dt = min(self.prev_dt * self.params.mult_ts, self.params.max_ts)
+
+            dt = min(self.prev_dt*self.params.mult_ts, days, self.params.max_ts)
         self.prev_dt = dt
 
         ts = 0
 
-        if log_3d_body_path and not hasattr(self.physics, 'processed_body_idxs'):
+        if log_3d_body_path:
             self.physics.body_path_start(output_folder=self.output_folder)
 
-        epsilon = 1e-13
-        while t < stop_time - epsilon:
-            # determine the current timestep, ensuring it does not exceed remaining_time
-            current_dt = min(dt, stop_time - t)
-
-            converged = self.run_timestep(current_dt, t, verbose)
+        while t < stop_time:
+            converged = self.run_timestep(dt, t, verbose)
 
             if converged:
-                t += current_dt
+                t += dt
                 self.physics.engine.t = t
                 ts += 1
                 if verbose:
                     print("# %d \tT = %3g\tDT = %2g\tNI = %d\tLI=%d"
-                          % (ts, t, current_dt, self.physics.engine.n_newton_last_dt, self.physics.engine.n_linear_last_dt))
+                          % (ts, t, dt, self.physics.engine.n_newton_last_dt, self.physics.engine.n_linear_last_dt))
 
-                # save previous timestep
-                self.prev_dt = current_dt
+                dt = min(dt * self.params.mult_ts, self.params.max_ts)
 
-                # if the remaining time after this step is less than min_ts, set dt to cover the rest
-                remaining_time = stop_time - t
-                if remaining_time <= self.params.min_ts:
-                    if remaining_time > 0:
-                        dt = remaining_time
-                    else:
-                        break
+                # if the current dt almost covers the rest time amount needed to reach the stop_time, add the rest
+                # to not allow the next time step be smaller than min_ts
+                if np.fabs(t + dt - stop_time) < self.params.min_ts:
+                    dt = stop_time - t
+
+                if t + dt > stop_time:
+                    dt = stop_time - t
                 else:
-                    dt = min(current_dt * self.params.mult_ts, self.params.max_ts, remaining_time)
+                    self.prev_dt = dt
 
                 if log_3d_body_path:
                     self.physics.body_path_add_bodys(output_folder=self.output_folder, time=t)
@@ -533,7 +517,8 @@ class DartsModel:
                 if verbose:
                     print("Cut timestep to %2.10f" % dt)
                 if dt < self.params.min_ts:
-                    break
+                    print('Stop simulation. Reason: reached min. timestep', self.params.min_ts, 'dt=', dt)
+                    return -1
 
         # update current engine time
         self.physics.engine.t = stop_time
@@ -547,6 +532,7 @@ class DartsModel:
                   % (self.physics.engine.stat.n_timesteps_total, self.physics.engine.stat.n_timesteps_wasted,
                      self.physics.engine.stat.n_newton_total, self.physics.engine.stat.n_newton_wasted,
                      self.physics.engine.stat.n_linear_total, self.physics.engine.stat.n_linear_wasted))
+        return 0
 
     def run_timestep(self, dt: float, t: float, verbose: bool = True):
         """
@@ -596,6 +582,24 @@ class DartsModel:
 
         self.timer.node['simulation'].stop()
         return converged
+
+    def do_after_step(self):
+        '''
+        can be overrided by an user to be executed in the 'run_simulation()'
+        '''
+        pass
+
+    def run_simulation(self):
+        time = 0.0
+        for ith_step, dt in enumerate(self.idata.sim.time_steps):
+            self.set_well_controls(time=time)
+            ret = self.run(dt)
+            if ret != 0:
+                print('run() failed for the step=', ith_step, 'dt=', dt)
+                return 1
+            self.do_after_step()
+            time += dt
+        return 0
 
     def set_rhs_flux(self, t: float = None) -> np.ndarray:
         """
@@ -723,20 +727,24 @@ class DartsModel:
         n_vars = len(var_names)
         n_ops = self.physics.n_ops
         nb = self.reservoir.mesh.n_res_blocks
-        props = list(var_names)
-        props += output_properties if output_properties is not None else []
-        prop_idxs = [list(self.physics.property_containers[next(iter(self.physics.property_containers))].output_props.keys()).index(prop)
-                     for prop in output_properties] if output_properties is not None else []
-        property_array = {prop: np.zeros((len(timesteps), nb)) for prop in props}
+
+        output_properties = output_properties if output_properties is not None else []
+        primary_props = [prop for prop in output_properties if prop in var_names]
+        primary_prop_idxs = {prop: list(var_names).index(prop) for prop in primary_props}
+        secondary_props = [prop for prop in output_properties if prop not in var_names]
+        secondary_prop_idxs = {prop: list(self.physics.property_containers[next(iter(self.physics.property_containers))].
+                                          output_props.keys()).index(prop) for prop in secondary_props}
+        property_array = {prop: np.zeros((len(timesteps), nb)) for prop in primary_props + secondary_props}
 
         # Loop over timesteps
         for k, timestep in enumerate(timesteps):
-            # Extract vector of states
-            for j, variable in enumerate(var_names):
-                property_array[variable][k, :] = X[k, :nb, j]
+            # Extract primary properties from X vector
+            for var_name, var_idx in primary_prop_idxs.items():
+                property_array[var_name][k] = X[k, :nb, var_idx]
 
-            if output_properties is not None and len(output_properties) > 0:
-                state = value_vector(np.stack([property_array[var][k] for var in var_names]).T.flatten())
+            # Interpolate secondary properties
+            if secondary_props:
+                state = value_vector(np.stack([X[k, :nb, j] for j in range(n_vars)]).T.flatten())
                 values = value_vector(np.zeros(n_ops * nb))
                 values_numpy = np.array(values, copy=False)
                 dvalues = value_vector(np.zeros(n_ops * nb * n_vars))
@@ -745,12 +753,14 @@ class DartsModel:
                     prop_itor.evaluate_with_derivatives(state, self.physics.engine.region_cell_idx[i], values, dvalues)
                     i += 1
 
-                for j, prop in enumerate(output_properties):
-                    property_array[prop][k] = values_numpy[prop_idxs[j]::n_ops]
+                for prop_name, prop_idx in secondary_prop_idxs.items():
+                    property_array[prop_name][k] = values_numpy[prop_idx::n_ops]
 
         return timesteps, property_array
 
-    def output_to_plt(self, output_properties: list = None, ith_step: int = None, lims: dict = None,
+    def output_to_plt(self, output_properties: list = None, ith_step: int = None, lims: dict = None, fig=None,
+                      figsize: tuple = None, axs_shape: tuple = None, aspect_ratio: str = 'equal', logx: bool = False,
+                      plot_zeros: bool = True, cmap: str = 'jet', colorbar_loc: str = 'right',
                       output_directory: str = None, file_format: str = "pdf"):
         """
         Function to plot results with matplotlib.
@@ -761,25 +771,28 @@ class DartsModel:
         :type ith_step: int
         :param lims: Ranges of colorbars, default is empty
         :type lims: dict
-        :param output_directory: Name to save file
-        :type output_directory: str
-        :param file_format: File format, pdf is default
-        :type file_format: str
+        :param fig: Optional figure object to append plots, default is None
+        :param figsize: Tuple of (width, height) for figure
+        :param axs_shape: Tuple of (rows, columns) for figure
+        :param aspect_ratio: Aspect ratio of plots ('equal', 'auto', or float), default is 'equal'
+        :param logx: Bool to plot x-axis in logscale, default is False
+        :param plot_zeros: Bool to plot zero values, default is True
+        :param cmap: plt.Colourmap, default is 'jet'
+        :param colorbar_loc: Location of colorbar ('right' or 'bottom'), default is 'right'
+        :param output_directory: Directory to save file
+        :param file_format: File format, 'pdf' is default
         """
         # Set default output directory
         if output_directory is None:
             output_directory = self.output_folder
 
         # Find properties to output
-        # If output_properties is None, all variables and properties from property_operators will be passed
-        props_name = output_properties if output_properties is not None else (
-            list(self.physics.property_operators[next(iter(self.physics.property_operators))].props_name))
-        props_name = [prop for prop in props_name if prop not in self.physics.vars]
-
-        timesteps, property_array = self.output_properties(output_properties=props_name, timestep=ith_step)
+        timesteps, property_array = self.output_properties(output_properties=output_properties, timestep=ith_step)
 
         # Pass to Reservoir.plot() method
-        fig = self.reservoir.plot(data=property_array, output_props=output_properties, lims=lims)
+        fig = self.reservoir.output_to_plt(data=property_array, output_props=output_properties, lims=lims, fig=fig,
+                                           figsize=figsize, axs_shape=axs_shape, aspect_ratio=aspect_ratio, logx=logx,
+                                           plot_zeros=plot_zeros, cmap=cmap, colorbar_loc=colorbar_loc)
 
         import matplotlib.pyplot as plt
         plt.savefig(output_directory + '/step' + str(ith_step) + '.' + file_format)
