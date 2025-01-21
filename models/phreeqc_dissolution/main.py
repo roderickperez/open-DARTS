@@ -26,7 +26,7 @@ def run(domain, max_ts, nx=100):
 
     # Initialization check
     op_vals = np.asarray(m.physics.engine.op_vals_arr).reshape(m.reservoir.mesh.n_blocks, m.physics.n_ops)
-    poro = op_vals[:m.reservoir.mesh.n_res_blocks, 39]
+    poro = op_vals[:m.reservoir.mesh.n_res_blocks, m.physics.reservoir_operators[0].PORO_OP]
     volume = np.array(m.reservoir.mesh.volume, copy=False)
     total_pv = np.sum(volume[:m.reservoir.n] * poro) * 1e6
     print('Total pore volume:', total_pv, 'cm3')
@@ -64,7 +64,7 @@ def plot_profiles(m, plot_kinetics=False):
     n_vars = m.physics.nc
     Xm = np.asarray(m.physics.engine.X[:n_cells * n_vars]).reshape(n_cells, n_vars)
     op_vals = np.asarray(m.physics.engine.op_vals_arr).reshape(m.reservoir.mesh.n_blocks, m.physics.n_ops)
-    poro = op_vals[:m.reservoir.mesh.n_res_blocks, 39]
+    poro = op_vals[:m.reservoir.mesh.n_res_blocks, m.physics.reservoir_operators[0].PORO_OP]
 
     n_plots = 3
     fig, ax = plt.subplots(nrows=n_plots, sharex=True, figsize=(6, 11))
@@ -108,7 +108,9 @@ def plot_profiles(m, plot_kinetics=False):
     plt.close(fig)
 
     if plot_kinetics:
-        op_kin_rates = op_vals[:m.reservoir.mesh.n_res_blocks, 27:27 + n_vars]
+        evaluator = m.physics.reservoir_operators[0]
+        op_kin_rates = op_vals[:m.reservoir.mesh.n_res_blocks, \
+                       evaluator.KIN_OP:evaluator.KIN_OP + n_vars]
         op_sr = op_vals[:m.reservoir.mesh.n_res_blocks, 40]
         op_actHp = op_vals[:m.reservoir.mesh.n_res_blocks, 41]
 

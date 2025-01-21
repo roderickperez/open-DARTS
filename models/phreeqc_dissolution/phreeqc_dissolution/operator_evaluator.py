@@ -22,6 +22,22 @@ class my_own_acc_flux_etor(OperatorsBase):
         self.property = properties
         self.counter = 0
 
+        # Operator order
+        self.ACC_OP = 0  # accumulation operator - ne
+        self.FLUX_OP = self.ACC_OP + self.ne  # flux operator - ne * nph
+        self.UPSAT_OP = self.FLUX_OP + self.ne * self.nph  # saturation operator (diffusion/conduction term) - nph
+        self.GRAD_OP = self.UPSAT_OP + self.nph  # gradient operator (diffusion/conduction term) - ne * nph
+        self.KIN_OP = self.GRAD_OP + self.ne * self.nph  # kinetic operator - ne
+
+        # extra operators
+        self.GRAV_OP = self.KIN_OP + self.ne  # gravity operator - nph
+        self.PC_OP = self.GRAV_OP + self.nph  # capillary operator - nph
+        self.PORO_OP = self.PC_OP + self.nph  # porosity operator - 1
+        self.ENTH_OP = self.PORO_OP + 1  # enthalpy operator - nph
+        self.TEMP_OP = self.ENTH_OP + self.nph  # temperature operator - 1
+        self.PRES_OP = self.TEMP_OP + 1
+        self.n_ops = self.PRES_OP + 1
+
     def comp_out_of_bounds(self, vec_composition):
         # Check if composition sum is above 1 or element comp below 0, i.e. if point is unphysical:
         temp_sum = 0
@@ -53,7 +69,7 @@ class my_own_acc_flux_etor(OperatorsBase):
         """
         # state and values numpy vectors:
         state_np = state.to_numpy()
-        values_np = state.to_numpy()
+        values_np = values.to_numpy()
 
         # pore pressure
         pressure = state_np[0]
@@ -113,53 +129,43 @@ class my_own_acc_flux_etor(OperatorsBase):
         nph = 2
         ne = nc
 
-        #       al + bt        + gm + dlt + chi     + rock_temp por    + gr/cap  + por
-        total = ne + ne * nph + nph + ne + ne * nph + 3 + 2 * nph + 1
-
         """ CONSTRUCT OPERATORS HERE """
         values_np[:] = 0.
         
         """ Alpha operator represents accumulation term: """
-        for i in range(nc):
-            values[i] = z[i] * rho_t
+        values_np[self.ACC_OP:self.ACC_OP + nc] = z * rho_t
 
         """ Beta operator represents flux term: """
         for j in range(nph):
-            shift = ne + ne * j
-            for i in range(nc):
-                values[shift + i] = self.x[j][i] * self.rho_m[j] * self.kr[j] / self.mu[j]
+            values_np[self.FLUX_OP + j * self.ne:self.FLUX_OP + j * self.ne + self.nc] = self.x[j] * self.rho_m[j] * self.kr[j] / self.mu[j]
 
         """ Gamma operator for diffusion (same for thermal and isothermal) """
         shift = ne + ne * nph
         for j in range(nph):
-            values[shift + j] = self.compr * self.sat[j]
-            # values[shift + j] = 0
+            values[self.UPSAT_OP + j] = self.compr * self.sat[j]
 
         """ Chi operator for diffusion """
         dif_coef = np.array([0, 1, 1, 1, 1]) * 5.2e-10 * 86400
-        shift += nph
         for i in range(nc):
             for j in range(nph):
-                values[shift + i * nph + j] = dif_coef[i] * self.rho_m[j] * self.x[j][i]
+                values[self.GRAD_OP + i * nph + j] = dif_coef[i] * self.rho_m[j] * self.x[j][i]
                 # values[shift + ne * j + i] = 0
 
         """ Delta operator for reaction """
-        shift += nph * ne
         for i in range(ne):
-            values[shift + i] = self.input_data.stoich_matrix[i] * kin_rate
+            values[self.KIN_OP + i] = self.input_data.stoich_matrix[i] * kin_rate
 
         """ Gravity and Capillarity operators """
-        shift += ne
         # E3-> gravity
         for i in range(nph):
-            values[shift + 3 + i] = 0
+            values[self.GRAV_OP + i] = 0
 
         # E4-> capillarity
         for i in range(nph):
-            values[shift + 3 + nph + i] = 0
+            values[self.PC_OP + i] = 0
 
         # E5_> porosity
-        values[shift + 3 + 2 * nph] = 1 - ss
+        values[self.PORO_OP] = 1 - ss
 
         # values[shift + 3 + 2 * nph + 1] = kin_state['SR']
         # values[shift + 3 + 2 * nph + 2] = kin_state['Act(H+)']
@@ -225,7 +231,7 @@ class my_own_rate_evaluator(operator_set_evaluator_iface):
     def evaluate(self, state, values):
         # Composition vector and pressure from state:
         state_np = state.to_numpy()
-        values_np = state.to_numpy()
+        values_np = values.to_numpy()
         pressure = state_np[0]
 
         # zc = np.append(state_np[2:], 1 - np.sum(state_np[1:]))
