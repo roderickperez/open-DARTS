@@ -1,4 +1,0 @@
-namespace commons {
-  void counter();
-
-}
