@@ -45,8 +45,8 @@ def run(domain, max_ts, nx=100):
     else:
         m.output_to_vtk(ith_step=0)
 
-    for i in range(24):
-        m.run(days=1. / 24, restart_dt=max_ts)
+    for i in range(6):
+        m.run(days=4. / 24, restart_dt=max_ts)
         if i > 0: m.params.first_ts = max_ts
         if domain == '1D':
             plot_profiles(m)
@@ -92,7 +92,7 @@ def plot_profiles(m, plot_kinetics=False):
     ax[2].set_ylabel('porosity', fontsize=16)
     ax1.set_ylabel(r'\textcolor{red}{z$_{Ca}$} and \textcolor{green}{z$_C$}', fontsize=20)
 
-    ax[0].set_ylim(99.99, 100.3)
+    ax[0].set_ylim(m.pressure_init - 0.01, m.pressure_init + 0.3)
     ax[1].set_ylim(-0.01, 1.01)
     ax[2].set_ylim(-0.01, 1.01)
     ax1.set_ylim(-0.001, 0.01)

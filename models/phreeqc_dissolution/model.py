@@ -72,7 +72,7 @@ class Model(DartsModel):
     def set_physics(self):
         # some properties
         self.temperature = 323.15           # K
-        self.pressure_init = 100            # bar
+        self.pressure_init = 95            # bar
 
         self.inj_rate = self.volume * 24     # output: m3/day
 
@@ -90,8 +90,8 @@ class Model(DartsModel):
         self.num_vars = len(self.elements)
         self.nc = len(self.elements)
         self.n_points = self.nc * [5001]
-        self.axes_min = [99] + [self.obl_min, self.obl_min, self.obl_min, self.obl_min]
-        self.axes_max = [103] + 4 * [1 - self.obl_min] # [0.8, 0.8, 0.8, 0.9]
+        self.axes_min = [self.pressure_init - 1] + [self.obl_min, self.obl_min, self.obl_min, self.obl_min]
+        self.axes_max = [self.pressure_init + 3] + 4 * [1 - self.obl_min] # [0.8, 0.8, 0.8, 0.9]
 
         # Rate annihilation matrix
         self.E = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
@@ -126,12 +126,12 @@ class Model(DartsModel):
         self.physics.add_property_region(property_container, 0)
 
         # Compute injection stream
-        mole_water, mole_co2 = calculate_injection_stream(1.1, 0.1, self.temperature, self.pressure_init)
+        mole_water, mole_co2 = calculate_injection_stream(1.0, 1000.0, self.temperature, self.pressure_init) # input - m3 of water, co2
         mole_fraction_water, mole_fraction_co2 = get_mole_fractions(mole_water, mole_co2)
 
         # Define injection stream composition,
         # ['H2O', 'H+', 'OH-', 'CO2', 'HCO3-', 'CO3-2', 'CaCO3', 'Ca+2', 'CaOH+', 'CaHCO3+', 'Solid']
-        self.inj_stream_components = np.array([mole_fraction_water, 0, 0, mole_fraction_co2, 0, 0, 0, 0, 0, 0, 0])
+        self.inj_stream_components = np.array([self.obl_min, 0, 0, 1. - self.obl_min, 0, 0, 0, 0, 0, 0, 0])
         self.inj_stream = convert_composition(self.inj_stream_components, self.E)
         self.inj_stream = correct_composition(self.inj_stream, self.min_z)
 
@@ -273,7 +273,7 @@ class Model(DartsModel):
 
     def set_boundary_conditions(self):
         # New boundary condition by adding wells:
-        self.reservoir.wells[0].control = self.physics.new_bhp_prod(100)
+        self.reservoir.wells[0].control = self.physics.new_bhp_prod(self.pressure_init)
 
         # for i, w in enumerate(self.reservoir.wells):
         #     if i == 0:
@@ -359,7 +359,7 @@ class ModelProperties(PropertyContainer):
             # self.phreeqc.phreeqc.OutputFileOn = True
             # self.phreeqc.phreeqc.SelectedOutputFileOn = True
 
-            self.phreeqc_template = """
+            self.single_phase_phreeqc_template = """
             USER_PUNCH
             -headings    H(mol)      O(mol)      C(mol)      Ca(mol)      Vol_aq   SI            SR            ACT("H+") ACT("CO2") ACT("H2O")
             10 PUNCH    TOTMOLE("H") TOTMOLE("O") TOTMOLE("C") TOTMOLE("Ca") SOLN_VOL SI("Calcite") SR("Calcite") ACT("H+") ACT("CO2") ACT("H2O")
@@ -382,6 +382,42 @@ class ModelProperties(PropertyContainer):
             C         {carbon:.10f}
             Ca        {calcium:.10f}
             1
+            KNOBS
+            -convergence_tolerance  1e-10
+            END
+            """
+
+
+            self.phreeqc_template = """
+            USER_PUNCH
+            -headings    H(mol)      O(mol)      C(mol)      Ca(mol)      Vol_aq   SI            SR            ACT("H+") ACT("CO2") ACT("H2O") H2O(g) CO2(g)
+            10 PUNCH    TOTMOLE("H") TOTMOLE("O") TOTMOLE("C") TOTMOLE("Ca") SOLN_VOL SI("Calcite") SR("Calcite") ACT("H+") ACT("CO2") ACT("H2O") GAS("H2O(g)") GAS("CO2(g)")
+
+            SELECTED_OUTPUT
+            -selected_out    true
+            -user_punch      true
+            -reset           false
+            -high_precision  true
+            -gases           CO2(g) H2O(g)
+
+            SOLUTION 1
+            temp      {temperature:.2f}
+            pressure  {pressure:.4f}
+            pH        7 charge
+            -water    {water_mass:.10f} # kg
+            
+            GAS_PHASE
+            -temp      {temperature:.2f}
+            -fixed_pressure
+            -pressure  {pressure:.4f} 
+            
+            REACTION 1
+            H         {hydrogen:.10f}
+            O         {oxygen:.10f}
+            C         {carbon:.10f}
+            Ca        {calcium:.10f}
+            1       
+            
             KNOBS
             -convergence_tolerance  1e-10
             END
@@ -473,8 +509,8 @@ class ModelProperties(PropertyContainer):
 
             # Check if solvent (water) is enough
             ion_strength = np.sum(fluid_moles) / (water_mass + 1.e-8)
-            if ion_strength > 7:
-                print(f'ion_strength = {ion_strength}')
+            # if ion_strength > 25:
+            #     print(f'ion_strength = {ion_strength}')
             # assert ion_strength < 7, "Not enough water to form a realistic brine"
 
             # Generate and execute PHREEQC input
