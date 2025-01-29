@@ -91,7 +91,7 @@ class Model(DartsModel):
         self.nc = len(self.elements)
         self.n_points = self.nc * [5001]
         self.axes_min = [99] + [self.obl_min, self.obl_min, self.obl_min, self.obl_min]
-        self.axes_max = [103] + [0.8, 0.8, 0.8, 0.9]
+        self.axes_max = [103] + 4 * [1 - self.obl_min] # [0.8, 0.8, 0.8, 0.9]
 
         # Rate annihilation matrix
         self.E = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],

@@ -103,7 +103,7 @@ def plot_profiles(m, plot_kinetics=False):
     ax1.legend(loc='upper right', prop={'size': ls}, framealpha=0.9)
 
     fig.tight_layout()
-    fig.savefig(f'1d_dissolution_time_{t}.png', dpi=300)
+    fig.savefig(f'1d_dissolution_time_{round(m.physics.engine.t, 4)}.png', dpi=300)
     # plt.show()
     plt.close(fig)
 
