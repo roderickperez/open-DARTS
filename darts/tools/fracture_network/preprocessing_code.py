@@ -228,6 +228,8 @@ def frac_preprocessing(frac_data_raw, char_len, output_dir='', filename_base='ou
                     input_data=input_data, wells=wells)
     print('DONE creating geo-file for cleaned network (input for gmsh)\n')
 
+    shell_flag = os.name == 'nt'
+
     if mesh_clean:
         print('START meshing cleaned network')
         print(
@@ -237,10 +239,10 @@ def frac_preprocessing(frac_data_raw, char_len, output_dir='', filename_base='ou
         if redirect_log:
             filename_log = os.path.join(output_dir, filename_base + '_clean.log')
             with open(filename_log, "w") as file:
-                r = subprocess.run(cmd.split(), text=True, shell=True, stderr=subprocess.STDOUT, stdout=file)
+                r = subprocess.run(cmd.split(), text=True, shell=shell_flag, stderr=subprocess.STDOUT, stdout=file)
             print('Gmsh output is written to the file ' + filename_log)
         else:
-            r = subprocess.run(cmd.split(), text=True, shell=True, capture_output=True)
+            r = subprocess.run(cmd.split(), text=True, shell=shell_flag, capture_output=True)
         assert r.returncode == 0, 'ERROR meshing cleaned network. Check gmsh in the PATH'
         print('DONE meshing cleaned network.\n')
         
@@ -275,10 +277,10 @@ def frac_preprocessing(frac_data_raw, char_len, output_dir='', filename_base='ou
         if redirect_log:
             filename_log = os.path.join(output_dir, filename_base + '_raw.log')
             with open(filename_log, "w") as file:
-                r = subprocess.run(cmd.split(), text=True, shell=True, stderr=subprocess.STDOUT, stdout=file)
+                r = subprocess.run(cmd.split(), text=True, shell=shell_flag, stderr=subprocess.STDOUT, stdout=file)
             print('Gmsh output is written to the file ' + filename_log)
         else:
-            r = subprocess.run(cmd.split(), text=True, shell=True, capture_output=True)
+            r = subprocess.run(cmd.split(), text=True, shell=shell_flag, capture_output=True)
         assert r.returncode == 0, 'ERROR meshing raw network. Check gmsh in the PATH'
         print('DONE meshing raw network.\n')
     print('Preprocessing succesfully finished')
