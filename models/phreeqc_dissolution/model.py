@@ -390,8 +390,8 @@ class ModelProperties(PropertyContainer):
 
             self.phreeqc_template = """
             USER_PUNCH
-            -headings    H(mol)      O(mol)      C(mol)      Ca(mol)      Vol_aq   SI            SR            ACT("H+") ACT("CO2") ACT("H2O") H2O(g) CO2(g)
-            10 PUNCH    TOTMOLE("H") TOTMOLE("O") TOTMOLE("C") TOTMOLE("Ca") SOLN_VOL SI("Calcite") SR("Calcite") ACT("H+") ACT("CO2") ACT("H2O") GAS("H2O(g)") GAS("CO2(g)")
+            -headings    H(mol)      O(mol)      C(mol)      Ca(mol)      Vol_aq   SI            SR            ACT("H+") ACT("CO2") ACT("H2O")
+            10 PUNCH    TOTMOLE("H") TOTMOLE("O") TOTMOLE("C") TOTMOLE("Ca") SOLN_VOL SI("Calcite") SR("Calcite") ACT("H+") ACT("CO2") ACT("H2O")
 
             SELECTED_OUTPUT
             -selected_out    true
@@ -407,9 +407,11 @@ class ModelProperties(PropertyContainer):
             -water    {water_mass:.10f} # kg
             
             GAS_PHASE
-            -temp      {temperature:.2f}
+            -temp     {temperature:.2f}
             -fixed_pressure
-            -pressure  {pressure:.4f} 
+            -pressure {pressure:.4f} 
+            CO2(g)    {pressure:.4f}
+            H2O(g)    {pressure:.4f}
             
             REACTION 1
             H         {hydrogen:.10f}
