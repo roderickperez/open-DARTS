@@ -33,7 +33,7 @@ def frac_preprocessing(frac_data_raw, char_len, output_dir='', filename_base='ou
                        tolerance_intersect=1e-10, calc_intersections_before=False, calc_intersections_after=True, num_partition_x=1,
                        num_partition_y=1, partition_fractures_in_segms=True, matrix_perm=1, correct_aperture=False,
                        small_angle_iter=0, char_len_mult=1, char_len_boundary=None, main_algo_iters=2,
-                       wells=None, char_len_well=None, input_data=None, redirect_log=False):
+                       wells=None, char_len_well=None, input_data=None, redirect_log=True):
     """
     Main fracture preprocessing code, most arguments are optional, but can be tweaked. Please see:
     doi.org/10.1002/essoar.10507519.1 for more explanation on the theory behind the code and some results.
