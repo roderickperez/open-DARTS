@@ -44,14 +44,14 @@ class MyOwnDataStruct:
 
 # Actual Model class creation here!
 class Model(CICDModel):
-    def __init__(self, domain, nx):
+    def __init__(self, domain: str = '1D', nx: int = 200, poro_filename: str = None):
         # Call base class constructor
         super().__init__()
 
         # Measure time spend on reading/initialization
         self.timer.node["initialization"].start()
 
-        self.set_reservoir(domain=domain, nx=nx)
+        self.set_reservoir(domain=domain, nx=nx, poro_filename=poro_filename)
         self.set_physics()
 
         # Some newton parameters for non-linear solution:
@@ -74,7 +74,10 @@ class Model(CICDModel):
         self.temperature = 323.15           # K
         self.pressure_init = 100            # bar
 
-        self.inj_rate = self.volume * 24     # output: m3/day
+        if self.domain == '1D':
+            self.inj_rate = self.volume * 24     # output: m3/day
+        else:
+            self.inj_rate = 10 * self.volume * 24 / self.inj_cells.size     # output: m3/day
 
         self.min_z = 1e-11
         self.obl_min = self.min_z / 10
@@ -144,7 +147,7 @@ class Model(CICDModel):
         self.prop_values_np = np.asarray(self.prop_values)
         self.prop_dvalues = value_vector([0.] * 2 * nb * (n_vars + 1))
 
-    def set_reservoir(self, domain, nx):
+    def set_reservoir(self, domain, nx, poro_filename):
         self.domain = domain
 
         if self.domain == '1D':
@@ -173,7 +176,11 @@ class Model(CICDModel):
             perm = 1.25e4 * self.poro ** self.params.trans_mult_exp
 
             # porosity
-            poro = 0.28 + np.random.uniform(-0.1, 0.1, np.prod(self.domain_cells))
+            if poro_filename == None:
+                poro = 0.3 + np.random.uniform(-0.1, 0.1, np.prod(self.domain_cells))
+            else:
+                poro = 0.3 + 0.05 * np.loadtxt(poro_filename).flatten()
+                assert np.prod(self.domain_cells) == poro.size
             poro[poro < 1.e-4] = 1.e-4
             poro[poro > 1 - 1.e-4] = 1 - 1.e-4
             self.solid_sat = 1 - poro
@@ -435,6 +442,9 @@ class ModelProperties(PropertyContainer):
         def interpret_results(self, database):
             results_array = np.array(database.get_selected_output_array()[2])
 
+            co2_gas_mole = results_array[3]
+            h2o_gas_mole = results_array[4]
+
             # interpret aqueous phase
             hydrogen_mole_aq = results_array[5]
             oxygen_mole_aq = results_array[6]
@@ -491,10 +501,6 @@ class ModelProperties(PropertyContainer):
 
             # check for negative composition occurrence
             fluid_composition = self.get_fluid_composition(state)
-            if (fluid_composition < 0).any():
-                self.counter += 1
-                fluid_composition = np.copy(fluid_composition)
-                fluid_composition = self.comp_out_of_bounds(fluid_composition)
 
             # calculate amount of moles of each component in 1000 moles of mixture
             fluid_moles = self.total_moles * fluid_composition

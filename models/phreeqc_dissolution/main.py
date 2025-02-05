@@ -14,39 +14,44 @@ plt.rc('xtick',labelsize=16)
 plt.rc('ytick',labelsize=16)
 plt.rc('legend',fontsize=16)
 
-def run(domain, max_ts, nx=100, output=False):
-    redirect_darts_output('log.txt')
+def run(domain: str, max_ts: float, nx: int = 100, poro_filename: str = None, output: bool = False):
+    # Make a folder
+    output_folder = 'output_' + domain + '_' + str(nx)
+    if not os.path.exists(output_folder): os.makedirs(output_folder)
+
+    # Redirect output to log file
+    redirect_darts_output(os.path.join(output_folder, 'log.txt'))
 
     # Create model
-    m = Model(domain=domain, nx=nx)
+    m = Model(domain=domain, nx=nx, poro_filename=poro_filename)
     m.sol_filename = 'nx' + str(nx) + '.h5'
 
-    # Initialize simulations
-    m.init()
+    # Initialize model
+    m.init(output_folder=output_folder)
 
     # Initialization check
     op_vals = np.asarray(m.physics.engine.op_vals_arr).reshape(m.reservoir.mesh.n_blocks, m.physics.n_ops)
     poro = op_vals[:m.reservoir.mesh.n_res_blocks, m.physics.reservoir_operators[0].PORO_OP]
     volume = np.array(m.reservoir.mesh.volume, copy=False)
     total_pv = np.sum(volume[:m.reservoir.n] * poro) * 1e6
-    print('Total pore volume:', total_pv, 'cm3')
-    print('Injection rate:', m.inj_rate / total_pv * 1e+6, 'PV/day')
+    print(f'Total pore volume: {total_pv} cm3')
+    print(f'Injection rate: {m.inj_cells.size} cells * {m.inj_rate / total_pv * 1e+6} PV/day')
 
     m.params.max_ts = max_ts
 
     ith_step = 0
     if domain == '1D':
-        if output: plot_profiles(m)
+        if output: plot_profiles(m, output_folder)
         m.run(days=0.002, restart_dt=max_ts)
-        if output: plot_profiles(m)
+        if output: plot_profiles(m, output_folder)
         m.run(days=0.018, restart_dt=max_ts)
-        if output: plot_profiles(m)
+        if output: plot_profiles(m, output_folder)
         m.run(days=0.02, restart_dt=max_ts)
-        if output: plot_profiles(m)
+        if output: plot_profiles(m, output_folder)
         m.params.max_ts *= 20
         m.params.first_ts = m.params.max_ts
         m.run(days=0.96)
-        if output: plot_profiles(m)
+        if output: plot_profiles(m, output_folder)
         m.params.max_ts *= 5
         m.params.first_ts = m.params.max_ts
     else:
@@ -67,7 +72,7 @@ def run(domain, max_ts, nx=100, output=False):
             m.params.first_ts = m.params.max_ts
         if output:
             if domain == '1D':
-                plot_profiles(m)
+                plot_profiles(m, output_folder)
             else:
                 m.output_to_vtk(ith_step=ith_step)
                 ith_step += 1
@@ -78,7 +83,7 @@ def run(domain, max_ts, nx=100, output=False):
     m.print_timers()
     m.print_stat()
 
-def plot_profiles(m, plot_kinetics=False):
+def plot_profiles(m, output_folder, plot_kinetics=False):
     n_cells = m.reservoir.n
     n_vars = m.physics.nc
     Xm = np.asarray(m.physics.engine.X[:n_cells * n_vars]).reshape(n_cells, n_vars)
@@ -181,7 +186,7 @@ def plot_profiles(m, plot_kinetics=False):
         ax[1].set_ylabel('Saturation Ratio (SR)', fontsize=16)
         ax[2].set_ylabel('H+ ion activity', fontsize=16)
         fig.tight_layout()
-        fig.savefig(f'1d_kin_rate_{t}.png', dpi=300)
+        fig.savefig(os.path.join(output_folder, f'1d_kin_rate_{t}.png'), dpi=300)
         plt.close(fig)
 
 def write_2d_output_for_paper(paths):
@@ -276,9 +281,10 @@ def plot_max_cfl(paths, labels, nx, linestyle, colors):
 
 if __name__ == '__main__':
     # 1D
-    # run(domain='1D', nx=200, max_ts=1.e-3)  # 4.e-5)
+    run(domain='1D', nx=200, max_ts=1.e-3)  # 4.e-5)
     # run(domain='1D', nx=500, max_ts=5.e-4)
 
     # 2D
-    run(domain='2D', nx=10, max_ts=2.e-3, output=True)
+    # run(domain='2D', nx=10, max_ts=2.e-3)
+    # run(domain='2D', nx=100, max_ts=5.e-4, poro_filename='spherical_100_8.txt')
 
