@@ -72,7 +72,7 @@ class Model(DartsModel):
     def set_physics(self):
         # some properties
         self.temperature = 323.15           # K
-        self.pressure_init = 95            # bar
+        self.pressure_init = 100            # bar
 
         self.inj_rate = self.volume * 24     # output: m3/day
 
@@ -126,12 +126,12 @@ class Model(DartsModel):
         self.physics.add_property_region(property_container, 0)
 
         # Compute injection stream
-        mole_water, mole_co2 = calculate_injection_stream(1.0, 1000.0, self.temperature, self.pressure_init) # input - m3 of water, co2
+        mole_water, mole_co2 = calculate_injection_stream(1.1, 0.1, self.temperature, self.pressure_init) # input - m3 of water, co2
         mole_fraction_water, mole_fraction_co2 = get_mole_fractions(mole_water, mole_co2)
 
         # Define injection stream composition,
         # ['H2O', 'H+', 'OH-', 'CO2', 'HCO3-', 'CO3-2', 'CaCO3', 'Ca+2', 'CaOH+', 'CaHCO3+', 'Solid']
-        self.inj_stream_components = np.array([self.obl_min, 0, 0, 1. - self.obl_min, 0, 0, 0, 0, 0, 0, 0])
+        self.inj_stream_components = np.array([mole_fraction_water, 0, 0, mole_fraction_co2, 0, 0, 0, 0, 0, 0, 0])
         self.inj_stream = convert_composition(self.inj_stream_components, self.E)
         self.inj_stream = correct_composition(self.inj_stream, self.min_z)
 
@@ -359,7 +359,7 @@ class ModelProperties(PropertyContainer):
             # self.phreeqc.phreeqc.OutputFileOn = True
             # self.phreeqc.phreeqc.SelectedOutputFileOn = True
 
-            self.single_phase_phreeqc_template = """
+            self.phreeqc_template = """
             USER_PUNCH
             -headings    H(mol)      O(mol)      C(mol)      Ca(mol)      Vol_aq   SI            SR            ACT("H+") ACT("CO2") ACT("H2O")
             10 PUNCH    TOTMOLE("H") TOTMOLE("O") TOTMOLE("C") TOTMOLE("Ca") SOLN_VOL SI("Calcite") SR("Calcite") ACT("H+") ACT("CO2") ACT("H2O")
@@ -387,8 +387,7 @@ class ModelProperties(PropertyContainer):
             END
             """
 
-
-            self.phreeqc_template = """
+            self.phreeqc_gas_template = """
             USER_PUNCH
             -headings    H(mol)      O(mol)      C(mol)      Ca(mol)      Vol_aq   SI            SR            ACT("H+") ACT("CO2") ACT("H2O")
             10 PUNCH    TOTMOLE("H") TOTMOLE("O") TOTMOLE("C") TOTMOLE("Ca") SOLN_VOL SI("Calcite") SR("Calcite") ACT("H+") ACT("CO2") ACT("H2O")
@@ -410,8 +409,8 @@ class ModelProperties(PropertyContainer):
             -temp     {temperature:.2f}
             -fixed_pressure
             -pressure {pressure:.4f} 
-            CO2(g)    {pressure:.4f}
-            H2O(g)    {pressure:.4f}
+            CO2(g)    0
+            H2O(g)    0
             
             REACTION 1
             H         {hydrogen:.10f}
@@ -511,8 +510,8 @@ class ModelProperties(PropertyContainer):
 
             # Check if solvent (water) is enough
             ion_strength = np.sum(fluid_moles) / (water_mass + 1.e-8)
-            # if ion_strength > 25:
-            #     print(f'ion_strength = {ion_strength}')
+            if ion_strength > 8:
+                print(f'ion_strength = {ion_strength}')
             # assert ion_strength < 7, "Not enough water to form a realistic brine"
 
             # Generate and execute PHREEQC input
