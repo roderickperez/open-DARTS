@@ -36,18 +36,27 @@ def run(domain, max_ts, nx=100):
 
     if domain == '1D':
         plot_profiles(m)
-        m.run(days=0.001, restart_dt=max_ts)
+        m.run(days=0.002, restart_dt=max_ts)
         plot_profiles(m)
-        m.run(days=0.004, restart_dt=max_ts)
+        m.run(days=0.018, restart_dt=max_ts)
         plot_profiles(m)
-        m.run(days=0.005, restart_dt=max_ts)
+        m.run(days=0.02, restart_dt=max_ts)
         plot_profiles(m)
+        m.params.max_ts *= 20
+        m.params.first_ts = m.params.max_ts
+        m.run(days=0.96)
+        plot_profiles(m)
+        m.params.max_ts *= 5
+        m.params.first_ts = m.params.max_ts
     else:
         m.output_to_vtk(ith_step=0)
 
-    for i in range(6):
-        m.run(days=4. / 24, restart_dt=max_ts)
-        if i > 0: m.params.first_ts = max_ts
+    for i in range(2):
+        dt = 7.0
+        m.run(days=dt)
+        if i < 1:
+            m.params.max_ts *= 1.5
+            m.params.first_ts = m.params.max_ts
         if domain == '1D':
             plot_profiles(m)
         else:
