@@ -14,7 +14,7 @@ plt.rc('xtick',labelsize=16)
 plt.rc('ytick',labelsize=16)
 plt.rc('legend',fontsize=16)
 
-def run(domain, max_ts, nx=100):
+def run(domain, max_ts, nx=100, output=False):
     redirect_darts_output('log.txt')
 
     # Create model
@@ -35,21 +35,21 @@ def run(domain, max_ts, nx=100):
     m.params.max_ts = max_ts
 
     if domain == '1D':
-        plot_profiles(m)
+        if output: plot_profiles(m)
         m.run(days=0.002, restart_dt=max_ts)
-        plot_profiles(m)
+        if output: plot_profiles(m)
         m.run(days=0.018, restart_dt=max_ts)
-        plot_profiles(m)
+        if output: plot_profiles(m)
         m.run(days=0.02, restart_dt=max_ts)
-        plot_profiles(m)
+        if output: plot_profiles(m)
         m.params.max_ts *= 20
         m.params.first_ts = m.params.max_ts
         m.run(days=0.96)
-        plot_profiles(m)
+        if output: plot_profiles(m)
         m.params.max_ts *= 5
         m.params.first_ts = m.params.max_ts
     else:
-        m.output_to_vtk(ith_step=0)
+        if output: m.output_to_vtk(ith_step=0)
 
     for i in range(2):
         dt = 7.0
@@ -57,10 +57,11 @@ def run(domain, max_ts, nx=100):
         if i < 1:
             m.params.max_ts *= 1.5
             m.params.first_ts = m.params.max_ts
-        if domain == '1D':
-            plot_profiles(m)
-        else:
-            m.output_to_vtk(ith_step=i + 1)
+        if output:
+            if domain == '1D':
+                plot_profiles(m)
+            else:
+                m.output_to_vtk(ith_step=i + 1)
 
     # Print some statistics
     print('\nNegative composition occurrence:', m.physics.reservoir_operators[0].counter, '\n')
@@ -251,12 +252,6 @@ def plot_max_cfl(paths, labels, nx, linestyle, colors):
 # paths = ['./100x100/data_ts3.vts',
 #          './100x100/data_ts14.vts']
 # write_2d_output_for_paper(paths=paths)
-
-# 1D
-# run(domain='1D', nx=100, max_ts=1.e-2)
-run(domain='1D', nx=200, max_ts=1.e-3) # 4.e-5)
-# run(domain='1D', nx=500, max_ts=5.e-4)
-
 # paths = ['output_200/log.txt', 'output_2000_50000/log.txt',
 #          'output_200_1000_5/log.txt', 'output_500/log.txt',
 #          'output_200_1000_no_reaction/log.txt']
@@ -270,5 +265,11 @@ run(domain='1D', nx=200, max_ts=1.e-3) # 4.e-5)
 # nx = [200, 200, 200, 500, 200]
 # plot_max_cfl(paths=paths, labels=labels, nx=nx, linestyle=linestyle, colors=colors)
 
-# 2D
-# run(domain='2D', nx=10, max_ts=1.e-2)
+if __name__ == '__main__':
+    # 1D
+    run(domain='1D', nx=200, max_ts=1.e-3)  # 4.e-5)
+    # run(domain='1D', nx=500, max_ts=5.e-4)
+
+    # 2D
+    # run(domain='2D', nx=10, max_ts=1.e-2)
+
