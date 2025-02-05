@@ -34,6 +34,7 @@ def run(domain, max_ts, nx=100, output=False):
 
     m.params.max_ts = max_ts
 
+    ith_step = 0
     if domain == '1D':
         if output: plot_profiles(m)
         m.run(days=0.002, restart_dt=max_ts)
@@ -49,10 +50,17 @@ def run(domain, max_ts, nx=100, output=False):
         m.params.max_ts *= 5
         m.params.first_ts = m.params.max_ts
     else:
-        if output: m.output_to_vtk(ith_step=0)
+        if output: m.output_to_vtk(ith_step=ith_step)
+        ith_step += 1
+        m.run(days=0.04, restart_dt=max_ts)
+        if output: m.output_to_vtk(ith_step=ith_step)
+        ith_step += 1
+        m.params.max_ts *= 40
+        m.params.first_ts = m.params.max_ts
 
     for i in range(2):
-        dt = 7.0
+        if domain == '1D': dt = 7.0
+        else: dt = 2.0
         m.run(days=dt)
         if i < 1:
             m.params.max_ts *= 1.5
@@ -61,7 +69,8 @@ def run(domain, max_ts, nx=100, output=False):
             if domain == '1D':
                 plot_profiles(m)
             else:
-                m.output_to_vtk(ith_step=i + 1)
+                m.output_to_vtk(ith_step=ith_step)
+                ith_step += 1
 
     # Print some statistics
     print('\nNegative composition occurrence:', m.physics.reservoir_operators[0].counter, '\n')
@@ -267,9 +276,9 @@ def plot_max_cfl(paths, labels, nx, linestyle, colors):
 
 if __name__ == '__main__':
     # 1D
-    run(domain='1D', nx=200, max_ts=1.e-3)  # 4.e-5)
+    # run(domain='1D', nx=200, max_ts=1.e-3)  # 4.e-5)
     # run(domain='1D', nx=500, max_ts=5.e-4)
 
     # 2D
-    # run(domain='2D', nx=10, max_ts=1.e-2)
+    run(domain='2D', nx=10, max_ts=2.e-3, output=True)
 

@@ -159,7 +159,7 @@ class Model(DartsModel):
             self.params.trans_mult_exp = 4
             perm = 1.25e4 * self.poro ** self.params.trans_mult_exp
             self.solid_sat = np.ones(self.domain_cells[0]) * 0.7
-
+            self.inj_cells = np.array([0])
         elif self.domain == '2D':
             # grid
             self.domain_sizes = np.array([0.09, 0.09, 0.006])
@@ -177,6 +177,7 @@ class Model(DartsModel):
             poro[poro < 1.e-4] = 1.e-4
             poro[poro > 1 - 1.e-4] = 1 - 1.e-4
             self.solid_sat = 1 - poro
+            self.inj_cells = self.domain_cells[0] * np.arange(self.domain_cells[1])
         else:
             print(f'domain={self.domain} is not supported')
             exit(-1)
@@ -265,9 +266,10 @@ class Model(DartsModel):
         rhs_flux = np.zeros(nb * nv)
 
         rho_m_h20 = 1000 / 18.015 # kmol/m3
-        for i in range(nv - 1):
-            rhs_flux[i] = -self.inj_rate * rho_m_h20 * self.inj_stream[i]
-        rhs_flux[nv - 1] = -self.inj_rate * rho_m_h20 * (1 - np.sum(self.inj_stream))
+        for cell_id in self.inj_cells:
+            for i in range(nv - 1):
+                rhs_flux[cell_id * nv + i] = -self.inj_rate * rho_m_h20 * self.inj_stream[i]
+            rhs_flux[cell_id * nv + nv - 1] = -self.inj_rate * rho_m_h20 * (1 - np.sum(self.inj_stream))
 
         return rhs_flux
 
