@@ -3,7 +3,7 @@ from phreeqc_dissolution.conversions import convert_composition, correct_composi
     get_mole_fractions, convert_rate, bar2atm
 from phreeqc_dissolution.physics import PhreeqcDissolution
 
-from darts.models.darts_model import DartsModel
+from darts.models.cicd_model import CICDModel
 from darts.reservoirs.struct_reservoir import StructReservoir
 
 from darts.physics.super.property_container import PropertyContainer
@@ -43,7 +43,7 @@ class MyOwnDataStruct:
         self.kin_fact = kin_fact
 
 # Actual Model class creation here!
-class Model(DartsModel):
+class Model(CICDModel):
     def __init__(self, domain, nx):
         # Call base class constructor
         super().__init__()
