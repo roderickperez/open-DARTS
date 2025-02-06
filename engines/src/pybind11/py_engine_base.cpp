@@ -22,6 +22,7 @@ void pybind_engine_base (py::module &m)
 		.def("post_newtonloop", &engine_base::post_newtonloop, py::call_guard<py::gil_scoped_release>())  \
 		.def("solve_linear_equation", &engine_base::solve_linear_equation, py::call_guard<py::gil_scoped_release>())  \
 		.def_readwrite("X", &engine_base::X) \
+		.def_readwrite("dX", &engine_base::dX) \
 		.def_readwrite("Xn", &engine_base::Xn) \
 		.def_readwrite("RHS", &engine_base::RHS) \
 		.def_readwrite("t", &engine_base::t) \

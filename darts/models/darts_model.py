@@ -547,7 +547,7 @@ class DartsModel:
         :type verbose: bool
         """
         max_newt = self.params.max_i_newton
-        max_residual = np.zeros(max_newt + 1)
+        self.max_residual = np.zeros(max_newt + 1)
         self.physics.engine.n_linear_last_dt = 0
         self.timer.node['simulation'].start()
         for i in range(max_newt+1):
@@ -556,10 +556,10 @@ class DartsModel:
             self.apply_rhs_flux(dt, t)  # apply RHS flux
             self.physics.engine.newton_residual_last_dt = self.physics.engine.calc_newton_residual()  # calc norm of residual
 
-            max_residual[i] = self.physics.engine.newton_residual_last_dt
+            self.max_residual[i] = self.physics.engine.newton_residual_last_dt
             counter = 0
             for j in range(i):
-                if abs(max_residual[i] - max_residual[j])/max_residual[i] < self.params.stationary_point_tolerance:
+                if abs(self.max_residual[i] - self.max_residual[j])/self.max_residual[i] < self.params.stationary_point_tolerance:
                     counter += 1
             if counter > 2:
                 if verbose:
