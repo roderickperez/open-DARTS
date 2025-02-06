@@ -159,6 +159,7 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, poro_filename: str
 
     # Initialize model
     m.init(output_folder=output_folder)
+    m.physics.engine.n_solid = 1
 
     # Timestepping agent
     state_size = 6  # e.g., 6 features
@@ -186,9 +187,11 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, poro_filename: str
         if output: plot_profiles(m, output_folder)
         run(self=m, days=0.02, restart_dt=max_ts)
         if output: plot_profiles(m, output_folder)
-        m.params.max_ts *= 20
+        m.params.max_ts *= 3
         m.params.first_ts = m.params.max_ts
-        run(self=m, days=0.96)
+        run(self=m, days=0.1, restart_dt=max_ts)
+        m.params.max_ts *= 4
+        run(self=m, days=0.86)
         if output: plot_profiles(m, output_folder)
         m.params.max_ts *= 5
         m.params.first_ts = m.params.max_ts
@@ -242,7 +245,7 @@ def plot_profiles(m, output_folder, plot_kinetics=False):
         ax[1].plot(x, Xm[:, i], color=colors[i-1], label=label)
     for i in [2,3]: # Ca / C
         ax1.plot(x, Xm[:, i], color=colors[i-1], label=m.physics.vars[i])
-    ax[1].plot(x, 1.0 - np.sum(Xm[:, 1:], axis=1), color=colors[n_vars - 1], label=m.physics.property_containers[0].components_name[-1])
+    ax[1].plot(x, 1.0 - np.sum(Xm[:, 2:], axis=1), color=colors[n_vars - 1], label=m.physics.property_containers[0].components_name[-1])
     ax[2].plot(x, poro, color=colors[0], label='porosity')
 
     t = round(m.physics.engine.t * 24, 4)
@@ -265,7 +268,8 @@ def plot_profiles(m, output_folder, plot_kinetics=False):
     ax1.legend(loc='upper right', prop={'size': ls}, framealpha=0.9)
 
     fig.tight_layout()
-    fig.savefig(f'1d_dissolution_time_{round(m.physics.engine.t, 4)}.png', dpi=300)
+    fig_name = os.path.join(output_folder, f'1d_dissolution_time_{round(m.physics.engine.t, 4)}.png')
+    fig.savefig(fig_name, dpi=300)
     # plt.show()
     plt.close(fig)
 

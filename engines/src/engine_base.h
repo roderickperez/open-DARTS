@@ -81,6 +81,8 @@ public:
 
 		print_linear_system = false;
 		output_counter = 0;
+
+		n_solid = 0;
 	};
 
 	~engine_base()
@@ -113,6 +115,9 @@ public:
 	// get the index of Z variable
 	virtual uint8_t get_z_var() const = 0;
 
+	// get the number of solid/mineral species
+	virtual uint8_t get_n_solid() const { return n_solid; };
+
 	// initialization
 	virtual int init(conn_mesh *mesh_, std::vector<ms_well *> &well_list_, std::vector<operator_set_gradient_evaluator_iface *> &acc_flux_op_set_list_, sim_params *params, timer_node *timer_) = 0;
 
@@ -141,7 +146,6 @@ public:
 	virtual void apply_global_chop_correction(std::vector<value_t> &X, std::vector<value_t> &dX);
 	virtual void apply_local_chop_correction(std::vector<value_t> &X, std::vector<value_t> &dX);
 
-	void apply_composition_correction_with_solid(std::vector<value_t> &X, std::vector<value_t> &dX);
 	void apply_local_chop_correction_with_solid(std::vector<value_t> &X, std::vector<value_t> &dX);
 
 	void apply_composition_correction_new(std::vector<value_t> &X, std::vector<value_t> &dX);
@@ -222,11 +226,11 @@ public:
 	uint8_t n_ops;
 	uint8_t nc;
 	uint8_t z_var;
+	// number of mineral/solid species
+	uint8_t n_solid;
 	double min_zc;
 	double max_zc;
 	std::vector<value_t> old_z, new_z; // [NC] array for local chop
-
-	uint8_t nc_fl;
 	std::vector<value_t> old_z_fl, new_z_fl; // [NC_FLUID] array for local chop
 
 	std::vector<value_t> X_init;				   // [N_VARS * n_blocks] array of initial solution
@@ -709,7 +713,6 @@ int engine_base::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_list_,
 	n_ops = get_n_ops();
 	nc = get_n_comps();
 	z_var = get_z_var();
-	nc_fl = get_n_comps();
 
 	X_init.resize(n_vars * mesh->n_blocks);
 	PV.resize(mesh->n_blocks);
@@ -717,8 +720,8 @@ int engine_base::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_list_,
 	old_z.resize(nc);
 	new_z.resize(nc);
 	FIPS.resize(nc);
-	old_z_fl.resize(nc_fl);
-	new_z_fl.resize(nc_fl);
+	old_z_fl.resize(nc - n_solid);
+	new_z_fl.resize(nc - n_solid);
 
 	for (index_t i = 0; i < mesh->n_blocks; i++)
 	{

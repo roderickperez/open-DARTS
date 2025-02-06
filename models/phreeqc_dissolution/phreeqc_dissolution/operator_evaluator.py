@@ -60,6 +60,14 @@ class my_own_acc_flux_etor(OperatorsBase):
                 vec_composition[ith_comp] = vec_composition[ith_comp] / temp_sum * (1 - count_corr * self.min_z)
         return vec_composition
 
+    def get_overall_composition(self, state):
+        if self.thermal:
+            z = state[1:-1]
+        else:
+            z = state[1:]
+        z = np.append(z, 1 - np.sum(z[self.property.flash_ev.fc_mask[:-1]]))
+        return z
+
     def evaluate(self, state, values):
         """
         Class methods which evaluates the state operators for the element based physics
@@ -73,14 +81,13 @@ class my_own_acc_flux_etor(OperatorsBase):
 
         # pore pressure
         pressure = state_np[0]
-        # molar fractions
-        z = state_np[1: -1 if self.thermal else None]
-        z = np.append(z, 1 - np.sum(z))
+        # get overall molar composition
+        z = self.get_overall_composition(state_np)
 
         # call flash:
         nu_v, x, y, rho_phases, kin_state, _ = self.property.flash_ev.evaluate(state_np)
-        nu_v = nu_v * (1 - state_np[1]) # convert to overall molar fraction
         nu_s = state_np[1]
+        nu_v = nu_v * (1 - nu_s) # convert to overall molar fraction
         nu_a = 1 - nu_v - nu_s
 
         # molar densities in kmol/m3
@@ -119,8 +126,9 @@ class my_own_acc_flux_etor(OperatorsBase):
         self.compr = self.property.rock_compr_ev.evaluate(pressure)
         self.sat = np.array([sv_norm, sa_norm])
 
-        # Total density
+        # Densities
         rho_t = rho_a * sa + rho_s * ss + rho_v * sv
+        rho_f = rho_a * sa_norm + rho_v * sv_norm
 
         # Kinetic reaction rate
         kin_rate = self.property.kinetic_rate_ev.evaluate(kin_state, ss, rho_s, self.min_z, self.kin_fact)
@@ -133,7 +141,8 @@ class my_own_acc_flux_etor(OperatorsBase):
         values_np[:] = 0.
         
         """ Alpha operator represents accumulation term: """
-        values_np[self.ACC_OP:self.ACC_OP + nc] = z * rho_t
+        values_np[self.ACC_OP] = z[0] * rho_t
+        values_np[self.ACC_OP + 1:self.ACC_OP + nc] = z[1:] * rho_f
 
         """ Beta operator represents flux term: """
         for j in range(nph):
@@ -185,10 +194,10 @@ class my_own_comp_etor(my_own_acc_flux_etor):
         state_np = state.to_numpy()
         values_np = values.to_numpy()
         pressure = state_np[0]
-        ss = state_np[1]
+        ss = state_np[1] # volume fraction in initialization
 
         # initial flash
-        _, _, _, _, _, fluid_volume = self.property.initial_flash_ev.evaluate(state_np)
+        _, _, _, _, _, fluid_volume = self.property.flash_ev.evaluate(state_np)
 
         # evaluate molar fraction
         solid_volume = fluid_volume * ss / (1 - ss)         # m3

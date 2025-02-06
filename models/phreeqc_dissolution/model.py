@@ -221,9 +221,9 @@ class Model(CICDModel):
 
             # Assemble initial composition
             self.solid_frac[i] = values[0]
-            initial_comp_with_solid = np.multiply(composition_full, 1 - self.solid_frac[i])
+            initial_comp_with_solid = composition_full # np.multiply(composition_full, 1 - self.solid_frac[i])
             initial_comp_with_solid[0] = self.solid_frac[i]
-            self.initial_comp[i, :] = correct_composition(initial_comp_with_solid, self.min_z)
+            self.initial_comp[i, :] = initial_comp_with_solid[:-1] # correct_composition(initial_comp_with_solid, self.min_z)
 
         # Define initial composition for wells
         # for i in range(n_matrix, n_matrix + 2):
@@ -337,7 +337,6 @@ class ModelProperties(PropertyContainer):
 
         # Define custom evaluators
         self.flash_ev = self.Flash(min_z=self.min_z, fc_mask=self.fc_mask, fc_idx=self.fc_idx, temperature=self.temperature)
-        self.initial_flash_ev = self.InitialFlash(min_z=self.min_z, fc_mask=self.fc_mask, fc_idx=self.fc_idx, temperature=self.temperature)
         self.kinetic_rate_ev = self.CustomKineticRate(self.temperature, self.min_z)
         self.rel_perm_ev = {ph: self.CustomRelPerm(2) for ph in phases_name[:2]}  # Relative perm for first two phases
 
@@ -483,11 +482,9 @@ class ModelProperties(PropertyContainer):
         def get_fluid_composition(self, state):
             if self.thermal:
                 z = state[1:-1][self.fc_mask[:-1]]
-                z = np.append(z, 1 - np.sum(state[1:-1]))
             else:
                 z = state[1:][self.fc_mask[:-1]]
-                z = np.append(z, 1 - np.sum(state[1:]))
-            z = np.divide(z, np.sum(z))
+            z = np.append(z, 1 - np.sum(z))
             return z
 
         def evaluate(self, state):
@@ -543,20 +540,6 @@ class ModelProperties(PropertyContainer):
                 nu_v, x, y, rho_phases, kin_state, fluid_volume = self.interpret_results(self.pitzer)
 
             return nu_v, x, y, rho_phases, kin_state, fluid_volume
-
-    # initialization flash working with mineral volume fractions and fluid molar fractions
-    class InitialFlash(Flash):
-        def __init__(self, min_z, fc_mask, fc_idx, temperature=None):
-            super().__init__(min_z=min_z, fc_mask=fc_mask, fc_idx=fc_idx, temperature=temperature)
-
-        def get_fluid_composition(self, state):
-            if self.thermal:
-                z = state[1:-1][self.fc_mask[:-1]]
-                z = np.append(z, 1 - np.sum(z))
-            else:
-                z = state[1:][self.fc_mask[:-1]]
-                z = np.append(z, 1 - np.sum(z))
-            return z
 
     class CustomKineticRate:
         def __init__(self, temperature, min_z):
