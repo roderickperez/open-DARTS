@@ -41,6 +41,7 @@ class MyOwnDataStruct:
         self.exp_g = exp_g
         self.pressure_init = pressure_init
         self.kin_fact = kin_fact
+        self.n_prop_ops = 19
 
 # Actual Model class creation here!
 class Model(CICDModel):
@@ -140,12 +141,13 @@ class Model(CICDModel):
 
         # prepare arrays for evaluation of properties
         nb = np.prod(self.domain_cells)
+        n_prop_ops = self.physics.input_data_struct.n_prop_ops
         n_vars = self.physics.n_vars
         self.prop_states = value_vector([0.] * nb * (n_vars + 1))
         self.prop_states_np = np.asarray(self.prop_states)
-        self.prop_values = value_vector([0.] * 2 * nb)
+        self.prop_values = value_vector([0.] * n_prop_ops * nb)
         self.prop_values_np = np.asarray(self.prop_values)
-        self.prop_dvalues = value_vector([0.] * 2 * nb * (n_vars + 1))
+        self.prop_dvalues = value_vector([0.] * n_prop_ops * nb * n_vars)
 
     def set_reservoir(self, domain, nx, poro_filename):
         self.domain = domain
@@ -217,7 +219,7 @@ class Model(CICDModel):
             init_state = value_vector(np.hstack((self.physics.input_data_struct.pressure_init, self.solid_sat[i], composition[1:])))
 
             # Call interpolator
-            self.physics.comp_itor.evaluate(init_state, values)
+            self.physics.comp_itor[0].evaluate(init_state, values)
 
             # Assemble initial composition
             self.solid_frac[i] = values[0]
@@ -232,7 +234,7 @@ class Model(CICDModel):
         for i in range(n_matrix, n_matrix + 2):
             self.initial_comp[i, :] = np.array(self.initial_comp[0, :])
 
-        print('\tNegative composition occurrence while initializing:', self.physics.property_operators[0].counter, '\n')
+        # print('\tNegative composition occurrence while initializing:', self.physics.comp_itor[0].counter, '\n')
 
         initial_pressure = self.pressure_init
         initial_composition = self.initial_comp
@@ -291,16 +293,6 @@ class Model(CICDModel):
         #     else:
         #         w.control = self.physics.new_bhp_prod(100)
 
-    def set_op_list(self):
-        """
-        Function to define list of operator interpolators for accumulation-flux regions and wells.
-
-        Operator list is in order [acc_flux_itor[0], ..., acc_flux_itor[n-1], acc_flux_w_itor]
-        """
-        self.op_list = [self.physics.acc_flux_itor] + [self.physics.acc_flux_itor]
-        self.op_num = np.array(self.reservoir.mesh.op_num, copy=False)
-        self.op_num[self.reservoir.mesh.n_res_blocks:] = len(self.op_list) - 1
-
     def output_properties(self, output_properties: list = None, timestep: int = None) -> tuple:
         timesteps = [timestep] if timestep is not None else [0]
         if output_properties is None:
@@ -312,12 +304,16 @@ class Model(CICDModel):
         nb = np.prod(self.domain_cells)
         nv = self.physics.n_vars
         nops = len(prop_names)
+        n_interp_size = self.physics.input_data_struct.n_prop_ops
 
         # unknowns
         property_array = {var: np.array([X[i:nb * nv:nv]]) for i, var in enumerate(self.physics.vars)}
         # properties
+        self.physics.property_itor[0].evaluate_with_derivatives(self.physics.engine.X, self.physics.engine.region_cell_idx[0],
+                                                                self.prop_values, self.prop_dvalues)
+
         for i, prop in enumerate(prop_names):
-            property_array[prop] = np.array([self.prop_values_np[i::nops]])
+            property_array[prop] = np.array([self.prop_values_np[i::n_interp_size]])
 
         return timesteps, property_array
 

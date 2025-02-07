@@ -188,7 +188,7 @@ class my_own_comp_etor(my_own_acc_flux_etor):
         super().__init__(input_data, properties)  # Initialize base-class
         self.fluid_mole = 1
         self.counter = 0
-        self.props_name = ['z_solid', 's_solid']
+        self.props_name = ['z_solid']
 
     def evaluate(self, state, values):
         state_np = state.to_numpy()
@@ -264,3 +264,18 @@ class my_own_rate_evaluator(operator_set_evaluator_iface):
 
         return 0
 
+class my_own_property_evaluator(operator_set_evaluator_iface):
+    def __init__(self, input_data, properties):
+        # Initialize base-class
+        super().__init__()
+        self.input_data = input_data
+        self.property = properties
+        self.props_name = ['z_' + prop for prop in properties.flash_ev.phreeqc_species]
+
+    def evaluate(self, state, values):
+        state_np = state.to_numpy()
+        values_np = values.to_numpy()
+        _, _, _, _, _, _, molar_fractions = self.property.flash_ev.evaluate(state_np)
+        values_np[:molar_fractions.size] = molar_fractions
+
+        return 0
