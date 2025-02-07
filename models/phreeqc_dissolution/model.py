@@ -367,11 +367,16 @@ class ModelProperties(PropertyContainer):
             # self.phreeqc.phreeqc.OutputFileOn = True
             # self.phreeqc.phreeqc.SelectedOutputFileOn = True
 
-            self.phreeqc_template = """
-            USER_PUNCH
-            -headings    H(mol)      O(mol)      C(mol)      Ca(mol)      Vol_aq   SI            SR            ACT("H+") ACT("CO2") ACT("H2O")
-            10 PUNCH    TOTMOLE("H") TOTMOLE("O") TOTMOLE("C") TOTMOLE("Ca") SOLN_VOL SI("Calcite") SR("Calcite") ACT("H+") ACT("CO2") ACT("H2O")
+            self.phreeqc_species = ["OH-", "H+", "H2O", "C(-4)", "CH4", "C(4)", "HCO3-", "CO2", "CO3-2", "CaHCO3+", "CaCO3", "(CO2)2", "Ca+2", "CaOH+", "H(0)", "H2", "O(0)", "O2"]
+            self.species_2_element_moles = np.array([2, 1, 3, 1, 5, 1, 5, 3, 4, 6, 5, 6, 1, 3, 1, 2, 1, 2])
+            species_headings = " ".join([f'MOL("{sp}")' for sp in self.phreeqc_species])
+            species_punch = " ".join([f'MOL("{sp}")' for sp in self.phreeqc_species])
 
+            self.phreeqc_template = f"""
+            USER_PUNCH            
+            -headings    H(mol)      O(mol)      C(mol)      Ca(mol)      Vol_aq   SI            SR            ACT("H+") ACT("CO2") ACT("H2O") {species_headings}
+            10 PUNCH    TOTMOLE("H") TOTMOLE("O") TOTMOLE("C") TOTMOLE("Ca") SOLN_VOL SI("Calcite") SR("Calcite") ACT("H+") ACT("CO2") ACT("H2O") {species_punch}
+        
             SELECTED_OUTPUT
             -selected_out    true
             -user_punch      true
@@ -380,15 +385,15 @@ class ModelProperties(PropertyContainer):
             -gases           CO2(g) H2O(g)
 
             SOLUTION 1
-            temp      {temperature:.2f}
-            pressure  {pressure:.4f}
+            temp      {{temperature:.2f}}
+            pressure  {{pressure:.4f}}
             pH        7 charge
-            -water    {water_mass:.10f} # kg
+            -water    {{water_mass:.10f}} # kg
             REACTION 1
-            H         {hydrogen:.10f}
-            O         {oxygen:.10f}
-            C         {carbon:.10f}
-            Ca        {calcium:.10f}
+            H         {{hydrogen:.10f}}
+            O         {{oxygen:.10f}}
+            C         {{carbon:.10f}}
+            Ca        {{calcium:.10f}}
             1
             KNOBS
             -convergence_tolerance  1e-10
@@ -477,7 +482,9 @@ class ModelProperties(PropertyContainer):
                          'Act(H+)': results_array[12],
                          'Act(CO2)': results_array[13],
                          'Act(H2O)': results_array[14]}
-            return nu_v, x, y, rho_phases, kin_state, volume_aq
+            species_molalities = results_array[15:]
+
+            return nu_v, x, y, rho_phases, kin_state, volume_aq, species_molalities
 
         def get_fluid_composition(self, state):
             if self.thermal:
@@ -532,14 +539,15 @@ class ModelProperties(PropertyContainer):
 
             try:
                 self.phreeqc.run_string(input_string)
-                nu_v, x, y, rho_phases, kin_state, fluid_volume = self.interpret_results(self.phreeqc)
+                nu_v, x, y, rho_phases, kin_state, fluid_volume, species_molalities = self.interpret_results(self.phreeqc)
             except Exception as e:
                 warnings.warn(f"Failed to run PHREEQC: {e}", Warning)
                 print(f"h20_mass={water_mass}, p={state[0]}, Ca={fluid_moles[self.fc_idx['Ca']]}, C={fluid_moles[self.fc_idx['C']]}, O={fluid_moles[self.fc_idx['O']]}, H={fluid_moles[self.fc_idx['H']]}")
                 self.pitzer.run_string(input_string)
-                nu_v, x, y, rho_phases, kin_state, fluid_volume = self.interpret_results(self.pitzer)
+                nu_v, x, y, rho_phases, kin_state, fluid_volume, species_molalities = self.interpret_results(self.pitzer)
 
-            return nu_v, x, y, rho_phases, kin_state, fluid_volume
+            species_molar_fractions = species_molalities * water_mass * self.species_2_element_moles / self.total_moles
+            return nu_v, x, y, rho_phases, kin_state, fluid_volume, species_molar_fractions
 
     class CustomKineticRate:
         def __init__(self, temperature, min_z):

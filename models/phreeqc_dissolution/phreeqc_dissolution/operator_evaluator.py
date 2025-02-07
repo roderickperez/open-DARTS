@@ -85,7 +85,7 @@ class my_own_acc_flux_etor(OperatorsBase):
         z = self.get_overall_composition(state_np)
 
         # call flash:
-        nu_v, x, y, rho_phases, kin_state, _ = self.property.flash_ev.evaluate(state_np)
+        nu_v, x, y, rho_phases, kin_state, _, _ = self.property.flash_ev.evaluate(state_np)
         nu_s = state_np[1]
         nu_v = nu_v * (1 - nu_s) # convert to overall molar fraction
         nu_a = 1 - nu_v - nu_s
@@ -197,7 +197,7 @@ class my_own_comp_etor(my_own_acc_flux_etor):
         ss = state_np[1] # volume fraction in initialization
 
         # initial flash
-        _, _, _, _, _, fluid_volume = self.property.flash_ev.evaluate(state_np)
+        _, _, _, _, _, fluid_volume, _ = self.property.flash_ev.evaluate(state_np)
 
         # evaluate molar fraction
         solid_volume = fluid_volume * ss / (1 - ss)         # m3
@@ -245,7 +245,7 @@ class my_own_rate_evaluator(operator_set_evaluator_iface):
 
         # zc = np.append(state_np[2:], 1 - np.sum(state_np[1:]))
         # Perform Flash procedure here:
-        vap, x, y, rho_phases, _, _ = self.property.flash_ev.evaluate(state_np)
+        vap, x, y, rho_phases, _, _, _ = self.property.flash_ev.evaluate(state_np)
 
         # Note: officially three phases are present now
         rho_w = rho_phases['aq']
