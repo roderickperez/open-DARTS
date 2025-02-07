@@ -92,9 +92,9 @@ class Model(CICDModel):
         Mw = {'Solid': 100.0869, 'Ca': 40.078, 'C': 12.0096, 'O': 15.999, 'H': 1.007} # molar weights in kg/kmol
         self.num_vars = len(self.elements)
         self.nc = len(self.elements)
-        self.n_points = self.nc * [5001]
-        self.axes_min = [self.pressure_init - 1] + [self.obl_min, self.obl_min, self.obl_min, self.obl_min]
-        self.axes_max = [self.pressure_init + 3] + 4 * [1 - self.obl_min] # [0.8, 0.8, 0.8, 0.9]
+        self.n_points = self.nc * [101]
+        self.axes_min = [self.pressure_init - 1] + [self.obl_min, self.obl_min, self.obl_min, 0.3] #[self.obl_min, self.obl_min, self.obl_min, self.obl_min]
+        self.axes_max = [self.pressure_init + 2] + [0.8, 0.01, 0.02, 0.37]
 
         # Rate annihilation matrix
         self.E = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
