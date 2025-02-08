@@ -270,7 +270,7 @@ class my_own_property_evaluator(operator_set_evaluator_iface):
         super().__init__()
         self.input_data = input_data
         self.property = properties
-        self.props_name = ['z_' + prop for prop in properties.flash_ev.phreeqc_species]
+        self.props_name = ['z' + prop for prop in properties.flash_ev.phreeqc_species]
 
     def evaluate(self, state, values):
         state_np = state.to_numpy()

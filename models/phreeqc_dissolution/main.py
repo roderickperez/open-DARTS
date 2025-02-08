@@ -180,19 +180,19 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, poro_filename: str
 
     ith_step = 0
     if domain == '1D':
-        if output: plot_profiles(m, output_folder)
+        if output: plot_profiles(m)
         run(self=m, days=0.002, restart_dt=max_ts)
-        if output: plot_profiles(m, output_folder)
+        if output: plot_profiles(m)
         run(self=m, days=0.018, restart_dt=max_ts)
-        if output: plot_profiles(m, output_folder)
+        if output: plot_profiles(m)
         run(self=m, days=0.02, restart_dt=max_ts)
-        if output: plot_profiles(m, output_folder)
+        if output: plot_profiles(m)
         m.params.max_ts *= 3
         m.params.first_ts = m.params.max_ts
         run(self=m, days=0.1, restart_dt=max_ts)
         m.params.max_ts *= 4
         run(self=m, days=0.86)
-        if output: plot_profiles(m, output_folder)
+        if output: plot_profiles(m)
         m.params.max_ts *= 5
         m.params.first_ts = m.params.max_ts
     else:
@@ -213,7 +213,7 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, poro_filename: str
             m.params.first_ts = m.params.max_ts
         if output:
             if domain == '1D':
-                plot_profiles(m, output_folder)
+                plot_profiles(m)
             else:
                 m.output_to_vtk(ith_step=ith_step)
                 ith_step += 1
@@ -224,7 +224,52 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, poro_filename: str
     m.print_timers()
     m.print_stat()
 
-def plot_profiles(m, output_folder, plot_kinetics=False):
+def plot_profiles(m):
+    props_names = m.physics.property_operators[next(iter(m.physics.property_operators))].props_name
+    timesteps, property_array = m.output_properties(output_properties=props_names)
+
+    # add porosity & hydrogen
+    n_cells = m.reservoir.n
+    n_vars = m.physics.nc
+    Xm = np.asarray(m.physics.engine.X[:n_cells * n_vars]).reshape(n_cells, n_vars)
+    op_vals = np.asarray(m.physics.engine.op_vals_arr).reshape(m.reservoir.mesh.n_blocks, m.physics.n_ops)
+    poro = op_vals[:m.reservoir.mesh.n_res_blocks, m.physics.reservoir_operators[0].PORO_OP]
+    property_array['porosity'] = poro[np.newaxis]
+
+    # folder
+    t = round(m.physics.engine.t, 4)
+    path = os.path.join(m.output_folder, str(t))
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    ls = 14
+    x = m.reservoir.discretizer.centroids_all_cells[:, 0]
+    for prop, data in property_array.items():
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.plot(x, data[0, :], color='b', label=prop)
+        ax.set_xlabel('distance, m', fontsize=16)
+        t_hours = round(m.physics.engine.t * 24, 4)
+        ax.text(0.21, 0.85, 'time = ' + str(t_hours) + ' hours', fontsize=16, rotation='horizontal', transform=fig.transFigure)
+
+        # y-axis limits
+        if prop == 'p':
+            ax.set_ylabel('pressure, bar', fontsize=16)
+            ax.set_ylim(m.pressure_init - 0.01, m.pressure_init + 0.1)
+        elif prop == 'porosity':
+            ax.set_ylabel('porosity', fontsize=16)
+            ax.set_ylim(-0.01, 1.01)
+        else:
+            ax.set_ylabel(prop, fontsize=16)
+            # fig.gca().set_ylim(bottom=-0.0001)
+
+        fig.tight_layout()
+        fig_name = os.path.join(path, f'{prop}.png')
+        fig.savefig(fig_name, dpi=300)
+        # plt.show()
+        plt.close(fig)
+
+
+def plot_old_profiles(m, output_folder, plot_kinetics=False):
     n_cells = m.reservoir.n
     n_vars = m.physics.nc
     Xm = np.asarray(m.physics.engine.X[:n_cells * n_vars]).reshape(n_cells, n_vars)
