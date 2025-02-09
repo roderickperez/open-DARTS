@@ -4,6 +4,7 @@ import torch.optim as optim
 import numpy as np
 import random
 from collections import deque
+from sklearn.tree import DecisionTreeRegressor
 
 # Define the neural network model to approximate the Q-values.
 class DQN(nn.Module):
@@ -32,101 +33,150 @@ class DQN(nn.Module):
         x = self.fc3(x)  # No activation on output layer (linear output for Q-values)
         return x
 
+class TreeQ:
+    def __init__(self, state_size, action_size, max_depth=5):
+        """
+        Initialize a separate decision tree for each action.
+        :param state_size: Dimensionality of the state.
+        :param action_size: Number of actions.
+        :param max_depth: Maximum depth of each tree.
+        """
+        self.state_size = state_size
+        self.action_size = action_size
+        self.models = [DecisionTreeRegressor(max_depth=max_depth) for _ in range(action_size)]
+        # Track whether a model has been fitted at least once.
+        self.initialized = [False] * action_size
+
+    def predict(self, state):
+        """
+        Predict Q-values for each action given a single state.
+        :param state: A numpy array of shape (state_size,).
+        :return: A numpy array of Q-values for each action.
+        """
+        q_values = []
+        for a in range(self.action_size):
+            if self.initialized[a]:
+                q_val = self.models[a].predict(state.reshape(1, -1))[0]
+            else:
+                q_val = 0.0  # Default value if the tree hasn't been trained.
+            q_values.append(q_val)
+        return np.array(q_values)
+
+    def update(self, states, targets, actions):
+        """
+        Update the tree models using the provided replay batch.
+        :param states: np.array of shape (n_samples, state_size)
+        :param targets: np.array of shape (n_samples,) - target Q-values.
+        :param actions: np.array of shape (n_samples,) - the action taken.
+        """
+        for a in range(self.action_size):
+            idx = np.where(actions == a)[0]
+            if len(idx) > 0:
+                X_a = states[idx]
+                y_a = targets[idx]
+                # Fit a new tree (or refit) for this action.
+                self.models[a].fit(X_a, y_a)
+                self.initialized[a] = True
+
+class LinearQ(nn.Module):
+    def __init__(self, state_size, action_size):
+        super(LinearQ, self).__init__()
+        # A single linear layer mapping state to Q-values for each action.
+        self.fc = nn.Linear(state_size, action_size)
+
+    def forward(self, x):
+        return self.fc(x)
+
 
 # Define the DQN Agent class
 class DQNAgent:
-    def __init__(self, state_size, action_size):
+    def __init__(self, state_size, action_size, model_type='nn'):
         """
-        Initialize the DQN agent.
+        Initialize the agent.
         :param state_size: Dimensionality of the state space.
         :param action_size: Number of available actions.
+        :param model_type: 'nn' (default), 'linear', or 'tree'
         """
-        self.state_size = state_size  # Number of state features
-        self.action_size = action_size  # Number of possible actions
-        self.memory = deque(maxlen=2000)  # Experience replay buffer with a maximum size of 2000
-        self.gamma = 0.95  # Discount factor for future rewards
-        self.epsilon = 1.0  # Initial exploration rate (epsilon-greedy policy)
-        self.epsilon_min = 0.01  # Minimum exploration rate after decay
-        self.epsilon_decay = 0.995  # Decay rate for the exploration probability
-        self.learning_rate = 0.001  # Learning rate for the optimizer
+        self.state_size = state_size
+        self.action_size = action_size
+        self.memory = deque(maxlen=2000)
+        self.gamma = 0.95           # Discount factor
+        self.epsilon = 1.0          # Exploration rate
+        self.epsilon_min = 0.01
+        self.epsilon_decay = 0.995
+        self.learning_rate = 0.001
+        self.model_type = model_type
 
-        # Check if CUDA (GPU) is available and use it if possible; otherwise, use CPU.
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        # Instantiate the Q-network and move it to the chosen device.
-        self.model = DQN(state_size, action_size).to(self.device)
-        # Define the optimizer (Adam) for the neural network parameters.
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
-        # Define the loss function as Mean Squared Error (MSE).
-        self.criterion = nn.MSELoss()
-
+        if self.model_type in ['nn', 'linear']:
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            if self.model_type == 'nn':
+                self.model = DQN(state_size, action_size).to(self.device)
+            elif self.model_type == 'linear':
+                self.model = LinearQ(state_size, action_size).to(self.device)
+            self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
+            self.criterion = nn.MSELoss()
+        elif self.model_type == 'tree':
+            # For the tree model, we do not use PyTorch; use scikit-learn.
+            self.tree_model = TreeQ(state_size, action_size)
+        else:
+            raise ValueError("Unknown model type: choose 'nn', 'linear', or 'tree'.")
     def remember(self, state, action, reward, next_state, done):
-        """
-        Store an experience tuple in the replay memory.
-        :param state: The state at time t.
-        :param action: The action taken at time t.
-        :param reward: The reward received after taking the action.
-        :param next_state: The state at time t+1.
-        :param done: Boolean flag indicating if the episode ended.
-        """
         self.memory.append((state, action, reward, next_state, done))
 
     def act(self, state):
         """
-        Choose an action for the current state using an epsilon-greedy strategy.
-        :param state: The current state (numpy array).
-        :return: The chosen action (integer).
+        Choose an action based on the current state using an epsilon-greedy strategy.
         """
-        # With probability epsilon, take a random action (exploration).
         if np.random.rand() <= self.epsilon:
             return random.randrange(self.action_size)
 
-        # Otherwise, use the network to predict Q-values and choose the best action (exploitation).
-        state_tensor = torch.FloatTensor(state).unsqueeze(0).to(
-            self.device)  # Convert state to tensor and add batch dimension.
-        with torch.no_grad():  # Disable gradient computation for inference.
-            q_values = self.model(state_tensor)
-        # Return the index of the action with the highest Q-value.
-        return torch.argmax(q_values).item()
+        if self.model_type in ['nn', 'linear']:
+            state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
+            with torch.no_grad():
+                q_values = self.model(state_tensor)
+            return torch.argmax(q_values).item()
+        elif self.model_type == 'tree':
+            q_values = self.tree_model.predict(state)
+            return np.argmax(q_values)
 
     def replay(self, batch_size):
-        """
-        Sample a random batch of experiences from the replay memory and train the network.
-        :param batch_size: Number of experiences to sample for training.
-        """
         if len(self.memory) < batch_size:
-            return  # Not enough samples to form a batch.
+            return
 
-        # Randomly sample a batch of experiences from memory.
         minibatch = random.sample(self.memory, batch_size)
 
-        # Prepare tensors for states, actions, rewards, next_states, and done flags.
-        states = torch.FloatTensor([exp[0] for exp in minibatch]).to(self.device)
-        actions = torch.LongTensor([exp[1] for exp in minibatch]).unsqueeze(1).to(self.device)
-        rewards = torch.FloatTensor([exp[2] for exp in minibatch]).to(self.device)
-        next_states = torch.FloatTensor([exp[3] for exp in minibatch]).to(self.device)
-        dones = torch.FloatTensor([float(exp[4]) for exp in minibatch]).to(self.device)
+        if self.model_type in ['nn', 'linear']:
+            # Prepare tensors for training.
+            states = torch.FloatTensor([exp[0] for exp in minibatch]).to(self.device)
+            actions = torch.LongTensor([exp[1] for exp in minibatch]).unsqueeze(1).to(self.device)
+            rewards = torch.FloatTensor([exp[2] for exp in minibatch]).to(self.device)
+            next_states = torch.FloatTensor([exp[3] for exp in minibatch]).to(self.device)
+            dones = torch.FloatTensor([float(exp[4]) for exp in minibatch]).to(self.device)
 
-        # Compute the current Q-values for the actions taken in each state.
-        current_q_values = self.model(states).gather(1, actions)
+            current_q_values = self.model(states).gather(1, actions)
+            with torch.no_grad():
+                next_q_values = self.model(next_states).max(1)[0]
+            target_q_values = rewards + (1 - dones) * self.gamma * next_q_values
+            target_q_values = target_q_values.unsqueeze(1)
 
-        # Compute the Q-values for the next states.
-        with torch.no_grad():
-            # Get the maximum predicted Q-value for each next state.
-            next_q_values = self.model(next_states).max(1)[0]
-        # Compute the target Q-values using the Bellman equation.
-        # If the state is terminal (done), then the target is just the reward.
-        target_q_values = rewards + (1 - dones) * self.gamma * next_q_values
-        # Reshape target Q-values to match the shape of current_q_values.
-        target_q_values = target_q_values.unsqueeze(1)
+            loss = self.criterion(current_q_values, target_q_values)
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
 
-        # Calculate the loss between the current Q-values and the target Q-values.
-        loss = self.criterion(current_q_values, target_q_values)
+        elif self.model_type == 'tree':
+            # For tree-based approximator, use the replay data to refit the trees.
+            states = np.array([exp[0] for exp in minibatch])
+            actions = np.array([exp[1] for exp in minibatch])
+            rewards = np.array([exp[2] for exp in minibatch])
+            next_states = np.array([exp[3] for exp in minibatch])
+            dones = np.array([float(exp[4]) for exp in minibatch])
+            # Get predicted Q-values for next states.
+            next_q_values = np.array([self.tree_model.predict(s) for s in next_states])
+            max_next_q = np.max(next_q_values, axis=1)
+            targets = rewards + (1 - dones) * self.gamma * max_next_q
+            self.tree_model.update(states, targets, actions)
 
-        # Zero the gradients, perform backpropagation, and update the network parameters.
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
-
-        # Decay epsilon to reduce exploration over time.
+        # Decay epsilon regardless of the model.
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay

@@ -113,7 +113,7 @@ def run(self, days: float = None, restart_dt: float = 0., save_well_data: bool =
 
         else:
             # save state-response to the agent memory
-            # reward = get_reward(outcome=-1, dt=dt, LI=self.physics.engine.n_linear_last_dt)
+            # reward = get_reward(outcome=-1, prev_dt=self.prev_dt, dt=dt, LI=self.physics.engine.n_linear_last_dt)
             # self.agent.remember(state=prev_agent_state, action=action, reward=reward, next_state=agent_state, done=True)
             # self.agent.replay(self.agent_batch_size)
 
@@ -164,7 +164,7 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, poro_filename: str
     # Timestepping agent
     state_size = 6  # e.g., 6 features
     action_size = 3  # decrease, maintain, increase
-    m.agent = DQNAgent(state_size=state_size, action_size=action_size)
+    m.agent = DQNAgent(state_size=state_size, action_size=action_size, model_type='linear')
     m.agent_batch_size = 32
     m.agent_actions_map = {0: 0.5, 1: 1.0, 2: 2.0}
 
