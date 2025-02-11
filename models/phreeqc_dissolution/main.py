@@ -228,28 +228,20 @@ def plot_profiles(m):
     props_names = m.physics.property_operators[next(iter(m.physics.property_operators))].props_name
     timesteps, property_array = m.output_properties(output_properties=props_names)
 
-    # add porosity & hydrogen
-    n_cells = m.reservoir.n
-    n_vars = m.physics.nc
-    Xm = np.asarray(m.physics.engine.X[:n_cells * n_vars]).reshape(n_cells, n_vars)
-    op_vals = np.asarray(m.physics.engine.op_vals_arr).reshape(m.reservoir.mesh.n_blocks, m.physics.n_ops)
-    poro = op_vals[:m.reservoir.mesh.n_res_blocks, m.physics.reservoir_operators[0].PORO_OP]
-    property_array['porosity'] = poro[np.newaxis]
-
     # folder
     t = round(m.physics.engine.t, 4)
     path = os.path.join(m.output_folder, str(t))
     if not os.path.exists(path):
         os.makedirs(path)
 
-    ls = 14
+    ls = 18
     x = m.reservoir.discretizer.centroids_all_cells[:, 0]
     for prop, data in property_array.items():
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.plot(x, data[0, :], color='b', label=prop)
         ax.set_xlabel('distance, m', fontsize=16)
         t_hours = round(m.physics.engine.t * 24, 4)
-        ax.text(0.21, 0.85, 'time = ' + str(t_hours) + ' hours', fontsize=16, rotation='horizontal', transform=fig.transFigure)
+        ax.text(0.71, 0.85, 'time = ' + str(t_hours) + ' hours', fontsize=16, rotation='horizontal', transform=fig.transFigure)
 
         # y-axis limits
         if prop == 'p':
@@ -267,7 +259,6 @@ def plot_profiles(m):
         fig.savefig(fig_name, dpi=300)
         # plt.show()
         plt.close(fig)
-
 
 def plot_old_profiles(m, output_folder, plot_kinetics=False):
     n_cells = m.reservoir.n

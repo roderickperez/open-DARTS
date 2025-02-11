@@ -13,7 +13,7 @@ from darts.physics.properties.basic import ConstFunc
 from darts.engines import *
 
 import numpy as np
-import pickle
+import pickle, h5py
 import os
 from math import fabs
 import warnings
@@ -314,6 +314,41 @@ class Model(CICDModel):
 
         for i, prop in enumerate(prop_names):
             property_array[prop] = np.array([self.prop_values_np[i::n_interp_size]])
+
+        # porosity
+        n_cells = self.reservoir.n
+        n_vars = self.physics.nc
+        op_vals = np.asarray(self.physics.engine.op_vals_arr).reshape(self.reservoir.mesh.n_blocks, self.physics.n_ops)
+        poro = op_vals[:self.reservoir.mesh.n_res_blocks, self.physics.reservoir_operators[0].PORO_OP]
+        property_array['porosity'] = poro[np.newaxis]
+
+        # hydrogen
+        property_array['H'] = 1. - property_array['C'] - property_array['Ca'] - property_array['O']
+
+        # write to *.h5
+        if self.domain == '1D':
+            path = os.path.join(self.output_folder, self.sol_filename)
+            with h5py.File(path, "a") as f:
+                current_index = f["dynamic/time"].shape[0] - 1
+                written_vars = list(f["dynamic/variable_names"].asstr())
+                new_keys = [prop for prop in property_array.keys() if prop not in written_vars]
+                new_vars_num = len(new_keys)
+
+                if "properties" not in f["dynamic"]:
+                    f["dynamic"].create_dataset("properties", shape=(0, n_cells, new_vars_num),
+                                                maxshape=(None, n_cells, new_vars_num), dtype=np.float64)
+
+                extra_dataset = f["dynamic/properties"]
+                if extra_dataset.shape[0] <= current_index:
+                    extra_dataset.resize((current_index + 1, n_cells, new_vars_num))
+
+                for i, key in enumerate(new_keys):
+                    extra_dataset[current_index, :, i] = property_array[key]
+
+                if "properties_name" not in f["dynamic"]:
+                    datatype = h5py.special_dtype(vlen=str)  # dtype for variable-length strings
+                    var_names = f["dynamic"].create_dataset('properties_name', (new_vars_num,), dtype=datatype)
+                    var_names[:] = new_keys
 
         return timesteps, property_array
 
