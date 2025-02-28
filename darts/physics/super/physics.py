@@ -167,10 +167,11 @@ class Compositional(PhysicsBase):
         assert not self.thermal or ('temperature' in input_distribution.keys() or
                                     'enthalpy' in input_distribution.keys()), \
             "Temperature or enthalpy must be specified for thermal models"
-        input_depth = input_depth if hasattr(input_depth, "__len__") else np.array([input_depth])
-        for key, input_values in input_distribution.values():
-            input_values = input_values if hasattr(input_values, "__len__") else np.ones(len(input_depth)) * input_values
-            assert len(input_values) == len(input_depth)
+        input_depth = input_depth if not (np.isscalar(input_depth) or len(input_depth) == 1) else np.array([input_depth, input_depth + 1.]).flatten()
+        for key, input_values in input_distribution.items():
+            input_distribution[key] = input_values if not (np.isscalar(input_values) or len(input_values) == 1) else \
+                (np.ones(len(input_depth)) * input_values)
+            assert len(input_distribution[key]) == len(input_depth)
 
         # Get depths and primary variable arrays from mesh object
         depths = np.asarray(mesh.depth)
@@ -188,15 +189,21 @@ class Compositional(PhysicsBase):
                 t_itor = interp1d(input_depth, input_distribution['temperature'], kind='linear', fill_value='extrapolate')
                 temperature = t_itor(depths)
 
-                values = np.empty(mesh.n_blocks)
-                for j in range(mesh.n_blocks):
-                    state = np.array([pressure[j], temperature[j]])
-                    values[j] = self.property_containers[0].compute_total_enthalpy(state, temperature[j])
+                z_itors = [interp1d(input_depth, input_distribution[comp], kind='linear', fill_value='extrapolate') for
+                           comp in self.components[:-1]]
+                zi = np.array([z_itor(depths) for z_itor in z_itors])
+
+                values = np.empty(mesh.n_res_blocks)
+                for j in range(mesh.n_res_blocks):
+                    zc = np.append(np.asarray(zi[:, j]), 1. - np.sum(zi[:, j])) if self.nc > 1 else np.array([1.])
+
+                    values[j] = self.property_containers[0].compute_total_enthalpy(pressure[j], temperature[j], zc)
             else:
                 # Else, interpolate primary variable
                 itor = interp1d(input_depth, input_distribution[variable], kind='linear', fill_value='extrapolate')
                 values = itor(depths)
 
+            values = np.resize(np.asarray(values), mesh.n_blocks)
             np.asarray(mesh.initial_state)[ith_var::self.n_vars] = values
 
     def set_initial_conditions_from_array(self, mesh: conn_mesh, input_distribution: dict):
