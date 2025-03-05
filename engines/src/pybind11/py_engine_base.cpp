@@ -59,6 +59,10 @@ void pybind_engine_base (py::module &m)
 		.def_readwrite("heat_diffusion_advection_fluxes", &engine_base::heat_diffusion_advection_fluxes) \
 		.def_readwrite("heat_dispersion_advection_fluxes", &engine_base::heat_dispersion_advection_fluxes) \
 		.def_readwrite("fourier_fluxes", &engine_base::fourier_fluxes) \
+		.def_readwrite("jac_vals", &engine_base::jac_vals) \
+		.def_readwrite("jac_rows", &engine_base::jac_rows) \
+		.def_readwrite("jac_cols", &engine_base::jac_cols) \
+		.def_readwrite("jac_diags", &engine_base::jac_diags) \
 		.def("add_value_to_Q", &engine_base::add_value_to_Q)  \
 		.def("clear_Q", &engine_base::clear_Q)  \
 		.def("calc_adjoint_gradient_dirac_all", &engine_base::calc_adjoint_gradient_dirac_all, py::call_guard<py::gil_scoped_release>())  \

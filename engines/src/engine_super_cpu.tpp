@@ -63,6 +63,7 @@ int engine_super_cpu<NC, NP, THERMAL>::init(conn_mesh *mesh_, std::vector<ms_wel
 
 
   engine_base::init_base<N_VARS>(mesh_, well_list_, acc_flux_op_set_list_, params_, timer_);
+  this->expose_jacobian(N_VARS_SQ);
 
   // mass fluxes
   darcy_fluxes.resize(NC * NP * mesh->n_conns);

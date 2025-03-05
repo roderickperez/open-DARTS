@@ -340,6 +340,7 @@ target_link_libraries(engines_engines
     engines_interpolator
     Eigen3::Eigen
 	HYPRE::HYPRE
+    pybind11::pybind11
 )
 
 # Define the include directories required internally (BUILD_INTERFACE)
