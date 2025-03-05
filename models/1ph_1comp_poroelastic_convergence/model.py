@@ -1,5 +1,6 @@
 from darts.models.thmc_model import THMCModel
 from reservoir import UnstructReservoirCustom
+from darts.reservoirs.unstruct_reservoir_mech import bound_cond
 import numpy as np
 import os
 from darts.input.input_data import InputData
@@ -51,6 +52,27 @@ class Model(THMCModel):
             type_mech = 'poroelasticity'  # Note: not supported with thermal
         self.idata = InputData(type_hydr=type_hydr, type_mech=type_mech, init_type='uniform')
 
+        self.bc_type = bound_cond()  # get predefined constants for boundary conditions
+
+        self.idata.mesh.bnd_tags = {}
+        bnd_tags = self.idata.mesh.bnd_tags  # short name
+        bnd_tags['BND_X-'] = 991
+        bnd_tags['BND_X+'] = 992
+        bnd_tags['BND_Y-'] = 993
+        bnd_tags['BND_Y+'] = 994
+        bnd_tags['BND_Z-'] = 995
+        bnd_tags['BND_Z+'] = 996
+        self.idata.mesh.matrix_tags = [99991]
+
+        self.idata.boundary = {}
+        nf_s = {'flow': self.bc_type.AQUIFER(0), 'temp': self.bc_type.AQUIFER(0), 'mech': self.bc_type.STUCK(0.0, [0.0, 0.0, 0.0])}
+        self.idata.boundary[bnd_tags['BND_X-']] = nf_s
+        self.idata.boundary[bnd_tags['BND_X+']] = nf_s
+        self.idata.boundary[bnd_tags['BND_Y-']] = nf_s
+        self.idata.boundary[bnd_tags['BND_Y+']] = nf_s
+        self.idata.boundary[bnd_tags['BND_Z-']] = nf_s
+        self.idata.boundary[bnd_tags['BND_Z+']] = nf_s
+
         self.idata.rock.density = 2650.0
         self.idata.rock.porosity = 0.1
         self.idata.rock.perm = [1.5,    0.5,    0.35,
@@ -97,13 +119,15 @@ class Model(THMCModel):
         super().set_input_data()
 
     def set_initial_conditions(self):
+        input_distribution = {'pressure': self.reservoir.p_init}
+        input_distribution.update({comp: self.reservoir.z_init[i] for i, comp in enumerate(self.physics.components[:-1])})
         if self.reservoir.thermoporoelasticity:
-            self.physics.set_nonuniform_initial_conditions(self.reservoir.mesh,
-                                                           initial_pressure=self.reservoir.p_init,
-                                                           initial_temperature=self.reservoir.t_init,
-                                                           initial_displacement=[0.0, 0.0, 0.0])
+            input_distribution['temperature'] = self.reservoir.t_init
+            input_displacement = [0.0, 0.0, 0.0]
         else:
-            self.physics.set_nonuniform_initial_conditions(self.reservoir.mesh,
-                                                           initial_pressure=self.reservoir.p_init,
-                                                           initial_displacement=self.reservoir.u_init)
+            input_displacement = self.reservoir.u_init
+
+        self.physics.set_initial_conditions_from_array(self.reservoir.mesh,
+                                                       input_distribution=input_distribution,
+                                                       input_displacement=input_displacement)
         return 0

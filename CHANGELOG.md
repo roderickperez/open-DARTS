@@ -1,3 +1,58 @@
+# 1.3.0 [28-02-2025]
+- Unify set_initial_conditions():
+  - 1) Uniform or array -> specify constant or array of values for each variable to self.physics.set_initial_conditions_from_array()
+  - 2) Depth table -> specify depth table with depths and initial distributions of unknowns over depth to self.physics.set_initial_conditions_from_depth_table() 
+  - DartsModel.set_uniform_conditions(): forces user to overload this method in Model() and set initial conditions according to 1) or 2)
+  - PhysicsBase.set_initial_conditions_from_array() to set initial conditions uniformly/with array
+  - PhysicsBase.set_initial_conditions_from_depth_table() to interpolate/calculate properties based on depth table
+  - On the C++ level, there is an array initial_state that lives in the conn_mesh class, which is to be filled with the initial state of all the primary variables in PhysicsBase.set_initial_conditions_from_*()
+- PhysicsBase class constructor contains StateSpecification enum to define state variables
+  - Unifies P (isothermal), PT (pressure-temperature) and PH (pressure-enthalpy)
+  - Compositional constructor contains state_spec variable rather than thermal (bool)
+  - Geothermal is PH by default
+
+# 1.2.2 [26-01-2025]
+- Remove rock thermal operators; linear rock compressibility is ignored in rock thermal terms
+- Temperature and pressure operators are added
+- Add enthalpy operators to elastic super engine
+- Fix in operator indexing in mechanical models
+- GPU-version tests added in CI/CD
+- Keep only rates, super, pze_gra and pz_cap_gra interpolators
+- Breaking changes (only if InputData was used in a model):
+	- The well class is modified and renamed to WellData which now contains a dictionary of Well objects
+	- WellControlsConst is replaced by more generic 'WellControl's list from InputData
+
+# 1.2.1 [25-11-2024]
+- Remove "IAPWS" suffix from Geothermal PropertyContainer and predefined GeothermalIAPWS physics for backward compatibility.
+- Few small changes:
+	- CI/CD job updates
+ 	- empty list of output properties if none have been specified
+	- remove SolidFlash class
+	- fix to FluidFlower mesh generation
+	- Mesh tags and boundary conditions are added to the input_data
+
+# 1.2.0 [15-11-2024]
+- Python 3.7-3.8 support dropped.
+- Changes to physics/engines:
+	- Correct approximation of diffusion fluxes (including energy)
+	- Simple mechanical dispersion term
+	- Predefined physics Geothermal, GeothermalPH, DeadOil and BlackOil
+	- Phase velocities in structured reservoir
+- Changes to OBL interpolation:
+	- Barycentric linear interpolation with Delaunay triangulation
+	- Support of higher-dimensional linear interpolation (requires re-compilation)
+	- Tests
+- Changes to linear solvers:
+	- Hypre added as a submodule
+	- FS_CPR preconditioner by default for mechanical tests (in configuration with iter. solvers)
+	- Tests
+- Changes to CPG model:
+	- well perforations definition by X,Y,Z coordinates in addition to I,J,K indices
+	- setting rock thermal properties based on the porosity
+	- output wells and center points to separate vtk files
+	- added extracted energy plot
+	- added 2 options for physics: geothermal and dead oil
+
 # 1.1.4 [07-09-2024]
 - Generalize super engine physics for solid formulation[(See details)](https://gitlab.com/open-darts/open-darts/-/merge_requests/112)
 - Python 3.12 support

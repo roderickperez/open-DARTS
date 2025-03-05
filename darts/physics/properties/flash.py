@@ -5,6 +5,7 @@ import numpy as np
 class Flash:
     nu: []
     X: []
+    temperature: float
 
     def __init__(self, nph, nc, ni=0):
         self.nph = nph
@@ -13,7 +14,7 @@ class Flash:
         self.ns = nc + ni
 
     @abc.abstractmethod
-    def evaluate_PT(self, pressure, temperature, zc):
+    def evaluate(self, pressure, temperature, zc):
         pass
 
     def get_flash_results(self):
@@ -24,8 +25,9 @@ class SinglePhase(Flash):
     def __init__(self, nc):
         super().__init__(nph=1, nc=nc)
 
-    def evaluate_PT(self, pressure, temperature, zc):
+    def evaluate(self, pressure, temperature, zc):
         self.nu, self.X = np.array([1.]), np.array([zc])
+        self.temperature = temperature
         return 0
 
 
@@ -36,8 +38,9 @@ class ConstantK(Flash):
         self.rr_eps = eps
         self.K_values = np.array(ki)
 
-    def evaluate_PT(self, pressure, temperature, zc):
+    def evaluate(self, pressure, temperature, zc):
         self.nu, self.X = RR2(self.K_values, zc, self.rr_eps)
+        self.temperature = temperature
         return 0
 
 
@@ -72,40 +75,36 @@ def RR2(k, zc, eps):
     return [V, 1-V], [y, x]
 
 
-class SolidFlash(Flash):
-    def __init__(self, flash: Flash, nc_fl: int, np_fl: int, ni: int = 0, nc_sol: int = 0, np_sol: int = 0):
-        super().__init__(np_fl, nc_fl, ni)
-        self.flash = flash
+class IonFlash(Flash):
+    def __init__(self, flash_ev: Flash, nph: int, nc: int, ni: int, combined_ions: list = None):
+        super().__init__(nph, nc, ni)
+        self.flash_ev = flash_ev
+        self.combined_ions = combined_ions
 
-        self.nc_fl = self.ns
-        self.np_fl = self.nph
-        self.nc_sol = nc_sol
-        self.np_sol = np_sol
+    def evaluate(self, pressure, temperature, zc):
+        # Uncombine ions into Na+ and Cl- mole fractions
+        if self.combined_ions is not None:
+            ion_weights = self.combined_ions / np.sum(self.combined_ions)
+            zc = np.append(zc[:-1], [ion_weights[0] * zc[-1], ion_weights[1] * zc[-1]])
+        nc_tot = len(zc)
 
-    def evaluate_PT(self, pressure, temperature, zc):
-        """Evaluate flash normalized for solids"""
-        # Normalize compositions
-        zc_sol = zc[self.nc_fl:]
-        zc_sol_tot = np.sum(zc_sol)
-        zc_norm = zc[:self.nc_fl]/(1.-zc_sol_tot)
+        # Evaluates flash, then uses getter for nu and x - for compatibility with DARTS-flash
+        error_output = self.flash_ev.evaluate(pressure, temperature, zc)
+        flash_results = self.flash_ev.get_flash_results()
+        self.nu = np.array(flash_results.nu)
+        self.X = np.empty((self.nph, self.nc + 1 if self.combined_ions is not None else self.nc + self.ni))
+        self.temperature = flash_results.temperature
 
-        # Evaluate flash for normalized composition
-        error_output = self.flash.evaluate_PT(pressure, temperature, zc_norm)
-        nu = np.array(self.flash.getnu())
-        x = np.array(self.flash.getx()).reshape(self.np_fl, self.nc_fl)
+        for j in range(self.nph):
+            Xj = flash_results.X[j * nc_tot:(j + 1) * nc_tot]
 
-        # Re-normalize solids and append to nu, x
-        NU = np.zeros(self.np_fl + self.np_sol)
-        X = np.zeros((self.np_fl + self.np_sol, self.nc_fl + self.nc_sol))
-        for j in range(self.np_fl):
-            NU[j] = nu[j] * (1.-zc_sol_tot)
-            X[j, :self.nc_fl] = x[j, :]
+            if self.combined_ions is not None:
+                # Normal components +
+                self.X[j, :self.nc] = Xj[:self.nc]
 
-        for j in range(self.np_sol):
-            NU[self.np_fl+j] = zc_sol[j]
-            X[self.np_fl+j, self.nc_fl+j] = 1.
+                # Sum ions
+                self.X[j, self.nc] = np.sum(ion_weights * Xj[self.nc:])
+            else:
+                self.X[j, :] = Xj
 
-        self.nu = NU
-        self.X = X
-
-        return error_output
+        return 0
