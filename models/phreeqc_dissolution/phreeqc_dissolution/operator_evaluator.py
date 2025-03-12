@@ -142,7 +142,7 @@ class my_own_acc_flux_etor(OperatorsBase):
         
         """ Alpha operator represents accumulation term: """
         values_np[self.ACC_OP] = z[0] * rho_t
-        values_np[self.ACC_OP + 1:self.ACC_OP + nc] = z[1:] * rho_f
+        values_np[self.ACC_OP + 1:self.ACC_OP + nc] = (1 - ss) * z[1:] * rho_f
 
         """ Beta operator represents flux term: """
         for j in range(nph):
