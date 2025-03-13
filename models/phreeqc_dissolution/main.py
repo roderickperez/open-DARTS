@@ -1,5 +1,5 @@
 import os
-os.environ["OMP_NUM_THREADS"] = "1"
+# os.environ["OMP_NUM_THREADS"] = "1"
 from model import Model
 from darts.engines import redirect_darts_output
 from timestepping import DQNAgent
@@ -195,26 +195,37 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, poro_filename: str
         if output: plot_profiles(m)
         m.params.max_ts *= 5
         m.params.first_ts = m.params.max_ts
+
+        for i in range(2):
+            dt = 7.0
+            run(self=m, days=dt)
+            if i < 1:
+                m.params.max_ts *= 1.5
+                m.params.first_ts = m.params.max_ts
+            if output:
+                plot_profiles(m)
     else:
         if output: m.output_to_vtk(ith_step=ith_step)
         ith_step += 1
-        run(self=m, days=0.04, restart_dt=max_ts)
+        run(self=m, days=0.001, restart_dt=max_ts)
         if output: m.output_to_vtk(ith_step=ith_step)
         ith_step += 1
         m.params.max_ts *= 40
         m.params.first_ts = m.params.max_ts
+        run(self=m, days=0.001)
+        if output: m.output_to_vtk(ith_step=ith_step)
+        ith_step += 1
+        run(self=m, days=0.001)
+        if output: m.output_to_vtk(ith_step=ith_step)
+        ith_step += 1
 
-    for i in range(2):
-        if domain == '1D': dt = 7.0
-        else: dt = 2.0
+        for i in range(15):
+            dt = 0.4
         run(self=m, days=dt)
         if i < 1:
             m.params.max_ts *= 1.5
             m.params.first_ts = m.params.max_ts
         if output:
-            if domain == '1D':
-                plot_profiles(m)
-            else:
                 m.output_to_vtk(ith_step=ith_step)
                 ith_step += 1
 
@@ -464,5 +475,5 @@ if __name__ == '__main__':
 
     # 2D
     # run_simulation(domain='2D', nx=10, max_ts=2.e-3)
-    # run_simulation(domain='2D', nx=100, max_ts=5.e-4, poro_filename='spherical_100_8.txt')
+    # run_simulation(domain='2D', nx=100, max_ts=8.e-4, poro_filename='spherical_100_8.txt')
 
