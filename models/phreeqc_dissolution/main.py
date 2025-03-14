@@ -2,7 +2,7 @@ import os
 # os.environ["OMP_NUM_THREADS"] = "1"
 from model import Model
 from darts.engines import redirect_darts_output
-from timestepping import DQNAgent
+# from timestepping import DQNAgent
 import numpy as np
 
 from visualization import plot_profiles, animate_1d
@@ -51,8 +51,8 @@ def run(self, days: float = None, restart_dt: float = 0., save_well_data: bool =
         return outcome * a_ts * np.log(dt / prev_dt) - a_ni * LI
 
     # initial agent state
-    prev_agent_state = np.array([0.0, 0, 0, 0, 0.0, 0.0])
-    action = self.agent.act(prev_agent_state)
+    # prev_agent_state = np.array([0.0, 0, 0, 0, 0.0, 0.0])
+    # action = self.agent.act(prev_agent_state)
 
     while t < stop_time:
         converged = self.run_timestep(dt, t, verbose)
@@ -154,11 +154,11 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, poro_filename: str
     m.physics.engine.n_solid = 1
 
     # Timestepping agent
-    state_size = 6  # e.g., 6 features
-    action_size = 3  # decrease, maintain, increase
-    m.agent = DQNAgent(state_size=state_size, action_size=action_size, model_type='linear')
-    m.agent_batch_size = 32
-    m.agent_actions_map = {0: 0.5, 1: 1.0, 2: 2.0}
+    # state_size = 6  # e.g., 6 features
+    # action_size = 3  # decrease, maintain, increase
+    # m.agent = DQNAgent(state_size=state_size, action_size=action_size, model_type='linear')
+    # m.agent_batch_size = 32
+    # m.agent_actions_map = {0: 0.5, 1: 1.0, 2: 2.0}
 
     # Initialization check
     op_vals = np.asarray(m.physics.engine.op_vals_arr).reshape(m.reservoir.mesh.n_blocks, m.physics.n_ops)
@@ -203,7 +203,7 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, poro_filename: str
             fig_paths.append(plot(m))
 
             if output:
-            animate_1d(output_folder=output_folder, fig_paths=fig_paths)
+                animate_1d(output_folder=output_folder, fig_paths=fig_paths)
     elif domain == '2D':
         plot(m=m, ith_step=ith_step)
         ith_step += 1
@@ -221,12 +221,12 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, poro_filename: str
 
         for i in range(15):
             dt = 0.4
-        run(self=m, days=dt)
-        if i < 1:
-            m.params.max_ts *= 1.5
-            m.params.first_ts = m.params.max_ts
+            run(self=m, days=dt)
+            if i < 1:
+                m.params.max_ts *= 1.5
+                m.params.first_ts = m.params.max_ts
             plot(m=m, ith_step=ith_step)
-                ith_step += 1
+            ith_step += 1
 
     # Print some statistics
     print('\nNegative composition occurrence:', m.physics.reservoir_operators[0].counter, '\n')
