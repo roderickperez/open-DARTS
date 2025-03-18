@@ -118,7 +118,7 @@ class ReservoirOperators(OperatorsSuper):
         vec_values_as_np[self.PORO_OP] = self.phi_f
 
         # Pressure operator (for generic state specification where no pressure in the state, for instance V,T)
-        values[self.PRES_OP] = state[0]
+        values[self.PRES_OP] = vec_state_as_np[0]
 
         if self.thermal:
             self.evaluate_thermal(vec_state_as_np, vec_values_as_np)
