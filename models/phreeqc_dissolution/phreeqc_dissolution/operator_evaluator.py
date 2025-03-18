@@ -151,30 +151,30 @@ class my_own_acc_flux_etor(OperatorsBase):
         """ Gamma operator for diffusion (same for thermal and isothermal) """
         shift = ne + ne * nph
         for j in range(nph):
-            values[self.UPSAT_OP + j] = self.compr * self.sat[j]
+            values_np[self.UPSAT_OP + j] = self.compr * self.sat[j]
 
         """ Chi operator for diffusion """
         dif_coef = np.array([0, 1, 1, 1, 1]) * 5.2e-10 * 86400
         for i in range(nc):
             for j in range(nph):
-                values[self.GRAD_OP + i * nph + j] = dif_coef[i] * self.rho_m[j] * self.x[j][i]
+                values_np[self.GRAD_OP + i * nph + j] = dif_coef[i] * self.rho_m[j] * self.x[j][i]
                 # values[shift + ne * j + i] = 0
 
         """ Delta operator for reaction """
         for i in range(ne):
-            values[self.KIN_OP + i] = self.input_data.stoich_matrix[i] * kin_rate
+            values_np[self.KIN_OP + i] = self.input_data.stoich_matrix[i] * kin_rate
 
         """ Gravity and Capillarity operators """
         # E3-> gravity
         for i in range(nph):
-            values[self.GRAV_OP + i] = 0
+            values_np[self.GRAV_OP + i] = 0
 
         # E4-> capillarity
         for i in range(nph):
-            values[self.PC_OP + i] = 0
+            values_np[self.PC_OP + i] = 0
 
         # E5_> porosity
-        values[self.PORO_OP] = 1 - ss
+        values_np[self.PORO_OP] = 1 - ss
 
         # values[shift + 3 + 2 * nph + 1] = kin_state['SR']
         # values[shift + 3 + 2 * nph + 2] = kin_state['Act(H+)']
