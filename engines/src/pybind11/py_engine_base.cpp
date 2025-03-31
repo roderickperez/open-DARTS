@@ -51,6 +51,7 @@ void pybind_engine_base (py::module &m)
 		.def_readwrite("m_dim", &engine_base::m_dim) \
 		.def_readwrite("scale_rows", &engine_base::scale_rows) \
 		.def_readwrite("scale_dimless", &engine_base::scale_dimless) \
+		.def_readwrite("enable_flux_output", &engine_base::enable_flux_output) \
 		.def_readwrite("is_fickian_energy_transport_on", &engine_base::is_fickian_energy_transport_on) \
 		.def_readwrite("darcy_fluxes", &engine_base::darcy_fluxes) \
 		.def_readwrite("diffusion_fluxes", &engine_base::diffusion_fluxes) \
