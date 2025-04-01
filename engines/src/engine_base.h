@@ -82,7 +82,7 @@ public:
 
 		print_linear_system = false;
 		output_counter = 0;
-		enable_flux_output = false;
+		enabled_flux_output = false;
 		is_fickian_energy_transport_on = true;
 		newton_update_coefficient = 1.0;
 	};
@@ -387,7 +387,9 @@ public:
 	std::vector<value_t> max_row_values_inv;
 
 	// flag to turn on fluxes output
-	bool enable_flux_output;
+	bool enabled_flux_output;
+	virtual void enable_flux_output() {};
+
 	// mass fluxes
 	std::vector<value_t> darcy_fluxes;
 	std::vector<value_t> diffusion_fluxes;

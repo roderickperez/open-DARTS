@@ -93,5 +93,7 @@ public:
   double H2O_MW = 18.01528;
 
   int solve_linear_equation();
+
+  void enable_flux_output();
 };
 #endif
