@@ -164,7 +164,7 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, poro_filename: str
     op_vals = np.asarray(m.physics.engine.op_vals_arr).reshape(m.reservoir.mesh.n_blocks, m.physics.n_ops)
     poro = op_vals[:m.reservoir.mesh.n_res_blocks, m.physics.reservoir_operators[0].PORO_OP]
     volume = np.array(m.reservoir.mesh.volume, copy=False)
-    total_pv = np.sum(volume[:m.reservoir.n] * poro) * 1e6
+    total_pv = np.sum(volume[:m.n_res_blocks] * poro) * 1e6
     print(f'Total pore volume: {total_pv} cm3')
     print(f'Injection rate: {m.inj_cells.size} cells * {m.inj_rate / total_pv * 1e+6} PV/day')
 
@@ -172,7 +172,7 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, poro_filename: str
     def plot(m, ith_step=None):
         if output:
             if domain == '1D': return plot_profiles(m, output_folder=output_folder)
-            elif domain == '2D': m.output_to_vtk(ith_step=ith_step)
+            else: m.output_to_vtk(ith_step=ith_step)
 
     m.params.max_ts = max_ts
     ith_step = 0
@@ -227,6 +227,29 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, poro_filename: str
                 m.params.first_ts = m.params.max_ts
             plot(m=m, ith_step=ith_step)
             ith_step += 1
+    elif domain == '3D':
+        plot(m=m, ith_step=ith_step)
+        ith_step += 1
+        run(self=m, days=0.001, restart_dt=max_ts)
+        plot(m=m, ith_step=ith_step)
+        ith_step += 1
+        m.params.max_ts *= 40
+        m.params.first_ts = m.params.max_ts
+        run(self=m, days=0.001)
+        plot(m=m, ith_step=ith_step)
+        ith_step += 1
+        run(self=m, days=0.001)
+        plot(m=m, ith_step=ith_step)
+        ith_step += 1
+
+        for i in range(15):
+            dt = 0.4
+            run(self=m, days=dt)
+            if i < 1:
+                m.params.max_ts *= 1.5
+                m.params.first_ts = m.params.max_ts
+            plot(m=m, ith_step=ith_step)
+            ith_step += 1
 
     # Print some statistics
     print('\nNegative composition occurrence:', m.physics.reservoir_operators[0].counter, '\n')
@@ -242,6 +265,9 @@ if __name__ == '__main__':
     # 2D
     # run_simulation(domain='2D', nx=10, max_ts=2.e-3)
     # run_simulation(domain='2D', nx=100, max_ts=8.e-4, output=True, poro_filename='spherical_100_8.txt')
+
+    # 3D
+    # run_simulation(domain='3D', max_ts=2.e-3, output=True)
 
 # paths = ['./100x100/data_ts3.vts',
 #          './100x100/data_ts14.vts']

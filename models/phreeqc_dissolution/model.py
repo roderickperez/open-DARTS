@@ -5,6 +5,7 @@ from phreeqc_dissolution.physics import PhreeqcDissolution
 
 from darts.models.cicd_model import CICDModel
 from darts.reservoirs.struct_reservoir import StructReservoir
+from darts.reservoirs.unstruct_reservoir import UnstructReservoir
 
 from darts.physics.super.property_container import PropertyContainer
 from darts.physics.properties.density import DensityBasic
@@ -59,8 +60,8 @@ class Model(CICDModel):
         self.params.first_ts = 1e-5
         self.params.max_ts = 1e-3
 
-        self.params.tolerance_newton = 1e-3
-        self.params.tolerance_linear = 1e-4
+        self.params.tolerance_newton = 1e-4
+        self.params.tolerance_linear = 1e-6
         self.params.max_i_newton = 20
         self.params.max_i_linear = 50
         self.params.newton_type = sim_params.newton_local_chop
@@ -69,6 +70,68 @@ class Model(CICDModel):
 
         self.runtime = 1
         self.timer.node["initialization"].stop()
+
+    def init(self, discr_type: str = 'tpfa', platform: str = 'cpu', restart: bool = False,
+             verbose: bool = False, output_folder: str = None, itor_mode: str = 'adaptive',
+             itor_type: str = 'multilinear', is_barycentric: bool = False):
+        """
+        Function to initialize the model, which includes:
+        - initialize well (perforation) position
+        - initialize well rate parameters
+        - initialize reservoir initial conditions
+        - initialize well control settings
+        - define list of operator interpolators for accumulation-flux regions and wells
+        - initialize engine
+
+        :param discr_type: 'tpfa' for using Python implementation of TPFA, 'mpfa' activates C++ implementation of MPFA
+        :type discr_type: str
+        :param platform: 'cpu' for CPU, 'gpu' for using GPU for matrix assembly/solvers/interpolators
+        :type platform: str
+        :param restart: Boolean to check if existing file should be overwritten or appended
+        :type restart: bool
+        :param verbose: Switch for verbose
+        :type verbose: bool
+        :param output_folder: folder for h5 output files
+        :type output_folder: str
+        :param itor_mode: specifies either 'static' or 'adaptive' interpolator
+        :type itor_mode: str
+        :param itor_type: specifies either 'linear' or 'multilinear' interpolator
+        :type itor_type: str
+        :param is_barycentric: Flag which turn on barycentric interpolation on Delaunay simplices
+        :type is_barycentric: bool
+        """
+        # Initialize reservoir and Mesh object
+        assert self.reservoir is not None, "Reservoir object has not been defined"
+        if self.domain != '3D':
+            self.reservoir.init_reservoir(verbose)
+        self.set_wells()
+
+        # Initialize physics and Engine object
+        assert self.physics is not None, "Physics object has not been defined"
+        self.physics.init_physics(discr_type=discr_type, platform=platform, verbose=verbose,
+                                  itor_mode=itor_mode, itor_type=itor_type, is_barycentric=is_barycentric)
+        if platform == 'gpu':
+            self.params.linear_type = sim_params.gpu_gmres_cpr_amgx_ilu
+
+        # Initialize well objects
+        self.reservoir.init_wells()
+        self.physics.init_wells(self.reservoir.wells)
+        self.init_well_rates()
+
+        if output_folder is not None:
+            self.output_folder = output_folder
+
+        self.set_op_list()
+        self.set_boundary_conditions()
+        self.set_initial_conditions()
+        self.set_well_controls()
+        self.reset()
+
+        # self.restart = restart
+
+        # save solution vector
+        if restart is False:
+            self.save_data_to_h5(kind = 'solution')
 
     def set_physics(self):
         # some properties
@@ -140,14 +203,13 @@ class Model(CICDModel):
         self.inj_stream = correct_composition(self.inj_stream, self.min_z)
 
         # prepare arrays for evaluation of properties
-        nb = np.prod(self.domain_cells)
         n_prop_ops = self.physics.input_data_struct.n_prop_ops
         n_vars = self.physics.n_vars
-        self.prop_states = value_vector([0.] * nb * (n_vars + 1))
+        self.prop_states = value_vector([0.] * self.n_res_blocks * (n_vars + 1))
         self.prop_states_np = np.asarray(self.prop_states)
-        self.prop_values = value_vector([0.] * n_prop_ops * nb)
+        self.prop_values = value_vector([0.] * n_prop_ops * self.n_res_blocks)
         self.prop_values_np = np.asarray(self.prop_values)
-        self.prop_dvalues = value_vector([0.] * n_prop_ops * nb * n_vars)
+        self.prop_dvalues = value_vector([0.] * n_prop_ops * self.n_res_blocks * n_vars)
 
     def set_reservoir(self, domain, nx, poro_filename):
         self.domain = domain
@@ -165,6 +227,13 @@ class Model(CICDModel):
             perm = 1.25e4 * self.poro ** self.params.trans_mult_exp
             self.solid_sat = np.ones(self.domain_cells[0]) * 0.7
             self.inj_cells = np.array([0])
+            self.n_res_blocks = np.prod(self.domain_cells)
+
+            self.volume = np.prod(self.domain_sizes)
+            self.reservoir = StructReservoir(self.timer,
+                                             nx=self.domain_cells[0], ny=self.domain_cells[1], nz=self.domain_cells[2],
+                                             dx=self.cell_sizes[0], dy=self.cell_sizes[1], dz=self.cell_sizes[2],
+                                             permx=perm, permy=perm, permz=perm, poro=self.poro, depth=depth)
         elif self.domain == '2D':
             # grid
             self.domain_sizes = np.array([0.09, 0.09, 0.006])
@@ -187,26 +256,51 @@ class Model(CICDModel):
             poro[poro > 1 - 1.e-4] = 1 - 1.e-4
             self.solid_sat = 1 - poro
             self.inj_cells = self.domain_cells[0] * np.arange(self.domain_cells[1])
-        else:
-            print(f'domain={self.domain} is not supported')
-            exit(-1)
+            self.n_res_blocks = np.prod(self.domain_cells)
 
         self.volume = np.prod(self.domain_sizes)
         self.reservoir = StructReservoir(self.timer,
                                          nx=self.domain_cells[0], ny=self.domain_cells[1], nz=self.domain_cells[2],
                                          dx=self.cell_sizes[0], dy=self.cell_sizes[1], dz=self.cell_sizes[2],
                                          permx=perm, permy=perm, permz=perm, poro=self.poro, depth=depth)
+        elif self.domain == '3D':
+            depth = 1
+            poro = 1
+            perm = 1.25e4 * poro ** self.params.trans_mult_exp
+            mesh_file = 'meshes/core_tetra.msh'
+            self.reservoir = UnstructReservoir(timer=self.timer, permx=perm, permy=perm, permz=perm, frac_aper=0,
+                                               mesh_file=mesh_file, poro=poro)
+            self.reservoir.physical_tags['matrix'] = [99991]
+            self.reservoir.physical_tags['boundary'] = [991, 992, 993]
+            self.reservoir.init_reservoir()
+            self.volume = np.asarray(self.reservoir.mesh.volume).sum()
+            self.n_res_blocks = self.reservoir.mesh.n_blocks
+            poro = 0.3 + np.random.uniform(-0.1, 0.1, self.n_res_blocks)
+            self.solid_sat = 1 - poro
+
+            # identifying injection/production cells
+            a = 2 / 3 * np.cbrt(self.volume / self.reservoir.mesh.n_blocks / 0.1)
+            h = self.reservoir.discretizer.mesh_data.points[:,2].max()
+            # initial guesses
+            self.prd_cells = np.where(self.reservoir.discretizer.centroid_all_cells[:, 2] < a)[0]
+            self.inj_cells = np.where(self.reservoir.discretizer.centroid_all_cells[:, 2] > h - a)[0]
+            # exact filtering
+            self.prd_cells = [id for id in self.prd_cells if np.count_nonzero(self.reservoir.discretizer.mat_cell_info_dict[id].coord_nodes_to_cell[:, 2] < 1e-4 * a) > 2]
+            self.inj_cells = [id for id in self.inj_cells if np.count_nonzero(self.reservoir.discretizer.mat_cell_info_dict[id].coord_nodes_to_cell[:, 2] > h - 1e-4 * a) > 2]
+            self.prd_cells = np.array(self.prd_cells, dtype=np.intp)
+            self.inj_cells = np.array(self.inj_cells, dtype=np.intp)
+        else:
+            print(f'domain={self.domain} is not supported')
+            exit(-1)
 
     def set_initial_conditions(self):
         # ====================================== Initialize reservoir composition ======================================
         print('\nInitializing compositions...')
 
-        n_matrix = np.prod(self.domain_cells)
-
         # Component-defined composition of a non-solid phase (pure water here)
         self.initial_comp_components = np.array([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
         self.solid_frac = np.zeros(len(self.solid_sat))
-        self.initial_comp = np.zeros((n_matrix + 2, self.num_vars - 1))
+        self.initial_comp = np.zeros((self.n_res_blocks + 2, self.num_vars - 1))
 
         # Interpolated values of non-solid volume (second value always 0 due to no (5,1) interpolator)
         values = value_vector([0] * 2)
@@ -231,7 +325,7 @@ class Model(CICDModel):
         # for i in range(n_matrix, n_matrix + 2):
         #     self.initial_comp[i, :] = np.array(self.inj_stream)
 
-        for i in range(n_matrix, n_matrix + 2):
+        for i in range(self.n_res_blocks, self.n_res_blocks + 2):
             self.initial_comp[i, :] = np.array(self.initial_comp[0, :])
 
         # print('\tNegative composition occurrence while initializing:', self.physics.comp_itor[0].counter, '\n')
@@ -264,6 +358,12 @@ class Model(CICDModel):
         #                                    well_indexD=well_index)
 
         self.reservoir.add_well("P1", wellbore_diameter=d_w)
+        if self.domain == '3D':
+            for idx in self.prd_cells:
+                self.reservoir.add_perforation(well_name='P1', cell_index=idx, multi_segment=False,
+                                               verbose=True, well_radius=r_w, well_index=well_index,
+                                               well_indexD=well_index)
+        else:
         for idx in range(self.domain_cells[1]):
             self.reservoir.add_perforation(well_name='P1', cell_index=(self.domain_cells[0], idx + 1, 1), multi_segment=False,
                                            verbose=True, well_radius=r_w, well_index=well_index,
@@ -301,7 +401,7 @@ class Model(CICDModel):
             prop_names = output_properties
 
         X = np.asarray(self.physics.engine.X)
-        nb = np.prod(self.domain_cells)
+        nb = self.n_res_blocks
         nv = self.physics.n_vars
         nops = len(prop_names)
         n_interp_size = self.physics.input_data_struct.n_prop_ops
@@ -316,7 +416,6 @@ class Model(CICDModel):
             property_array[prop] = np.array([self.prop_values_np[i::n_interp_size]])
 
         # porosity
-        n_cells = self.reservoir.n
         n_vars = self.physics.nc
         op_vals = np.asarray(self.physics.engine.op_vals_arr).reshape(self.reservoir.mesh.n_blocks, self.physics.n_ops)
         poro = op_vals[:self.reservoir.mesh.n_res_blocks, self.physics.reservoir_operators[0].PORO_OP]
@@ -335,12 +434,12 @@ class Model(CICDModel):
                 new_vars_num = len(new_keys)
 
                 if "properties" not in f["dynamic"]:
-                    f["dynamic"].create_dataset("properties", shape=(0, n_cells, new_vars_num),
-                                                maxshape=(None, n_cells, new_vars_num), dtype=np.float64)
+                    f["dynamic"].create_dataset("properties", shape=(0, nb, new_vars_num),
+                                                maxshape=(None, nb, new_vars_num), dtype=np.float64)
 
                 extra_dataset = f["dynamic/properties"]
                 if extra_dataset.shape[0] <= current_index:
-                    extra_dataset.resize((current_index + 1, n_cells, new_vars_num))
+                    extra_dataset.resize((current_index + 1, nb, new_vars_num))
 
                 for i, key in enumerate(new_keys):
                     extra_dataset[current_index, :, i] = property_array[key]
@@ -553,7 +652,7 @@ class ModelProperties(PropertyContainer):
 
             # Check if solvent (water) is enough
             ion_strength = np.sum(fluid_moles) / (water_mass + 1.e-8)
-            if ion_strength > 8:
+            if ion_strength > 12:
                 print(f'ion_strength = {ion_strength}')
             # assert ion_strength < 7, "Not enough water to form a realistic brine"
 
