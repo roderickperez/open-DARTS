@@ -137,7 +137,7 @@ def run(self, days: float = None, restart_dt: float = 0., save_well_data: bool =
                  self.physics.engine.stat.n_linear_total, self.physics.engine.stat.n_linear_wasted))
     return 0
 
-def run_simulation(domain: str, max_ts: float, nx: int = 100, poro_filename: str = None, output: bool = False):
+def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str = None, poro_filename: str = None, output: bool = False):
     # Make a folder
     output_folder = 'output_' + domain + '_' + str(nx)
     if not os.path.exists(output_folder): os.makedirs(output_folder)
@@ -146,7 +146,7 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, poro_filename: str
     redirect_darts_output(os.path.join(output_folder, 'log.txt'))
 
     # Create model
-    m = Model(domain=domain, nx=nx, poro_filename=poro_filename)
+    m = Model(domain=domain, nx=nx, mesh_filename=mesh_filename, poro_filename=poro_filename)
     m.sol_filename = 'nx' + str(nx) + '.h5'
 
     # Initialize model
@@ -233,7 +233,7 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, poro_filename: str
         run(self=m, days=0.001, restart_dt=max_ts)
         plot(m=m, ith_step=ith_step)
         ith_step += 1
-        m.params.max_ts *= 40
+        m.params.max_ts *= 20
         m.params.first_ts = m.params.max_ts
         run(self=m, days=0.001)
         plot(m=m, ith_step=ith_step)
@@ -264,10 +264,13 @@ if __name__ == '__main__':
 
     # 2D
     # run_simulation(domain='2D', nx=10, max_ts=2.e-3)
-    # run_simulation(domain='2D', nx=100, max_ts=8.e-4, output=True, poro_filename='spherical_100_8.txt')
+    # run_simulation(domain='2D', nx=100, max_ts=8.e-4, output=True, poro_filename='input/spherical_100_8.txt')
 
     # 3D
-    # run_simulation(domain='3D', max_ts=2.e-3, output=True)
+    # run_simulation(domain='3D', max_ts=2.e-3, output=True,
+    #                mesh_filename='input/core_13k.msh', poro_filename='input/core_13k_0.02.txt')
+    # run_simulation(domain='3D', max_ts=1.e-3, output=True,
+    #                mesh_filename='input/core_60k.msh', poro_filename='input/core_60k_0.01.txt')
 
 # paths = ['./100x100/data_ts3.vts',
 #          './100x100/data_ts14.vts']

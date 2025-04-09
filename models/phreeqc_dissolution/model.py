@@ -46,14 +46,14 @@ class MyOwnDataStruct:
 
 # Actual Model class creation here!
 class Model(CICDModel):
-    def __init__(self, domain: str = '1D', nx: int = 200, poro_filename: str = None):
+    def __init__(self, domain: str = '1D', nx: int = 200, mesh_filename:str = None, poro_filename: str = None):
         # Call base class constructor
         super().__init__()
 
         # Measure time spend on reading/initialization
         self.timer.node["initialization"].start()
 
-        self.set_reservoir(domain=domain, nx=nx, poro_filename=poro_filename)
+        self.set_reservoir(domain=domain, nx=nx, mesh_filename=mesh_filename, poro_filename=poro_filename)
         self.set_physics()
 
         # Some newton parameters for non-linear solution:
@@ -211,7 +211,7 @@ class Model(CICDModel):
         self.prop_values_np = np.asarray(self.prop_values)
         self.prop_dvalues = value_vector([0.] * n_prop_ops * self.n_res_blocks * n_vars)
 
-    def set_reservoir(self, domain, nx, poro_filename):
+    def set_reservoir(self, domain, nx, mesh_filename, poro_filename):
         self.domain = domain
 
         if self.domain == '1D':
@@ -266,8 +266,9 @@ class Model(CICDModel):
         elif self.domain == '3D':
             depth = 1
             poro = 1
+            self.params.trans_mult_exp = 4
             perm = 1.25e4 * poro ** self.params.trans_mult_exp
-            mesh_file = 'meshes/core_tetra.msh'
+            mesh_file = mesh_filename
             self.reservoir = UnstructReservoir(timer=self.timer, permx=perm, permy=perm, permz=perm, frac_aper=0,
                                                mesh_file=mesh_file, poro=poro)
             self.reservoir.physical_tags['matrix'] = [99991]
@@ -275,7 +276,11 @@ class Model(CICDModel):
             self.reservoir.init_reservoir()
             self.volume = np.asarray(self.reservoir.mesh.volume).sum()
             self.n_res_blocks = self.reservoir.mesh.n_blocks
+            if poro_filename == None:
             poro = 0.3 + np.random.uniform(-0.1, 0.1, self.n_res_blocks)
+            else:
+                poro = 0.3 + 0.05 * np.loadtxt(poro_filename).flatten()
+                assert self.n_res_blocks == poro.size
             self.solid_sat = 1 - poro
 
             # identifying injection/production cells
