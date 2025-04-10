@@ -140,8 +140,10 @@ class Model(CICDModel):
 
         if self.domain == '1D':
             self.inj_rate = self.volume * 24     # output: m3/day
-        else:
+        elif self.domain == '2D':
             self.inj_rate = 10 * self.volume * 24 / self.inj_cells.size     # output: m3/day
+        elif self.domain == '3D':
+            self.inj_rate = 1.12 * 60 * 24 / 1000 / 1000
 
         self.min_z = 1e-11
         self.obl_min = self.min_z / 10
@@ -681,7 +683,7 @@ class ModelProperties(PropertyContainer):
                 self.pitzer.run_string(input_string)
                 nu_v, x, y, rho_phases, kin_state, fluid_volume, species_molalities = self.interpret_results(self.pitzer)
 
-            species_molar_fractions = species_molalities * water_mass * self.species_2_element_moles / self.total_moles
+            species_molar_fractions = species_molalities / species_molalities.sum()
             return nu_v, x, y, rho_phases, kin_state, fluid_volume, species_molar_fractions
 
     class CustomKineticRate:
