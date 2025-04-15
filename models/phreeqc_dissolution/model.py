@@ -260,11 +260,11 @@ class Model(CICDModel):
             self.inj_cells = self.domain_cells[0] * np.arange(self.domain_cells[1])
             self.n_res_blocks = np.prod(self.domain_cells)
 
-        self.volume = np.prod(self.domain_sizes)
-        self.reservoir = StructReservoir(self.timer,
-                                         nx=self.domain_cells[0], ny=self.domain_cells[1], nz=self.domain_cells[2],
-                                         dx=self.cell_sizes[0], dy=self.cell_sizes[1], dz=self.cell_sizes[2],
-                                         permx=perm, permy=perm, permz=perm, poro=self.poro, depth=depth)
+            self.volume = np.prod(self.domain_sizes)
+            self.reservoir = StructReservoir(self.timer,
+                                             nx=self.domain_cells[0], ny=self.domain_cells[1], nz=self.domain_cells[2],
+                                             dx=self.cell_sizes[0], dy=self.cell_sizes[1], dz=self.cell_sizes[2],
+                                             permx=perm, permy=perm, permz=perm, poro=self.poro, depth=depth)
         elif self.domain == '3D':
             depth = 1
             poro = 1
@@ -279,7 +279,7 @@ class Model(CICDModel):
             self.volume = np.asarray(self.reservoir.mesh.volume).sum()
             self.n_res_blocks = self.reservoir.mesh.n_blocks
             if poro_filename == None:
-            poro = 0.3 + np.random.uniform(-0.1, 0.1, self.n_res_blocks)
+                poro = 0.3 + np.random.uniform(-0.1, 0.1, self.n_res_blocks)
             else:
                 poro = 0.3 + 0.05 * np.loadtxt(poro_filename).flatten()
                 assert self.n_res_blocks == poro.size
@@ -371,10 +371,10 @@ class Model(CICDModel):
                                                verbose=True, well_radius=r_w, well_index=well_index,
                                                well_indexD=well_index)
         else:
-        for idx in range(self.domain_cells[1]):
-            self.reservoir.add_perforation(well_name='P1', cell_index=(self.domain_cells[0], idx + 1, 1), multi_segment=False,
-                                           verbose=True, well_radius=r_w, well_index=well_index,
-                                           well_indexD=well_index)
+            for idx in range(self.domain_cells[1]):
+                self.reservoir.add_perforation(well_name='P1', cell_index=(self.domain_cells[0], idx + 1, 1), multi_segment=False,
+                                               verbose=True, well_radius=r_w, well_index=well_index,
+                                               well_indexD=well_index)
 
     def set_rhs_flux(self, t: float = None):
         nv = self.physics.n_vars
