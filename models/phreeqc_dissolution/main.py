@@ -70,8 +70,8 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str
                 m.params.first_ts = m.params.max_ts
             fig_paths.append(plot(m))
 
-            if output:
-                animate_1d(output_folder=output_folder, fig_paths=fig_paths)
+        if output:
+            animate_1d(output_folder=output_folder, fig_paths=fig_paths)
     elif domain == '2D':
         plot(m=m, ith_step=ith_step)
         ith_step += 1
