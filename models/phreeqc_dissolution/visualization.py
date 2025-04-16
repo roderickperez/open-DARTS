@@ -155,7 +155,7 @@ def plot_current_profiles(m, output_folder='./', plot_kinetics=False):
         fig.savefig(os.path.join(output_folder, f'1d_kin_rate_{t}.png'), dpi=300)
         plt.close(fig)
 
-def plot_profiles(m, output_folder='./', plot_kinetics=False):
+def plot_profiles(m, output_folder='./', plot_kinetics=False, plot_saturation=True):
     n_cells = m.reservoir.n
     n_vars = m.physics.nc
     Xm = np.asarray(m.physics.engine.X[:n_cells * n_vars]).reshape(n_cells, n_vars)
@@ -202,8 +202,32 @@ def plot_profiles(m, output_folder='./', plot_kinetics=False):
     ls = 14
     ax[0].legend(loc='upper right', prop={'size': ls}, framealpha=0.9)
     ax[1].legend(loc='upper left', prop={'size': ls}, framealpha=0.9)
-    ax[2].legend(loc='upper right', prop={'size': ls}, framealpha=0.9)
+    ax[2].legend(loc='upper left', prop={'size': ls}, framealpha=0.9)
     ax1.legend(loc='upper right', prop={'size': ls}, framealpha=0.9)
+
+    if plot_saturation:
+        ax_sat = ax[2].twinx()
+        gas_sat = np.zeros(n_cells)
+        prop = m.physics.reservoir_operators[0].property
+        for i in range(n_cells):
+            nu_v, _, _, rho_phases, _, _, _ = prop.flash_ev.evaluate(Xm[i])
+            nu_s = Xm[i, 1]
+            nu_v = nu_v * (1 - nu_s)  # convert to overall molar fraction
+            nu_a = 1 - nu_v - nu_s
+            rho_a, rho_v = rho_phases['aq'], rho_phases['gas']
+            rho_s = prop.density_ev['solid'].evaluate(Xm[i, 0]) / prop.Mw['Solid']
+            if nu_v > 0:
+                sv = nu_v / rho_v / (nu_v / rho_v + nu_a / rho_a + nu_s / rho_s)
+                sa = nu_a / rho_a / (nu_v / rho_v + nu_a / rho_a + nu_s / rho_s)
+                ss = nu_s / rho_s / (nu_v / rho_v + nu_a / rho_a + nu_s / rho_s)
+            else:
+                sv = 0
+                sa = nu_a / rho_a / (nu_a / rho_a + nu_s / rho_s)
+                ss = nu_s / rho_s / (nu_a / rho_a + nu_s / rho_s)
+            gas_sat[i] = sv
+        ax_sat.plot(x, gas_sat, color=colors[1], label='gas saturation')
+        ax_sat.set_ylabel('gas saturation', fontsize=16)
+        ax_sat.legend(loc='upper right', prop={'size': ls}, framealpha=0.9)
 
     fig.tight_layout()
 

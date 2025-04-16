@@ -151,7 +151,7 @@ class Model(CICDModel):
         # Several parameters here related to components used, OBL limits, and injection composition:
         self.cell_property = ['pressure', 'H2O', 'H+', 'OH-', 'CO2', 'HCO3-', 'CO3-2', 'CaCO3', 'Ca+2', 'CaOH+',
                               'CaHCO3+', 'Solid']
-        self.phases = ['liq', 'gas']
+        self.phases = ['gas', 'liq']
         self.components = ['H2O', 'H+', 'OH-', 'CO2', 'HCO3-', 'CO3-2', 'CaCO3', 'Ca+2', 'CaOH+', 'CaHCO3+', 'Solid']
         self.elements = ['Solid', 'Ca', 'C', 'O', 'H']
         self.fc_mask = np.array([False, True, True, True, True], dtype=bool)
@@ -526,51 +526,22 @@ class ModelProperties(PropertyContainer):
             pressure  {{pressure:.4f}}
             pH        7 charge
             -water    {{water_mass:.10f}} # kg
+            
             REACTION 1
             H         {{hydrogen:.10f}}
             O         {{oxygen:.10f}}
             C         {{carbon:.10f}}
             Ca        {{calcium:.10f}}
             1
-            KNOBS
-            -convergence_tolerance  1e-10
-            END
-            """
-
-            self.phreeqc_gas_template = """
-            USER_PUNCH
-            -headings    H(mol)      O(mol)      C(mol)      Ca(mol)      Vol_aq   SI            SR            ACT("H+") ACT("CO2") ACT("H2O")
-            10 PUNCH    TOTMOLE("H") TOTMOLE("O") TOTMOLE("C") TOTMOLE("Ca") SOLN_VOL SI("Calcite") SR("Calcite") ACT("H+") ACT("CO2") ACT("H2O")
-
-            SELECTED_OUTPUT
-            -selected_out    true
-            -user_punch      true
-            -reset           false
-            -high_precision  true
-            -gases           CO2(g) H2O(g)
-
-            SOLUTION 1
-            temp      {temperature:.2f}
-            pressure  {pressure:.4f}
-            pH        7 charge
-            -water    {water_mass:.10f} # kg
-            
-            GAS_PHASE
-            -temp     {temperature:.2f}
-            -fixed_pressure
-            -pressure {pressure:.4f} 
-            CO2(g)    0
-            H2O(g)    0
-            
-            REACTION 1
-            H         {hydrogen:.10f}
-            O         {oxygen:.10f}
-            C         {carbon:.10f}
-            Ca        {calcium:.10f}
-            1       
             
             KNOBS
             -convergence_tolerance  1e-10
+            
+            GAS_PHASE 1
+            pressure  {{pressure:.4f}}       
+            temp      {{temperature:.2f}}  
+            CO2(g)     0
+            
             END
             """
 
@@ -583,8 +554,10 @@ class ModelProperties(PropertyContainer):
         def interpret_results(self, database):
             results_array = np.array(database.get_selected_output_array()[2])
 
+            volume_gas = results_array[2] / 1000  # liters to m3
             co2_gas_mole = results_array[3]
             h2o_gas_mole = results_array[4]
+            total_mole_gas = 3 * (co2_gas_mole + h2o_gas_mole)
 
             # interpret aqueous phase
             hydrogen_mole_aq = results_array[5]
@@ -603,10 +576,17 @@ class ModelProperties(PropertyContainer):
                           oxygen_mole_aq / total_mole_aq,
                           hydrogen_mole_aq / total_mole_aq])
 
-            # suppress gaseous phase
-            y = np.zeros(len(x))
-            rho_g = 0
-            total_mole_gas = 0
+            # in gaseous phase
+            if total_mole_gas > 1.e-8:
+                rho_g = total_mole_gas / volume_gas / 1000  # kmol/m3
+                y = np.array([0,
+                              0,
+                              co2_gas_mole / total_mole_gas,
+                              (2 * co2_gas_mole + h2o_gas_mole) / total_mole_gas,
+                              2 * h2o_gas_mole / total_mole_gas])
+            else:
+                rho_g = 0.0
+                y = np.zeros(len(x))
 
             # molar densities
             rho_phases = {'aq': rho_aq, 'gas': rho_g}
@@ -621,7 +601,7 @@ class ModelProperties(PropertyContainer):
                          'Act(H2O)': results_array[14]}
             species_molalities = results_array[15:]
 
-            return nu_v, x, y, rho_phases, kin_state, volume_aq, species_molalities
+            return nu_v, x, y, rho_phases, kin_state, volume_aq + volume_gas, species_molalities
 
         def get_fluid_composition(self, state):
             if self.thermal:
@@ -683,7 +663,7 @@ class ModelProperties(PropertyContainer):
                 self.pitzer.run_string(input_string)
                 nu_v, x, y, rho_phases, kin_state, fluid_volume, species_molalities = self.interpret_results(self.pitzer)
 
-            species_molar_fractions = species_molalities / species_molalities.sum()
+            species_molar_fractions = species_molalities * water_mass * self.species_2_element_moles / self.total_moles
             return nu_v, x, y, rho_phases, kin_state, fluid_volume, species_molar_fractions
 
     class CustomKineticRate:
