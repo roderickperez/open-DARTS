@@ -827,7 +827,6 @@ int engine_base::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_list_,
 	z_var = get_z_var();
 	nc_fl = get_n_comps();
 
-	X_init.resize(n_vars * mesh->n_res_blocks);
 	PV.resize(mesh->n_blocks);
 	RV.resize(mesh->n_blocks);
 	old_z.resize(nc);
