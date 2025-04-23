@@ -373,7 +373,7 @@ int engine_base_gpu::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_li
 
   X.resize(n_vars * mesh->n_blocks);
   Xn.resize(n_vars * mesh->n_blocks);
-  X_init.resize(n_vars * mesh->n_blocks);
+  X_init.resize(n_vars * mesh->n_res_blocks);  // initialize only reservoir blocks with mesh->initial_state array
   RHS.resize(n_vars * mesh->n_blocks);
   dX.resize(n_vars * mesh->n_blocks);
 
@@ -408,14 +408,10 @@ int engine_base_gpu::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_li
   allocate_device_data(&op_ders_arr_d, n_ops * n_vars * mesh->n_blocks);
 
   // *** initialize host data ***
-
+  X_init = mesh->initial_state;
+  X_init.resize(n_vars * mesh->n_blocks);
   for (index_t i = 0; i < mesh->n_blocks; i++)
   {
-    X_init[n_vars * i] = mesh->pressure[i];
-    for (uint8_t c = 0; c < nc - 1; c++)
-    {
-      X_init[n_vars * i + c + 1] = mesh->composition[i * (nc - 1) + c];
-    }
     PV[i] = mesh->volume[i] * mesh->poro[i];
     RV[i] = mesh->volume[i] * (1 - mesh->poro[i]);
   }
