@@ -3,7 +3,7 @@ import os
 from model import Model
 from darts.engines import redirect_darts_output
 import numpy as np
-from visualization import plot_profiles, animate_1d
+from visualization import plot_profiles, plot_new_profiles, animate_1d
 
 def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str = None, poro_filename: str = None, output: bool = False):
     # Make a folder

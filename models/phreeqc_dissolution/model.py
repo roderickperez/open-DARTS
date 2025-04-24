@@ -11,7 +11,10 @@ from darts.physics.super.property_container import PropertyContainer
 from darts.physics.properties.density import DensityBasic
 from darts.physics.properties.basic import ConstFunc
 
-from darts.engines import *
+from darts.engines import sim_params, well_control_iface, value_vector
+
+import CoolProp.CoolProp as CP
+from phreeqc_dissolution.conversions import bar2pa
 
 import numpy as np
 import pickle, h5py
@@ -46,7 +49,7 @@ class MyOwnDataStruct:
 
 # Actual Model class creation here!
 class Model(CICDModel):
-    def __init__(self, domain: str = '1D', nx: int = 200, mesh_filename:str = None, poro_filename: str = None):
+    def __init__(self, domain: str = '1D', nx: int = 200, mesh_filename: str = None, poro_filename: str = None):
         # Call base class constructor
         super().__init__()
 
@@ -158,7 +161,7 @@ class Model(CICDModel):
         Mw = {'Solid': 100.0869, 'Ca': 40.078, 'C': 12.0096, 'O': 15.999, 'H': 1.007} # molar weights in kg/kmol
         self.num_vars = len(self.elements)
         self.nc = len(self.elements)
-        self.n_points = [101, 201, 101, 101, 101]
+        self.n_points = list(np.array([101, 201, 101, 101, 101], dtype=np.intp))
         self.axes_min = [self.pressure_init - 1] + [self.obl_min, self.obl_min, self.obl_min, 0.3] #[self.obl_min, self.obl_min, self.obl_min, self.obl_min]
         self.axes_max = [self.pressure_init + 2] + [1 - self.obl_min, 0.01, 0.02, 0.37]
 
@@ -337,21 +340,15 @@ class Model(CICDModel):
 
         # print('\tNegative composition occurrence while initializing:', self.physics.comp_itor[0].counter, '\n')
 
-        initial_pressure = self.pressure_init
-        initial_composition = self.initial_comp
-
-        nb = self.reservoir.mesh.n_blocks
-        nc = self.physics.nc
-
-        # set initial pressure
-        pressure = np.array(self.reservoir.mesh.pressure, copy=False)
-        pressure.fill(initial_pressure)
-
-        # set initial composition
-        self.reservoir.mesh.composition.resize(nb * (nc - 1))
-        composition = np.array(self.reservoir.mesh.composition, copy=False)
-        for c in range(nc - 1):
-            composition[c::nc-1] = initial_composition[:, c]
+        nb = self.reservoir.mesh.n_res_blocks
+        input_distribution = {'pressure': self.pressure_init,
+                              self.physics.vars[1]: self.initial_comp[:nb, 0],
+                              self.physics.vars[2]: self.initial_comp[:nb, 1],
+                              self.physics.vars[3]: self.initial_comp[:nb, 2],
+                              self.physics.vars[4]: self.initial_comp[:nb, 3]
+                              }
+        return self.physics.set_initial_conditions_from_array(mesh=self.reservoir.mesh,
+                                                              input_distribution=input_distribution)
 
     def set_wells(self):
         d_w = 1.5
@@ -391,14 +388,9 @@ class Model(CICDModel):
 
     def set_boundary_conditions(self):
         # New boundary condition by adding wells:
-        self.reservoir.wells[0].control = self.physics.new_bhp_prod(self.pressure_init)
-
-        # for i, w in enumerate(self.reservoir.wells):
-        #     if i == 0:
-        #         # w.control = self.physics.new_bhp_inj(100, self.inj_stream)
-        #         w.control = self.physics.new_rate_oil_inj(self.inj_rate, self.inj_stream)
-        #     else:
-        #         w.control = self.physics.new_bhp_prod(100)
+        w = self.reservoir.wells[0]
+        self.physics.set_well_controls(well=w, is_control=True, control_type=well_control_iface.BHP,
+                                               is_inj=False, target=self.pressure_init)
 
     def output_properties(self, output_properties: list = None, timestep: int = None) -> tuple:
         timesteps = [timestep] if timestep is not None else [0]
@@ -471,11 +463,57 @@ class ModelProperties(PropertyContainer):
         else:
             self.fc_mask = fc_mask
         self.fc_idx = {comp: i for i, comp in enumerate(self.components_name[self.fc_mask])}
+        self.Mw_array = np.array([self.Mw[c] for c in self.components_name])
+
+        self.sat_overall = np.zeros(self.nph + 1)
 
         # Define custom evaluators
         self.flash_ev = self.Flash(min_z=self.min_z, fc_mask=self.fc_mask, fc_idx=self.fc_idx, temperature=self.temperature)
         self.kinetic_rate_ev = self.CustomKineticRate(self.temperature, self.min_z)
         self.rel_perm_ev = {ph: self.CustomRelPerm(2) for ph in phases_name[:2]}  # Relative perm for first two phases
+        self.viscosity_ev = { phases_name[0]: self.GasViscosity(), phases_name[1]: self.LiquidViscosity() }
+
+    def evaluate(self, state):
+        """
+        Class methods which evaluates the state operators for the element based physics
+
+        :param state: state variables [pres, comp_0, ..., comp_N-1, temperature (optional)]
+        :type state: value_vector
+
+        :return: updated value for operators, stored in values
+        """
+        nu_v, x, y, rho_phases, kin_state, fluid_volume, species_molar_fractions = self.flash_ev.evaluate(state)
+        self.nu_solid = state[1]
+        self.nu[0] = nu_v * (1 - self.nu_solid) # convert to overall molar fraction
+        self.nu[1] = 1 - nu_v - self.nu_solid
+
+        pressure = state[0]
+        # molar densities in kmol/m3
+        self.dens_m[1], self.dens_m[0] = rho_phases['aq'], rho_phases['gas']
+        self.dens_m_solid = self.density_ev['solid'].evaluate(pressure) / self.Mw['Solid']
+        self.ph = np.array([0, 1], dtype=np.intp)
+
+        # Get saturations
+        if nu_v > 0:
+            self.sat_overall[0] = self.nu[0] / self.dens_m[0] / (self.nu[0] / self.dens_m[0] + self.nu[1] / self.dens_m[1] + self.nu_solid / self.dens_m_solid)
+            self.sat_overall[1] = self.nu[1] / self.dens_m[1] / (self.nu[0] / self.dens_m[0] + self.nu[1] / self.dens_m[1] + self.nu_solid / self.dens_m_solid)
+            self.sat_overall[2] = self.nu_solid / self.dens_m_solid / (self.nu[0] / self.dens_m[0] + self.nu[1] / self.dens_m[1] + self.nu_solid / self.dens_m_solid)
+        else:
+            self.sat_overall[0] = 0
+            self.sat_overall[1] = self.nu[1] / self.dens_m[1] / (self.nu[1] / self.dens_m[1] + self.nu_solid / self.dens_m_solid)
+            self.sat_overall[2] = self.nu_solid / self.dens_m_solid / (self.nu[1] / self.dens_m[1] + self.nu_solid / self.dens_m_solid)
+
+        self.x = np.array([y, x])
+
+        for j in self.ph:
+            M = np.sum(self.Mw_array * self.x[j])
+            self.dens[j] = self.dens_m[j] * M
+            self.sat[j] = self.sat_overall[j] / np.sum(self.sat_overall[:self.nph])
+            self.kr[j] = self.rel_perm_ev[self.phases_name[j]].evaluate(self.sat[j])
+            self.mu[j] = self.viscosity_ev[self.phases_name[j]].evaluate(pressure=pressure, temperature=self.temperature)
+
+        self.rock_compr = self.rock_compr_ev.evaluate(pressure)
+        self.kin_rate = self.kinetic_rate_ev.evaluate(kin_state, self.sat_overall[2], self.dens_m_solid, self.min_z)
 
     # default flash working with molar fractions
     class Flash:
@@ -639,7 +677,7 @@ class ModelProperties(PropertyContainer):
 
             # Check if solvent (water) is enough
             ion_strength = np.sum(fluid_moles) / (water_mass + 1.e-8)
-            if ion_strength > 12:
+            if ion_strength > 20:
                 print(f'ion_strength = {ion_strength}')
             # assert ion_strength < 7, "Not enough water to form a realistic brine"
 
@@ -671,7 +709,7 @@ class ModelProperties(PropertyContainer):
             self.temperature = temperature
             self.min_z = min_z
 
-        def evaluate(self, kin_state, solid_saturation, rho_s, min_z, kin_fact):
+        def evaluate(self, kin_state, solid_saturation, rho_s, min_z):
             # Define constants
             specific_sa = 0.925         # [m2/mol], default = 0.925
             k25a = 0.501187234          # [mol * m-2 * s-1]
@@ -708,5 +746,20 @@ class ModelProperties(PropertyContainer):
 
         def evaluate(self, sat):
             return (sat - self.sr) ** self.exp
+
+    class GasViscosity:
+        def __init__(self):
+            pass
+        def evaluate(self, pressure, temperature):
+            try:
+                return CP.PropsSI('V', 'T', temperature, 'P|gas', bar2pa(pressure), 'CarbonDioxide') * 1000
+            except ValueError:
+                return 0.05
+
+    class LiquidViscosity:
+        def __init__(self):
+            pass
+        def evaluate(self, pressure, temperature):
+            return CP.PropsSI('V', 'T', temperature, 'P|liquid', bar2pa(pressure), 'Water') * 1000
 
 

@@ -266,7 +266,7 @@ def run_comparison():
 
     # against pressure
     pressures = np.arange(10, 100, 5)
-    z_h2o_inits = np.array([0.9, 0.95, 0.99])
+    z_h2o_inits = np.array([0.8, 0.9, 0.99])
     temp = 273.15 + 50
 
     colors = ['b', 'r', 'g', 'm', 'y', 'orange', 'k']
@@ -296,7 +296,7 @@ def run_comparison():
 
     # against initial H2O composition
     pressures = np.array([10, 30, 50])
-    z_h2o_inits = np.arange(0.85, 0.99, 0.01)
+    z_h2o_inits = np.arange(0.7, 0.99, 0.02)
     temp = 273.15 + 50
 
     colors = ['b', 'r', 'g', 'm', 'y', 'orange', 'k']

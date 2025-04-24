@@ -10,7 +10,7 @@ def generate_random_field(nx=100, len_scale=8, var=1):
     srf = gs.SRF(model)
     field = srf((x, y), mesh_type='structured')
 
-    # np.savetxt('spherical_100_8.txt', field)
+    np.savetxt(f'spherical_{nx}_{len_scale}.txt', field)
     srf.plot()
 
 def generate_random_field_unstructured_mesh(len_scale, mesh_file):
