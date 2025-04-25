@@ -407,7 +407,7 @@ class PhysicsBase:
             assert n_p > 1
 
         # calculate object name using 32 bit index type (i)
-        n_dims = n_vars
+        n_dims = self.n_vars
         itor_name = "%s_%s_%s_interpolator_i_%s_%d_%d" % (algorithm,
                                                           mode,
                                                           platform,
@@ -426,7 +426,7 @@ class PhysicsBase:
         except (ValueError, NameError):
             # 32-bit index type did not succeed: either total amount of points is out of range or has not been compiled
             # try 64 bit now raising exception this time if goes wrong:
-            if np.prod(np.array(n_axes_points), dtype=np.float64) < np.iinfo(np.int64).max:
+            if np.prod(np.array(self.n_axes_points), dtype=np.float64) < np.iinfo(np.int64).max:
                 itor_name = itor_name.replace('interpolator_i', 'interpolator_l')
             else:
                 itor_name = itor_name.replace('interpolator_i', 'interpolator_ll')
