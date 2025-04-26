@@ -23,9 +23,9 @@ from math import fabs
 import warnings
 
 try:
-    from phreeqpy.iphreeqc.phreeqc_com import IPhreeqc
-except ImportError:
     from phreeqpy.iphreeqc.phreeqc_dll import IPhreeqc
+except ImportError:
+    from phreeqpy.iphreeqc.phreeqc_com import IPhreeqc
 
 # Definition of your input parameter data structure,
 # change as you see fit (when you need more constant values, etc.)!!
