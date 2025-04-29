@@ -1,17 +1,17 @@
 
-## Description
+# Description
 This example contains CPG (Corner Point Geometry) grid setup. The grid and rock properties can be set using mesh generation (stuctured like grid) and input files (grdecl format).
 Model introduces two options for physics: Geothermal and Deadoil (isothermal) with either 2 (one production and one injection) or 1 well (cyclic mode).
 Well perforation definition can be done using Python code (XYZ and IJK) and using SCH file (COMPDAT keyword).
 Well controls: BHP, volumetric rate with BHP constraint, cyclic production and injection (single well).
 
-## Model class
+# Model class
 First, we create a custom Model_CPG (model_cpg.py) class inherited from DARTSModel class. It contains reservoir related code.
 Next, we create one more inheritance level for Physics related code (model_geothermal.py or model_deadoil.py).
 
 ![model_inheritance](doc_images/model_inheritance.PNG "model_inheritance")
 
-## Running the simulation 
+# Running the simulation 
 To run this model, use `darts main.py`.
 In `main.py`, we create a model instance and make necessary calls to initialize it.
 
@@ -109,12 +109,27 @@ For example, setting `M=0.0` will make the fault impermeable.
 
 Example case: "generate_51x51x1_faultmult" defined in `case_51x51x1.py`
 
-## Physics initialization
+# Physics initialization
 Physics initialization is done in either model_geothermal.py or model_deadoil.py. Each of them have `set_physics` function and its own OBL parameters.
 
-# Geothermal physics
-There are two options for dynamic fluid properties evaluation: `GeothermalIAPWSFluidProps()` which uses IAPWS and `GeothermalPHFluidProps()` which uses Flash.
+## Geothermal physics
+There are two options for Geothermal physics:
+```
+        # single component, two phase. Pressure and enthalpy are the main variables
+        if self.iapws_physics:
+            self.physics = Geothermal(self.idata, self.timer)  # IAPWS
+        else:
+            self.physics = GeothermalPH(self.idata, self.timer)  # Flash
+            self.physics.determine_obl_bounds(state_min=[self.idata.obl.min_p, 250.],
+                                              state_max=[self.idata.obl.max_p, 575.])
+```
+There are two options for dynamic fluid properties evaluation: `GeothermalIAPWSFluidProps()` which uses [IAPWS](https://pypi.org/project/iapws/) and `GeothermalPHFluidProps()` which uses Flash.
 One can overwrite some evaluators with custom one.
+
+## Deadoil physics
+```
+self.physics = DeadOil(self.idata, self.timer, thermal=False)
+```
 
 ## Initial and boundary conditions
 
