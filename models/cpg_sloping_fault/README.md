@@ -9,22 +9,42 @@ Well controls: BHP, volumetric rate with BHP constraint, cyclic production and i
 First, we create a custom Model_CPG (model_cpg.py) class inherited from DARTSModel class. It contains reservoir related code.
 Next, we create one more inheritance level for Physics related code (model_geothermal.py or model_deadoil.py).
 
+![model_inheritance](doc_images/model_inheritance.PNG "model_inheritance")
+
 ## Running the simulation 
-It is done in `main.py`.
-We create a model instance and make necessary calls to initialize it.
+To run this model, use `darts main.py`.
+In `main.py`, we create a model instance and make necessary calls to initialize it.
 
 Choose cases to run:
 - geometry, rock properties and well locations
 - physics
 - well controls
+By default, all combinations will be executed for testing purposes.
 
-By default, `main.py` runs all those combinations for testing purposes.
+The `m.run_simulation()` call computes a time step loop.
+
+Finally, optional results processing is done. 
+Vtk files output:
+```
+for ith_step in range(len(m.idata.sim.time_steps)+1):
+    m.output_to_vtk(ith_step=ith_step, output_properties=output_properties)
+```
+Save well rates to excel:
+```
+time_data_report = pd.DataFrame.from_dict(m.physics.engine.time_data_report)
+add_columns_time_data(time_data_report)
+
+writer = pd.ExcelWriter(os.path.join(out_dir, 'time_data.xlsx'))
+time_data.to_excel(writer, sheet_name='time_data')
+writer.close()
+```
 
 # Input case files
 In our model classes we add new functions `set_input_data(case)` which takes a string argument `case` and fills in an InputData class object.
 For example, if `case` contains the "generate" substring, then gris generation will be used. Otherwise, grid data is supposed to be read from files.
 Since there are some properties we would like to keep the same for a few cases, there is `case_base.py` which is called by each case, and some of that properties are overwritten later on by a specific case properties.
 
+![case_setting.PNG](doc_images/case_setting.PNG "case_setting")
 
 # Grid generation
 The grid is generated with a function `gen_cpg_grid` and can be with a regular layers thickness, like in case_generate_51x51x1.py:
@@ -44,11 +64,17 @@ geom.dz = np.array([100, 150, 180, 120])
 ```
 
 # Grid initialization from files
-This call creates an `arrays` dictionary with keys `COORD`, `ZCORN, `ACTNUM`, `PORO`, `PERMX`, `PERMY`, `PERMZ`.
+This call creates an `arrays` dictionary with keys `SPECGRID`, `COORD`, `ZCORN`, `ACTNUM`, `PORO`, `PERMX`, `PERMY`, `PERMZ`.
 ```
 arrays = m.init_input_arrays()
 ```
 Example case: `case_40x40x10.py`.
+
+Additional arrays can be read as well:
+```
+    arrays['new_array_name'] = read_float_array(filename, 'new_array_name')
+    arrays['new_array_name'] = read_int_array(filename, 'new_array_name')
+```
 
 # CPG Reservoir initialization
 
@@ -65,7 +91,7 @@ If Over- and underburden layers were not generated in the geological modeling so
 This option enabled by default for geothermal physics case.
 The properties `geom.burden_layers, geom.burden_init_thickness, idata.rock.burden_prop` and other are defined in `case_base.py`.
 
-TODO
+![over_under_burden](doc_images/over_under_burden.PNG "over_under_burden")
 
 Note: this feature doesn’t work well if the top or the bottom layers are fully or partly inactive (due to ACTNUM=0, PORO=0, thickness=0). 
 
@@ -97,6 +123,8 @@ We provide two predefined options: uniform, when just two values are defined, an
 
 # Initial conditions (deadoil physics)
 Here, the initial pressure is defined by a gradient. The initial saturation is defined by water table depth.
+
+![initial_state_deadoil](doc_images/initial_state_deadoil.PNG "initial_state_deadoil")
 
 # Boundary conditions
 - top and bottom – no flow
@@ -131,8 +159,6 @@ wdata = self.idata.well_data
 wdata.add_inj_bhp_control(name=w, bhp=250, temperature=300)  # m3/day | bars | K
 ```
 
-TODO: injection composition
-
 ## Simulation parameters
 In this model, timesteps are defined in InputData class.
 ```
@@ -158,8 +184,8 @@ This models outputs 4 types of vtk files, which can be loaded into ParaView:
 
 There is also .grdecl file output, which can be loaede into ResInsight. 
 
-# Well results (time_data)
-TODO
+Input and output files are illustrated below:
+![input_output_files](doc_images/input_output_files.PNG "input_output_files")
 
 ## Screen output and log file
 By default, all output (both from Python and C++ parts of open-DARTS) is shown in the console. To redirect the C++ output to a file `redirect_all_output(log_filename)` can be used.
