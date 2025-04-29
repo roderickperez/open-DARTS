@@ -17,18 +17,19 @@ from darts.print_build_info import print_build_info as package_pbi
 
 class DataTS:
 
-    def __init__(self, nc):
-        self.eta = 1e20 * np.ones(nc)  # avoid limitation for changes
+    def __init__(self, n_vars):
+        self.eta = 1e20 * np.ones(n_vars)  # controls the timestep by the variable change from the previous newton iteration
+        # dX = X - Xn . Eta has a size of number of DOFs per cell. It set to a large value by default, so doesn't affect the timestep choice
 
         # default values
-        self.first_ts = 1.
-        self.dt_min = 1e-12
-        self.dt_mult = 2.
-        self.dt_max = 10.
-        self.tol_res = 1e-2
-        self.tol_wel_mult = 100.
-        self.tol_stationary = 1e-3
-        self.max_it_nonlin = 20
+        self.first_ts = 1.   # initial timestep [days]
+        self.dt_min = 1e-12  # minimal allowed timestep [days]
+        self.dt_mult = 2.    # timestep multiplier, affects the next timestep choice
+        self.dt_max = 10.    # maximal allowed timestep [days]
+        self.tol_res = 1e-2  # newton solver residual
+        self.tol_wel_mult = 100.   # used to compute the newton solver residual for wells = tol_res * tol_wel_mult
+        self.tol_stationary = 1e-3 # tolerance for stationary point detection in the newton solver (by residual)
+        self.max_it_nonlin = 20    # maximum newton iterations allowed
 
 class DartsModel:
     """
