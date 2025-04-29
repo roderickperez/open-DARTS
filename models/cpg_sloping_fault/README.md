@@ -105,8 +105,8 @@ Here, the initial pressure is defined by a gradient. The initial saturation is d
 geom.bound_volume = 1e18    # lateral boundary volume, m^3
 ```
 
-In case ACTNUM array is defined, the volume will be set at the closest active cell: 
-TODO
+In case ACTNUM array is defined, the large volume will be set at the closest to the boundary active cell: 
+![boundary_volume](doc_images/boundary_volume.PNG "boundary volume")
 
 ## Wells
 In this model, wells are defined in InputData class.
