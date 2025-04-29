@@ -27,8 +27,11 @@ build-linux-3.11:
 
 build-linux-3.10:
     rules: 
+        - if: $CI_COMMIT_REF_PROTECTED == "true"
+        - if: $CI_PIPELINE_SOURCE == "merge_request_event"
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
-        - if: $TEST_ALL_PYTHONS == "1"
+        - if: $TEST_CUSTOM_BRANCH == "1"
+        - if: $TEST_ALL_PYTHONS == "1" 
     extends: .build-linux-dockcross
     variables:
         PY_VER: '3.10'        # for python image selection in .build-linux
@@ -37,18 +40,15 @@ build-linux-3.10:
         
 build-linux-3.9: 
     rules:
-        - if: $CI_COMMIT_REF_PROTECTED == "true"
-        - if: $CI_PIPELINE_SOURCE == "merge_request_event"
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
-        - if: $TEST_CUSTOM_BRANCH == "1"
-        - if: $TEST_ALL_PYTHONS == "1"   
+        - if: $TEST_ALL_PYTHONS == "1" 
     extends: .build-linux-dockcross
     variables:
         PY_VER: '3.9'       # for python image selection in .build-linux
         PY_SUF: 'cp39-cp39' # for python path selection in .build-linux-dockcross
         ODLS: '-a'
 
-build-linux-3.9-gpu: 
+build-linux-3.10-gpu: 
     rules:
         - if: $CI_COMMIT_REF_PROTECTED == "true"
         - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -59,7 +59,7 @@ build-linux-3.9-gpu:
 
     variables:
         GIT_SUBMODULE_STRATEGY: recursive
-        PY_VER: '3.9'       # for python image selection in .build-linux
+        PY_VER: '3.10'       # for python image selection in .build-linux
         ODLS: '-a'
         TEST_GPU: '1' 
 
@@ -86,7 +86,10 @@ build-linux-3.11-ODLS:
         
 build-linux-3.10-ODLS:
     rules: 
+        - if: $CI_COMMIT_REF_PROTECTED == "true"
+        - if: $CI_PIPELINE_SOURCE == "merge_request_event"
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_CUSTOM_BRANCH == "1"
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .build-linux-dockcross
     variables:
@@ -96,10 +99,7 @@ build-linux-3.10-ODLS:
         
 build-linux-3.9-ODLS:
     rules:
-        - if: $CI_COMMIT_REF_PROTECTED == "true"
-        - if: $CI_PIPELINE_SOURCE == "merge_request_event"
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
-        - if: $TEST_CUSTOM_BRANCH == "1"
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .build-linux-dockcross
     variables:
@@ -130,7 +130,10 @@ build-windows-3.11:
 
 build-windows-3.10:
     rules: 
+        - if: $CI_COMMIT_REF_PROTECTED == "true"
+        - if: $CI_PIPELINE_SOURCE == "merge_request_event"
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_CUSTOM_BRANCH == "1"
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .build-windows
     variables:
@@ -140,10 +143,7 @@ build-windows-3.10:
  
 build-windows-3.9:
     rules:
-        - if: $CI_COMMIT_REF_PROTECTED == "true"
-        - if: $CI_PIPELINE_SOURCE == "merge_request_event"
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
-        - if: $TEST_CUSTOM_BRANCH == "1"
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .build-windows
     variables:
@@ -174,7 +174,10 @@ build-windows-3.11-ODLS:
                 
 build-windows-3.10-ODLS:
     rules: 
+        - if: $CI_COMMIT_REF_PROTECTED == "true"
+        - if: $CI_PIPELINE_SOURCE == "merge_request_event"
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_CUSTOM_BRANCH == "1"
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .build-windows
     variables:
@@ -185,10 +188,7 @@ build-windows-3.10-ODLS:
  
 build-windows-3.9-ODLS:
     rules:
-        - if: $CI_COMMIT_REF_PROTECTED == "true"
-        - if: $CI_PIPELINE_SOURCE == "merge_request_event"
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
-        - if: $TEST_CUSTOM_BRANCH == "1"
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .build-windows
     variables:
@@ -328,7 +328,10 @@ test-linux-3.11-ODLS:
 
 test-linux-3.10-ODLS:
     rules: 
+        - if: $CI_COMMIT_REF_PROTECTED == "true"
+        - if: $CI_PIPELINE_SOURCE == "merge_request_event"
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_CUSTOM_BRANCH == "1"
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .test-linux
     variables:
@@ -340,10 +343,7 @@ test-linux-3.10-ODLS:
 
 test-linux-3.9-ODLS:
     rules:
-        - if: $CI_COMMIT_REF_PROTECTED == "true"
-        - if: $CI_PIPELINE_SOURCE == "merge_request_event"
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
-        - if: $TEST_CUSTOM_BRANCH == "1"
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .test-linux
     variables:
@@ -380,7 +380,10 @@ test-linux-3.11:
 
 test-linux-3.10:
     rules: 
+        - if: $CI_COMMIT_REF_PROTECTED == "true"
+        - if: $CI_PIPELINE_SOURCE == "merge_request_event"
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_CUSTOM_BRANCH == "1"
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .test-linux
     variables:
@@ -392,10 +395,7 @@ test-linux-3.10:
 
 test-linux-3.9:
     rules:
-        - if: $CI_COMMIT_REF_PROTECTED == "true"
-        - if: $CI_PIPELINE_SOURCE == "merge_request_event"
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
-        - if: $TEST_CUSTOM_BRANCH == "1"
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .test-linux
     variables:
@@ -407,7 +407,7 @@ test-linux-3.9:
 
 ###################################################################################
 
-test-linux-3.9-gpu:
+test-linux-3.10-gpu:
     rules: 
         - if: $CI_COMMIT_REF_PROTECTED == "true"
         - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -416,11 +416,11 @@ test-linux-3.9-gpu:
         - if: $TEST_GPU_LINUX == "1"
     extends: .test-linux-gpu
     variables:
-        PY_VER: '3.9'
+        PY_VER: '3.10'
         ODLS: '-a'
         TEST_GPU: '1'
     dependencies:
-        - build-linux-3.9-gpu
+        - build-linux-3.10-gpu
       
 ###################################################################################
 test-windows-3.12:
@@ -449,7 +449,10 @@ test-windows-3.11:
      
 test-windows-3.10:
     rules: 
+        - if: $CI_COMMIT_REF_PROTECTED == "true"
+        - if: $CI_PIPELINE_SOURCE == "merge_request_event"
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_CUSTOM_BRANCH == "1"
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .test-windows
     variables:
@@ -461,10 +464,7 @@ test-windows-3.10:
 
 test-windows-3.9:
     rules:
-        - if: $CI_COMMIT_REF_PROTECTED == "true"
-        - if: $CI_PIPELINE_SOURCE == "merge_request_event"
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
-        - if: $TEST_CUSTOM_BRANCH == "1"
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .test-windows
     variables:
@@ -501,7 +501,10 @@ test-windows-3.11-ODLS:
      
 test-windows-3.10-ODLS:
     rules: 
+        - if: $CI_COMMIT_REF_PROTECTED == "true"
+        - if: $CI_PIPELINE_SOURCE == "merge_request_event"
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_CUSTOM_BRANCH == "1"
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .test-windows
     variables:
@@ -513,10 +516,7 @@ test-windows-3.10-ODLS:
 
 test-windows-3.9-ODLS:
     rules:
-        - if: $CI_COMMIT_REF_PROTECTED == "true"
-        - if: $CI_PIPELINE_SOURCE == "merge_request_event"
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
-        - if: $TEST_CUSTOM_BRANCH == "1"
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .test-windows
     variables:
@@ -666,7 +666,7 @@ test-windows-3.9-ODLS:
 
 upload_wheels:
     stage: deploy
-    image: python:3.9
+    image: python:3.10
     rules: 
         - if: $UPLOAD_WHEELS == "1"
     tags:
@@ -681,12 +681,12 @@ upload_wheels:
         - smbclient -U $SMBLOGIN%$SMBPASS //$SMBNAME/darts-private-artifacts -c "put $wheel" -D=wheels_iter
     dependencies:
         # get the wheels from the build stage
-        - build-linux-3.9
-        - build-windows-3.9
+        - build-linux-3.10
+        - build-windows-3.10
 
 upload_wheels_gse:
     stage: deploy
-    image: python:3.9
+    image: python:3.10
     rules: 
         - if: $UPLOAD_WHEELS == "1"
     tags:
@@ -697,11 +697,11 @@ upload_wheels_gse:
         - cp $wheel $GSEWHEELSPATH
     dependencies:
         # get the wheels from the build stage
-        - build-linux-3.9-gpu
+        - build-linux-3.10-gpu
 
 upload_wheels_odls:
     stage: deploy
-    image: python:3.9
+    image: python:3.10
     rules: 
         - if: $UPLOAD_WHEELS == "1"
     tags:
@@ -716,8 +716,8 @@ upload_wheels_odls:
         - smbclient -U $SMBLOGIN%$SMBPASS //$SMBNAME/darts-private-artifacts -c "put $wheel" -D=wheels_odls
     dependencies:
         # get the wheels from the build stage
-        - build-linux-3.9-ODLS
-        - build-windows-3.9-ODLS
+        - build-linux-3.10-ODLS
+        - build-windows-3.10-ODLS
         
 ###################################################################################
 
@@ -749,7 +749,7 @@ deploy-testpypi:
 .deploy-pypi:
     stage: deploy
     # just for twine
-    image: python:3.9
+    image: python:3.10
     # Will be executed on runner with windows tag - that assumed to run on windows host
     tags:
         - linux
@@ -779,7 +779,7 @@ deploy-zenodo:
         - if: $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     tags:
         - linux
-    image: python:3.9
+    image: python:3.10
     script:
         # cloning gitlab2zenodo in a temporary folder
         - mkdir tmp_gitlab2zenodo
@@ -801,12 +801,12 @@ pages:
         - if: $DOCS_PAGES == "1"
     tags:
         - linux
-    image: python:3.9
+    image: python:3.10
     script:
         # re-install open-darts with the dependencies for building the documentation
         - pip install .[docs]
         # use the wheel generated in build to install open-darts
-        - pip install --force-reinstall --no-deps ./dist/*cp39-linux_x86_64.whl
+        - pip install --force-reinstall --no-deps ./dist/*cp310-linux_x86_64.whl
         - cd docs
         # command to build the documentation to a folder called public
         - sphinx-build -b html . public
@@ -816,4 +816,4 @@ pages:
         paths:
         - public
     dependencies:
-        - build-linux-3.9-ODLS
+        - build-linux-3.10-ODLS
