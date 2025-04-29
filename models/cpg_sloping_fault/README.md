@@ -191,13 +191,17 @@ All output files are created in a subfolder with a case name in a suffix, for ex
 Note, the output folder is deleted at each run. Please rename it if you would like to save results from the previous run.
 
 # 3D data 
-This models outputs 4 types of vtk files, which can be loaded into ParaView:
+This models outputs 4 types of vtk files, which can be loaded into Paraview:
 - solution.pvd and solution_ts[i].vtu - dynamic properties
 - mesh.vtk - static properties
 - wells.vtk - well location
 - centers.vtk - cell center points 
 
-There is also .grdecl file output, which can be loaede into ResInsight. 
+The temperature plum and permeability distribution visualization in Paraview:
+![40x40x10_results_geothermal_wrate](doc_images/40x40x10_results_geothermal_wrate.PNG "40x40x10_results_geothermal_wrate")
+It can be loaded using the file `paraview\40x40x10.pvsm` after the case 40x40x10 with geothermal physics and well rate control is computed.
+
+There is also .grdecl file output, which can be loaded into ResInsight. 
 
 Input and output files are illustrated below:
 ![input_output_files](doc_images/input_output_files.PNG "input_output_files")
