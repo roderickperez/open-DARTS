@@ -140,10 +140,10 @@ dt = 365.25  # one report timestep length, [days]
 n_time_steps = 20
 idata.sim.time_steps = np.zeros(n_time_steps) + dt
 ```
-Timestep and convergence control parameters are set in `m.set_sim_params(...)`.
+Timestep and convergence control parameters are defined in `case_base.py`.
 
-# Timesteps parameters
-Defined in `case_base.py`
+Set number of CPU cores or enable GPU: https://open-darts.gitlab.io/open-DARTS/for_developers/configure_hardware.html 
+
 
 ## Output
 All output files are created in a subfolder with a case name in a suffix, for example: `results_deadoil_generate_5x3x4_wbhp`.
