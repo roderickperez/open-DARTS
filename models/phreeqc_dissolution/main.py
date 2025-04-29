@@ -42,7 +42,7 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str
             if domain == '1D': return plot_profiles(m, output_folder=output_folder)
             else: m.output_to_vtk(ith_step=ith_step)
 
-    m.params.max_ts = max_ts
+    m.data_ts.dt_max = max_ts
     ith_step = 0
     if domain == '1D':
         fig_paths = []
@@ -53,21 +53,21 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str
         fig_paths.append(plot(m))
         m.run(days=0.02, restart_dt=max_ts)
         fig_paths.append(plot(m))
-        m.params.max_ts *= 3
-        m.params.first_ts = m.params.max_ts
+        m.data_ts.dt_max *= 3
+        m.data_ts.first_ts = m.data_ts.dt_max
         m.run(days=0.1, restart_dt=max_ts)
-        m.params.max_ts *= 4
+        m.data_ts.dt_max *= 4
         m.run(days=0.86)
         fig_paths.append(plot(m))
-        m.params.max_ts *= 5
-        m.params.first_ts = m.params.max_ts
+        m.data_ts.dt_max *= 5
+        m.data_ts.first_ts = m.data_ts.dt_max
 
         for i in range(7):
             dt = 2.0
             m.run(days=dt)
             if i < 1:
-                m.params.max_ts *= 1.5
-                m.params.first_ts = m.params.max_ts
+                m.data_ts.dt_max *= 1.5
+                m.data_ts.first_ts = m.data_ts.dt_max
             fig_paths.append(plot(m))
 
         if output:
@@ -78,8 +78,8 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str
         m.run(days=0.001, restart_dt=max_ts)
         plot(m=m, ith_step=ith_step)
         ith_step += 1
-        m.params.max_ts *= 40
-        m.params.first_ts = m.params.max_ts
+        m.data_ts.dt_max *= 40
+        m.data_ts.first_ts = m.data_ts.dt_max
         m.run(days=0.001)
         plot(m=m, ith_step=ith_step)
         ith_step += 1
@@ -91,8 +91,8 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str
             dt = 0.4
             m.run(days=dt)
             if i < 1:
-                m.params.max_ts *= 1.5
-                m.params.first_ts = m.params.max_ts
+                m.data_ts.dt_max *= 1.5
+                m.data_ts.first_ts = m.data_ts.dt_max
             plot(m=m, ith_step=ith_step)
             ith_step += 1
     elif domain == '3D':
@@ -101,8 +101,8 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str
         m.run(days=0.001, restart_dt=max_ts)
         plot(m=m, ith_step=ith_step)
         ith_step += 1
-        m.params.max_ts *= 20
-        m.params.first_ts = m.params.max_ts
+        m.data_ts.dt_max *= 20
+        m.data_ts.first_ts = m.data_ts.dt_max
         m.run(days=0.001)
         plot(m=m, ith_step=ith_step)
         ith_step += 1
@@ -114,8 +114,8 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str
             dt = 0.4
             m.run(days=dt)
             if i < 1:
-                m.params.max_ts *= 1.5
-                m.params.first_ts = m.params.max_ts
+                m.data_ts.dt_max *= 1.5
+                m.data_ts.first_ts = m.data_ts.dt_max
             plot(m=m, ith_step=ith_step)
             ith_step += 1
 

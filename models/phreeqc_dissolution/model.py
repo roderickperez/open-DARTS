@@ -59,19 +59,10 @@ class Model(CICDModel):
         self.set_reservoir(domain=domain, nx=nx, mesh_filename=mesh_filename, poro_filename=poro_filename)
         self.set_physics()
 
-        # Some newton parameters for non-linear solution:
-        self.params.first_ts = 1e-5
-        self.params.max_ts = 1e-3
-
-        self.params.tolerance_newton = 1e-4
-        self.params.tolerance_linear = 1e-6
-        self.params.max_i_newton = 20
-        self.params.max_i_linear = 50
+        self.set_sim_params(first_ts=1e-5, max_ts=1e-3, tol_newton=1e-4, tol_linear=1e-6, it_newton=20, it_linear=50)
         self.params.newton_type = sim_params.newton_local_chop
         self.params.newton_params[0] = 0.2
-        # self.params.norm_type = 1
 
-        self.runtime = 1
         self.timer.node["initialization"].stop()
 
     def init(self, discr_type: str = 'tpfa', platform: str = 'cpu', restart: bool = False,
