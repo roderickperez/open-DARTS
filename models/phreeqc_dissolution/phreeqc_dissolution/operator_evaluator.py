@@ -174,12 +174,28 @@ class my_own_property_evaluator(operator_set_evaluator_iface):
         super().__init__()
         self.input_data = input_data
         self.property = properties
-        self.props_name = ['z' + prop for prop in properties.flash_ev.phreeqc_species]
+        self.props_name = ['z' + prop for prop in properties.flash_ev.phreeqc_species] + ['satV']
 
     def evaluate(self, state, values):
         state_np = state.to_numpy()
         values_np = values.to_numpy()
-        _, _, _, _, _, _, molar_fractions = self.property.flash_ev.evaluate(state_np)
+        nu_v, _, _, rho_phases, _, _, molar_fractions = self.property.flash_ev.evaluate(state_np)
         values_np[:molar_fractions.size] = molar_fractions
+
+        # gas saturation
+        nu_s = state_np[1]
+        nu_v = nu_v * (1 - nu_s)  # convert to overall molar fraction
+        nu_a = 1 - nu_v - nu_s
+        rho_a, rho_v = rho_phases['aq'], rho_phases['gas']
+        rho_s = self.property.rock_density_ev['Solid_CaCO3'].evaluate(state_np[0]) / self.property.Mw['Solid_CaCO3']
+        if nu_v > 0:
+            sv = nu_v / rho_v / (nu_v / rho_v + nu_a / rho_a + nu_s / rho_s)
+            sa = nu_a / rho_a / (nu_v / rho_v + nu_a / rho_a + nu_s / rho_s)
+            ss = nu_s / rho_s / (nu_v / rho_v + nu_a / rho_a + nu_s / rho_s)
+        else:
+            sv = 0
+            sa = nu_a / rho_a / (nu_a / rho_a + nu_s / rho_s)
+            ss = nu_s / rho_s / (nu_a / rho_a + nu_s / rho_s)
+        values_np[molar_fractions.size] = sv
 
         return 0
