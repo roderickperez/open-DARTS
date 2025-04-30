@@ -55,7 +55,7 @@ def run(physics_type : str, case: str, out_dir: str, export_vtk=True, redirect_l
 
     m.init(output_folder=out_dir, platform=platform)
     #m.reservoir.mesh.init_grav_coef(0)
-    m.set_well_controls()
+    m.set_well_controls_idata()
 
     m.reservoir.save_grdecl(m.get_arrays(), os.path.join(out_dir, 'res_init'))
 
