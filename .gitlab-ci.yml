@@ -698,6 +698,9 @@ test-windows-3.9-ODLS:
 valgrind-profiling:
     stage: test
     extends: .build-linux-dockcross
+    variables:
+        PY_VER: '3.10'
+        PY_SUF: 'cp310-cp310'
     rules:
     # - if: $TEST_VALGRIND == "1"
         - if: $CI_COMMIT_REF_PROTECTED == "true"
