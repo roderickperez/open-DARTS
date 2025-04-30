@@ -698,9 +698,7 @@ test-windows-3.9-ODLS:
 
 valgrind-profiling:
     stage: test
-    image: "python:$PY_VER"
-    tags:
-        - linux
+    extends: .build-linux-dockcross
     rules:
     # - if: $TEST_VALGRIND == "1"
         - if: $CI_COMMIT_REF_PROTECTED == "true"
@@ -711,8 +709,9 @@ valgrind-profiling:
     dependencies:
         - build-linux-3.10-valgrind
     before_script:
+        - export PYTHONMALLOC=malloc
         # Make sure valgrind is installed
-        - apt-get update -qq && apt-get install -y -qq valgrind
+        - yum install -y -q valgrind
         # Install the debug-built wheel
         - pip install ./dist/*.whl
     script:
@@ -720,7 +719,8 @@ valgrind-profiling:
         - python helper_scripts/valgrind_profile.py
     artifacts:
       paths:
-        - valgrind_logs/*.txt
+        - models/valgrind_logs/*.log
+        - models/valgrind_logs/*.txt
       when: always
       expire_in: 1 week
 
