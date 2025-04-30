@@ -64,6 +64,7 @@ class Model(CICDModel):
         self.set_sim_params(first_ts=1e-5, max_ts=1e-3, tol_newton=1e-4, tol_linear=1e-6, it_newton=20, it_linear=50)
         self.params.newton_type = sim_params.newton_local_chop
         self.params.newton_params[0] = 0.2
+        self.runtime = 1
 
         self.timer.node["initialization"].stop()
 
