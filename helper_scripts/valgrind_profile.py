@@ -1,6 +1,7 @@
 import os
 import subprocess
 import re
+import shutil
 
 valgrind_models = ['2ph_comp']
 log_folder = os.path.join('models', '_valgrind_logs')
