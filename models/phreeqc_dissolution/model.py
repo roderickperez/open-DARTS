@@ -49,12 +49,14 @@ class MyOwnDataStruct:
 
 # Actual Model class creation here!
 class Model(CICDModel):
-    def __init__(self, domain: str = '1D', nx: int = 200, mesh_filename: str = None, poro_filename: str = None):
+    def __init__(self, domain: str = '1D', nx: int = 200, mesh_filename: str = None, poro_filename: str = None,
+                 minerals: set = {'calcite'}):
         # Call base class constructor
         super().__init__()
 
         # Measure time spend on reading/initialization
         self.timer.node["initialization"].start()
+        self.minerals = minerals
 
         self.set_reservoir(domain=domain, nx=nx, mesh_filename=mesh_filename, poro_filename=poro_filename)
         self.set_physics()
@@ -143,37 +145,66 @@ class Model(CICDModel):
         self.obl_min = self.min_z / 10
 
         # Several parameters here related to components used, OBL limits, and injection composition:
-        self.cell_property = ['pressure', 'H2O', 'H+', 'OH-', 'CO2', 'HCO3-', 'CO3-2', 'CaCO3', 'Ca+2', 'CaOH+',
-                              'CaHCO3+', 'Solid']
         self.phases = ['gas', 'liq']
-        self.components = ['H2O', 'H+', 'OH-', 'CO2', 'HCO3-', 'CO3-2', 'CaCO3', 'Ca+2', 'CaOH+', 'CaHCO3+', 'Solid']
-        self.elements = ['Solid', 'Ca', 'C', 'O', 'H']
-        self.fc_mask = np.array([False, True, True, True, True], dtype=bool)
-        Mw = {'Solid': 100.0869, 'Ca': 40.078, 'C': 12.0096, 'O': 15.999, 'H': 1.007} # molar weights in kg/kmol
+
+        if self.minerals == {'calcite'}:
+            # purely for initialization
+            self.components = ['H2O', 'H+', 'OH-', 'CO2', 'HCO3-', 'CO3-2', 'CaCO3', 'Ca+2', 'CaOH+', 'CaHCO3+', 'Solid_CaCO3']
+            self.elements = ['Solid_CaCO3', 'Ca', 'C', 'O', 'H']
+            self.fc_mask = np.array([False, True, True, True, True], dtype=bool)
+            Mw = {'Solid_CaCO3': 100.0869, 'Ca': 40.078, 'C': 12.0096, 'O': 15.999, 'H': 1.007} # molar weights in kg/kmol
+            self.n_points = list(np.array([101, 201, 101, 101, 101], dtype=np.intp))
+            self.axes_min = [self.pressure_init - 1] + [self.obl_min, self.obl_min, self.obl_min, 0.3]
+            self.axes_max = [self.pressure_init + 2] + [1 - self.obl_min, 0.01, 0.02, 0.37]
+            # Rate annihilation matrix
+            self.E = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                               [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0],
+                               [0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0],
+                               [1, 0, 1, 2, 3, 3, 3, 0, 1, 3, 0],
+                               [2, 1, 1, 0, 1, 0, 0, 0, 1, 1, 0]])
+            # Several parameters related to kinetic reactions:
+            stoich_matrix = np.array([-1, 1, 1, 3, 0])
+
+            rock_props = {'Solid_CaCO3':
+                              {'density': 2710., 'compressibility': 1.e-6}}
+        elif self.minerals == {'calcite', 'dolomite'}:
+            # purely for initialization
+            self.components = ['H2O', 'H+', 'OH-', 'CO2', 'HCO3-', 'CO3-2',
+                               'CaCO3', 'Ca+2', 'CaOH+', 'CaHCO3+', 'Solid_CaCO3',                  # calcite-related
+                               'CaMg(CO3)2', 'Mg+2', 'MgOH+', 'MgHCO3+', 'Solid_CaMg(CO3)2']        # dolomite-related
+            self.elements = ['Solid_CaCO3', 'Solid_CaMg(CO3)2', 'Ca', 'Mg', 'C', 'O', 'H']
+            self.fc_mask = np.array([False, False, True, True, True, True], dtype=bool)
+            Mw = {'Solid_CaCO3': 100.0869, 'Solid_CaMg(CO3)2': 184.401,
+                    'Ca': 40.078, 'Mg': 24.305, 'C': 12.0096, 'O': 15.999, 'H': 1.007} # molar weights in kg/kmol
+            self.n_points = list(np.array([101, 201, 201, 101, 101, 101], dtype=np.intp))
+            self.axes_min = [self.pressure_init - 1] + [self.obl_min, self.obl_min, self.obl_min, self.obl_min, 0.3]
+            self.axes_max = [self.pressure_init + 2] + [1 - self.obl_min, 1 - self.obl_min, 0.01, 0.02, 0.37]
+            # Rate annihilation matrix
+            self.E = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],    # Solid_CaCO3
+                               [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],    # Solid_CaMg(CO3)2
+                               [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0],    # Ca
+                               [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0],    # Mg
+                               [0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0, 2, 0, 0, 1, 0],    # C
+                               [1, 0, 1, 2, 3, 3, 3, 0, 1, 3, 0, 6, 0, 1, 3, 0],    # O
+                               [2, 1, 1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0]])   # H
+
+            rock_props = {'Solid_CaCO3':
+                              {'density': 2710., 'compressibility': 1.e-6},
+                          'Solid_CaMg(CO3)2':
+                              {'density': 2840., 'compressibility': 1.e-6}}
+
         self.num_vars = len(self.elements)
         self.nc = len(self.elements)
-        self.n_points = list(np.array([101, 201, 101, 101, 101], dtype=np.intp))
-        self.axes_min = [self.pressure_init - 1] + [self.obl_min, self.obl_min, self.obl_min, 0.3] #[self.obl_min, self.obl_min, self.obl_min, self.obl_min]
-        self.axes_max = [self.pressure_init + 2] + [1 - self.obl_min, 0.01, 0.02, 0.37]
-
-        # Rate annihilation matrix
-        self.E = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-                      [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0],
-                      [0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0],
-                      [1, 0, 1, 2, 3, 3, 3, 0, 1, 3, 0],
-                      [2, 1, 1, 0, 1, 0, 0, 0, 1, 1, 0]])
-
-        # Several parameters related to kinetic reactions:
-        stoich_matrix = np.array([-1, 1, 1, 3, 0])
 
         # Create property containers:
         property_container = ModelProperties(phases_name=self.phases, components_name=self.elements, Mw=Mw,
                                              min_z=self.obl_min, temperature=self.temperature, fc_mask=self.fc_mask)
-        rock_compressibility = 1e-6
-        property_container.rock_compr_ev = ConstFunc(rock_compressibility)
-        property_container.density_ev['solid'] = DensityBasic(compr=rock_compressibility, dens0=2710., p0=1.)
 
-        # self.kin_fact = self.property.density_ev['solid'].evaluate(pressure) / self.property.Mw['Solid'] * np.mean(self.solid_sat)
+        for min, props in rock_props.items():
+            property_container.rock_compr_ev[min] = ConstFunc(props['compressibility'])
+            property_container.rock_density_ev[min] = DensityBasic(compr=props['compressibility'], dens0=props['density'], p0=1.)
+
+        # self.kin_fact = self.property.rock_density_ev['solid'].evaluate(pressure) / self.property.Mw['Solid'] * np.mean(self.solid_sat)
         self.kin_fact = 1
 
         # Create instance of data-structure for simulation (and chemical) input parameters:
@@ -459,6 +490,8 @@ class ModelProperties(PropertyContainer):
         self.sat_overall = np.zeros(self.nph + 1)
 
         # Define custom evaluators
+        self.rock_density_ev = {}
+        self.rock_compr_ev = {}
         self.flash_ev = self.Flash(min_z=self.min_z, fc_mask=self.fc_mask, fc_idx=self.fc_idx, temperature=self.temperature)
         self.kinetic_rate_ev = self.CustomKineticRate(self.temperature, self.min_z)
         self.rel_perm_ev = {ph: self.CustomRelPerm(2) for ph in phases_name[:2]}  # Relative perm for first two phases
@@ -481,7 +514,7 @@ class ModelProperties(PropertyContainer):
         pressure = state[0]
         # molar densities in kmol/m3
         self.dens_m[1], self.dens_m[0] = rho_phases['aq'], rho_phases['gas']
-        self.dens_m_solid = self.density_ev['solid'].evaluate(pressure) / self.Mw['Solid']
+        self.dens_m_solid = self.rock_density_ev['Solid_CaCO3'].evaluate(pressure) / self.Mw['Solid_CaCO3']
         self.ph = np.array([0, 1], dtype=np.intp)
 
         # Get saturations
@@ -503,7 +536,7 @@ class ModelProperties(PropertyContainer):
             self.kr[j] = self.rel_perm_ev[self.phases_name[j]].evaluate(self.sat[j])
             self.mu[j] = self.viscosity_ev[self.phases_name[j]].evaluate(pressure=pressure, temperature=self.temperature)
 
-        self.rock_compr = self.rock_compr_ev.evaluate(pressure)
+        self.rock_compr = np.array([ev.evaluate(pressure) for min, ev in self.rock_compr_ev.items()])
         self.kin_rate = self.kinetic_rate_ev.evaluate(kin_state, self.sat_overall[2], self.dens_m_solid, self.min_z)
 
     # default flash working with molar fractions

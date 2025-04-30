@@ -116,7 +116,7 @@ def plot_current_profiles(m, output_folder='./', plot_kinetics=False):
             _, _, _, rho_phases, kin_state, _ = m.physics.reservoir_operators[0].property.flash_ev.evaluate(Xm[i])
             nu_s = Xm[i, 1]
             nu_a = 1 - nu_s
-            rho_s = m.physics.reservoir_operators[0].property.density_ev['solid'].evaluate(Xm[i, 0]) / m.physics.reservoir_operators[0].property.Mw['Solid']
+            rho_s = m.physics.reservoir_operators[0].property.rock_density_ev['Solid_CaCO3'].evaluate(Xm[i, 0]) / m.physics.reservoir_operators[0].property.Mw['Solid_CaCO3']
             rho_a = rho_phases['aq']
             ss = nu_s / rho_s / (nu_a / rho_a + nu_s / rho_s)
             kin_rates[i] = m.physics.reservoir_operators[0].property.kinetic_rate_ev.evaluate(kin_state, ss, rho_s,
@@ -221,7 +221,7 @@ def plot_profiles(m, output_folder='./', plot_kinetics=False, plot_saturation=Tr
             nu_v = nu_v * (1 - nu_s)  # convert to overall molar fraction
             nu_a = 1 - nu_v - nu_s
             rho_a, rho_v = rho_phases['aq'], rho_phases['gas']
-            rho_s = prop.density_ev['solid'].evaluate(Xm[i, 0]) / prop.Mw['Solid']
+            rho_s = prop.rock_density_ev['Solid_CaCO3'].evaluate(Xm[i, 0]) / prop.Mw['Solid_CaCO3']
             if nu_v > 0:
                 sv = nu_v / rho_v / (nu_v / rho_v + nu_a / rho_a + nu_s / rho_s)
                 sa = nu_a / rho_a / (nu_v / rho_v + nu_a / rho_a + nu_s / rho_s)
@@ -263,7 +263,7 @@ def plot_profiles(m, output_folder='./', plot_kinetics=False, plot_saturation=Tr
             _, _, _, rho_phases, kin_state, _ = m.physics.reservoir_operators[0].property.flash_ev.evaluate(Xm[i])
             nu_s = Xm[i, 1]
             nu_a = 1 - nu_s
-            rho_s = m.physics.reservoir_operators[0].property.density_ev['solid'].evaluate(Xm[i, 0]) / m.physics.reservoir_operators[0].property.Mw['Solid']
+            rho_s = m.physics.reservoir_operators[0].property.rock_density_ev['Solid_CaCO3'].evaluate(Xm[i, 0]) / m.physics.reservoir_operators[0].property.Mw['Solid_CaCO3']
             rho_a = rho_phases['aq']
             ss = nu_s / rho_s / (nu_a / rho_a + nu_s / rho_s)
             kin_rates[i] = m.physics.reservoir_operators[0].property.kinetic_rate_ev.evaluate(kin_state, ss, rho_s,

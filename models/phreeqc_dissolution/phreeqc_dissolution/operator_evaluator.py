@@ -110,7 +110,7 @@ class my_own_acc_flux_etor(OperatorsBase):
         """ Gamma operator for diffusion (same for thermal and isothermal) """
         shift = ne + ne * nph
         for j in range(nph):
-            values_np[self.UPSAT_OP + j] = self.property.rock_compr * self.property.sat[j]
+            values_np[self.UPSAT_OP + j] = self.property.rock_compr[0] * self.property.sat[j]
 
         """ Chi operator for diffusion """
         dif_coef = np.array([0, 1, 1, 1, 1]) * 5.2e-10 * 86400
@@ -162,7 +162,7 @@ class my_own_comp_etor(my_own_acc_flux_etor):
 
         # evaluate molar fraction
         solid_volume = fluid_volume * ss / (1 - ss)         # m3
-        solid_mole = solid_volume * self.property.density_ev['solid'].evaluate(pressure) / self.property.Mw['Solid']
+        solid_mole = solid_volume * self.property.rock_density_ev['Solid_CaCO3'].evaluate(pressure) / self.property.Mw['Solid_CaCO3']
         nu_s = solid_mole / (solid_mole + self.fluid_mole)
         values_np[0] = nu_s
 
