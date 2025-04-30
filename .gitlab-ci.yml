@@ -124,13 +124,9 @@ build-linux-3.10-valgrind:
         PY_VER: '3.10'
         PY_SUF: 'cp310-cp310'
         ODLS: '-a'
-        CMAKE_ARGS: "-DENABLE_VALGRIND=ON"
     script:
         - echo ">>> Starting debug build (valgrind instrumentation) <<<"
-        # Pass CMAKE_ARGS through to your helper script (adjust as needed)
-        - ./helper_scripts/build_darts_cmake.sh \
-            -c -w -t -m -j 8 $ODLS \
-            -DCMAKE_BUILD_TYPE=Debug $CMAKE_ARGS
+        - ./helper_scripts/build_darts_cmake.sh -c -w -t -m -j 8 -v $ODLS
     artifacts:
       paths:
         - './dist/*.whl'

@@ -44,8 +44,9 @@ config="Release"  # Default configuration (install).
 NT=8              # Number of threads by default 8
 gpp_version=g++   # Version of g++
 special_gpp=false # Whether a special compiler version (g++) is specified.
+valgrind=false    # Whether support valgrind profiling or not
 
-while getopts ":chtwmrab:d:j:g:G" option; do
+while getopts ":chtwmrab:d:j:g:Gv" option; do
     case "$option" in
         h) # Display help
            Help_Info
@@ -75,6 +76,8 @@ while getopts ":chtwmrab:d:j:g:G" option; do
            gpp_version=${OPTARG};;
         G) # GPU build
            GPU=true;;
+        v) # Valgrind build => Debug + symbols
+           valgrind=true;;
     esac
 done
 
@@ -182,9 +185,17 @@ mkdir -p build
 cd build
 rm -f CMakeCache.txt  # ensures Cmake doesn't work on outdated configuration
 
+# If valgrind requested, force Debug
+if [[ "$valgrind" = true ]]; then
+    config="Debug"
+fi
+
 # Setup build with cmake
 cmake_options="-D CMAKE_BUILD_TYPE=${config}"
 
+if [[ "$valgrind" = true ]]; then
+    cmake_options+=" -D ENABLE_VALGRIND=ON"
+fi
 if [[ "$testing" == true ]]; then
     cmake_options+=" -D ENABLE_TESTING=ON"
 fi
