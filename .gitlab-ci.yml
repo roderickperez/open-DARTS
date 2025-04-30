@@ -712,8 +712,16 @@ valgrind-profiling:
         - export PYTHONMALLOC=malloc
         # Make sure valgrind is installed
         - yum install -y -q valgrind
-        # Install the debug-built wheel
-        - pip install ./dist/*.whl
+        - export PYTHONUNBUFFERED=1
+        # upgrade pip package first
+        - python -m pip install --upgrade pip
+        - pip install sympy  # for models\1ph_1comp_poroelastic_convergence
+        - ls ./dist/*
+        # force reinstall of darts wheel only (need to force because darts wheel version is not incremented)
+        # note: need to force here only for Windows actually, but lets be consistent and force for Linux too in case its behaviour will change
+        - pip install --force-reinstall --no-deps ./dist/*.whl
+        # force-reinstall of dependencies takes too much time, lets only upgrade (eagerly!) them
+        - pip install --upgrade --upgrade-strategy eager ./dist/*.whl 
     script:
         - echo ">>> Running Valgrind profiling script <<<"
         - python helper_scripts/valgrind_profile.py
