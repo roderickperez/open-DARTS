@@ -336,6 +336,7 @@ class DartsModel:
         self.params.tolerance_linear = tol_linear if tol_linear is not None else self.params.tolerance_linear
         self.params.max_i_linear = it_linear if it_linear is not None else self.params.max_i_linear
 
+        self.runtime = runtime
 
     def run_simple(self, physics, params, days):
         """
@@ -348,6 +349,7 @@ class DartsModel:
         :param verbose: Switch for verbose, default is True
         :type verbose: bool
         """
+        days = days if days is not None else self.runtime
         self.physics = physics
         self.params = params
         verbose = False
@@ -422,6 +424,7 @@ class DartsModel:
         :param save_solution_data: if True save states of all reservoir blocks at the end of run to 'solution.h5', default is True
         :type save_solution_data: bool
         """
+        days = days if days is not None else self.runtime
         data_ts = self.data_ts
 
         # get current engine time
