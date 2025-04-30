@@ -662,7 +662,7 @@ int engine_base::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_list_,
 		case sim_params::CPU_GMRES_CPR_AMG:
 		{
 			linear_solver = new linsolv_bos_gmres<N_VARS>;
-			if constexpr (N_VARS > 1)
+			if (N_VARS > 1)
 			{
 			  linsolv_iface* cpr = new linsolv_bos_cpr<N_VARS>;
 			  cpr->set_prec(new linsolv_bos_amg<1>);
