@@ -111,7 +111,6 @@ build-linux-3.9-ODLS:
 
 build-linux-3.10-valgrind:
     stage: build
-    extends: .build-linux-dockcross
     tags:
         - linux
     rules:
