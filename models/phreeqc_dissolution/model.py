@@ -1,4 +1,4 @@
-# from reservoir import StructReservoir
+import CoolProp.CoolProp as CP
 from phreeqc_dissolution.conversions import convert_composition, correct_composition, calculate_injection_stream, \
     get_mole_fractions, convert_rate, bar2atm
 from phreeqc_dissolution.physics import PhreeqcDissolution
@@ -12,8 +12,6 @@ from darts.physics.properties.density import DensityBasic
 from darts.physics.properties.basic import ConstFunc
 
 from darts.engines import sim_params, well_control_iface, value_vector
-
-import CoolProp.CoolProp as CP
 from phreeqc_dissolution.conversions import bar2pa
 
 import numpy as np
