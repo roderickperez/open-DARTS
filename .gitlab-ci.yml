@@ -815,32 +815,32 @@ deploy-testpypi:
 
 # pick all whl ODLS-artifacts (windows/linux, different python versions) and upload to test pipy
 # TODO auto-increment package version (in setup.py and .gitlab-ci.yml) and add git tag; now it is done manually
-.deploy-pypi:
-    stage: deploy
-    # just for twine
-    image: python:3.10
-    # Will be executed on runner with windows tag - that assumed to run on windows host
-    tags:
-        - linux
-    before_script:
-        # upgrade pip package first
-        - python -m pip install --upgrade pip
-        - pip install twine
-    script:
-        # upload to test-pypi or pypi depending on $PYPI var
-        - ./helper_scripts/rename_whls.sh # rename linux whls to make uploadable to test-pypi
-        - ls ./dist/*
-        - twine upload -u $REPOUSER -p $REPOPWD --repository $REPO --verbose dist/*
-    dependencies:
-        # get the wheels from the build stage
-        - build-linux-3.9-ODLS
-        - build-linux-3.10-ODLS
-        - build-linux-3.11-ODLS  
-        - build-linux-3.12-ODLS
-        - build-windows-3.9-ODLS
-        - build-windows-3.10-ODLS
-        - build-windows-3.11-ODLS
-        - build-windows-3.12-ODLS
+#.deploy-pypi:
+#    stage: deploy
+#    # just for twine
+#    image: python:3.10
+#    # Will be executed on runner with windows tag - that assumed to run on windows host
+#    tags:
+#        - linux
+#    before_script:
+#        # upgrade pip package first
+#        - python -m pip install --upgrade pip
+#        - pip install twine
+#    script:
+#        # upload to test-pypi or pypi depending on $PYPI var
+#        - ./helper_scripts/rename_whls.sh # rename linux whls to make uploadable to test-pypi
+#        - ls ./dist/*
+#        - twine upload -u $REPOUSER -p $REPOPWD --repository $REPO --verbose dist/*
+#    dependencies:
+#        # get the wheels from the build stage
+#        - build-linux-3.9-ODLS
+#        - build-linux-3.10-ODLS
+#        - build-linux-3.11-ODLS
+#        - build-linux-3.12-ODLS
+#        - build-windows-3.9-ODLS
+#        - build-windows-3.10-ODLS
+#        - build-windows-3.11-ODLS
+#        - build-windows-3.12-ODLS
         
 deploy-zenodo:
     stage: deploy
