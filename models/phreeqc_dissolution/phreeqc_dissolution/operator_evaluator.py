@@ -65,7 +65,8 @@ class my_own_acc_flux_etor(OperatorsBase):
             z = state[1:-1]
         else:
             z = state[1:]
-        z = np.append(z, 1 - np.sum(z[self.property.flash_ev.fc_mask[:-1]]))
+        z_last = min(max(1 - np.sum(z[self.property.flash_ev.fc_mask[:-1]]), self.min_z), 1 - self.min_z)
+        z = np.concatenate([z, [z_last]])
         return z
 
     def evaluate(self, state, values):

@@ -164,8 +164,7 @@ class Model(CICDModel):
             # Several parameters related to kinetic reactions:
             stoich_matrix = np.array([-1, 1, 1, 3, 0])
 
-            rock_props = {'Solid_CaCO3':
-                              {'density': 2710., 'compressibility': 1.e-6}}
+            rock_props = {'Solid_CaCO3': {'density': 2710., 'compressibility': 1.e-6}}
         elif self.minerals == {'calcite', 'dolomite'}:
             # purely for initialization
             self.components = ['H2O', 'H+', 'OH-', 'CO2', 'HCO3-', 'CO3-2',
@@ -187,10 +186,8 @@ class Model(CICDModel):
                                [1, 0, 1, 2, 3, 3, 3, 0, 1, 3, 0, 6, 0, 1, 3, 0],    # O
                                [2, 1, 1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0]])   # H
 
-            rock_props = {'Solid_CaCO3':
-                              {'density': 2710., 'compressibility': 1.e-6},
-                          'Solid_CaMg(CO3)2':
-                              {'density': 2840., 'compressibility': 1.e-6}}
+            rock_props = {'Solid_CaCO3': {'density': 2710., 'compressibility': 1.e-6},
+                          'Solid_CaMg(CO3)2': {'density': 2840., 'compressibility': 1.e-6}}
 
         self.num_vars = len(self.elements)
         self.nc = len(self.elements)
@@ -362,12 +359,14 @@ class Model(CICDModel):
         # print('\tNegative composition occurrence while initializing:', self.physics.comp_itor[0].counter, '\n')
 
         nb = self.reservoir.mesh.n_res_blocks
-        input_distribution = {'pressure': self.pressure_init,
-                              self.physics.vars[1]: self.initial_comp[:nb, 0],
-                              self.physics.vars[2]: self.initial_comp[:nb, 1],
-                              self.physics.vars[3]: self.initial_comp[:nb, 2],
-                              self.physics.vars[4]: self.initial_comp[:nb, 3]
+        input_distribution = {
+            'pressure': self.pressure_init,
+            **{
+                var: self.initial_comp[:nb, j]
+                for j, var in enumerate(self.physics.vars[1:])
                               }
+        }
+
         return self.physics.set_initial_conditions_from_array(mesh=self.reservoir.mesh,
                                                               input_distribution=input_distribution)
 
@@ -442,7 +441,9 @@ class Model(CICDModel):
         property_array['porosity'] = poro[np.newaxis]
 
         # hydrogen
-        property_array['H'] = 1. - property_array['C'] - property_array['Ca'] - property_array['O']
+        property = self.physics.property_operators[next(iter(self.physics.property_operators))].property
+        fc = property.components_name[property.fc_mask]
+        property_array[fc[-1]] = 1 - sum(property_array[c] for c in fc[:-1])
 
         # write to *.h5
         if self.domain == '1D':
@@ -665,11 +666,13 @@ class ModelProperties(PropertyContainer):
             return nu_v, x, y, rho_phases, kin_state, volume_aq + volume_gas, species_molalities
 
         def get_fluid_composition(self, state):
+            mask = self.fc_mask[:-1]
             if self.thermal:
-                z = state[1:-1][self.fc_mask[:-1]]
+                z = state[1:-1][mask]
             else:
-                z = state[1:][self.fc_mask[:-1]]
-            z = np.append(z, 1 - np.sum(z))
+                z = state[1:][mask]
+            z_last = min(max(1 - np.sum(z), self.min_z), 1 - self.min_z)
+            z = np.concatenate([z, [z_last]])
             return z
 
         def evaluate(self, state):
