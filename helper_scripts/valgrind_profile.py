@@ -3,7 +3,10 @@ import subprocess
 import re
 import shutil
 
-valgrind_models = ['2ph_comp']
+valgrind_models = ['2ph_comp',
+                    'Chem_benchmark_new',
+                    'GeoRising',
+                    'cpg_sloping_fault']
 
 # if the user passed extra models, append them (comma-separated):
 extra = os.environ.get('APPEND_VALGRIND_MODEL')
@@ -57,6 +60,7 @@ def run_valgrind_for_model(model):
     # build valgrind command
     cmd = [
         'valgrind',
+        '--quiet',
         '--leak-check=full',
         '--show-leak-kinds=all',
         '--error-exitcode=1',
