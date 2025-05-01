@@ -22,7 +22,7 @@ log_folder = os.path.join('models', '_valgrind_logs')
 suppression_file = 'helper_scripts/valgrind-python.supp'
 
 # patterns to extract leak info and errors from Valgrind log
-LEAK_PATTERNS = {
+MSG_PATTERNS = {
     'definitely_lost':    r'definitely lost:\s+([\d,]+) bytes in ([\d,]+) blocks',
     'indirectly_lost':    r'indirectly lost:\s+([\d,]+) bytes in ([\d,]+) blocks',
     'possibly_lost':      r'possibly lost:\s+([\d,]+) bytes in ([\d,]+) blocks',
@@ -38,17 +38,18 @@ def analyze_log(log_path):
     except FileNotFoundError:
         return {'error': 'Log file not found'}
 
-    for key, pattern in LEAK_PATTERNS.items():
+    for key, pattern in MSG_PATTERNS.items():
         m = re.search(pattern, content)
         if m:
             if key == 'error_summary':
-                summary[key] = int(m.group(1))
+                ret_code = int(m.group(1))
+                summary[key] = ret_code
             else:
                 summary[key] = {
                     'bytes': m.group(1),
                     'blocks': m.group(2)
                 }
-    return summary
+    return summary, 0 #ret_code
 
 def run_valgrind_for_model(model):
     # file paths
@@ -74,14 +75,13 @@ def run_valgrind_for_model(model):
     env = os.environ.copy()
     env['PYTHONMALLOC'] = 'malloc'
     env['LD_LIBRARY_PATH'] = os.popen('python -c "import os; import darts; print(os.path.dirname(darts.__file__))"').read()[:-1] + ':' + os.environ.get('LD_LIBRARY_PATH')
-    print(env['LD_LIBRARY_PATH'])
 
     # run with separate stdout/err capture
     with open(prog_out, 'w') as out_f, open(prog_err, 'w') as err_f:
         proc = subprocess.run(cmd, stdout=out_f, stderr=err_f, env=env)
 
     # analyze and write summary
-    summary = analyze_log(vg_log)
+    summary, ret_code = analyze_log(vg_log)
     with open(summary_file, 'w') as sf:
         sf.write(f'Valgrind summary for model: {model}\n')
         for k, v in summary.items():
@@ -90,7 +90,7 @@ def run_valgrind_for_model(model):
             else:
                 sf.write(f'  {k}: {v}\n')
 
-    if proc.returncode != 0:
+    if ret_code != 0:
         print(f'Valgrind detected errors for model {model}, exit code {proc.returncode}.')
     else:
         print(f'Valgrind completed successfully for model {model}.')
