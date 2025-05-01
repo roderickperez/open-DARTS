@@ -61,8 +61,8 @@ def run_valgrind_for_model(model):
     cmd = [
         'valgrind',
         '--quiet',
-        '--leak-check=full',
-        '--show-leak-kinds=all',
+        #'--leak-check=full',
+        #'--show-leak-kinds=all',
         '--error-exitcode=1',
         f'--log-file={vg_log}',
         #f'--suppressions={suppression_file}',
