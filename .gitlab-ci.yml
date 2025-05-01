@@ -144,7 +144,7 @@ build-linux-3.10-valgrind:
         ODLS: '-a'
     script:
         - echo ">>> Starting debug build (valgrind instrumentation) <<<"
-        - ./helper_scripts/build_darts_cmake.sh -c -w -t -m -j 8 -v $ODLS
+        - ./helper_scripts/build_darts_cmake.sh -c -w -t -j 8 -v $ODLS
     artifacts:
       paths:
         - './dist/*.whl'
@@ -784,9 +784,7 @@ valgrind-profiling:
         # install valgrind
         - yum install -y -q valgrind
         - export PYTHONUNBUFFERED=1
-        # now python -m pip will work
         - python -m pip install --upgrade pip
-        - pip install sympy
         - pip install --upgrade --upgrade-strategy eager ./dist/*.whl
     script:
         - echo ">>> Running Valgrind profiling script <<<"

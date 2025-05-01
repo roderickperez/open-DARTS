@@ -78,6 +78,7 @@ while getopts ":chtwmrab:d:j:g:Gv" option; do
            GPU=true;;
         v) # Valgrind build => Debug + symbols
            valgrind=true;;
+           MT=false;;
     esac
 done
 
