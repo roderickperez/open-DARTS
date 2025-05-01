@@ -66,13 +66,15 @@ def run_valgrind_for_model(model):
         '--error-exitcode=1',
         f'--log-file={vg_log}',
         #f'--suppressions={suppression_file}',
-        'darts', f'models/{model}/main.py'
+        'python', f'models/{model}/main.py'
     ]
     print(f'Running Valgrind for model {model}...')
 
     # set environment: disable pymalloc so Valgrind sees everything
     env = os.environ.copy()
     env['PYTHONMALLOC'] = 'malloc'
+    env['LD_LIBRARY_PATH'] = os.popen('python -c "import os; import darts; print(os.path.dirname(darts.__file__))"').read()[:-1] + ':' + os.environ.get('LD_LIBRARY_PATH')
+    print(env['LD_LIBRARY_PATH'])
 
     # run with separate stdout/err capture
     with open(prog_out, 'w') as out_f, open(prog_err, 'w') as err_f:
