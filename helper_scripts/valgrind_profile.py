@@ -4,6 +4,15 @@ import re
 import shutil
 
 valgrind_models = ['2ph_comp']
+
+# if the user passed extra models, append them (comma-separated):
+extra = os.environ.get('APPEND_VALGRIND_MODEL')
+if extra:
+    for m in extra.split(','):
+        m = m.strip()
+        if m and m not in valgrind_models:
+            valgrind_models.append(m)
+
 log_folder = os.path.join('models', '_valgrind_logs')
 
 # valgrind suppression file (adjust path as needed)
