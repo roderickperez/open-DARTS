@@ -67,12 +67,11 @@ def run_valgrind_for_model(model):
     #     'python', f'models/{model}/main.py'
     # ]
 
-    cmd = [
-        f'valgrind --quiet --error-exitcode=1 ',
-        f'--log-file={vg_log} ',
-        f'python models/{model}/main.py ',
-        f'2>&1 | tee {vg_log}'
-    ]
+    cmd = (
+        f'valgrind --quiet --error-exitcode=1 '
+        f'--log-file={vg_log} -- '
+        f'python models/{model}/main.py 2>&1 | tee {vg_log}'
+    )
 
     print(f'Running Valgrind for model {model}...')
 
