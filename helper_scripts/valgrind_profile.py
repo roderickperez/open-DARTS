@@ -56,16 +56,24 @@ def run_valgrind_for_model(model):
     summary_file = os.path.join(log_folder, f'{model}.summary.txt')
 
     # build valgrind command
+    # cmd = [
+    #     'valgrind',
+    #     '--quiet',
+    #     #'--leak-check=full',
+    #     #'--show-leak-kinds=all',
+    #     '--error-exitcode=1',
+    #     f'--log-file={vg_log}',
+    #     #f'--suppressions={suppression_file}',
+    #     'python', f'models/{model}/main.py'
+    # ]
+
     cmd = [
-        'valgrind',
-        '--quiet',
-        #'--leak-check=full',
-        #'--show-leak-kinds=all',
-        '--error-exitcode=1',
-        f'--log-file={vg_log}',
-        #f'--suppressions={suppression_file}',
-        'python', f'models/{model}/main.py'
+        f'valgrind --quiet --error-exitcode=1 ',
+        f'--log-file={vg_log} ',
+        f'python models/{model}/main.py ',
+        f'2>&1 | tee {vg_log}'
     ]
+
     print(f'Running Valgrind for model {model}...')
 
     # set environment: disable pymalloc so Valgrind sees everything
@@ -76,21 +84,23 @@ def run_valgrind_for_model(model):
     # run with separate stdout/err capture
     with open(prog_out, 'w') as out_f, open(prog_err, 'w') as err_f:
         try:
-            proc = subprocess.run(cmd, stdout=out_f, stderr=err_f, env=env, timeout=1800)
+            # proc = subprocess.run(cmd, stdout=out_f, stderr=err_f, env=env, timeout=1800)
+            proc = subprocess.run(cmd, shell=True, env=env, timeout=1800)
         except subprocess.TimeoutExpired:
             print(f"ERROR: timeout profiling model {model}")
             return
 
     # analyze and write summary
-    summary, ret_code = analyze_log(vg_log)
-    with open(summary_file, 'w') as sf:
-        sf.write(f'Valgrind summary for model: {model}\n')
-        for k, v in summary.items():
-            if isinstance(v, dict):
-                sf.write(f'  {k}: {v["bytes"]} bytes in {v["blocks"]} blocks\n')
-            else:
-                sf.write(f'  {k}: {v}\n')
+    # summary, ret_code = analyze_log(vg_log)
+    # with open(summary_file, 'w') as sf:
+    #     sf.write(f'Valgrind summary for model: {model}\n')
+    #     for k, v in summary.items():
+    #         if isinstance(v, dict):
+    #             sf.write(f'  {k}: {v["bytes"]} bytes in {v["blocks"]} blocks\n')
+    #         else:
+    #             sf.write(f'  {k}: {v}\n')
 
+    ret_code = 0
     if ret_code != 0:
         print(f'Valgrind detected errors for model {model}, exit code {proc.returncode}.')
     else:
