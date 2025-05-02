@@ -75,7 +75,11 @@ def run_valgrind_for_model(model):
 
     # run with separate stdout/err capture
     with open(prog_out, 'w') as out_f, open(prog_err, 'w') as err_f:
-        proc = subprocess.run(cmd, stdout=out_f, stderr=err_f, env=env)
+        try:
+            proc = subprocess.run(cmd, stdout=out_f, stderr=err_f, env=env, timeout=1800)
+        except subprocess.TimeoutExpired:
+            print(f"ERROR: timeout profiling model {model}")
+            return
 
     # analyze and write summary
     summary, ret_code = analyze_log(vg_log)
