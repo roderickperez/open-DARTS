@@ -25,16 +25,6 @@ log_folder = os.path.join('models', '_valgrind_logs')
 suppression_file = 'helper_scripts/valgrind-python.supp'
 
 def run_model(model, days):
-    # model path
-    model_path = os.path.join('models', model)
-    if not os.path.isdir(model_path):
-        print(f"[SKIP] Model directory not found: {model_path}")
-        return False
-
-    # step into the model directory
-    cwd = os.getcwd()
-    os.chdir(model_path)
-
     # add it also to system path to load modules
     sys.path.insert(0, os.path.abspath(r'.'))
 
@@ -53,11 +43,8 @@ def run_model(model, days):
     except Exception as e:
         print(f"[FAIL] {model} → {e}")
         success = False
-    finally:
-        # restore working directory
-        os.chdir(cwd)
 
-    return 0 if success else 1
+    return success
 
 # patterns to extract leak info and errors from Valgrind log
 MSG_PATTERNS = {
@@ -88,6 +75,13 @@ def analyze_log(log_path):
     return summary, ret_code
 
 def run_valgrind_for_model(model):
+    # model path
+    model_path = os.path.join('models', model)
+    if not os.path.isdir(model_path):
+        print(f"[SKIP] Model directory not found: {model_path}")
+        return False
+    # os.chdir(model_path)
+
     # file paths
     vg_log = os.path.join(log_folder, f'{model}.vg.log')
     prog_out = os.path.join(log_folder, f'{model}_mainpy.log')
@@ -98,15 +92,16 @@ def run_valgrind_for_model(model):
     days = 1
     py_snippet = (
         'import sys, os; '
-        'sys.path.insert(0, os.getcwd()); '
         'from helper_scripts.valgrind_profile import run_model; '
+        f'model_path = os.path.join("models", "{model}"); '
+        'os.chdir(model_path); '
         f'sys.exit(0 if run_model(model="{model}", days={days}) else 1)'
     )
 
     # valgrind command profiling run_model_direct
     cmd = [
         'valgrind',
-        '--quiet',
+        #'--quiet',
         '--error-exitcode=1',
         f'--log-file={vg_log}',
         '--',
@@ -123,12 +118,6 @@ def run_valgrind_for_model(model):
         'import os, darts; print(os.path.dirname(darts.__file__))'
     ]).decode().strip()
     env['LD_LIBRARY_PATH'] = f"{darts_path}:{env.get('LD_LIBRARY_PATH','')}"
-
-    # run
-    proc = subprocess.run(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        env=env, timeout=1800
-    )
 
     with open(prog_out, 'w') as out_f, open(prog_err, 'w') as err_f:
         try:
