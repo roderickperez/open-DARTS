@@ -62,7 +62,7 @@ class PhreeqcDissolution(Compositional):
             # Create initialization & porosity evaluator
             self.comp_itor[region] = self.create_interpolator(evaluator=self.initial_operators[region],
                                                       timer_name='comp %d interpolation' % region,
-                                                      n_ops=1,
+                                                      n_ops=self.input_data_struct.n_init_ops,
                                                       axes_min=self.axes_min,
                                                       axes_max=self.axes_max,
                                                       platform=platform,

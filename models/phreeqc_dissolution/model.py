@@ -28,7 +28,7 @@ except ImportError:
 # Definition of your input parameter data structure,
 # change as you see fit (when you need more constant values, etc.)!!
 class MyOwnDataStruct:
-    def __init__(self, nc, zmin, temp, stoich_matrix, pressure_init, kin_fact,  exp_w=1, exp_g=1):
+    def __init__(self, nc, zmin, temp, stoich_matrix, pressure_init, kin_fact, n_init_ops, n_prop_ops, exp_w=1, exp_g=1):
         """
         Data structure class which holds various input parameters for simulation
         :param nc: number of components used in simulation
@@ -43,7 +43,8 @@ class MyOwnDataStruct:
         self.exp_g = exp_g
         self.pressure_init = pressure_init
         self.kin_fact = kin_fact
-        self.n_prop_ops = 19
+        self.n_init_ops = n_init_ops
+        self.n_prop_ops = n_prop_ops
 
 # Actual Model class creation here!
 class Model(CICDModel):
@@ -162,22 +163,25 @@ class Model(CICDModel):
                                [0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0],
                                [1, 0, 1, 2, 3, 3, 3, 0, 1, 3, 0],
                                [2, 1, 1, 0, 1, 0, 0, 0, 1, 1, 0]])
-            # Several parameters related to kinetic reactions:
-            stoich_matrix = np.array([-1, 1, 1, 3, 0])
-
+            # Mineral decomposition into elements
+            stoich_matrix = np.array([[-1, 1, 1, 3, 0]])
+            # Mineral properties
             rock_props = {'Solid_CaCO3': {'density': 2710., 'compressibility': 1.e-6}}
+            # Dimensions of initial, property interpolators
+            n_init_ops = 1
+            n_prop_ops = 19
         elif self.minerals == {'calcite', 'dolomite'}:
             # purely for initialization
             self.components = ['H2O', 'H+', 'OH-', 'CO2', 'HCO3-', 'CO3-2',
                                'CaCO3', 'Ca+2', 'CaOH+', 'CaHCO3+', 'Solid_CaCO3',                  # calcite-related
                                'CaMg(CO3)2', 'Mg+2', 'MgOH+', 'MgHCO3+', 'Solid_CaMg(CO3)2']        # dolomite-related
             self.elements = ['Solid_CaCO3', 'Solid_CaMg(CO3)2', 'Ca', 'Mg', 'C', 'O', 'H']
-            self.fc_mask = np.array([False, False, True, True, True, True], dtype=bool)
+            self.fc_mask = np.array([False, False, True, True, True, True, True], dtype=bool)
             Mw = {'Solid_CaCO3': 100.0869, 'Solid_CaMg(CO3)2': 184.401,
                     'Ca': 40.078, 'Mg': 24.305, 'C': 12.0096, 'O': 15.999, 'H': 1.007} # molar weights in kg/kmol
-            self.n_points = list(np.array([101, 201, 201, 101, 101, 101], dtype=np.intp))
-            self.axes_min = [self.pressure_init - 1] + [self.obl_min, self.obl_min, self.obl_min, self.obl_min, 0.3]
-            self.axes_max = [self.pressure_init + 2] + [1 - self.obl_min, 1 - self.obl_min, 0.01, 0.02, 0.37]
+            self.n_points = list(np.array([101, 201, 201, 101, 101, 101, 101], dtype=np.intp))
+            self.axes_min = [self.pressure_init - 1] + [self.obl_min, self.obl_min, self.obl_min, self.obl_min, self.obl_min, 0.3]
+            self.axes_max = [self.pressure_init + 2] + [1 - self.obl_min, 1 - self.obl_min, 0.01, 0.01, 0.02, 0.37]
             # Rate annihilation matrix
             self.E = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],    # Solid_CaCO3
                                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],    # Solid_CaMg(CO3)2
@@ -186,9 +190,15 @@ class Model(CICDModel):
                                [0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0, 2, 0, 0, 1, 0],    # C
                                [1, 0, 1, 2, 3, 3, 3, 0, 1, 3, 0, 6, 0, 1, 3, 0],    # O
                                [2, 1, 1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0]])   # H
-
+            # Mineral decomposition into elements
+            stoich_matrix = np.array([[-1, 0, 1, 0, 1, 3, 0],
+                                      [0, -1, 1, 1, 2, 6, 0]])
+            # Mineral properties
             rock_props = {'Solid_CaCO3': {'density': 2710., 'compressibility': 1.e-6},
                           'Solid_CaMg(CO3)2': {'density': 2840., 'compressibility': 1.e-6}}
+            # Dimensions of initial, property interpolators
+            n_init_ops = 10
+            n_prop_ops = 25
 
         self.nc = len(self.elements)
 
@@ -206,7 +216,7 @@ class Model(CICDModel):
         # Create instance of data-structure for simulation (and chemical) input parameters:
         input_data_struct = MyOwnDataStruct(nc=self.nc, zmin=self.obl_min, temp=self.temperature,
                                             stoich_matrix=stoich_matrix, pressure_init=self.pressure_init,
-                                            kin_fact=self.kin_fact)
+                                            kin_fact=self.kin_fact, n_init_ops=n_init_ops, n_prop_ops=n_prop_ops)
 
         # Create instance of (own) physics class:
         self.physics = PhreeqcDissolution(timer=self.timer, elements=self.elements, n_points=self.n_points, 
@@ -220,8 +230,9 @@ class Model(CICDModel):
         mole_fraction_water, mole_fraction_co2 = get_mole_fractions(mole_water, mole_co2)
 
         # Define injection stream composition,
-        # ['H2O', 'H+', 'OH-', 'CO2', 'HCO3-', 'CO3-2', 'CaCO3', 'Ca+2', 'CaOH+', 'CaHCO3+', 'Solid']
-        self.inj_stream_components = np.array([mole_fraction_water, 0, 0, mole_fraction_co2, 0, 0, 0, 0, 0, 0, 0])
+        self.inj_stream_components = np.zeros(len(self.components))
+        self.inj_stream_components[self.components.index('H2O')] = mole_fraction_water     # H2O
+        self.inj_stream_components[self.components.index('CO2')] = mole_fraction_co2       # CO2
         self.inj_stream = convert_composition(self.inj_stream_components, self.E)
         self.inj_stream = correct_composition(self.inj_stream, self.min_z)
 
@@ -250,7 +261,11 @@ class Model(CICDModel):
             self.params.trans_mult_exp = 4
             perm = 1.25e4 * self.poro ** self.params.trans_mult_exp
             self.solid_sat = np.zeros((self.n_res_blocks, self.n_solid))
-            self.solid_sat[:, 0] = 0.7
+            if self.minerals == {'calcite'}:
+                self.solid_sat[:, 0] = 0.7
+            elif self.minerals == {'calcite', 'dolomite'}:
+                self.solid_sat[:, 0] = 0.6
+                self.solid_sat[:, 1] = 0.1
             self.inj_cells = np.array([0])
 
             self.volume = np.prod(self.domain_sizes)
@@ -335,7 +350,7 @@ class Model(CICDModel):
         self.initial_comp = np.zeros((self.n_res_blocks + 2, self.nc - 1))
 
         # Interpolated values of non-solid volume (second value always 0 due to no (5,1) interpolator)
-        values = value_vector([0] * 2)
+        values = value_vector([0] * self.physics.input_data_struct.n_init_ops)
         values_np = np.asarray(values)
 
         # Iterate over solid saturation and call interpolator
@@ -503,6 +518,9 @@ class ModelProperties(PropertyContainer):
         self.minerals = set(self.components_name[~self.fc_mask])
 
         self.sat_overall = np.zeros(self.nph + 1)
+        self.sat_minerals = np.zeros(self.n_solid)
+        self.kin_rates = np.zeros(self.n_solid)
+        self.rock_compr = np.zeros(self.n_solid)
 
         # Define custom evaluators
         self.rock_density_ev = {}
@@ -510,7 +528,8 @@ class ModelProperties(PropertyContainer):
         self.flash_ev = self.Flash(min_z=self.min_z, fc_mask=self.fc_mask, fc_idx=self.fc_idx,
                                    f_mask_state=self.f_mask_state, temperature=self.temperature,
                                    minerals=self.minerals)
-        self.kinetic_rate_ev = self.CustomKineticRate(self.temperature, self.min_z)
+
+        self.kinetic_rate_ev = {m: self.CustomKineticRate(self.temperature, self.min_z, m.split('_', 1)[1]) for m in self.minerals}
         self.rel_perm_ev = {ph: self.CustomRelPerm(2) for ph in phases_name[:2]}  # Relative perm for first two phases
         self.viscosity_ev = { phases_name[0]: self.GasViscosity(), phases_name[1]: self.LiquidViscosity() }
 
@@ -524,25 +543,28 @@ class ModelProperties(PropertyContainer):
         :return: updated value for operators, stored in values
         """
         nu_v, x, y, rho_phases, kin_state, fluid_volume, species_molar_fractions = self.flash_ev.evaluate(state)
-        self.nu_solid = state[self.s_mask_state].sum()
-        self.nu[0] = nu_v * (1 - self.nu_solid) # convert to overall molar fraction
-        self.nu[1] = 1 - nu_v - self.nu_solid
+        self.nu_solid = state[self.s_mask_state]
+        self.nu[0] = nu_v * (1 - self.nu_solid.sum()) # convert to overall molar fraction
+        self.nu[1] = 1 - nu_v - self.nu_solid.sum()
 
         pressure = state[0]
         # molar densities in kmol/m3
         self.dens_m[1], self.dens_m[0] = rho_phases['aq'], rho_phases['gas']
-        self.dens_m_solid = self.rock_density_ev['Solid_CaCO3'].evaluate(pressure) / self.Mw['Solid_CaCO3']
+        self.dens_m_solid = np.array([v.evaluate(pressure) / self.Mw[k] for k, v in self.rock_density_ev.items()])
         self.ph = np.array([0, 1], dtype=np.intp)
 
         # Get saturations
         if nu_v > 0:
-            self.sat_overall[0] = self.nu[0] / self.dens_m[0] / (self.nu[0] / self.dens_m[0] + self.nu[1] / self.dens_m[1] + self.nu_solid / self.dens_m_solid)
-            self.sat_overall[1] = self.nu[1] / self.dens_m[1] / (self.nu[0] / self.dens_m[0] + self.nu[1] / self.dens_m[1] + self.nu_solid / self.dens_m_solid)
-            self.sat_overall[2] = self.nu_solid / self.dens_m_solid / (self.nu[0] / self.dens_m[0] + self.nu[1] / self.dens_m[1] + self.nu_solid / self.dens_m_solid)
+            sum = self.nu[0] / self.dens_m[0] + self.nu[1] / self.dens_m[1] + (self.nu_solid / self.dens_m_solid).sum()
+            self.sat_overall[0] = self.nu[0] / self.dens_m[0] / sum
+            self.sat_overall[1] = self.nu[1] / self.dens_m[1] / sum
+            self.sat_overall[2] = (self.nu_solid / self.dens_m_solid).sum() / sum
         else:
+            sum = self.nu[1] / self.dens_m[1] + (self.nu_solid / self.dens_m_solid).sum()
             self.sat_overall[0] = 0
-            self.sat_overall[1] = self.nu[1] / self.dens_m[1] / (self.nu[1] / self.dens_m[1] + self.nu_solid / self.dens_m_solid)
-            self.sat_overall[2] = self.nu_solid / self.dens_m_solid / (self.nu[1] / self.dens_m[1] + self.nu_solid / self.dens_m_solid)
+            self.sat_overall[1] = self.nu[1] / self.dens_m[1] / sum
+            self.sat_overall[2] = (self.nu_solid / self.dens_m_solid).sum() / sum
+        self.sat_minerals = self.nu_solid / self.dens_m_solid / sum
 
         self.x = np.array([y, x])
 
@@ -553,8 +575,10 @@ class ModelProperties(PropertyContainer):
             self.kr[j] = self.rel_perm_ev[self.phases_name[j]].evaluate(self.sat[j])
             self.mu[j] = self.viscosity_ev[self.phases_name[j]].evaluate(pressure=pressure, temperature=self.temperature)
 
-        self.rock_compr = np.array([ev.evaluate(pressure) for min, ev in self.rock_compr_ev.items()])
-        self.kin_rate = self.kinetic_rate_ev.evaluate(kin_state, self.sat_overall[2], self.dens_m_solid, self.min_z)
+        for i, k in enumerate(self.rock_compr_ev.keys()):
+            self.rock_compr[i] = self.rock_compr_ev[k].evaluate(pressure)
+            self.kin_rates[i] = self.kinetic_rate_ev[k].evaluate(kin_state, self.sat_minerals[i],
+                                                                 self.dens_m_solid[i], self.min_z)
 
     # default flash working with molar fractions
     class Flash:
@@ -571,6 +595,7 @@ class ModelProperties(PropertyContainer):
             self.n_fluid = (self.fc_mask == True).sum()
             self.n_solid = (self.fc_mask == False).sum()
             self.minerals = minerals
+            self.mineral_names = {item.split('_', 1)[1] for item in self.minerals}
 
             if temperature is None:
                 self.thermal = True
@@ -595,7 +620,7 @@ class ModelProperties(PropertyContainer):
                 species_punch = " ".join([f'MOL("{sp}")' for sp in self.phreeqc_species])
                 self.phreeqc_template = f"""
                     USER_PUNCH            
-                    -headings    H(mol)      O(mol)      C(mol)      Ca(mol)      Vol_aq   SI            SR            ACT("H+") ACT("CO2") ACT("H2O") {species_headings}
+                    -headings   Ca(mol)       C(mol)       O(mol)       H(mol)       Vol_aq   SI            SR            ACT("H+") ACT("CO2") ACT("H2O") {species_headings}
                     10 PUNCH    TOTMOLE("Ca") TOTMOLE("C") TOTMOLE("O") TOTMOLE("H") SOLN_VOL SI("Calcite") SR("Calcite") ACT("H+") ACT("CO2") ACT("H2O") {species_punch}
         
                     SELECTED_OUTPUT
@@ -630,14 +655,18 @@ class ModelProperties(PropertyContainer):
                     """
             elif self.minerals == {'Solid_CaCO3', 'Solid_CaMg(CO3)2'}: # calcite and dolomite
                 self.spec = 1
-                self.phreeqc_species = ["OH-", "H+", "H2O", "C(-4)", "CH4", "C(4)", "HCO3-", "CO2", "CO3-2", "CaHCO3+", "CaCO3", "(CO2)2", "Ca+2", "CaOH+", "H(0)", "H2", "O(0)", "O2"]
-                self.species_2_element_moles = np.array([2, 1, 3, 1, 5, 1, 5, 3, 4, 6, 5, 6, 1, 3, 1, 2, 1, 2])
+                self.phreeqc_species = ["OH-", "H+", "H2O", "C(-4)", "CH4", "C(4)", "HCO3-", "CO2", "CO3-2", "CaHCO3+",
+                                        "MgHCO3+", "CaCO3", "MgCO3", "(CO2)2", "Ca", "Ca+2", "CaOH+", "H(0)", "H2",
+                                        "Mg", "Mg+2", "MgOH+", "O(0)", "O2"]
+                self.species_2_element_moles = np.array([2, 1, 3, 1, 5, 1, 5, 3, 4, 6,
+                                                         6, 5, 5, 6, 1, 1, 3, 1, 2,
+                                                         1, 1, 3, 1, 2])
                 species_headings = " ".join([f'MOL("{sp}")' for sp in self.phreeqc_species])
                 species_punch = " ".join([f'MOL("{sp}")' for sp in self.phreeqc_species])
                 self.phreeqc_template = f"""
                     USER_PUNCH            
-                    -headings    H(mol)      O(mol)      C(mol)      Ca(mol)      Vol_aq   SI            SR            ACT("H+") ACT("CO2") ACT("H2O") {species_headings}
-                    10 PUNCH    TOTMOLE("Ca") TOTMOLE("Mg") TOTMOLE("C") TOTMOLE("O") TOTMOLE("H") SOLN_VOL SI("Calcite") SR("Calcite") ACT("H+") ACT("CO2") ACT("H2O") {species_punch}
+                    -headings    Ca(mol)      Mg(mol)       C(mol)       O(mol)       H(mol)       Vol_aq   SI_Calcite    SR_Calcite    SI_Dolomite    SR_Dolomite    ACT("H+") ACT("CO2") ACT("H2O") {species_headings}
+                    10 PUNCH    TOTMOLE("Ca") TOTMOLE("Mg") TOTMOLE("C") TOTMOLE("O") TOTMOLE("H") SOLN_VOL SI("Calcite") SR("Calcite") SI("Dolomite") SR("Dolomite") ACT("H+") ACT("CO2") ACT("H2O") {species_punch}
 
                     SELECTED_OUTPUT
                     -selected_out    true
@@ -717,12 +746,16 @@ class ModelProperties(PropertyContainer):
             nu_v = total_mole_gas / (total_mole_aq + total_mole_gas)
 
             # interpret kinetic parameters
-            kin_state = {'SI': results_array[5 + nc],
-                         'SR': results_array[6 + nc],
-                         'Act(H+)': results_array[7 + nc],
-                         'Act(CO2)': results_array[8 + nc],
-                         'Act(H2O)': results_array[9 + nc]}
-            species_molalities = results_array[10 + nc:]
+            counter = self.n_fluid + 5 + 1
+            kin_state = {}
+            for i, name in enumerate(self.mineral_names):
+                kin_state['SI_' + name] = results_array[counter]
+                kin_state['SR_' + name] = results_array[counter + 1]
+                counter += 2
+            kin_state['Act(H+)'] = results_array[counter]
+            kin_state['Act(CO2)'] = results_array[counter + 1]
+            kin_state['Act(H2O)'] = results_array[counter + 2]
+            species_molalities = results_array[counter + 3:]
 
             return nu_v, x, y, rho_phases, kin_state, volume_aq + volume_gas, species_molalities
 
@@ -806,35 +839,48 @@ class ModelProperties(PropertyContainer):
             return nu_v, x, y, rho_phases, kin_state, fluid_volume, species_molar_fractions
 
     class CustomKineticRate:
-        def __init__(self, temperature, min_z):
+        def __init__(self, temperature, min_z, mineral):
             self.temperature = temperature
             self.min_z = min_z
+            self.mineral = mineral
+
+            # constants and props
+            self.R = 8.314472                        # gas constant [J/mol/Kelvin]
+            self.specific_sa = 0.925                 # [m2/mol], default = 0.925
+            self.p = 1
+            self.q = 1
+            self.sat_ratio_threshold = 100
+
+            # doi: 10.3133/ofr20041068 for 25 celsius
+            if mineral == 'CaCO3':            # calcite
+                self.temperature_ref = 273.15 + 25
+                self.k_a_ref = 10 ** (-0.3)          # [mol * m-2 * s-1]
+                self.k_n_ref = 10 ** (-5.81)         # [mol * m-2 * s-1]
+                self.E_a = 14400                     # [J * mol-1]
+                self.E_n = 23500                     # [J * mol-1]
+                self.n_a = 1                         # reaction order with respect to H+
+            elif mineral == 'CaMg(CO3)2':     # dolomite
+                self.temperature_ref = 273.15 + 25
+                self.k_a_ref = 10 ** (-3.19)        # [mol * m-2 * s-1]
+                self.k_n_ref = 10 ** (-7.53)        # [mol * m-2 * s-1]
+                self.E_a = 36100                     # [J * mol-1]
+                self.E_n = 52200                     # [J * mol-1]
+                self.n_a = 0.5                       # reaction order with respect to H+
 
         def evaluate(self, kin_state, solid_saturation, rho_s, min_z):
-            # Define constants
-            specific_sa = 0.925         # [m2/mol], default = 0.925
-            k25a = 0.501187234          # [mol * m-2 * s-1]
-            k25n = 1.54882e-06          # [mol * m-2 * s-1]
-            Eaa = 14400                 # [J * mol-1]
-            Ean = 23500                 # [J * mol-1]
-            na = 1                      # reaction order with respect to H+
-            R = 8.314472                # gas constant [J/mol/Kelvin]
-            p = 1
-            q = 1
-            sat_ratio_threshold = 100
-
             # Define rate parameters
-            sat_ratio = min(kin_state['SR'], sat_ratio_threshold)
+            sat_ratio = min(kin_state['SR_' + self.mineral], self.sat_ratio_threshold)
             hydrogen_act = kin_state['Act(H+)']
-            KTa = k25a * np.exp((-Eaa / R) * (1 / self.temperature - 1 / 298.15)) * hydrogen_act ** na
-            KTn = k25n * np.exp((-Ean / R) * (1 / self.temperature - 1 / 298.15))
+            # Arrhenius law
+            KTa = self.k_a_ref * np.exp((-self.E_a / self.R) * (1 / self.temperature - 1 / self.temperature_ref)) * hydrogen_act ** self.n_a
+            KTn = self.k_n_ref * np.exp((-self.E_n / self.R) * (1 / self.temperature - 1 / self.temperature_ref))
 
             # # [kmol/d]
             # kinetic_rate = -specific_sa * (
             #         (solid_saturation * rho_s * 1000) ** n) * (KTa + KTn) * (1 - sat_ratio) / (kin_fact ** (n - 1)) * 86.400
 
             # [mol/s/m3]
-            kinetic_rate = -specific_sa * solid_saturation * (rho_s * 1000) * (KTa + KTn) * (1 - sat_ratio ** p) ** q
+            kinetic_rate = -self.specific_sa * solid_saturation * (rho_s * 1000) * (KTa + KTn) * (1 - sat_ratio ** self.p) ** self.q
 
             # [kmol/d/m3]
             kinetic_rate *= 60 * 60 * 24 / 1000

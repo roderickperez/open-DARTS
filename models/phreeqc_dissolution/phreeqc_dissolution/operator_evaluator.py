@@ -115,13 +115,13 @@ class my_own_acc_flux_etor(OperatorsBase):
             values_np[self.UPSAT_OP + j] = self.property.rock_compr.mean() * self.property.sat[j]
 
         """ Chi operator for diffusion """
-        dif_coef = np.concatenate([np.zeros(ns), np.array([1, 1, 1, 1])]) * 5.2e-10 * 86400
+        dif_coef = np.concatenate([np.zeros(ns), np.ones(nc - ns)]) * 5.2e-10 * 86400
         for j in self.property.ph:
             values_np[self.GRAD_OP + j * self.ne:self.GRAD_OP + (j + 1) * self.ne] = dif_coef * self.property.x[j] * self.property.dens_m[j]
 
         """ Delta operator for reaction """
         for i in range(ne):
-            values_np[self.KIN_OP + i] = self.input_data.stoich_matrix[i] * self.property.kin_rate
+            values_np[self.KIN_OP + i] = (self.input_data.stoich_matrix[:, i] * self.property.kin_rates).sum()
 
         """ Gravity and Capillarity operators """
         # E3-> gravity

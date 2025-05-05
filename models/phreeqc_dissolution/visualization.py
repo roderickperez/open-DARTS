@@ -161,6 +161,7 @@ def plot_current_profiles(m, output_folder='./', plot_kinetics=False):
 def plot_profiles(m, output_folder='./', plot_kinetics=False, plot_saturation=True):
     n_cells = m.reservoir.n
     n_vars = m.physics.nc
+    n_solid = m.n_solid
     Xm = np.asarray(m.physics.engine.X[:n_cells * n_vars]).reshape(n_cells, n_vars)
     op_vals = np.asarray(m.physics.engine.op_vals_arr).reshape(m.reservoir.mesh.n_blocks, m.physics.n_ops)
     poro = op_vals[:m.reservoir.mesh.n_res_blocks, m.physics.reservoir_operators[0].PORO_OP]
@@ -170,6 +171,7 @@ def plot_profiles(m, output_folder='./', plot_kinetics=False, plot_saturation=Tr
     # gs = gridspec.GridSpec(nrows=1, ncols=3, width_ratios=[0.3, 0.4, 0.3])#, wspace=0.2)
     # ax = [fig.add_subplot(gs[0, 0]), fig.add_subplot(gs[0, 1]), fig.add_subplot(gs[0, 2])]
 
+    prop = m.physics.reservoir_operators[0].property
     props_names = m.physics.property_operators[next(iter(m.physics.property_operators))].props_name
     timesteps, property_array = m.output_properties(output_properties=props_names)
 
@@ -180,15 +182,18 @@ def plot_profiles(m, output_folder='./', plot_kinetics=False, plot_saturation=Tr
 
     ax[0].plot(x, Xm[:, 0], color='b', label=m.physics.vars[0])
     ax1 = ax[1].twinx()
-    colors = ['b', 'r', 'g', 'm', 'cyan']
+    colors = {'Solid_CaCO3': 'b', 'Ca': 'r', 'C': 'g', 'O': 'm', 'H': 'cyan', 'Mg': 'orange', 'Solid_CaMg(CO3)2': 'violet'}
 
-    for i in [1,4]: # Solid / O
-        label = r'$\mathrm{CaCO_3}$(s)' if i == 1 else m.physics.vars[i]
-        ax[1].plot(x, Xm[:, i], color=colors[i-1], label=label)
-    for i in [2,3]: # Ca / C
-        ax1.plot(x, Xm[:, i], color=colors[i-1], label=m.physics.vars[i])
-    ax[1].plot(x, 1.0 - np.sum(Xm[:, 2:], axis=1), color=colors[n_vars - 1], label=m.physics.property_containers[0].components_name[-1])
-    ax[2].plot(x, poro, color=colors[0], label='porosity')
+    components = m.physics.components
+    for comp in ['Solid_CaCO3', 'O']: # Solid / O
+        idx = components.index(comp) + 1
+        label = m.physics.vars[idx]
+        ax[1].plot(x, Xm[:, idx], color=colors[comp], label=label)
+    for comp in ['Ca', 'C']: # Ca / C
+        idx = components.index(comp) + 1
+        ax1.plot(x, Xm[:, idx], color=colors[comp], label=m.physics.vars[idx])
+    ax[1].plot(x, 1.0 - np.sum(Xm[:, n_solid:], axis=1), color=colors[components[-1]], label=components[-1])
+    ax[2].plot(x, poro, color='b', label='porosity')
 
     t = round(m.physics.engine.t * 24, 4)
     ax[0].text(0.15, 0.85, 'time = ' + str(t) + ' hours',
@@ -214,25 +219,25 @@ def plot_profiles(m, output_folder='./', plot_kinetics=False, plot_saturation=Tr
     if plot_saturation:
         ax_sat = ax[2].twinx()
         gas_sat = np.zeros(n_cells)
-        prop = m.physics.reservoir_operators[0].property
         for i in range(n_cells):
             nu_v, _, _, rho_phases, _, _, _ = prop.flash_ev.evaluate(Xm[i])
-            nu_s = Xm[i, 1]
-            nu_v = nu_v * (1 - nu_s)  # convert to overall molar fraction
-            nu_a = 1 - nu_v - nu_s
+            nu_s = Xm[i, 1:1 + n_solid]
+            nu_v = nu_v * (1 - nu_s.sum())  # convert to overall molar fraction
+            nu_a = 1 - nu_v - nu_s.sum()
             rho_a, rho_v = rho_phases['aq'], rho_phases['gas']
-            rho_s = prop.rock_density_ev['Solid_CaCO3'].evaluate(Xm[i, 0]) / prop.Mw['Solid_CaCO3']
+            rho_s = np.array([v.evaluate(Xm[i, 0]) / prop.Mw[k] for k, v in prop.rock_density_ev.items()])
             if nu_v > 0:
-                sv = nu_v / rho_v / (nu_v / rho_v + nu_a / rho_a + nu_s / rho_s)
-                sa = nu_a / rho_a / (nu_v / rho_v + nu_a / rho_a + nu_s / rho_s)
-                ss = nu_s / rho_s / (nu_v / rho_v + nu_a / rho_a + nu_s / rho_s)
+                sum = nu_v / rho_v + nu_a / rho_a + (nu_s / rho_s).sum()
+                sv = nu_v / rho_v / sum
+                # sa = nu_a / rho_a / sum
+                # ss = nu_s / rho_s / sum
             else:
                 sv = 0
-                sa = nu_a / rho_a / (nu_a / rho_a + nu_s / rho_s)
-                ss = nu_s / rho_s / (nu_a / rho_a + nu_s / rho_s)
+                # sa = nu_a / rho_a / (nu_a / rho_a + nu_s / rho_s)
+                # ss = nu_s / rho_s / (nu_a / rho_a + nu_s / rho_s)
             gas_sat[i] = sv
 
-        ax_sat.plot(x, gas_sat, color=colors[1], label='gas saturation')
+        ax_sat.plot(x, gas_sat, color='r', label='gas saturation')
         ax_sat.set_ylabel(r'\textcolor{red}{gas saturation}', fontsize=16)
         ax_sat.legend(loc='upper right', prop={'size': ls}, framealpha=0.9)
 
