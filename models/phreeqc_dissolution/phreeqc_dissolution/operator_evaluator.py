@@ -94,6 +94,7 @@ class my_own_acc_flux_etor(OperatorsBase):
         rho_f = np.sum(self.property.dens_m * self.property.sat)
 
         nc = self.property.nc
+        ns = self.property.n_solid
         nph = 2
         ne = nc
 
@@ -101,24 +102,22 @@ class my_own_acc_flux_etor(OperatorsBase):
         values_np[:] = 0.
         
         """ Alpha operator represents accumulation term: """
-        values_np[self.ACC_OP] = z[0] * rho_t
-        values_np[self.ACC_OP + 1:self.ACC_OP + nc] = (1 - self.property.sat_overall[self.property.nph]) * z[1:] * rho_f
+        values_np[self.ACC_OP:self.ACC_OP + ns] = z[:ns] * rho_t
+        values_np[self.ACC_OP + ns:self.ACC_OP + nc] = (1 - self.property.sat_overall[self.property.nph]) * z[ns:] * rho_f
 
         """ Beta operator represents flux term: """
         for j in range(nph):
-            values_np[self.FLUX_OP + j * self.ne:self.FLUX_OP + j * self.ne + self.nc] = self.property.x[j] * self.property.dens_m[j] * self.property.kr[j] / self.property.mu[j]
+            values_np[self.FLUX_OP + j * self.ne:self.FLUX_OP + j * self.ne + nc] = self.property.x[j] * self.property.dens_m[j] * self.property.kr[j] / self.property.mu[j]
 
         """ Gamma operator for diffusion (same for thermal and isothermal) """
         shift = ne + ne * nph
         for j in range(nph):
-            values_np[self.UPSAT_OP + j] = self.property.rock_compr[0] * self.property.sat[j]
+            values_np[self.UPSAT_OP + j] = self.property.rock_compr.mean() * self.property.sat[j]
 
         """ Chi operator for diffusion """
-        dif_coef = np.array([0, 1, 1, 1, 1]) * 5.2e-10 * 86400
-        for i in range(nc):
-            for j in range(nph):
-                values_np[self.GRAD_OP + i * nph + j] = dif_coef[i] * self.property.dens_m[j] * self.property.x[j][i]
-                # values[shift + ne * j + i] = 0
+        dif_coef = np.concatenate([np.zeros(ns), np.array([1, 1, 1, 1])]) * 5.2e-10 * 86400
+        for j in self.property.ph:
+            values_np[self.GRAD_OP + j * self.ne:self.GRAD_OP + (j + 1) * self.ne] = dif_coef * self.property.x[j] * self.property.dens_m[j]
 
         """ Delta operator for reaction """
         for i in range(ne):
@@ -148,7 +147,7 @@ class my_own_comp_etor(my_own_acc_flux_etor):
     """
     def __init__(self, input_data, properties):
         super().__init__(input_data, properties)  # Initialize base-class
-        self.fluid_mole = 1
+        self.fluid_mole = self.property.flash_ev.total_moles / 1000 # mol to kmol
         self.counter = 0
         self.props_name = ['z_solid']
 
@@ -156,16 +155,19 @@ class my_own_comp_etor(my_own_acc_flux_etor):
         state_np = state.to_numpy()
         values_np = values.to_numpy()
         pressure = state_np[0]
-        ss = state_np[1] # volume fraction in initialization
+        s_minerals = state_np[self.property.s_mask_state]
+        ss = s_minerals.sum() # volume fraction in initialization
 
-        # initial flash
+        # initial flash, non-standard argument
         _, _, _, _, _, fluid_volume, _ = self.property.flash_ev.evaluate(state_np)
 
         # evaluate molar fraction
         solid_volume = fluid_volume * ss / (1 - ss)         # m3
-        solid_mole = solid_volume * self.property.rock_density_ev['Solid_CaCO3'].evaluate(pressure) / self.property.Mw['Solid_CaCO3']
-        nu_s = solid_mole / (solid_mole + self.fluid_mole)
-        values_np[0] = nu_s
+        mineral_volume = s_minerals * (fluid_volume + solid_volume)
+        mineral_mole = np.array([mineral_volume[i] * self.property.rock_density_ev[k].evaluate(pressure) / self.property.Mw[k]
+                                 for i, k in enumerate(self.property.rock_density_ev.keys())])
+        nu_m = mineral_mole / (mineral_mole.sum() + self.fluid_mole)
+        values_np[:self.property.n_solid] = nu_m
 
         return 0
 
@@ -184,19 +186,17 @@ class my_own_property_evaluator(operator_set_evaluator_iface):
         values_np[:molar_fractions.size] = molar_fractions
 
         # gas saturation
-        nu_s = state_np[1]
+        nu_s_minerals = state_np[self.property.s_mask_state]
+        nu_s = nu_s_minerals.sum()
+        nu_s_rho_s = np.array([nu_s_minerals[i] / v.evaluate(state_np[0]) * self.property.Mw[k]
+                      for i, (k, v) in enumerate(self.property.rock_density_ev.items())]).sum()
         nu_v = nu_v * (1 - nu_s)  # convert to overall molar fraction
         nu_a = 1 - nu_v - nu_s
         rho_a, rho_v = rho_phases['aq'], rho_phases['gas']
-        rho_s = self.property.rock_density_ev['Solid_CaCO3'].evaluate(state_np[0]) / self.property.Mw['Solid_CaCO3']
         if nu_v > 0:
-            sv = nu_v / rho_v / (nu_v / rho_v + nu_a / rho_a + nu_s / rho_s)
-            sa = nu_a / rho_a / (nu_v / rho_v + nu_a / rho_a + nu_s / rho_s)
-            ss = nu_s / rho_s / (nu_v / rho_v + nu_a / rho_a + nu_s / rho_s)
+            sv = nu_v / rho_v / (nu_v / rho_v + nu_a / rho_a + nu_s_rho_s)
         else:
             sv = 0
-            sa = nu_a / rho_a / (nu_a / rho_a + nu_s / rho_s)
-            ss = nu_s / rho_s / (nu_a / rho_a + nu_s / rho_s)
         values_np[molar_fractions.size] = sv
 
         return 0

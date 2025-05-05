@@ -20,7 +20,7 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str
 
     # Initialize model
     m.init(output_folder=output_folder)
-    m.physics.engine.n_solid = 1
+    m.physics.engine.n_solid = len(minerals)
 
     # Timestepping agent
     # state_size = 6  # e.g., 6 features

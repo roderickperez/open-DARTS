@@ -55,6 +55,7 @@ class Model(CICDModel):
         # Measure time spend on reading/initialization
         self.timer.node["initialization"].start()
         self.minerals = minerals
+        self.n_solid = len(minerals)
 
         self.set_reservoir(domain=domain, nx=nx, mesh_filename=mesh_filename, poro_filename=poro_filename)
         self.set_physics()
@@ -189,7 +190,6 @@ class Model(CICDModel):
             rock_props = {'Solid_CaCO3': {'density': 2710., 'compressibility': 1.e-6},
                           'Solid_CaMg(CO3)2': {'density': 2840., 'compressibility': 1.e-6}}
 
-        self.num_vars = len(self.elements)
         self.nc = len(self.elements)
 
         # Create property containers:
@@ -241,6 +241,7 @@ class Model(CICDModel):
             # grid
             self.domain_sizes = np.array([0.1, 0.001 * 7, 0.058905 / 7])
             self.domain_cells = np.array([nx, 1, 1])
+            self.n_res_blocks = np.prod(self.domain_cells)
             self.cell_sizes = self.domain_sizes / self.domain_cells
 
             # properties
@@ -248,9 +249,9 @@ class Model(CICDModel):
             self.poro = 1                            # [-]
             self.params.trans_mult_exp = 4
             perm = 1.25e4 * self.poro ** self.params.trans_mult_exp
-            self.solid_sat = np.ones(self.domain_cells[0]) * 0.7
+            self.solid_sat = np.zeros((self.n_res_blocks, self.n_solid))
+            self.solid_sat[:, 0] = 0.7
             self.inj_cells = np.array([0])
-            self.n_res_blocks = np.prod(self.domain_cells)
 
             self.volume = np.prod(self.domain_sizes)
             self.reservoir = StructReservoir(self.timer,
@@ -261,6 +262,7 @@ class Model(CICDModel):
             # grid
             self.domain_sizes = np.array([0.09, 0.09, 0.006])
             self.domain_cells = np.array([nx, nx, 1])
+            self.n_res_blocks = np.prod(self.domain_cells)
             self.cell_sizes = self.domain_sizes / self.domain_cells
 
             # properties
@@ -271,15 +273,15 @@ class Model(CICDModel):
 
             # porosity
             if poro_filename == None:
-                poro = 0.3 + np.random.uniform(-0.1, 0.1, np.prod(self.domain_cells))
+                poro = 0.3 + np.random.uniform(-0.1, 0.1, self.n_res_blocks)
             else:
                 poro = 0.3 + 0.05 * np.loadtxt(poro_filename).flatten()
                 assert np.prod(self.domain_cells) == poro.size
             poro[poro < 1.e-4] = 1.e-4
             poro[poro > 1 - 1.e-4] = 1 - 1.e-4
-            self.solid_sat = 1 - poro
+            self.solid_sat = np.zeros((self.n_res_blocks, self.n_solid))
+            self.solid_sat[:, 0] = 1 - poro
             self.inj_cells = self.domain_cells[0] * np.arange(self.domain_cells[1])
-            self.n_res_blocks = np.prod(self.domain_cells)
 
             self.volume = np.prod(self.domain_sizes)
             self.reservoir = StructReservoir(self.timer,
@@ -304,7 +306,8 @@ class Model(CICDModel):
             else:
                 poro = 0.3 + 0.05 * np.loadtxt(poro_filename).flatten()
                 assert self.n_res_blocks == poro.size
-            self.solid_sat = 1 - poro
+            self.solid_sat = np.zeros((self.n_res_blocks, self.n_solid))
+            self.solid_sat[:, 0] = 1 - poro
 
             # identifying injection/production cells
             a = 2 / 3 * np.cbrt(self.volume / self.reservoir.mesh.n_blocks / 0.1)
@@ -326,27 +329,30 @@ class Model(CICDModel):
         print('\nInitializing compositions...')
 
         # Component-defined composition of a non-solid phase (pure water here)
-        self.initial_comp_components = np.array([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-        self.solid_frac = np.zeros(len(self.solid_sat))
-        self.initial_comp = np.zeros((self.n_res_blocks + 2, self.num_vars - 1))
+        self.initial_comp_components = np.zeros(len(self.components))
+        self.initial_comp_components[0] = 1.0
+        self.solid_frac = np.zeros((self.n_res_blocks, self.n_solid))
+        self.initial_comp = np.zeros((self.n_res_blocks + 2, self.nc - 1))
 
         # Interpolated values of non-solid volume (second value always 0 due to no (5,1) interpolator)
         values = value_vector([0] * 2)
+        values_np = np.asarray(values)
 
         # Iterate over solid saturation and call interpolator
         for i in range(len(self.solid_sat)):
             # There are 5 values in the state
             composition_full = convert_composition(self.initial_comp_components, self.E)
             composition = correct_composition(composition_full, self.min_z)
-            init_state = value_vector(np.hstack((self.physics.input_data_struct.pressure_init, self.solid_sat[i], composition[1:])))
+            init_state = value_vector(np.hstack((self.physics.input_data_struct.pressure_init, self.solid_sat[i],
+                                                 composition[self.n_solid:])))
 
             # Call interpolator
             self.physics.comp_itor[0].evaluate(init_state, values)
 
             # Assemble initial composition
-            self.solid_frac[i] = values[0]
+            self.solid_frac[i] = values_np[:self.n_solid]
             initial_comp_with_solid = composition_full # np.multiply(composition_full, 1 - self.solid_frac[i])
-            initial_comp_with_solid[0] = self.solid_frac[i]
+            initial_comp_with_solid[:self.n_solid] = self.solid_frac[i]
             self.initial_comp[i, :] = initial_comp_with_solid[:-1] # correct_composition(initial_comp_with_solid, self.min_z)
 
         # Define initial composition for wells
@@ -364,7 +370,7 @@ class Model(CICDModel):
             **{
                 var: self.initial_comp[:nb, j]
                 for j, var in enumerate(self.physics.vars[1:])
-                              }
+            }
         }
 
         return self.physics.set_initial_conditions_from_array(mesh=self.reservoir.mesh,
@@ -486,13 +492,24 @@ class ModelProperties(PropertyContainer):
             self.fc_mask = fc_mask
         self.fc_idx = {comp: i for i, comp in enumerate(self.components_name[self.fc_mask])}
         self.Mw_array = np.array([self.Mw[c] for c in self.components_name])
+        self.n_solid = (self.fc_mask == False).sum()
+
+        # to retrieve fluid component fractions from state
+        self.f_mask_state = np.concatenate([[False], self.fc_mask[:-1]])
+        # to retrieve solid component fractions from state
+        self.s_mask_state = np.concatenate([[False], ~self.fc_mask[:-1]])
+
+        # figure out spec
+        self.minerals = set(self.components_name[~self.fc_mask])
 
         self.sat_overall = np.zeros(self.nph + 1)
 
         # Define custom evaluators
         self.rock_density_ev = {}
         self.rock_compr_ev = {}
-        self.flash_ev = self.Flash(min_z=self.min_z, fc_mask=self.fc_mask, fc_idx=self.fc_idx, temperature=self.temperature)
+        self.flash_ev = self.Flash(min_z=self.min_z, fc_mask=self.fc_mask, fc_idx=self.fc_idx,
+                                   f_mask_state=self.f_mask_state, temperature=self.temperature,
+                                   minerals=self.minerals)
         self.kinetic_rate_ev = self.CustomKineticRate(self.temperature, self.min_z)
         self.rel_perm_ev = {ph: self.CustomRelPerm(2) for ph in phases_name[:2]}  # Relative perm for first two phases
         self.viscosity_ev = { phases_name[0]: self.GasViscosity(), phases_name[1]: self.LiquidViscosity() }
@@ -507,7 +524,7 @@ class ModelProperties(PropertyContainer):
         :return: updated value for operators, stored in values
         """
         nu_v, x, y, rho_phases, kin_state, fluid_volume, species_molar_fractions = self.flash_ev.evaluate(state)
-        self.nu_solid = state[1]
+        self.nu_solid = state[self.s_mask_state].sum()
         self.nu[0] = nu_v * (1 - self.nu_solid) # convert to overall molar fraction
         self.nu[1] = 1 - nu_v - self.nu_solid
 
@@ -541,7 +558,7 @@ class ModelProperties(PropertyContainer):
 
     # default flash working with molar fractions
     class Flash:
-        def __init__(self, min_z, fc_mask, fc_idx, temperature=None):
+        def __init__(self, min_z, fc_mask, fc_idx, f_mask_state, minerals, temperature=None):
             """
             :param min_z: minimal composition value
             :param fc_mask: boolean mask for extraction of fluid components from all components
@@ -550,6 +567,10 @@ class ModelProperties(PropertyContainer):
             """
             self.fc_mask = fc_mask
             self.fc_idx = fc_idx
+            self.f_mask_state = f_mask_state
+            self.n_fluid = (self.fc_mask == True).sum()
+            self.n_solid = (self.fc_mask == False).sum()
+            self.minerals = minerals
 
             if temperature is None:
                 self.thermal = True
@@ -566,46 +587,89 @@ class ModelProperties(PropertyContainer):
             # self.phreeqc.phreeqc.OutputFileOn = True
             # self.phreeqc.phreeqc.SelectedOutputFileOn = True
 
-            self.phreeqc_species = ["OH-", "H+", "H2O", "C(-4)", "CH4", "C(4)", "HCO3-", "CO2", "CO3-2", "CaHCO3+", "CaCO3", "(CO2)2", "Ca+2", "CaOH+", "H(0)", "H2", "O(0)", "O2"]
-            self.species_2_element_moles = np.array([2, 1, 3, 1, 5, 1, 5, 3, 4, 6, 5, 6, 1, 3, 1, 2, 1, 2])
-            species_headings = " ".join([f'MOL("{sp}")' for sp in self.phreeqc_species])
-            species_punch = " ".join([f'MOL("{sp}")' for sp in self.phreeqc_species])
-
-            self.phreeqc_template = f"""
-            USER_PUNCH            
-            -headings    H(mol)      O(mol)      C(mol)      Ca(mol)      Vol_aq   SI            SR            ACT("H+") ACT("CO2") ACT("H2O") {species_headings}
-            10 PUNCH    TOTMOLE("H") TOTMOLE("O") TOTMOLE("C") TOTMOLE("Ca") SOLN_VOL SI("Calcite") SR("Calcite") ACT("H+") ACT("CO2") ACT("H2O") {species_punch}
+            if self.minerals == {'Solid_CaCO3'}: # pure calcite
+                self.spec = 0
+                self.phreeqc_species = ["OH-", "H+", "H2O", "C(-4)", "CH4", "C(4)", "HCO3-", "CO2", "CO3-2", "CaHCO3+", "CaCO3", "(CO2)2", "Ca+2", "CaOH+", "H(0)", "H2", "O(0)", "O2"]
+                self.species_2_element_moles = np.array([2, 1, 3, 1, 5, 1, 5, 3, 4, 6, 5, 6, 1, 3, 1, 2, 1, 2])
+                species_headings = " ".join([f'MOL("{sp}")' for sp in self.phreeqc_species])
+                species_punch = " ".join([f'MOL("{sp}")' for sp in self.phreeqc_species])
+                self.phreeqc_template = f"""
+                    USER_PUNCH            
+                    -headings    H(mol)      O(mol)      C(mol)      Ca(mol)      Vol_aq   SI            SR            ACT("H+") ACT("CO2") ACT("H2O") {species_headings}
+                    10 PUNCH    TOTMOLE("Ca") TOTMOLE("C") TOTMOLE("O") TOTMOLE("H") SOLN_VOL SI("Calcite") SR("Calcite") ACT("H+") ACT("CO2") ACT("H2O") {species_punch}
         
-            SELECTED_OUTPUT
-            -selected_out    true
-            -user_punch      true
-            -reset           false
-            -high_precision  true
-            -gases           CO2(g) H2O(g)
+                    SELECTED_OUTPUT
+                    -selected_out    true
+                    -user_punch      true
+                    -reset           false
+                    -high_precision  true
+                    -gases           CO2(g) H2O(g)
+        
+                    SOLUTION 1
+                    temp      {{temperature:.2f}}
+                    pressure  {{pressure:.4f}}
+                    pH        7 charge
+                    -water    {{water_mass:.10f}} # kg
+        
+                    REACTION 1
+                    Ca        {{calcium:.10f}}
+                    C         {{carbon:.10f}}
+                    O         {{oxygen:.10f}}
+                    H         {{hydrogen:.10f}}
+                    1
+        
+                    KNOBS
+                    -convergence_tolerance  1e-10
+        
+                    GAS_PHASE 1
+                    pressure  {{pressure:.4f}}       
+                    temp      {{temperature:.2f}}  
+                    CO2(g)     0
+        
+                    END
+                    """
+            elif self.minerals == {'Solid_CaCO3', 'Solid_CaMg(CO3)2'}: # calcite and dolomite
+                self.spec = 1
+                self.phreeqc_species = ["OH-", "H+", "H2O", "C(-4)", "CH4", "C(4)", "HCO3-", "CO2", "CO3-2", "CaHCO3+", "CaCO3", "(CO2)2", "Ca+2", "CaOH+", "H(0)", "H2", "O(0)", "O2"]
+                self.species_2_element_moles = np.array([2, 1, 3, 1, 5, 1, 5, 3, 4, 6, 5, 6, 1, 3, 1, 2, 1, 2])
+                species_headings = " ".join([f'MOL("{sp}")' for sp in self.phreeqc_species])
+                species_punch = " ".join([f'MOL("{sp}")' for sp in self.phreeqc_species])
+                self.phreeqc_template = f"""
+                    USER_PUNCH            
+                    -headings    H(mol)      O(mol)      C(mol)      Ca(mol)      Vol_aq   SI            SR            ACT("H+") ACT("CO2") ACT("H2O") {species_headings}
+                    10 PUNCH    TOTMOLE("Ca") TOTMOLE("Mg") TOTMOLE("C") TOTMOLE("O") TOTMOLE("H") SOLN_VOL SI("Calcite") SR("Calcite") ACT("H+") ACT("CO2") ACT("H2O") {species_punch}
 
-            SOLUTION 1
-            temp      {{temperature:.2f}}
-            pressure  {{pressure:.4f}}
-            pH        7 charge
-            -water    {{water_mass:.10f}} # kg
-            
-            REACTION 1
-            H         {{hydrogen:.10f}}
-            O         {{oxygen:.10f}}
-            C         {{carbon:.10f}}
-            Ca        {{calcium:.10f}}
-            1
-            
-            KNOBS
-            -convergence_tolerance  1e-10
-            
-            GAS_PHASE 1
-            pressure  {{pressure:.4f}}       
-            temp      {{temperature:.2f}}  
-            CO2(g)     0
-            
-            END
-            """
+                    SELECTED_OUTPUT
+                    -selected_out    true
+                    -user_punch      true
+                    -reset           false
+                    -high_precision  true
+                    -gases           CO2(g) H2O(g)
+
+                    SOLUTION 1
+                    temp      {{temperature:.2f}}
+                    pressure  {{pressure:.4f}}
+                    pH        7 charge
+                    -water    {{water_mass:.10f}} # kg
+
+                    REACTION 1
+                    Ca        {{calcium:.10f}}
+                    Mg        {{magnesium:.10f}}
+                    C         {{carbon:.10f}}
+                    O         {{oxygen:.10f}}
+                    H         {{hydrogen:.10f}}
+                    1
+
+                    KNOBS
+                    -convergence_tolerance  1e-10
+
+                    GAS_PHASE 1
+                    pressure  {{pressure:.4f}}       
+                    temp      {{temperature:.2f}}  
+                    CO2(g)     0
+
+                    END
+                    """
 
         def load_database(self, database, db_path):
             try:
@@ -622,33 +686,30 @@ class ModelProperties(PropertyContainer):
             total_mole_gas = 3 * (co2_gas_mole + h2o_gas_mole)
 
             # interpret aqueous phase
-            hydrogen_mole_aq = results_array[5]
-            oxygen_mole_aq = results_array[6]
-            carbon_mole_aq = results_array[7]
-            calcium_mole_aq = results_array[8]
+            mole_aq = results_array[5:5 + self.n_fluid]
+            # hydrogen_mole_aq = results_array[5]
+            # oxygen_mole_aq = results_array[6]
+            # carbon_mole_aq = results_array[7]
+            # calcium_mole_aq = results_array[8]
 
-            volume_aq = results_array[9] / 1000  # liters to m3
-            total_mole_aq = (hydrogen_mole_aq + oxygen_mole_aq + carbon_mole_aq + calcium_mole_aq)  # mol
+            volume_aq = results_array[5 + self.n_fluid] / 1000  # liters to m3
+            total_mole_aq = mole_aq.sum()  # mol
             rho_aq = total_mole_aq / volume_aq / 1000  # kmol/m3
 
             # molar fraction of elements in aqueous phase
-            x = np.array([0,
-                          calcium_mole_aq / total_mole_aq,
-                          carbon_mole_aq / total_mole_aq,
-                          oxygen_mole_aq / total_mole_aq,
-                          hydrogen_mole_aq / total_mole_aq])
+            nc = self.n_solid + self.n_fluid
+            x = np.zeros(nc)
+            x[self.n_solid:] = mole_aq / total_mole_aq
 
             # in gaseous phase
+            y = np.zeros(nc)
             if total_mole_gas > 1.e-8:
                 rho_g = total_mole_gas / volume_gas / 1000  # kmol/m3
-                y = np.array([0,
-                              0,
-                              co2_gas_mole / total_mole_gas,
-                              (2 * co2_gas_mole + h2o_gas_mole) / total_mole_gas,
-                              2 * h2o_gas_mole / total_mole_gas])
+                y[-3] = co2_gas_mole / total_mole_gas
+                y[-2] = (2 * co2_gas_mole + h2o_gas_mole) / total_mole_gas
+                y[-1] = 2 * h2o_gas_mole / total_mole_gas
             else:
                 rho_g = 0.0
-                y = np.zeros(len(x))
 
             # molar densities
             rho_phases = {'aq': rho_aq, 'gas': rho_g}
@@ -656,21 +717,20 @@ class ModelProperties(PropertyContainer):
             nu_v = total_mole_gas / (total_mole_aq + total_mole_gas)
 
             # interpret kinetic parameters
-            kin_state = {'SI': results_array[10],
-                         'SR': results_array[11],
-                         'Act(H+)': results_array[12],
-                         'Act(CO2)': results_array[13],
-                         'Act(H2O)': results_array[14]}
-            species_molalities = results_array[15:]
+            kin_state = {'SI': results_array[5 + nc],
+                         'SR': results_array[6 + nc],
+                         'Act(H+)': results_array[7 + nc],
+                         'Act(CO2)': results_array[8 + nc],
+                         'Act(H2O)': results_array[9 + nc]}
+            species_molalities = results_array[10 + nc:]
 
             return nu_v, x, y, rho_phases, kin_state, volume_aq + volume_gas, species_molalities
 
         def get_fluid_composition(self, state):
-            mask = self.fc_mask[:-1]
             if self.thermal:
-                z = state[1:-1][mask]
+                z = state[-1][self.f_mask_state]
             else:
-                z = state[1:][mask]
+                z = state[self.f_mask_state]
             z_last = min(max(1 - np.sum(z), self.min_z), 1 - self.min_z)
             z = np.concatenate([z, [z_last]])
             return z
@@ -708,22 +768,37 @@ class ModelProperties(PropertyContainer):
             # assert ion_strength < 7, "Not enough water to form a realistic brine"
 
             # Generate and execute PHREEQC input
-            input_string = self.phreeqc_template.format(
-                temperature=self.temperature,
-                pressure=pressure_atm,
-                water_mass=water_mass,
-                hydrogen=fluid_moles[self.fc_idx['H']],
-                oxygen=fluid_moles[self.fc_idx['O']],
-                carbon=fluid_moles[self.fc_idx['C']],
-                calcium=fluid_moles[self.fc_idx['Ca']]
-            )
+            if self.spec == 0:
+                input_string = self.phreeqc_template.format(
+                    temperature=self.temperature,
+                    pressure=pressure_atm,
+                    water_mass=water_mass,
+                    hydrogen=fluid_moles[self.fc_idx['H']],
+                    oxygen=fluid_moles[self.fc_idx['O']],
+                    carbon=fluid_moles[self.fc_idx['C']],
+                    calcium=fluid_moles[self.fc_idx['Ca']]
+                )
+            elif self.spec == 1:
+                input_string = self.phreeqc_template.format(
+                    temperature=self.temperature,
+                    pressure=pressure_atm,
+                    water_mass=water_mass,
+                    hydrogen=fluid_moles[self.fc_idx['H']],
+                    oxygen=fluid_moles[self.fc_idx['O']],
+                    carbon=fluid_moles[self.fc_idx['C']],
+                    calcium=fluid_moles[self.fc_idx['Ca']],
+                    magnesium=fluid_moles[self.fc_idx['Mg']]
+                )
 
             try:
                 self.phreeqc.run_string(input_string)
                 nu_v, x, y, rho_phases, kin_state, fluid_volume, species_molalities = self.interpret_results(self.phreeqc)
             except Exception as e:
                 warnings.warn(f"Failed to run PHREEQC: {e}", Warning)
-                print(f"h20_mass={water_mass}, p={state[0]}, Ca={fluid_moles[self.fc_idx['Ca']]}, C={fluid_moles[self.fc_idx['C']]}, O={fluid_moles[self.fc_idx['O']]}, H={fluid_moles[self.fc_idx['H']]}")
+                if self.spec == 0:
+                    print(f"h20_mass={water_mass}, p={state[0]}, Ca={fluid_moles[self.fc_idx['Ca']]}, C={fluid_moles[self.fc_idx['C']]}, O={fluid_moles[self.fc_idx['O']]}, H={fluid_moles[self.fc_idx['H']]}")
+                elif self.spec == 1:
+                    print(f"h20_mass={water_mass}, p={state[0]}, Ca={fluid_moles[self.fc_idx['Ca']]}, Mg={fluid_moles[self.fc_idx['Mg']]}, C={fluid_moles[self.fc_idx['C']]}, O={fluid_moles[self.fc_idx['O']]}, H={fluid_moles[self.fc_idx['H']]}")
                 self.pitzer.run_string(input_string)
                 nu_v, x, y, rho_phases, kin_state, fluid_volume, species_molalities = self.interpret_results(self.pitzer)
 
