@@ -148,7 +148,7 @@ class Model(CICDModel):
         # Several parameters here related to components used, OBL limits, and injection composition:
         self.phases = ['gas', 'liq']
 
-        if self.minerals == {'calcite'}:
+        if set(self.minerals) == {'calcite'}:
             # purely for initialization
             self.components = ['H2O', 'H+', 'OH-', 'CO2', 'HCO3-', 'CO3-2', 'CaCO3', 'Ca+2', 'CaOH+', 'CaHCO3+', 'Solid_CaCO3']
             self.elements = ['Solid_CaCO3', 'Ca', 'C', 'O', 'H']
@@ -170,7 +170,7 @@ class Model(CICDModel):
             # Dimensions of initial, property interpolators
             n_init_ops = 1
             n_prop_ops = 19
-        elif self.minerals == {'calcite', 'dolomite'}:
+        elif set(self.minerals) == {'calcite', 'dolomite'}:
             # purely for initialization
             self.components = ['H2O', 'H+', 'OH-', 'CO2', 'HCO3-', 'CO3-2',
                                'CaCO3', 'Ca+2', 'CaOH+', 'CaHCO3+', 'Solid_CaCO3',                  # calcite-related
@@ -205,6 +205,9 @@ class Model(CICDModel):
         # Create property containers:
         property_container = ModelProperties(phases_name=self.phases, components_name=self.elements, Mw=Mw,
                                              min_z=self.obl_min, temperature=self.temperature, fc_mask=self.fc_mask)
+
+        property_container.diffusion_ev = {ph: ConstFunc(np.concatenate([np.zeros(self.n_solid), \
+                                         np.ones(self.nc - self.n_solid)]) * 5.2e-10 * 86400) for ph in self.phases}
 
         for min, props in rock_props.items():
             property_container.rock_compr_ev[min] = ConstFunc(props['compressibility'])
@@ -261,9 +264,9 @@ class Model(CICDModel):
             self.params.trans_mult_exp = 4
             perm = 1.25e4 * self.poro ** self.params.trans_mult_exp
             self.solid_sat = np.zeros((self.n_res_blocks, self.n_solid))
-            if self.minerals == {'calcite'}:
+            if set(self.minerals) == {'calcite'}:
                 self.solid_sat[:, 0] = 0.7
-            elif self.minerals == {'calcite', 'dolomite'}:
+            elif set(self.minerals) == {'calcite', 'dolomite'}:
                 self.solid_sat[:, 0] = 0.6
                 self.solid_sat[:, 1] = 0.1
             self.inj_cells = np.array([0])
@@ -515,9 +518,10 @@ class ModelProperties(PropertyContainer):
         self.s_mask_state = np.concatenate([[False], ~self.fc_mask[:-1]])
 
         # figure out spec
-        self.minerals = set(self.components_name[~self.fc_mask])
+        self.minerals = self.components_name[~self.fc_mask]
 
         self.sat_overall = np.zeros(self.nph + 1)
+        self.diffusivity = np.zeros((self.nph, self.nc))
         self.sat_minerals = np.zeros(self.n_solid)
         self.kin_rates = np.zeros(self.n_solid)
         self.rock_compr = np.zeros(self.n_solid)
@@ -574,6 +578,7 @@ class ModelProperties(PropertyContainer):
             self.sat[j] = self.sat_overall[j] / np.sum(self.sat_overall[:self.nph])
             self.kr[j] = self.rel_perm_ev[self.phases_name[j]].evaluate(self.sat[j])
             self.mu[j] = self.viscosity_ev[self.phases_name[j]].evaluate(pressure=pressure, temperature=self.temperature)
+            self.diffusivity[j] = self.diffusion_ev[self.phases_name[j]].evaluate()
 
         for i, k in enumerate(self.rock_compr_ev.keys()):
             self.rock_compr[i] = self.rock_compr_ev[k].evaluate(pressure)
@@ -612,7 +617,7 @@ class ModelProperties(PropertyContainer):
             # self.phreeqc.phreeqc.OutputFileOn = True
             # self.phreeqc.phreeqc.SelectedOutputFileOn = True
 
-            if self.minerals == {'Solid_CaCO3'}: # pure calcite
+            if set(self.minerals) == {'Solid_CaCO3'}: # pure calcite
                 self.spec = 0
                 self.phreeqc_species = ["OH-", "H+", "H2O", "C(-4)", "CH4", "C(4)", "HCO3-", "CO2", "CO3-2", "CaHCO3+", "CaCO3", "(CO2)2", "Ca+2", "CaOH+", "H(0)", "H2", "O(0)", "O2"]
                 self.species_2_element_moles = np.array([2, 1, 3, 1, 5, 1, 5, 3, 4, 6, 5, 6, 1, 3, 1, 2, 1, 2])
@@ -653,7 +658,7 @@ class ModelProperties(PropertyContainer):
         
                     END
                     """
-            elif self.minerals == {'Solid_CaCO3', 'Solid_CaMg(CO3)2'}: # calcite and dolomite
+            elif set(self.minerals) == {'Solid_CaCO3', 'Solid_CaMg(CO3)2'}: # calcite and dolomite
                 self.spec = 1
                 self.phreeqc_species = ["OH-", "H+", "H2O", "C(-4)", "CH4", "C(4)", "HCO3-", "CO2", "CO3-2", "CaHCO3+",
                                         "MgHCO3+", "CaCO3", "MgCO3", "(CO2)2", "Ca", "Ca+2", "CaOH+", "H(0)", "H2",

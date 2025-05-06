@@ -7,7 +7,12 @@ import shutil
 import os
 import matplotlib
 matplotlib.use('pgf')
-matplotlib.rc('pgf', texsystem='pdflatex', preamble=r'\usepackage{color}')
+matplotlib.rc('pgf', texsystem='pdflatex',
+               preamble=(
+                    r'\usepackage{color}'
+                    r'\definecolor{violet}{RGB}{238,130,238}'
+                    r'\definecolor{orange}{RGB}{255,165,0}'
+               ))
 from matplotlib import pyplot as plt
 from matplotlib import rcParams
 plt.rc('xtick',labelsize=16)
@@ -189,10 +194,24 @@ def plot_profiles(m, output_folder='./', plot_kinetics=False, plot_saturation=Tr
         idx = components.index(comp) + 1
         label = m.physics.vars[idx]
         ax[1].plot(x, Xm[:, idx], color=colors[comp], label=label)
+    ax[1].plot(x, 1.0 - np.sum(Xm[:, n_solid:], axis=1), color=colors[components[-1]], label=components[-1])
+
     for comp in ['Ca', 'C']: # Ca / C
         idx = components.index(comp) + 1
         ax1.plot(x, Xm[:, idx], color=colors[comp], label=m.physics.vars[idx])
-    ax[1].plot(x, 1.0 - np.sum(Xm[:, n_solid:], axis=1), color=colors[components[-1]], label=components[-1])
+
+    y_axis_label1 = r'\textcolor{blue}{z$_{CaCO3(s)}$}, \textcolor{magenta}{z$_O$}, \textcolor{cyan}{z$_H$}'
+    y_axis_label11 = r'\textcolor{red}{z$_{Ca}$}, \textcolor{green}{z$_C$}'
+    if 'Solid_CaMg(CO3)2' in components:
+        idx = components.index('Solid_CaMg(CO3)2') + 1
+        label = m.physics.vars[idx]
+        ax[1].plot(x, Xm[:, idx], color=colors['Solid_CaMg(CO3)2'], label=label)
+        y_axis_label1 += r', \textcolor{violet}{z$_{CaMg(CO3)2(s)}$}'
+        idx = components.index('Mg') + 1
+        label = m.physics.vars[idx]
+        ax1.plot(x, Xm[:, idx], color=colors['Mg'], label=label)
+        y_axis_label11 += r', \textcolor{orange}{z$_{Mg}$}'
+
     ax[2].plot(x, poro, color='b', label='porosity')
 
     t = round(m.physics.engine.t * 24, 4)
@@ -202,9 +221,9 @@ def plot_profiles(m, output_folder='./', plot_kinetics=False, plot_saturation=Tr
     ax[0].set_xlabel('distance, m', fontsize=16)
     ax[1].set_xlabel('distance, m', fontsize=16)
     ax[2].set_xlabel('distance, m', fontsize=16)
-    ax[1].set_ylabel(r'\textcolor{blue}{z$_{CaCO3}$(s)}, \textcolor{magenta}{z$_O$} and \textcolor{cyan}{z$_H$}', fontsize=16)
+    ax[1].set_ylabel(y_axis_label1, fontsize=16)
     ax[2].set_ylabel(r'\textcolor{blue}{porosity}', fontsize=16)
-    ax1.set_ylabel(r'\textcolor{red}{z$_{Ca}$} and \textcolor{green}{z$_C$}', fontsize=20)
+    ax1.set_ylabel(y_axis_label11, fontsize=20)
 
     ax[0].set_ylim(m.pressure_init - 0.01, m.pressure_init + 0.15)
     ax[1].set_ylim(-0.01, 1.01)

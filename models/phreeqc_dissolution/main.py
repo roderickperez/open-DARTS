@@ -6,9 +6,9 @@ import numpy as np
 from visualization import plot_profiles, plot_new_profiles, animate_1d
 
 def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str = None, poro_filename: str = None, output: bool = False,
-                   minerals: set = {'calcite'}):
+                   minerals: list = ['calcite']):
     # Make a folder
-    output_folder = 'output_' + domain + '_' + str(nx)
+    output_folder = 'output_' + domain + '_' + str(nx) + '_' + '_'.join(minerals)
     if not os.path.exists(output_folder): os.makedirs(output_folder)
 
     # Redirect output to log file
