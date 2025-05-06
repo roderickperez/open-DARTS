@@ -49,7 +49,7 @@ class MyOwnDataStruct:
 # Actual Model class creation here!
 class Model(CICDModel):
     def __init__(self, domain: str = '1D', nx: int = 200, mesh_filename: str = None, poro_filename: str = None,
-                 minerals: set = {'calcite'}):
+                 minerals: list = ['calcite']):
         # Call base class constructor
         super().__init__()
 
@@ -179,9 +179,9 @@ class Model(CICDModel):
             self.fc_mask = np.array([False, False, True, True, True, True, True], dtype=bool)
             Mw = {'Solid_CaCO3': 100.0869, 'Solid_CaMg(CO3)2': 184.401,
                     'Ca': 40.078, 'Mg': 24.305, 'C': 12.0096, 'O': 15.999, 'H': 1.007} # molar weights in kg/kmol
-            self.n_points = list(np.array([101, 201, 201, 101, 101, 101, 101], dtype=np.intp))
+            self.n_points = list(2 * np.array([101, 201, 201, 101, 101, 101, 101], dtype=np.intp))
             self.axes_min = [self.pressure_init - 1] + [self.obl_min, self.obl_min, self.obl_min, self.obl_min, self.obl_min, 0.3]
-            self.axes_max = [self.pressure_init + 2] + [1 - self.obl_min, 1 - self.obl_min, 0.01, 0.01, 0.02, 0.37]
+            self.axes_max = [self.pressure_init + 2] + [1 - self.obl_min, 0.2, 0.01, 0.001, 0.02, 0.37]
             # Rate annihilation matrix
             self.E = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],    # Solid_CaCO3
                                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],    # Solid_CaMg(CO3)2
@@ -546,7 +546,7 @@ class ModelProperties(PropertyContainer):
 
         :return: updated value for operators, stored in values
         """
-        nu_v, x, y, rho_phases, kin_state, fluid_volume, species_molar_fractions = self.flash_ev.evaluate(state)
+        nu_v, x, y, rho_phases, self.kin_state, _, _ = self.flash_ev.evaluate(state)
         self.nu_solid = state[self.s_mask_state]
         self.nu[0] = nu_v * (1 - self.nu_solid.sum()) # convert to overall molar fraction
         self.nu[1] = 1 - nu_v - self.nu_solid.sum()
@@ -582,7 +582,7 @@ class ModelProperties(PropertyContainer):
 
         for i, k in enumerate(self.rock_compr_ev.keys()):
             self.rock_compr[i] = self.rock_compr_ev[k].evaluate(pressure)
-            self.kin_rates[i] = self.kinetic_rate_ev[k].evaluate(kin_state, self.sat_minerals[i],
+            self.kin_rates[i] = self.kinetic_rate_ev[k].evaluate(self.kin_state, self.sat_minerals[i],
                                                                  self.dens_m_solid[i], self.min_z)
 
     # default flash working with molar fractions
@@ -600,7 +600,7 @@ class ModelProperties(PropertyContainer):
             self.n_fluid = (self.fc_mask == True).sum()
             self.n_solid = (self.fc_mask == False).sum()
             self.minerals = minerals
-            self.mineral_names = {item.split('_', 1)[1] for item in self.minerals}
+            self.mineral_names = [item.split('_', 1)[1] for item in self.minerals]
 
             if temperature is None:
                 self.thermal = True
@@ -619,14 +619,14 @@ class ModelProperties(PropertyContainer):
 
             if set(self.minerals) == {'Solid_CaCO3'}: # pure calcite
                 self.spec = 0
-                self.phreeqc_species = ["OH-", "H+", "H2O", "C(-4)", "CH4", "C(4)", "HCO3-", "CO2", "CO3-2", "CaHCO3+", "CaCO3", "(CO2)2", "Ca+2", "CaOH+", "H(0)", "H2", "O(0)", "O2"]
-                self.species_2_element_moles = np.array([2, 1, 3, 1, 5, 1, 5, 3, 4, 6, 5, 6, 1, 3, 1, 2, 1, 2])
+                self.phreeqc_species = ["OH-", "H+", "H2O", "CH4", "HCO3-", "CO2", "CO3-2", "CaHCO3+", "CaCO3", "(CO2)2", "Ca+2", "CaOH+", "H2", "O2"]
+                self.species_2_element_moles = np.array([2, 1, 3, 5, 5, 3, 4, 6, 5, 6, 1, 3, 2, 2])
                 species_headings = " ".join([f'MOL("{sp}")' for sp in self.phreeqc_species])
                 species_punch = " ".join([f'MOL("{sp}")' for sp in self.phreeqc_species])
                 self.phreeqc_template = f"""
                     USER_PUNCH            
-                    -headings   Ca(mol)       C(mol)       O(mol)       H(mol)       Vol_aq   SI            SR            ACT("H+") ACT("CO2") ACT("H2O") {species_headings}
-                    10 PUNCH    TOTMOLE("Ca") TOTMOLE("C") TOTMOLE("O") TOTMOLE("H") SOLN_VOL SI("Calcite") SR("Calcite") ACT("H+") ACT("CO2") ACT("H2O") {species_punch}
+                    -headings   Ca(mol)       C(mol)       O(mol)       H(mol)       Vol_aq   SR            ACT("H+") ACT("CO2") ACT("H2O") {species_headings}
+                    10 PUNCH    TOTMOLE("Ca") TOTMOLE("C") TOTMOLE("O") TOTMOLE("H") SOLN_VOL SR("Calcite") ACT("H+") ACT("CO2") ACT("H2O") {species_punch}
         
                     SELECTED_OUTPUT
                     -selected_out    true
@@ -660,18 +660,16 @@ class ModelProperties(PropertyContainer):
                     """
             elif set(self.minerals) == {'Solid_CaCO3', 'Solid_CaMg(CO3)2'}: # calcite and dolomite
                 self.spec = 1
-                self.phreeqc_species = ["OH-", "H+", "H2O", "C(-4)", "CH4", "C(4)", "HCO3-", "CO2", "CO3-2", "CaHCO3+",
-                                        "MgHCO3+", "CaCO3", "MgCO3", "(CO2)2", "Ca", "Ca+2", "CaOH+", "H(0)", "H2",
-                                        "Mg", "Mg+2", "MgOH+", "O(0)", "O2"]
-                self.species_2_element_moles = np.array([2, 1, 3, 1, 5, 1, 5, 3, 4, 6,
-                                                         6, 5, 5, 6, 1, 1, 3, 1, 2,
-                                                         1, 1, 3, 1, 2])
+                self.phreeqc_species = ["OH-", "H+", "H2O", "CH4", "HCO3-", "CO2", "CO3-2", "CaHCO3+", "MgHCO3+",
+                                        "CaCO3", "MgCO3", "(CO2)2", "Ca+2", "CaOH+", "H2", "Mg+2", "MgOH+", "O2"]
+                self.species_2_element_moles = np.array([2, 1, 3, 5, 5, 3, 4, 6, 6,
+                                                         5, 5, 6, 1, 3, 2, 1, 3, 2])
                 species_headings = " ".join([f'MOL("{sp}")' for sp in self.phreeqc_species])
                 species_punch = " ".join([f'MOL("{sp}")' for sp in self.phreeqc_species])
                 self.phreeqc_template = f"""
                     USER_PUNCH            
-                    -headings    Ca(mol)      Mg(mol)       C(mol)       O(mol)       H(mol)       Vol_aq   SI_Calcite    SR_Calcite    SI_Dolomite    SR_Dolomite    ACT("H+") ACT("CO2") ACT("H2O") {species_headings}
-                    10 PUNCH    TOTMOLE("Ca") TOTMOLE("Mg") TOTMOLE("C") TOTMOLE("O") TOTMOLE("H") SOLN_VOL SI("Calcite") SR("Calcite") SI("Dolomite") SR("Dolomite") ACT("H+") ACT("CO2") ACT("H2O") {species_punch}
+                    -headings    Ca(mol)      Mg(mol)       C(mol)       O(mol)       H(mol)       Vol_aq   SR_Calcite    SR_Dolomite    ACT("H+") ACT("CO2") ACT("H2O") {species_headings}
+                    10 PUNCH    TOTMOLE("Ca") TOTMOLE("Mg") TOTMOLE("C") TOTMOLE("O") TOTMOLE("H") SOLN_VOL SR("Calcite") SR("Dolomite") ACT("H+") ACT("CO2") ACT("H2O") {species_punch}
 
                     SELECTED_OUTPUT
                     -selected_out    true
@@ -754,9 +752,8 @@ class ModelProperties(PropertyContainer):
             counter = self.n_fluid + 5 + 1
             kin_state = {}
             for i, name in enumerate(self.mineral_names):
-                kin_state['SI_' + name] = results_array[counter]
-                kin_state['SR_' + name] = results_array[counter + 1]
-                counter += 2
+                kin_state['SR_' + name] = results_array[counter]
+                counter += 1
             kin_state['Act(H+)'] = results_array[counter]
             kin_state['Act(CO2)'] = results_array[counter + 1]
             kin_state['Act(H2O)'] = results_array[counter + 2]

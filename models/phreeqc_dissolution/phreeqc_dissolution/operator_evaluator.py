@@ -134,9 +134,6 @@ class my_own_acc_flux_etor(OperatorsBase):
         # E5_> porosity
         values_np[self.PORO_OP] = 1 - self.property.sat_overall[self.property.nph]
 
-        # values[shift + 3 + 2 * nph + 1] = kin_state['SR']
-        # values[shift + 3 + 2 * nph + 2] = kin_state['Act(H+)']
-
         return 0
 
 class my_own_comp_etor(my_own_acc_flux_etor):
@@ -176,12 +173,13 @@ class my_own_property_evaluator(operator_set_evaluator_iface):
         super().__init__()
         self.input_data = input_data
         self.property = properties
-        self.props_name = ['z' + prop for prop in properties.flash_ev.phreeqc_species] + ['satV']
+        self.props_name = (['z' + prop for prop in properties.flash_ev.phreeqc_species] + ['satV'] +
+                           ['Act(H+)'] + ['SR_' + mineral for mineral in self.property.flash_ev.mineral_names])
 
     def evaluate(self, state, values):
         state_np = state.to_numpy()
         values_np = values.to_numpy()
-        nu_v, _, _, rho_phases, _, _, molar_fractions = self.property.flash_ev.evaluate(state_np)
+        nu_v, _, _, rho_phases, kin_state, _, molar_fractions = self.property.flash_ev.evaluate(state_np)
         values_np[:molar_fractions.size] = molar_fractions
 
         # gas saturation
@@ -197,5 +195,10 @@ class my_own_property_evaluator(operator_set_evaluator_iface):
         else:
             sv = 0
         values_np[molar_fractions.size] = sv
+
+        # extra kinetic props
+        values_np[molar_fractions.size + 1] = kin_state['Act(H+)']
+        for i, mineral in enumerate(self.property.flash_ev.mineral_names):
+            values_np[molar_fractions.size + 2 + i] = kin_state['SR_' + mineral]
 
         return 0
