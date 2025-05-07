@@ -203,7 +203,7 @@ class Model(CICDModel, OptModuleSettings):
                     self.physics.set_well_controls(well=w, is_control=True, control_type=well_control_iface.BHP,
                                                    is_inj=False, target=50.)
 
-            CICDModel.run(self, ts, verbose=export_to_vtk)
+            CICDModel.run(self, ts, save_well_data=False, save_reservoir_data=False, verbose=export_to_vtk)
             self.physics.engine.report()
             if export_to_vtk:
                 self.export_vtk(file_name)
