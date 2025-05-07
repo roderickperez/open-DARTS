@@ -174,7 +174,7 @@ class my_own_property_evaluator(operator_set_evaluator_iface):
         self.input_data = input_data
         self.property = properties
         self.props_name = (['z' + prop for prop in properties.flash_ev.phreeqc_species] + ['satV'] +
-                           ['Act(H+)'] + ['SR_' + mineral for mineral in self.property.flash_ev.mineral_names])
+                           ['Act(H+)', 'Act(CO2)'] + ['SR_' + mineral for mineral in self.property.flash_ev.mineral_names])
 
     def evaluate(self, state, values):
         state_np = state.to_numpy()
@@ -198,7 +198,8 @@ class my_own_property_evaluator(operator_set_evaluator_iface):
 
         # extra kinetic props
         values_np[molar_fractions.size + 1] = kin_state['Act(H+)']
+        values_np[molar_fractions.size + 2] = kin_state['Act(CO2)']
         for i, mineral in enumerate(self.property.flash_ev.mineral_names):
-            values_np[molar_fractions.size + 2 + i] = kin_state['SR_' + mineral]
+            values_np[molar_fractions.size + 3 + i] = kin_state['SR_' + mineral]
 
         return 0
