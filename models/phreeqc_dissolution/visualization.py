@@ -194,7 +194,7 @@ def plot_profiles(m, output_folder='./', plot_kinetics=False, plot_saturation=Tr
         idx = components.index(comp) + 1
         label = m.physics.vars[idx]
         ax[1].plot(x, Xm[:, idx], color=colors[comp], label=label)
-    ax[1].plot(x, 1.0 - np.sum(Xm[:, n_solid:], axis=1), color=colors[components[-1]], label=components[-1])
+    ax[1].plot(x, 1.0 - np.sum(Xm[:, n_solid + 1:], axis=1), color=colors[components[-1]], label=components[-1])
 
     for comp in ['Ca', 'C']: # Ca / C
         idx = components.index(comp) + 1
