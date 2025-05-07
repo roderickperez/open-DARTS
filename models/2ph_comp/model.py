@@ -36,6 +36,7 @@ class Model(CICDModel):
     def set_wells(self):
         self.reservoir.add_well("I1")
         self.reservoir.add_perforation("I1", cell_index=(1, 1, 1))
+
         self.reservoir.add_well("P1")
         self.reservoir.add_perforation("P1", cell_index=(self.reservoir.nx, 1, 1))
 
@@ -65,6 +66,13 @@ class Model(CICDModel):
         state_spec = Compositional.StateSpecification.PT if thermal else Compositional.StateSpecification.P
         self.physics = Compositional(components, phases, self.timer, state_spec=state_spec,
                                      n_points=200, min_p=1, max_p=300, min_z=zero/10, max_z=1-zero/10)
+        # property_container.output_props = {
+        #     "sat0": lambda: property_container.sat[0],
+        #     "dens0": lambda: property_container.dens[0],
+        #     "nu0": lambda: property_container.nu[0],
+        #     "x00": lambda: property_container.x[0,0]
+        #     }
+
         self.physics.add_property_region(property_container)
 
         return

@@ -8,6 +8,7 @@ from scipy.interpolate import interp1d
 
 from darts.reservoirs.reservoir_base import ReservoirBase
 from darts.physics.base.physics_base import PhysicsBase
+from darts.models.output import Output
 
 from darts.engines import timer_node, sim_params, value_vector, index_vector, op_vector, ms_well_vector
 from darts.engines import print_build_info as engines_pbi
@@ -71,18 +72,16 @@ class DartsModel:
         self.timer.node["simulation"] = timer_node()  # Create timer.node called "simulation" to record simulation time
         self.timer.node["newton update"] = timer_node()
         self.timer.node["vtk_output"] = timer_node()
+        self.timer.node["output"] = timer_node()
         self.timer.node["initialization"] = timer_node()  # Create timer.node called "initialization" to record initialization time
         self.timer.node["initialization"].start()  # Start recording "initialization" time
-        self.output_folder = 'output'
-        self.sol_filename = "solution.h5"
-        self.well_filename = 'well_data.h5'
 
         self.params = sim_params()  # Create sim_params object to set simulation parameters
 
         self.timer.node["initialization"].stop()  # Stop recording "initialization" time
 
     def init(self, discr_type: str = 'tpfa', platform: str = 'cpu', restart: bool = False,
-             verbose: bool = False, output_folder: str = None, itor_mode: str = 'adaptive',
+             verbose: bool = False, itor_mode: str = 'adaptive',
              itor_type: str = 'multilinear', is_barycentric: bool = False):
         """
         Function to initialize the model, which includes:
@@ -101,8 +100,6 @@ class DartsModel:
         :type restart: bool
         :param verbose: Switch for verbose
         :type verbose: bool
-        :param output_folder: folder for h5 output files
-        :type output_folder: str
         :param itor_mode: specifies either 'static' or 'adaptive' interpolator
         :type itor_mode: str
         :param itor_type: specifies either 'linear' or 'multilinear' interpolator
@@ -127,20 +124,14 @@ class DartsModel:
         self.physics.init_wells(self.reservoir.wells)
         self.init_well_rates()
 
-        if output_folder is not None:
-            self.output_folder = output_folder
-
         self.set_op_list()
         self.set_boundary_conditions()
-        self.set_initial_conditions()
-        self.set_well_controls()
-        self.reset()
-
-        # self.restart = restart
-
-        # save solution vector
+        self.restart = restart
+        # when restarting the initial conditions are set in self.load_restart_data() and the engine is reset.
         if restart is False:
-            self.save_data_to_h5(kind = 'solution')
+            self.set_initial_conditions()
+            self.set_well_controls()
+            self.reset()
 
     def reset(self):
         """
@@ -149,101 +140,66 @@ class DartsModel:
         self.physics.engine.init(self.reservoir.mesh, ms_well_vector(self.reservoir.wells), op_vector(self.op_list),
                                  self.params, self.timer.node["simulation"])
 
-    def configure_h5_output(self, filename: str, cell_ids, description, add_static_data: bool = False):
+    def load_restart_data(self, reservoir_filename: str, timestep: int = -1):
         """
-        Configuration of *.h5 output
+        Loads data from a previous simulation and sets it for the current simulation.
+        Beware that loading restart data resets the engine.
 
-        :param filename: *.h5 filename
-        :param cell_ids: np.array of cell indexes for output
-        :param description: description for *.h5
-        :param add_static_data: flag to add static output
-        """
-        with h5py.File(filename, 'w') as f:
-            ## static data group
-            if add_static_data:
-                static_group = f.create_group('static')
-                block_m = np.array(self.reservoir.mesh.block_m, copy=False)
-                block_p = np.array(self.reservoir.mesh.block_p, copy=False)
-                static_group.create_dataset('block_m', data=block_m)
-                static_group.create_dataset('block_p', data=block_p)
-
-            ## dynamic data group
-            dynamic_group = f.create_group('dynamic')
-            dynamic_group.create_dataset('time', shape=(0,), maxshape=(None,))
-
-            # add solution
-            if self.reservoir.mesh.n_blocks > 0 and self.physics.n_vars > 0:
-                nb = cell_ids.size
-                cell_ids_dataset = dynamic_group.create_dataset('cell_id', shape=(nb,), dtype=np.int32)
-                cell_ids_dataset[:] = cell_ids
-                dynamic_group.create_dataset('X', shape=(0, nb, self.physics.n_vars),
-                                             maxshape=(None, nb, self.physics.n_vars), dtype = np.float64)
-
-            # add variable names
-            datatype = h5py.special_dtype(vlen=str)  # dtype for variable-length strings
-            var_names = dynamic_group.create_dataset('variable_names', (self.physics.n_vars,), dtype=datatype)
-            var_names[:] = self.physics.vars
-
-            # write brief description
-            f.attrs['description'] = description
-
-    def configure_output(self, kind: str):
-        """
-        Configuration of output
-
-        :param kind: 'well' for well output or 'solution' to write the whole solution vector
-        :type kind: str
-        :param restart: Boolean to check if existing file should be overwritten or appended
-        :type restart: bool
+        :param reservoir_filename (str): Path to the restart file containing reservoir block data.
+        :param well_filename (str): Path to the restart file containing well block data.
+        :param timestep (int): The timestep to load from the file (default: -1 for the last timestep).
         """
 
-        # Ensure the directory exists
-        if not os.path.exists(self.output_folder):
-            os.makedirs(self.output_folder)
+        # check if the files with data exist
+        if not os.path.exists(reservoir_filename): # or not os.path.exists(well_filename):
+            raise FileNotFoundError(f"The restart file does not exist: {reservoir_filename}")
 
-        # solution ouput
-        if kind == 'solution':
-            sol_output_path = os.path.join(self.output_folder, self.sol_filename)
-            if os.path.exists(sol_output_path): #and not restart:
-                os.remove(sol_output_path)
-            self.configure_h5_output(filename=sol_output_path, cell_ids=np.arange(self.reservoir.mesh.n_blocks),
-                                add_static_data=False, description='Reservoir data')
+        # Read data from the file
+        time_res, reservoir_cell_id, Xres, var_names = self.output.read_specific_data(reservoir_filename, timestep)
 
-        # Find relevant connections for well data
-        if kind == 'well':
-            block_m = np.array(self.reservoir.mesh.block_m, copy=False)
-            block_p = np.array(self.reservoir.mesh.block_p, copy=False)
-            well_conn_ids = np.argwhere(block_p >= self.reservoir.mesh.n_res_blocks)[:, 0]
-            self.id_well_data = np.unique(block_m[well_conn_ids])
+        # load data as initial conditions
+        initial_values = {}
+        for i, name in enumerate(var_names):
+            initial_values[name] = Xres[:, :, i].flatten()
+        self.physics.set_initial_conditions_from_array(mesh=self.reservoir.mesh, input_distribution=initial_values)
 
-            # well output
-            well_output_path = os.path.join(self.output_folder, self.well_filename)
-            if os.path.exists(well_output_path):
-                os.remove(well_output_path)
-            self.configure_h5_output(filename=well_output_path, cell_ids=self.id_well_data,
-                                add_static_data=True, description='Well data')
+        self.reset()
+        self.physics.engine.t = time_res[0]
 
-        if hasattr(self, 'output_configured'):
-            self.output_configured.append(kind)
-        else:
-            self.output_configured = [kind]
+        # save initial conditions to *.h5 file
+        print(fr'Restarting model from {reservoir_filename} at day {time_res[0]}.')
+        self.output.save_data_to_h5(kind='reservoir')
 
-    def load_restart_data(self, filename: str = os.path.join('restart', 'solution.h5'), timestep = -1):
+        return
+
+    def set_output(self, output_folder: str = 'output', sol_filename: str = 'reservoir_solution.h5',
+                   well_filename: str = 'well_data.h5', save_initial: bool = True, all_phase_props : bool = False,
+                   precision : str = 'd', compression : str = 'gzip', verbose : bool = False):
         """
-        Function to load data from previous simulation and uses them for following simulation.
+        Function to initialize output class
 
-        :param output_folder: restart_data filename
-        :type output_folder: str
+        : param output_folder: folder for h5 output files
+        : param sol_filename: filename of output file
+        : param save_inital:
+        : param all_phase_props: Boolean to output all phase properties
+        : param precision: data precision of saved data ('s' single precision, 'd' double precision)
+        : param compression: default 'gzip'
+        : param verbose:
         """
-        time, cell_id, X, var_names = self.read_specific_data(filename, timestep)
 
-        print('Restarting from %s at time = %f days' % (filename, time[0]))
+        self.output_folder = output_folder
+        self.sol_filename  = sol_filename
+        self.well_filename = well_filename
+        self.sol_filepath  = os.path.join(self.output_folder, self.sol_filename)
+        self.well_filepath = os.path.join(self.output_folder, self.well_filename)
 
-        self.physics.engine.t = time[0]
-        self.physics.engine.X = value_vector(X.flatten())
-        self.physics.engine.Xn = value_vector(X.flatten())
+        if self.restart:
+            save_initial = False
 
-        self.save_data_to_h5(kind='solution')
+        self.output = Output(self.timer, self.reservoir, self.physics, self.op_list, self.params, self.well_head_conn_id, self.well_perf_conn_ids,
+                             self.output_folder, self.sol_filename, self.well_filename, save_initial, all_phase_props, precision, compression, verbose)
+
+        return
 
     def set_wells(self, verbose: bool = False):
         """
@@ -419,8 +375,8 @@ class DartsModel:
                      self.physics.engine.stat.n_newton_total, self.physics.engine.stat.n_newton_wasted,
                      self.physics.engine.stat.n_linear_total, self.physics.engine.stat.n_linear_wasted))
 
-    def run(self, days: float = None, restart_dt: float = 0., save_well_data: bool = True,
-            save_solution_data: bool = True, verbose: bool = True):
+    def run(self, days: float = None, restart_dt: float = 0., save_well_data : bool = True, save_well_data_after_run : bool = False,
+            save_reservoir_data : bool = True, verbose: bool = True):
         """
         Method to run simulation for specified time. Optional argument to specify dt to restart simulation with.
 
@@ -495,8 +451,9 @@ class DartsModel:
                 else:
                     self.prev_dt = dt
 
-                if save_well_data:
-                    self.save_data_to_h5(kind='well')
+                # save well data at every converged time step
+                if save_well_data and save_well_data_after_run is False:
+                    self.output.save_data_to_h5(kind='well')
 
             else:
                 dt /= data_ts.dt_mult
@@ -504,13 +461,17 @@ class DartsModel:
                     print("Cut timestep to %2.10f" % dt)
                 assert dt > data_ts.dt_min, ('Stop simulation. Reason: reached min. timestep '
                                                  + str(data_ts.dt_min) + ' dt=' + str(dt))
-                    
+
         # update current engine time
         self.physics.engine.t = stop_time
 
+        # save well data after run
+        if save_well_data and save_well_data_after_run is True:
+            self.output.save_data_to_h5(kind='well')
+
         # save solution vector
-        if save_solution_data:
-            self.save_data_to_h5(kind='solution')
+        if save_reservoir_data:
+            self.output.save_data_to_h5(kind='reservoir')
 
         if verbose:
             print("TS = %d(%d), NI = %d(%d), LI = %d(%d)"
@@ -713,239 +674,6 @@ class DartsModel:
         n_res = self.reservoir.mesh.n_res_blocks * self.physics.n_vars
         rhs[:n_res] += self.set_rhs_flux(t) * dt
         return
-
-    def save_data_to_h5(self, kind):
-        """
-        Function to write output solution or well output to *.h5 file
-
-        :param kind: 'well' for well output or 'solution' to write the whole solution vector
-        :type kind: str
-
-        """
-
-        if not hasattr(self, 'output_configured') or kind not in self.output_configured:
-            self.configure_output(kind=kind)
-
-        if kind == 'well':
-            path = os.path.join(self.output_folder, self.well_filename)
-        elif kind == 'solution':
-            path = os.path.join(self.output_folder, self.sol_filename)
-        else:
-            print("Please use either kind='well' or kind='solution' in save_data_to_h5")
-            return
-        self.save_specific_data(path)
-
-    def save_specific_data(self, filename):
-        """
-        Function to write output to *.h5 file
-
-        :param filename: path to *.h5 filename to append data to
-        :type filename: str
-        """
-        X = np.array(self.physics.engine.X, copy=False)
-
-        # Open the HDF5 file in append mode
-        with h5py.File(filename, "a") as f:
-            # Append to time dataset under the dynamic group
-            time_dataset = f["dynamic/time"]
-            time_dataset.resize((time_dataset.shape[0] + 1,))
-            time_dataset[-1] = self.physics.engine.t
-
-            cell_id = f["dynamic/cell_id"][:]
-
-            x_dataset = f["dynamic/X"]
-            x_dataset.resize((x_dataset.shape[0] + 1, x_dataset.shape[1], x_dataset.shape[2]))
-            x_dataset[x_dataset.shape[0] - 1, :, :] = X.reshape((self.reservoir.mesh.n_blocks, self.physics.n_vars))[cell_id]
-
-    def read_specific_data(self, filename: str, timestep: int = None):
-        """
-        Function to read *.h5 files contents.
-
-        :param filename: path to *.h5 filename to append data to
-        :param timestep:
-        :return time: time of the saved data in days
-        :rtype: np.ndarray
-        :return cell_id: cell id of each of the saved grid blocks
-        :rtype: np.ndarray
-        :return X: variables names
-        :rtype: np.ndarray
-        """
-
-        # Open the HDF5 file
-        with h5py.File(filename, 'r') as file:
-            if timestep is None:
-                datapoints = file['dynamic/X'].shape[0] * file['dynamic/X'].shape[1] * file['dynamic/X'].shape[2]
-                print('WARNING: %s contains %d data points...' % (filename, datapoints))
-
-                cell_id = file['dynamic/cell_id'][:]
-                var_names = file['dynamic/variable_names'][:]
-                time = file['dynamic/time'][:]
-                X = file['dynamic/X'][:]
-            else:
-                cell_id = file['dynamic/cell_id'][:]
-                var_names = file['dynamic/variable_names'][:]
-                time = file['dynamic/time'][timestep].reshape(1)
-                X = file['dynamic/X'][timestep].reshape(1, len(cell_id), len(var_names))
-
-
-        for i, name in enumerate(var_names):
-            var_names[i] = name.decode()
-
-        return time, cell_id, X, var_names
-
-    def output_properties(self, output_properties: list = None, timestep: int = None) -> tuple:
-        """
-        Function to read *.h5 data and evaluate properties per grid block, per timestep.
-
-        :param output_properties: List of properties to evaluate for output
-        :return property_array : dictionary containing the states and evaluated properties
-        :return timesteps: np.ndarray containing the timesteps at which the properties were evaluated
-        :rtype: tuple
-        """
-
-        # Read binary file
-        path = os.path.join(self.output_folder, self.sol_filename)
-        if timestep is None:
-            timesteps, cell_id, X, var_names = self.read_specific_data(path)
-        else:
-            timesteps, cell_id, X, var_names = self.read_specific_data(path, timestep)
-
-        # Initialize property_array
-        n_vars = len(var_names)
-        n_ops = self.physics.n_ops
-        nb = self.reservoir.mesh.n_res_blocks
-
-        output_properties = output_properties if output_properties is not None else []
-        primary_props = [prop for prop in output_properties if prop in var_names]
-        primary_prop_idxs = {prop: list(var_names).index(prop) for prop in primary_props}
-        secondary_props = [prop for prop in output_properties if prop not in var_names]
-        secondary_prop_idxs = {prop: list(self.physics.property_containers[next(iter(self.physics.property_containers))].
-                                          output_props.keys()).index(prop) for prop in secondary_props}
-        property_array = {prop: np.zeros((len(timesteps), nb)) for prop in primary_props + secondary_props}
-
-        # Loop over timesteps
-        for k, timestep in enumerate(timesteps):
-            # Extract primary properties from X vector
-            for var_name, var_idx in primary_prop_idxs.items():
-                property_array[var_name][k] = X[k, :nb, var_idx]
-
-            # Interpolate secondary properties
-            if secondary_props:
-                state = value_vector(np.stack([X[k, :nb, j] for j in range(n_vars)]).T.flatten())
-                values = value_vector(np.zeros(n_ops * nb))
-                values_numpy = np.array(values, copy=False)
-                dvalues = value_vector(np.zeros(n_ops * nb * n_vars))
-
-                for region, prop_itor in self.physics.property_itor.items():
-                    block_idx = np.where(self.op_num == region)[0].astype(np.int32)
-                    prop_itor.evaluate_with_derivatives(state,  index_vector(block_idx), values, dvalues)
-
-                    for prop_name, prop_idx in secondary_prop_idxs.items():
-                        property_array[prop_name][k][block_idx] =  values_numpy[block_idx * n_ops + prop_idx]
-
-        return timesteps, property_array
-
-    def output_to_plt(self, output_properties: list = None, ith_step: int = None, lims: dict = None, fig=None,
-                      figsize: tuple = None, axs_shape: tuple = None, aspect_ratio: str = 'equal', logx: bool = False,
-                      plot_zeros: bool = True, cmap: str = 'jet', colorbar_loc: str = 'right',
-                      output_directory: str = None, file_format: str = "pdf"):
-        """
-        Function to plot results with matplotlib.
-
-        :param output_properties: List of properties to plot, default is None which will pass all
-        :type output_properties: list
-        :param ith_step: i'th reporting step
-        :type ith_step: int
-        :param lims: Ranges of colorbars, default is empty
-        :type lims: dict
-        :param fig: Optional figure object to append plots, default is None
-        :param figsize: Tuple of (width, height) for figure
-        :param axs_shape: Tuple of (rows, columns) for figure
-        :param aspect_ratio: Aspect ratio of plots ('equal', 'auto', or float), default is 'equal'
-        :param logx: Bool to plot x-axis in logscale, default is False
-        :param plot_zeros: Bool to plot zero values, default is True
-        :param cmap: plt.Colourmap, default is 'jet'
-        :param colorbar_loc: Location of colorbar ('right' or 'bottom'), default is 'right'
-        :param output_directory: Directory to save file
-        :param file_format: File format, 'pdf' is default
-        """
-        # Set default output directory
-        if output_directory is None:
-            output_directory = self.output_folder
-
-        # Find properties to output
-        timesteps, property_array = self.output_properties(output_properties=output_properties, timestep=ith_step)
-
-        # Pass to Reservoir.plot() method
-        fig = self.reservoir.output_to_plt(data=property_array, output_props=output_properties, lims=lims, fig=fig,
-                                           figsize=figsize, axs_shape=axs_shape, aspect_ratio=aspect_ratio, logx=logx,
-                                           plot_zeros=plot_zeros, cmap=cmap, colorbar_loc=colorbar_loc)
-
-        import matplotlib.pyplot as plt
-        plt.savefig(output_directory + '/step' + str(ith_step) + '.' + file_format)
-
-        return fig
-
-    def output_to_xarray(self, output_properties: list = None, timestep: int = None):
-        """
-        Function to return array of properties.
-        Primary variables (vars) are obtained from engine, secondary variables (props) are interpolated by property_itor.
-
-        :returns: property_array
-        :rtype: np.ndarray
-        """
-        # Interpolate properties
-        if timestep is None:
-            timesteps, data = self.output_properties(output_properties)
-        else:
-            timesteps, data = self.output_properties(output_properties, timestep)
-        props = list(data.keys())
-
-        # Initialize coords and data_vars for Xarray Dataset
-        array_shape = (len(timesteps), self.reservoir.nx, self.reservoir.ny, self.reservoir.nz)
-        for prop, array in data.items():
-            data[prop] = array.reshape(array_shape)
-
-        # Initialize coords and data_vars for Xarray Dataset
-        dx, dy, dz = self.reservoir.global_data['dx'], self.reservoir.global_data['dy'], self.reservoir.global_data['dz']
-        x = np.cumsum(dx[:, 0, 0]) - dx[0, 0, 0]*0.5
-        y = np.cumsum(dy[0, :, 0]) - dy[0, 0, 0]*0.5
-        z = np.cumsum(dz[0, 0, :]) - dz[0, 0, 0]*0.5
-        coords = {'time': timesteps, 'x': x, 'y': y, 'z': z}
-        data_vars = {prop: (list(coords.keys()), data[prop]) for prop in props}
-        dataset = xr.Dataset(data_vars=data_vars, coords=coords)
-
-        dataset.to_netcdf(os.path.join(self.output_folder, 'solution_xarray.nc'))
-
-        return dataset
-
-    def output_to_vtk(self, ith_step: int = None, output_directory: str = None, output_properties: list = None):
-        """
-        Function to export results at timestamp t into `.vtk` format.
-
-        :param ith_step: i'th reporting step
-        :type ith_step: int
-        :param output_directory: Name to save .vtk file
-        :type output_directory: str
-        :param output_properties: List of properties to include in .vtk file, default is None which will pass all
-        :type output_properties: list
-        """
-        self.timer.node["vtk_output"].start()
-        # Set default output directory
-        if output_directory is None:
-            output_directory = self.output_folder
-
-        # Find index of properties to output
-        ev_props = self.physics.property_operators[next(iter(self.physics.property_operators))].props_name
-
-        # If output_properties is None, all variables and properties from property_operators will be passed
-        props_names = output_properties if output_properties is not None else list(ev_props)
-
-        timesteps, property_array = self.output_properties(output_properties=props_names, timestep=ith_step)
-
-        # Pass to Reservoir.output_to_vtk() method
-        self.reservoir.output_to_vtk(ith_step, timesteps, output_directory, list(property_array.keys()), property_array)
-        self.timer.node["vtk_output"].stop()
 
     def print_timers(self):
         """
