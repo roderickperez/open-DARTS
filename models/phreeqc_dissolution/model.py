@@ -582,8 +582,7 @@ class ModelProperties(PropertyContainer):
 
         for i, k in enumerate(self.rock_compr_ev.keys()):
             self.rock_compr[i] = self.rock_compr_ev[k].evaluate(pressure)
-            self.kin_rates[i] = self.kinetic_rate_ev[k].evaluate(self.kin_state, self.sat_minerals[i],
-                                                                 self.dens_m_solid[i], self.min_z)
+            self.kin_rates[i] = self.kinetic_rate_ev[k].evaluate(self.kin_state, self.sat_minerals[i], self.dens_m_solid[i])
 
     # default flash working with molar fractions
     class Flash:
@@ -845,48 +844,93 @@ class ModelProperties(PropertyContainer):
             self.temperature = temperature
             self.min_z = min_z
             self.mineral = mineral
-
-            # constants and props
-            self.R = 8.314472                        # gas constant [J/mol/Kelvin]
             self.specific_sa = 0.925                 # [m2/mol], default = 0.925
-            self.p = 1
-            self.q = 1
-            self.sat_ratio_threshold = 100
+            self.SR_name = 'SR_' + self.mineral
 
             # doi: 10.3133/ofr20041068 for 25 celsius
-            if mineral == 'CaCO3':            # calcite
-                self.temperature_ref = 273.15 + 25
-                self.k_a_ref = 10 ** (-0.3)          # [mol * m-2 * s-1]
-                self.k_n_ref = 10 ** (-5.81)         # [mol * m-2 * s-1]
-                self.E_a = 14400                     # [J * mol-1]
-                self.E_n = 23500                     # [J * mol-1]
-                self.n_a = 1                         # reaction order with respect to H+
-            elif mineral == 'CaMg(CO3)2':     # dolomite
-                self.temperature_ref = 273.15 + 25
-                self.k_a_ref = 10 ** (-3.19)        # [mol * m-2 * s-1]
-                self.k_n_ref = 10 ** (-7.53)        # [mol * m-2 * s-1]
-                self.E_a = 36100                     # [J * mol-1]
-                self.E_n = 52200                     # [J * mol-1]
-                self.n_a = 0.5                       # reaction order with respect to H+
-
-        def evaluate(self, kin_state, solid_saturation, rho_s, min_z):
-            # Define rate parameters
-            sat_ratio = min(kin_state['SR_' + self.mineral], self.sat_ratio_threshold)
-            hydrogen_act = kin_state['Act(H+)']
-            # Arrhenius law
-            KTa = self.k_a_ref * np.exp((-self.E_a / self.R) * (1 / self.temperature - 1 / self.temperature_ref)) * hydrogen_act ** self.n_a
-            KTn = self.k_n_ref * np.exp((-self.E_n / self.R) * (1 / self.temperature - 1 / self.temperature_ref))
-
-            # # [kmol/d]
-            # kinetic_rate = -specific_sa * (
-            #         (solid_saturation * rho_s * 1000) ** n) * (KTa + KTn) * (1 - sat_ratio) / (kin_fact ** (n - 1)) * 86.400
+            t_ref = 273.15 + 25
+            if mineral == 'CaCO3':                   # calcite
+                acidic = self.ReactionMechanism(name='acidic',
+                                           temperature_ref=t_ref,
+                                           k=10 ** (-0.3),
+                                           Ea=14400,
+                                           n=1)
+                neutral = self.ReactionMechanism(name='neutral',
+                                           temperature_ref=t_ref,
+                                           k=10 ** (-5.81),
+                                           Ea=23500,
+                                           n=0)
+                carbonate = self.ReactionMechanism(name='carbonate',
+                                           temperature_ref=t_ref,
+                                           k=10 ** (-3.48),
+                                           Ea=35400,
+                                           n=1)
+                self.mechanisms = [acidic, neutral]#, carbonate]
+            elif mineral == 'CaMg(CO3)2':            # dolomite
+                acidic = self.ReactionMechanism(name='acidic',
+                                           temperature_ref=t_ref,
+                                           k=10 ** (-3.19),
+                                           Ea=36100,
+                                           n=0.5)
+                neutral = self.ReactionMechanism(name='neutral',
+                                           temperature_ref=t_ref,
+                                           k=10 ** (-7.53),
+                                           Ea=52200,
+                                           n=0)
+                carbonate = self.ReactionMechanism(name='carbonate',
+                                           temperature_ref=t_ref,
+                                           k=10 ** (-5.11),
+                                           Ea=34800,
+                                           n=0.5)
+                self.mechanisms = [acidic, neutral]#, carbonate]
+            elif mineral == 'MgCO3':                 # magnesite
+                acidic = self.ReactionMechanism(name='acidic',
+                                           temperature_ref=t_ref,
+                                           k=10 ** (-6.38),
+                                           Ea=14400,
+                                           n=1)
+                neutral = self.ReactionMechanism(name='neutral',
+                                           temperature_ref=t_ref,
+                                           k=10 ** (-9.34),
+                                           Ea=23500,
+                                           n=0)
+                carbonate = self.ReactionMechanism(name='carbonate',
+                                           temperature_ref=t_ref,
+                                           k=10 ** (-5.22),
+                                           Ea=62800,
+                                           n=1)
+                self.mechanisms = [acidic, neutral]#, carbonate]
+        def evaluate(self, kin_state, solid_saturation, rho_s):
+            activities = [kin_state['Act(H+)'], 1.0]#, kin_state['ACT("CO2")']]
+            rates = [m.evaluate(temperature=self.temperature, activity=a, SR=kin_state[self.SR_name]) \
+                     for m, a in zip(self.mechanisms, activities)]
 
             # [mol/s/m3]
-            kinetic_rate = -self.specific_sa * solid_saturation * (rho_s * 1000) * (KTa + KTn) * (1 - sat_ratio ** self.p) ** self.q
+            kinetic_rate = -self.specific_sa * solid_saturation * (rho_s * 1000) * sum(rates)
 
             # [kmol/d/m3]
             kinetic_rate *= 60 * 60 * 24 / 1000
             return kinetic_rate
+
+        class ReactionMechanism:
+            def __init__(self, name, temperature_ref, k, Ea, n, p=1, q=1):
+                self.SR_threshold = 100
+                self.R = 8.314472
+
+                self.name = name
+                self.temperature_ref = temperature_ref  # gas constant [J/mol/Kelvin]
+                self.k = k  # [mol * m-2 * s-1]
+                self.Ea = Ea  # [J * mol-1]
+                self.n = n  # reaction order with respect to given activity/anything
+                self.p = p  # chemical affinity parameter
+                self.q = q  # chemical affinity parameter
+
+            def evaluate(self, temperature, activity, SR):
+                k_arr = self.k * np.exp((-self.Ea / self.R) * (1 / temperature - 1 / self.temperature_ref))
+                SR_bound = min(SR, self.SR_threshold)
+                k_aff = (1 - SR_bound ** self.p) ** self.q
+                rate = k_arr * k_aff * activity ** self.n
+                return rate
 
     class CustomRelPerm:
         def __init__(self, exp, sr=0):
