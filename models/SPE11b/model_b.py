@@ -1,22 +1,19 @@
-import os
 import numpy as np
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from darts.models.darts_model import DartsModel
-from darts.engines import value_vector, index_vector, sim_params, conn_mesh
-
+from darts.engines import value_vector
+from math import fabs
 try:
     from darts.engines import copy_data_to_device, copy_data_to_host, allocate_device_data
 except ImportError:
     pass
-
 from darts.engines import well_control_iface
 from darts.physics.super.physics import Compositional
 from darts.physics.super.property_container import PropertyContainer
-from darts.physics.properties.basic import PhaseRelPerm, CapillaryPressure, ConstFunc
+from darts.physics.properties.basic import ConstFunc
 from darts.physics.properties.density import Garcia2001
 from darts.physics.properties.viscosity import Fenghour1998, Islam2012
-from darts.physics.properties.flash import ConstantK
 from darts.physics.properties.eos_properties import EoSDensity, EoSEnthalpy
 from dartsflash.libflash import NegativeFlash, FlashParams, InitialGuess
 from dartsflash.libflash import CubicEoS, AQEoS
@@ -72,37 +69,41 @@ class Model(DartsModel):
         self.components = self.specs['components']
         self.nc = len(self.components)
 
+    # def set_wells(self):
+    #     if self.specs['RHS'] is False:
+    #         self.reservoir.well_cells = []
+    #         for name, center in self.reservoir.well_centers.items():
+    #             cell_index = self.reservoir.find_cell_index(center)
+    #             self.reservoir.well_cells.append(cell_index)
+    #
+    #         for well_nr in range(2):
+    #             k = int(self.reservoir.well_cells[well_nr] / (self.reservoir.nx * self.reservoir.ny) - 1)
+    #             i = int(np.abs(self.reservoir.nx - (self.reservoir.well_cells[well_nr] - k * (self.reservoir.nx * self.reservoir.ny))))
+    #             j = 1
+    #
+    #             try:
+    #                 assert k * self.reservoir.nx * self.reservoir.ny + j * self.reservoir.nx + i == self.reservoir.well_cells[well_nr]
+    #             except:
+    #                 print(f"Assertion Failed: (i={i}, j={j}, k={k})")
+    #                 print(f"Computed Index: {k * self.reservoir.nx * self.reservoir.ny + j * self.reservoir.nx + i}")
+    #                 print(f"Expected Index: {self.reservoir.well_cells[well_nr]}")
+    #                 raise
+    #
+    #             self.reservoir.add_well("I%d"%well_nr)
+    #             self.reservoir.add_perforation("I%d"%well_nr, cell_index=(i, j, k), well_index=1000, well_indexD=1000, verbose=True)
+    #
+    #         return
+    #     else:
+    #         self.reservoir.set_wells(False)
+    #         return
+
     def set_wells(self):
-        if self.specs['RHS'] is False:
-            self.reservoir.well_cells = []
-            for name, center in self.reservoir.well_centers.items():
-                cell_index = self.reservoir.find_cell_index(center)
-                self.reservoir.well_cells.append(cell_index)
-
-            for well_nr in range(2):
-                k = int(self.reservoir.well_cells[well_nr] / (self.reservoir.nx * self.reservoir.ny) - 1)
-                i = int(np.abs(self.reservoir.nx - (self.reservoir.well_cells[well_nr] - k * (self.reservoir.nx * self.reservoir.ny))))
-                j = 1
-
-                try:
-                    assert k * self.reservoir.nx * self.reservoir.ny + j * self.reservoir.nx + i == self.reservoir.well_cells[well_nr]
-                except:
-                    print(f"Assertion Failed: (i={i}, j={j}, k={k})")
-                    print(f"Computed Index: {k * self.reservoir.nx * self.reservoir.ny + j * self.reservoir.nx + i}")
-                    print(f"Expected Index: {self.reservoir.well_cells[well_nr]}")
-                    raise
-
-                self.reservoir.add_well("I%d"%well_nr)
-                self.reservoir.add_perforation("I%d"%well_nr, cell_index=(i, j, k), well_index=1000, well_indexD=1000, verbose=False)
-
-            return
-        else:
-            self.reservoir.set_wells(False)
-            return
+        self.reservoir.set_wells(False)
+        return
 
     def set_well_controls(self):
         if self.specs['RHS'] is False:
-            T_inj = 10+273.15
+            T_inj = 10+273.15 if self.physics.thermal else 40+273.15
             for i, w in enumerate(self.reservoir.wells):
                 if 'I' in w.name:
                     if self.inj_rate[i] == 0:
@@ -110,10 +111,10 @@ class Model(DartsModel):
                                                        is_control = True,
                                                        control_type = well_control_iface.MASS_RATE,
                                                        is_inj = True,
-                                                       target = self.zero,
-                                                       phase_name = 'Aq',
+                                                       target = 1,
+                                                       phase_name = 'V',
                                                        inj_composition = self.inj_stream[:-1],
-                                                       inj_temp = T_inj)
+                                                       inj_temp = T_inj)# if self.physics.thermal else None)
                     else:
                         self.physics.set_well_controls(well = w,
                                                        is_control = True,
@@ -122,12 +123,21 @@ class Model(DartsModel):
                                                        target = self.inj_rate[i],
                                                        phase_name = 'V',
                                                        inj_composition = self.inj_stream[:-1],
-                                                       inj_temp = T_inj)
+                                                       inj_temp = T_inj)# if self.physics.thermal else None)
 
                     print(f'Set well {w.name} to {self.inj_rate[i]} kg/day with {self.inj_stream[:-1]} {self.components[:-1]} at 10°C...')
             return
         else:
             pass
+
+    def apply_rhs_flux(self, dt: float, t: float):
+        if self.specs['RHS'] is False:
+            # If the function has not been overloaded, pass
+            return
+        rhs = np.array(self.physics.engine.RHS, copy=False)
+        n_res = self.reservoir.mesh.n_res_blocks * self.physics.n_vars
+        rhs[:n_res] += self.set_rhs_flux(t) * dt
+        return
 
     def set_rhs_flux(self, t: float = None):
         if self.specs['RHS'] is True:
@@ -144,8 +154,9 @@ class Model(DartsModel):
 
             for i, well_cell in enumerate(self.reservoir.well_cells):
                 p_wellcell = self.physics.engine.X[well_cell * nv]
-                state = value_vector([p_wellcell] + self.inj_stream)
+                state = value_vector([p_wellcell] + self.inj_stream) if self.physics.thermal else value_vector([p_wellcell]+self.inj_stream[:-1])
                 values = value_vector(np.zeros(self.physics.n_ops))
+                # values_np = np.array(values)
                 self.physics.property_itor[self.op_num[well_cell]].evaluate(state, values)
                 enthV = values[enth_idx]
 
@@ -162,11 +173,12 @@ class Model(DartsModel):
                     temp_idx = well_cell * nv + nv - 1  # Last equation index (temperature)
                     rhs[temp_idx] -= enthV * np.sum(n_comp)
             return rhs
-        else:
-            rhs = np.zeros(self.reservoir.mesh.n_res_blocks * self.physics.n_vars)
-            return rhs
+        # else:
+        #     # rhs = np.zeros(self.reservoir.mesh.n_res_blocks * self.physics.n_vars)
+        #     # return rhs
+        #     pass
         
-    def set_physics(self, zero: float = 1e-12, temperature: float = None, n_points: int = 10001, diff = 1e-9):
+    def set_physics(self, zero: float = 1e-12, temperature: float = None, n_points: int = 10001):
         """Physical properties"""
 
         # define the Corey parameters for each layer (rock type) according to the technical description of the CSP
@@ -422,100 +434,118 @@ class Model(DartsModel):
         for bot_cell in self.reservoir.bot_cells:
             # T = 70 - 0.025 * z  - origin at bottom
             T_spec_bot = 273.15 + 70 - self.reservoir.centroids[bot_cell, 2] * 0.025
-            self.physics.engine.X[bot_cell*nv+nv-1] = T_spec_bot
+            target_cell = bot_cell*nv+nv-1
+            self.physics.engine.X[target_cell] = T_spec_bot
 
         for top_cell in self.reservoir.top_cells:
             # T = 70 - 0.025 * z  - origin at bottom
             T_spec_top = 273.15 + 70 - self.reservoir.centroids[top_cell, 2] * 0.025
-            self.physics.engine.X[top_cell*nv+nv-1] = T_spec_top
+            target_cell = top_cell*nv+nv-1
+            self.physics.engine.X[target_cell] = T_spec_top
         return
-    
-    def run_python_my(self, days=0, restart_dt=0, verbose=1, max_res=1e20):
-        runtime = days
 
-        mult_dt = self.params.mult_ts
-        max_dt = self.params.max_ts
+    def run(self, days: float = None, restart_dt: float = 0., save_well_data: bool = True, save_well_data_after_run: bool = False,
+            save_reservoir_data: bool = True, verbose: bool = True):
+
+        days = days if days is not None else self.runtime
+        data_ts = self.data_ts
 
         # get current engine time
         t = self.physics.engine.t
+        stop_time = t + days
+
         # same logic as in engine.run
-        if np.fabs(t) < 1e-15:
-            dt = self.params.first_ts
-        elif restart_dt > 0:
+        if fabs(t) < 1e-15 or not hasattr(self, 'prev_dt'):
+            dt = data_ts.dt_first
+        elif restart_dt > 0.:
             dt = restart_dt
         else:
-            dt = self.params.max_ts
+            dt = min(self.prev_dt * data_ts.dt_mult, days, data_ts.dt_max)
 
-        # evaluate end time
-        runtime += t
+        self.prev_dt = dt
+
         ts = 0
-        omega = 0.8  # tuning factor between 0 and 1
-        if t < 50:
-            eta = np.array([0.7, 0.03, 0.7])
-            # eta = np.array([0.1, 0.001, 1])
-        else:
-            eta = np.array([1., 0.05, 1.])
 
         nc = self.physics.n_vars
         nb = self.reservoir.mesh.n_res_blocks
-        max_x = np.zeros(nc)
+        max_dx = np.zeros(nc)
 
-        while t < runtime:
-            xn = np.array(self.physics.engine.Xn[:nb * nc])
-            converged = self.run_timestep_python(dt, t, verbose=0, max_res=max_res)
+        if np.fabs(data_ts.dt_mult - 1) < 1e-10:
+            omega = 0.
+        else:
+            omega = 1 / (data_ts.dt_mult - 1)  # inversion assuming mult = (1 + omega) / omega
+
+        while t < stop_time:
+            xn = np.array(self.physics.engine.Xn, copy=True)[:nb * nc]  # need to copy since Xn will be updated Xn = X
+            converged = self.run_timestep(dt, t, verbose)
 
             if converged:
                 t += dt
-                ts = ts + 1
-                x = np.array(self.physics.engine.X[:nb * nc])
+                self.physics.engine.t = t
+                ts += 1
 
-                dt_mult_new = mult_dt
+                x = np.array(self.physics.engine.X, copy=False)[:nb * nc]
+                dt_mult_new = data_ts.dt_mult # current multiplier
                 for i in range(nc):
-                    max_x[i] = np.max(abs(xn[i::nc] - x[i::nc]))
-                    # mult = ((1 + omega) * eta[i]) / (max_x[i] + omega * eta[i])
-                    # if mult < dt_mult_new:
-                    #   dt_mult_new = mult
+                    # propose new multiplier based on change of solution
+                    max_dx[i] = np.max(abs(xn[i::nc] - x[i::nc]))
+                    mult = ((1 + omega) * data_ts.eta[i]) / (max_dx[i] + omega * data_ts.eta[i])
+                    if mult < dt_mult_new: # if the proposed multiplier is smaller than the specified maximum timestep
+                        dt_mult_new = mult # the new multiplier = proposed multiplier
 
                 if verbose:
-                    print("# %d \tT = %3g\tDT = %2g\tNI = %d\tLI=%d\tdX=%s\tmt=%2g"
+                    print("# %d \tT = %3g\tDT = %2g\tNI = %d\tLI=%d\tDT_MULT=%3.3g\tmax_dX=%4s"
                           % (ts, t, dt, self.physics.engine.n_newton_last_dt, self.physics.engine.n_linear_last_dt,
-                             max_x, dt_mult_new))
+                             dt_mult_new, np.round(max_dx, 3)))
 
-                # if self.physics.engine.n_newton_last_dt < 5:
-                dt *= dt_mult_new  # new dt multiplier
-                # else:
-                #     dt /= mult_dt
+                dt = min(dt * dt_mult_new, data_ts.dt_max) # define the new timestep according to the new multiplier
 
-                if dt > self.params.max_ts:
-                    dt = self.params.max_ts
+                if np.fabs(t + dt - stop_time) < data_ts.dt_min:
+                    dt = stop_time - t
 
-                if t + dt > runtime:
-                    dt = runtime - t
+                if t + dt > stop_time:
+                    dt = stop_time - t
+                else:
+                    self.prev_dt = dt
+
+                # save well data at every converged time step
+                if save_well_data and save_well_data_after_run is False:
+                    self.output.save_data_to_h5(kind='well')
+
             else:
-                dt /= mult_dt
+                dt /= data_ts.dt_mult
                 if verbose:
-                    print("Cut timestep to %g" % dt)
+                    print("Cut timestep to %2.10f" % dt)
+                assert dt > data_ts.dt_min, ('Stop simulation. Reason: reached min. timestep '
+                                             + str(data_ts.dt_min) + ' dt=' + str(dt))
 
-                if dt < 1e-10:
-                    break
         # update current engine time
-        self.physics.engine.t = runtime
+        self.physics.engine.t = stop_time
 
-        print("TS = %d(%d), NI = %d(%d), LI = %d(%d)" % (
-        self.physics.engine.stat.n_timesteps_total, self.physics.engine.stat.n_timesteps_wasted,
-        self.physics.engine.stat.n_newton_total, self.physics.engine.stat.n_newton_wasted,
-        self.physics.engine.stat.n_linear_total, self.physics.engine.stat.n_linear_wasted))
-        self.max_dt = max_dt
+        # save well data after run
+        if save_well_data and save_well_data_after_run is True:
+            self.output.save_data_to_h5(kind='well')
 
-    def run_timestep_python(self, dt, t, verbose=0, max_res=1e20):
-        max_newt = self.params.max_i_newton
+        # save solution vector
+        if save_reservoir_data:
+            self.output.save_data_to_h5(kind='reservoir')
+
+        if verbose:
+            print("TS = %d(%d), NI = %d(%d), LI = %d(%d)"
+                  % (self.physics.engine.stat.n_timesteps_total, self.physics.engine.stat.n_timesteps_wasted,
+                     self.physics.engine.stat.n_newton_total, self.physics.engine.stat.n_newton_wasted,
+                     self.physics.engine.stat.n_linear_total, self.physics.engine.stat.n_linear_wasted))
+
+        return 0
+
+    def run_timestep(self, dt: float, t: float, verbose: bool = True):
+        max_newt = self.data_ts.newton_max_iter
         max_residual = np.zeros(max_newt + 1)
         self.physics.engine.n_linear_last_dt = 0
-        well_tolerance_coefficient = 1e1
-        self.timer.node['simulation'].start()
-        # self.set_top_bot_temp()
-        for i in range(max_newt + 1):
+        # self.data_ts.newton_tol_wel_mult = 1e1
 
+        self.timer.node['simulation'].start()
+        for i in range(max_newt + 1):
             if self.platform == 'gpu':
                 copy_data_to_host(self.physics.engine.X, self.physics.engine.get_X_d())
 
@@ -526,44 +556,57 @@ class Model(DartsModel):
                 copy_data_to_device(self.physics.engine.X, self.physics.engine.get_X_d())
 
             self.physics.engine.assemble_linear_system(dt)
-
             self.apply_rhs_flux(dt, t)
+
             if self.platform == 'gpu':
                 copy_data_to_device(self.physics.engine.RHS, self.physics.engine.get_RHS_d())
 
-            self.physics.engine.newton_residual_last_dt = self.physics.engine.calc_newton_residual()
+            self.physics.engine.newton_residual_last_dt = self.physics.engine.calc_newton_residual()  # calc norm of residual
 
             max_residual[i] = self.physics.engine.newton_residual_last_dt
             counter = 0
             for j in range(i):
-                if abs(max_residual[i] - max_residual[j]) / max_residual[i] < 1e-3:
+                if abs(max_residual[i] - max_residual[j]) / max_residual[i] < self.data_ts.newton_tol_stationary:
                     counter += 1
             if counter > 2:
                 if verbose:
                     print("Stationary point detected!")
                 break
 
-            if max_residual[i] / max_residual[0] > max_res:
-                if verbose:
-                    print("Residual growing over the limit!")
-                break
-
             self.physics.engine.well_residual_last_dt = self.physics.engine.calc_well_residual()
             self.physics.engine.n_newton_last_dt = i
             #  check tolerance if it converges
-            if ((self.physics.engine.newton_residual_last_dt < self.params.tolerance_newton and
-                 self.physics.engine.well_residual_last_dt < well_tolerance_coefficient * self.params.tolerance_newton)
-                    or self.physics.engine.n_newton_last_dt == self.params.max_i_newton):
-                if (i > 0):  # min_i_newton
+            if ((self.physics.engine.newton_residual_last_dt < self.data_ts.newton_tol and
+                 self.physics.engine.well_residual_last_dt < self.data_ts.newton_tol * self.data_ts.newton_tol_wel_mult) or
+                    self.physics.engine.n_newton_last_dt == max_newt):
+                if i > 0:  # min_i_newton
                     break
-            r_code = self.physics.engine.solve_linear_equation()
-            self.timer.node["newton update"].start()
-            self.physics.engine.apply_newton_update(dt)
-            self.timer.node["newton update"].stop()
+
+            # line search
+            if self.data_ts.line_search and i > 0 and residual_history[-1][0] > 0.9 * residual_history[-2][0]:
+                coef = np.array([0.0, 1.0])
+                history = np.array([residual_history[-2], residual_history[-1]])
+                residual_history[-1] = self.line_search(dt, t, coef, history, verbose)
+                max_residual[i] = residual_history[-1][0]
+
+                # check stationary point after line search
+                counter = 0
+                for j in range(i):
+                    if abs(max_residual[i] - max_residual[j]) / max_residual[i] < self.data_ts.newton_tol_stationary:
+                        counter += 1
+                if counter > 2:
+                    if verbose:
+                        print("Stationary point detected!")
+                    break
+            else:
+                r_code = self.physics.engine.solve_linear_equation()
+                self.timer.node["newton update"].start()
+                self.physics.engine.apply_newton_update(dt)
+                self.timer.node["newton update"].stop()
         # End of newton loop
         converged = self.physics.engine.post_newtonloop(dt, t)
-        self.timer.node['simulation'].stop()
 
+        self.timer.node['simulation'].stop()
         return converged
 
 class ModBrooksCorey:
