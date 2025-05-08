@@ -28,7 +28,7 @@ layers_to_regions = {"1": 0, "2": 1, "3": 2, "4": 3, "5": 4, "6": 5, "7": 6}
 
 """Define realization ID"""
 nx = 840//4
-nz = 120//4
+nz = 120
 model_specs = [
     # {'check_rates': True, 'temperature': None, '1000years': False, 'RHS': True, 'components': ['CO2', 'H2O'],
     #     'inj_stream': [1-1e-10, 283.15], 'nx': nx, 'nz': nz, 'output_dir': 'binary', 'post_process': None, 'gpu_device': False},
@@ -86,10 +86,7 @@ for specs in model_specs:
         m.inj_rate = [0, 0]
         m.run(1000)
     else:
-        m.inj_rate = [inj_rate, inj_rate]  # [well 1, well 2]
-
-    if specs['RHS'] is False:
-        m.set_well_controls()
+        m.inj_rate = [0, inj_rate]  # [well 1, well 2]
 
     """ Init model """
     # now that the reservoir and physics is defined, you can init the DartsModel()
@@ -150,41 +147,22 @@ for specs in model_specs:
         [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40, 45, 50, 75, 100, 200, 300, 400, 500, 600, 700, 800, 900,
          1000]) # years for which to export a .vtk file
 
-    m.inj_rate = [3024, 0]
+    # m.inj_rate = [3024, 3024]
     event1 = True # turning on well 2
     event2 = True # turning off wells
 
     if specs['post_process'] is None:
-        Nt = 10
+        Nt = 2
     else:
         Nt = 0 # skip simulation
-    Dt = 365/10
+    Dt = 1
 
     timing = []
     start = time.time()
     for ts in range(Nt):
         # m.run(Dt, verbose=True)  # run model for 1 year
         m.run_python_my(Dt, restart_dt=Dt/10)
-
-        if m.physics.engine.t >= 1 * 36.5 and m.physics.engine.t < 50 * 365:
-            # At 25 years, start injecting in the second well
-            m.inj_rate = [inj_rate, inj_rate]
-            m.physics.set_well_controls(well=m.reservoir.wells[1],
-                                        is_control=True,
-                                        control_type=well_control_iface.MASS_RATE,
-                                        is_inj=True,
-                                        target=m.inj_rate[1],
-                                        phase_name='V',
-                                        inj_composition=m.inj_stream[:-1],
-                                        inj_temp=283.15)
-
-        elif m.physics.engine.t >= 10 * 365 and event1:
-            # At 50 years, stop injection for both wells
-            m.inj_rate = [0, 0]
-            specs['check_rates'] = False # after injection stop checking rates
-            event1 = False
-        else:
-            pass
+        # m.phsyics.engine.report()
 
         if specs['check_rates']:
             time_vector, property_array = m.output.output_properties(output_properties=output_props, engine=True)
@@ -195,13 +173,13 @@ for specs in model_specs:
                 rate = (mass_components[name] - mass_components_n[name]) / Dt
                 avg_rates.append(rate)
                 print(f'Injecting {name} at {avg_rates[i::m.nc][0]} kg/day.')
-            print('----------------------------------------------------------------')
-
             mass_components_n = mass_components
         else:
             pass
 
         if m.physics.engine.t/Dt in vtk_array:
+            print(f'------------------------ Output @ {m.physics.engine.t}---------------------------')
+
             # save data
             m.output.save_data_to_h5('reservoir')
 
@@ -234,6 +212,19 @@ for specs in model_specs:
         else:
             pass
 
+        if m.physics.engine.t >= 1 * 36.5 and m.physics.engine.t < 50 * 365:
+            # At 25 years, start injecting in the second well
+            m.inj_rate = [inj_rate, inj_rate]
+            # m.set_well_controls()
+            # m.reset()
+
+        elif m.physics.engine.t >= 10 * 365 and event1:
+            # At 50 years, stop injection for both wells
+            m.inj_rate = [0, 0]
+            specs['check_rates'] = False # after injection stop checking rates
+            event1 = False
+        else:
+            pass
         m.print_timers()
 
     stop = time.time()
