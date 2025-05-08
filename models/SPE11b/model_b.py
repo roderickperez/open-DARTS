@@ -93,7 +93,7 @@ class Model(DartsModel):
                     raise
 
                 self.reservoir.add_well("I%d"%well_nr)
-                self.reservoir.add_perforation("I%d"%well_nr, cell_index = (i, j, k), well_index=100, well_indexD=100)
+                self.reservoir.add_perforation("I%d"%well_nr, cell_index=(i, j, k), well_index=1000, well_indexD=1000, verbose=False)
 
             return
         else:
@@ -110,8 +110,8 @@ class Model(DartsModel):
                                                        is_control = True,
                                                        control_type = well_control_iface.MASS_RATE,
                                                        is_inj = True,
-                                                       target = 0.001,
-                                                       phase_name = 'V',
+                                                       target = self.zero,
+                                                       phase_name = 'Aq',
                                                        inj_composition = self.inj_stream[:-1],
                                                        inj_temp = T_inj)
                     else:
@@ -124,7 +124,7 @@ class Model(DartsModel):
                                                        inj_composition = self.inj_stream[:-1],
                                                        inj_temp = T_inj)
 
-                    print(f'Set well {w.name} to {self.inj_rate[i]} kg/day at 10°C')
+                    print(f'Set well {w.name} to {self.inj_rate[i]} kg/day with {self.inj_stream[:-1]} {self.components[:-1]} at 10°C...')
             return
         else:
             pass
@@ -247,6 +247,8 @@ class Model(DartsModel):
                                                        ('Aq', ConstFunc(170.)),])
             property_container.rel_perm_ev = dict([('V', ModBrooksCorey(corey_params, 'V')),
                                                    ('Aq', ModBrooksCorey(corey_params, 'Aq'))])
+            # property_container.rel_perm_ev = dict([('V', CapillaryPressure()),
+            #                                        ('Aq', CapillaryPressure())])
             property_container.capillary_pressure_ev = ModCapillaryPressure(corey_params)
 
             self.physics.add_property_region(property_container, i)
