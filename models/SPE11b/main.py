@@ -6,10 +6,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 import pickle
-import h5py
 import time
 
-from darts.reservoirs.mesh.geometry.map_mesh import MapMesh, _translate_curvature
 from model_b import Model, PorPerm, Corey, layer_props
 from darts.engines import redirect_darts_output, sim_params
 from darts.engines import well_control_iface
@@ -26,23 +24,22 @@ from fluidflower_str_b import FluidFlowerStruct
 property_regions  = [0, 1, 2, 3, 4, 5, 6]
 layers_to_regions = {"1": 0, "2": 1, "3": 2, "4": 3, "5": 4, "6": 5, "7": 6}
 
-"""Define realization ID"""
-nx = 840//4
-nz = 120
-model_specs = [
-    # {'check_rates': True, 'temperature': None, '1000years': False, 'RHS': True, 'components': ['CO2', 'H2O'],
-    #     'inj_stream': [1-1e-10, 283.15], 'nx': nx, 'nz': nz, 'output_dir': 'binary', 'post_process': None, 'gpu_device': False},
+def plt_plot(dictionary, filename):
+    grid = np.meshgrid(np.linspace(0, 8400, nx), np.linspace(0, 1200, nz))
 
-    {'check_rates': True, 'temperature': None, '1000years': False, 'RHS': False, 'components': ['CO2', 'H2O'],
-        'inj_stream': [1-1e-10, 283.15], 'nx': nx, 'nz': nz, 'output_dir': 'binary', 'post_process': None, 'gpu_device': False},
+    for i, name in enumerate(dictionary.keys()):
+        plt.figure(figsize=(10, 2))
+        plt.title(f'{name} @ year {time_vector[0]}')
+        c = plt.pcolor(grid[0], grid[1], dictionary[name][0].reshape(nz, nx), cmap='cividis')
+        plt.colorbar(c, aspect=10)
+        plt.xlabel('x [m]');
+        plt.ylabel('z [m]')
+        plt.savefig(os.path.join(m.output_folder, 'figures', filename), bbox_inches='tight')
+        plt.close()
 
-    #{'check_rates': True, 'temperature': None, 'components': ['H2S', 'CO2', 'H2O'], 'inj_stream': [0.05-1e-10, 0.95-1e-10, 283.15], 'nx': nx, 'nz': nz, 'output_dir': 'ternary_H2S_5', 'gpu_device': None},
-    #{'check_rates': True, 'temperature': None, 'components': ['C1', 'CO2', 'H2O'], 'inj_stream': [0.05-1e-10, 0.95-1e-10, 283.15], 'nx': nx, 'nz': nz, 'output_dir': 'ternary_C1_5', 'gpu_device': None},
-    #{'check_rates': True, 'temperature': None, 'components': ['C1', 'H2S', 'CO2', 'H2O'], 'inj_stream': [0.04, 0.01, 0.95, 283.15], 'nx': nx, 'nz': nz, 'output_dir': '4components_5', 'gpu_device': None}
-    ]
+    return 0
 
-# for specs in model_specs:
-for specs in model_specs:
+def run(specs):
     print(specs)
 
     # print(os.environ["CONDA_PREFIX"])
@@ -58,7 +55,7 @@ for specs in model_specs:
 
     """Define physics"""
     zero = 1e-10
-    m.set_physics(zero=zero, temperature=specs['temperature'], n_points=1001, diff=1e-9)
+    m.set_physics(zero=zero, temperature=specs['temperature'], n_points=1001)
 
     # solver paramters
     m.set_sim_params(first_ts=1e-6, mult_ts=2, max_ts=365, tol_linear=1e-3, tol_newton=1e-3,
@@ -70,7 +67,7 @@ for specs in model_specs:
     well_centers = {
         "I1": [2700.0, 0.0, 300.0],
         "I2": [5100.0, 0.0, 700.0]
-    }
+        }
 
     # structured reservoir
     m.reservoir = FluidFlowerStruct(timer=m.timer, layer_properties=layer_props, layers_to_regions=layers_to_regions,
@@ -81,12 +78,7 @@ for specs in model_specs:
     # define injection stream of the wells
     m.inj_stream = specs['inj_stream']
     inj_rate = 3024 # mass rate per well, kg/day
-
-    if specs['1000years']:
-        m.inj_rate = [0, 0]
-        m.run(1000)
-    else:
-        m.inj_rate = [0, inj_rate]  # [well 1, well 2]
+    m.inj_rate = [inj_rate, 0]
 
     """ Init model """
     # now that the reservoir and physics is defined, you can init the DartsModel()
@@ -98,11 +90,14 @@ for specs in model_specs:
 
     if specs['post_process'] is None:
         m.init(discr_type='tpfa', platform=m.platform)
-        m.set_output(output_folder=output_dir, verbose = True)
+        m.set_output(output_folder=output_dir)
     else:
         print(f'Post processing into {output_dir}...')
         m.init(discr_type='tpfa', platform=m.platform)
         m.set_output(output_folder=output_dir, save_initial=False)
+
+    if specs['1000years']:
+        m.run(1000)
 
     if 1:
         nx = m.reservoir.nx
@@ -119,6 +114,10 @@ for specs in model_specs:
         c = plt.pcolor(grid[0], grid[1], poro.reshape(nz, nx))
         plt.colorbar(c)
         plt.xlabel('x [m]'); plt.ylabel('z [m]')
+        # centroids = m.reservoir.discretizer.centroids_all_cells
+        centroids = m.reservoir.centroids
+        plt.scatter(centroids[m.reservoir.well_cells[0], 0], centroids[m.reservoir.well_cells[0], 2], marker='x', c='r', s=5)
+        plt.scatter(centroids[m.reservoir.well_cells[1], 0], centroids[m.reservoir.well_cells[1], 2], marker='x', c='r', s=5)
         plt.savefig(os.path.join(m.output_folder, f'porosity.png'), bbox_inches='tight')
         plt.close()
 
@@ -135,34 +134,29 @@ for specs in model_specs:
     output_props = m.physics.vars + m.output.properties
     m.output.output_to_vtk(output_properties=output_props, ith_step=0)
 
+    avg_rates = []
     if specs['check_rates'] and specs['post_process'] is None:
         time_vector, property_array = m.output.output_properties(output_properties=output_props, timestep=0)
         m.output.save_property_array(time_vector, property_array, 'property_array_ts0.h5')
-
         mass_per_component, mass_vapor, mass_aqueous = m.get_mass_components(property_array)
         mass_components_n = {key: np.sum(value) for key, value in mass_per_component.items()} # sum over grid blocks per component
-        avg_rates = []
 
     vtk_array = np.array(
         [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40, 45, 50, 75, 100, 200, 300, 400, 500, 600, 700, 800, 900,
          1000]) # years for which to export a .vtk file
 
     # m.inj_rate = [3024, 3024]
-    event1 = True # turning on well 2
-    event2 = True # turning off wells
+    event1 = True
+    event2 = True
 
     if specs['post_process'] is None:
-        Nt = 2
+        Nt = 10
     else:
         Nt = 0 # skip simulation
-    Dt = 1
+    Dt = 36.5
 
-    timing = []
-    start = time.time()
     for ts in range(Nt):
-        # m.run(Dt, verbose=True)  # run model for 1 year
-        m.run_python_my(Dt, restart_dt=Dt/10)
-        # m.phsyics.engine.report()
+        m.run(Dt, save_reservoir_data=False, save_well_data=~specs['RHS'], verbose=True)
 
         if specs['check_rates']:
             time_vector, property_array = m.output.output_properties(output_properties=output_props, engine=True)
@@ -172,19 +166,17 @@ for specs in model_specs:
             for i, name in enumerate(m.components):
                 rate = (mass_components[name] - mass_components_n[name]) / Dt
                 avg_rates.append(rate)
-                print(f'Injecting {name} at {avg_rates[i::m.nc][0]} kg/day.')
+                print(f'Injecting {name} at {avg_rates[i::m.nc][-1]} kg/day.')
             mass_components_n = mass_components
         else:
             pass
 
         if m.physics.engine.t/Dt in vtk_array:
-            print(f'------------------------ Output @ {m.physics.engine.t}---------------------------')
-
             # save data
             m.output.save_data_to_h5('reservoir')
 
             # save property_array
-            time_vector, property_array = m.output.output_properties(output_properties=output_props, timestep=ts+1)
+            time_vector, property_array = m.output.output_properties(output_properties=output_props, timestep=-1)
             m.output.save_property_array(time_vector, property_array, f'property_array_ts{ts+1}.h5')
 
             # plt plot
@@ -207,57 +199,67 @@ for specs in model_specs:
                 plt.savefig(os.path.join(m.output_folder, 'figures', f'{name}_mass_ts_{ts+1}.png'), bbox_inches='tight')
                 plt.close()
 
-            # output to .vtk
-            m.output.output_to_vtk(output_properties=output_props, ith_step=ts+1)
+            # # output to .vtk
+            # m.output.output_to_vtk(output_properties=output_props, ith_step=int(m.physics.engine.t/Dt))
         else:
             pass
 
-        if m.physics.engine.t >= 1 * 36.5 and m.physics.engine.t < 50 * 365:
-            # At 25 years, start injecting in the second well
+        if m.physics.engine.t >= 25 * Dt and m.physics.engine.t < 50 * Dt and event1:
+            print('At 25 years, start injecting in the second well')
             m.inj_rate = [inj_rate, inj_rate]
-            # m.set_well_controls()
-            # m.reset()
-
-        elif m.physics.engine.t >= 10 * 365 and event1:
-            # At 50 years, stop injection for both wells
+            event1 = False
+        elif m.physics.engine.t >= 10 * Dt and event2:
+            print('At 50 years, stop injection for both wells')
             m.inj_rate = [0, 0]
             specs['check_rates'] = False # after injection stop checking rates
-            event1 = False
-        else:
-            pass
-        m.print_timers()
+            event2 = False
 
-    stop = time.time()
-    print("Runtime = %3.2f sec" % (stop - start))
+    return m, avg_rates
 
-    if specs['check_rates']:
-        avg_rates = np.array(avg_rates)
+"""Define realization ID"""
+nx = 840//4
+nz = 120//4
+model_specs = [
+    # binary isothermal model
+        # rhs correction
+    {'check_rates': True, 'temperature': 273.15+40, '1000years': False, 'RHS': True, 'components': ['CO2', 'H2O'],
+        'inj_stream': [1-1e-10, 283.15], 'nx': nx, 'nz': nz, 'output_dir': 'binary_isothermal', 'post_process': None, 'gpu_device': False},
+    #     # mass rate control
+    # {'check_rates': True, 'temperature': 273.15+15+40, '1000years': False, 'RHS': False, 'components': ['CO2', 'H2O'],
+    #     'inj_stream': [1-1e-10, 283.15], 'nx': nx, 'nz': nz, 'output_dir': 'binary', 'post_process': None, 'gpu_device': False},
 
-        # # Define target rates
-        # target_rates = np.ones(Nt)
-        # target_rates[time_vector < 25*365] *= 3024
-        # target_rates[time_vector > 25*365 and time_vector < 50*365] *= 2 * 3024
-        # target_rates[time_vector >= 50*365] = 0
-        #
-        # # Compute percentage deviation, avoiding division by zero
-        # percentage_deviation = np.where(target_rates != 0,
-        #                                 ((avg_rates - target_rates) / target_rates) * 100,
-        #                                 np.nan)
+    # # binary non-isothermal model
+    #     # rhs correction
+    {'check_rates': True, 'temperature': None, '1000years': False, 'RHS': True, 'components': ['CO2', 'H2O'],
+        'inj_stream': [1-1e-10, 283.15], 'nx': nx, 'nz': nz, 'output_dir': 'binary_non_isothermal', 'post_process': None, 'gpu_device': False},
+    #    # mass rate control
+    # {'check_rates': True, 'temperature': None, '1000years': False, 'RHS': False, 'components': ['CO2', 'H2O'],
+    #     'inj_stream': [1-1e-10, 283.15], 'nx': nx, 'nz': nz, 'output_dir': 'binary', 'post_process': None, 'gpu_device': False},
 
-        for i, name in enumerate(m.components):
-            fig, ax1 = plt.subplots(dpi=100)
-            ax1.grid()
-            ax1.step(avg_rates[i::m.nc], 'b-o', label="Avg Rates")
-            # ax1.axhline(y=3024, color='k', linestyle='--', label='3024 m³/day')
-            # ax1.axhline(y=2*3024, color='k', linestyle='--', label='2 * 3024 m³/day')
-            ax1.set_xlabel("Time (years)")
-            ax1.set_ylabel("Injection Rate (m³/day)", color='b')
-            ax1.tick_params(axis='y', labelcolor='b')
-            # ax2 = ax1.twinx()
-            # ax2.step(time_steps, percentage_deviation, 'r--s', label="Percentage Deviation (%)")
-            # ax2.set_ylabel("Deviation (%)", color='r')
-            # ax2.tick_params(axis='y', labelcolor='r')
-            # ax1.legend()
-            # plt.title("Injection Rates & Percentage Deviation")
-            # plt.savefig(os.path.join(m.output_folder, 'rates.png'), bbox_inches='tight')
-            plt.show()
+    #{'check_rates': True, 'temperature': None, 'components': ['H2S', 'CO2', 'H2O'], 'inj_stream': [0.05-1e-10, 0.95-1e-10, 283.15], 'nx': nx, 'nz': nz, 'output_dir': 'ternary_H2S_5', 'gpu_device': None},
+    #{'check_rates': True, 'temperature': None, 'components': ['C1', 'CO2', 'H2O'], 'inj_stream': [0.05-1e-10, 0.95-1e-10, 283.15], 'nx': nx, 'nz': nz, 'output_dir': 'ternary_C1_5', 'gpu_device': None},
+    #{'check_rates': True, 'temperature': None, 'components': ['C1', 'H2S', 'CO2', 'H2O'], 'inj_stream': [0.04, 0.01, 0.95, 283.15], 'nx': nx, 'nz': nz, 'output_dir': '4components_5', 'gpu_device': None}
+    ]
+
+
+if __name__ == '__main__':
+    for specs in model_specs:
+        m, avg_rates = run(specs)
+        # m.print_timers()
+
+        m.output.output_to_vtk()
+
+        if specs['RHS'] is False:
+            time_data = m.output.store_well_time_data(["components_mass_rates"])
+            m.output.plot_well_time_data(["components_mass_rates"])
+
+        if specs['check_rates']:
+            avg_rates = np.array(avg_rates)
+            for i, name in enumerate(m.components):
+                fig, ax1 = plt.subplots(dpi=100)
+                ax1.grid()
+                ax1.step(avg_rates[i::m.nc], 'b-o', label="Avg Rates")
+                ax1.set_xlabel("Time (years)")
+                ax1.set_ylabel("Injection Rate (m³/day)", color='b')
+                ax1.tick_params(axis='y', labelcolor='b')
+                plt.show()
