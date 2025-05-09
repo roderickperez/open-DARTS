@@ -291,14 +291,14 @@ class Model(DartsModel):
 
         zero = self.physics.axes_min[1]
         if self.reservoir_type == '1D':
-            self.physics.set_well_controls(well=injector, is_control=True, control_type=well_control_iface.MOLAR_RATE,
+            self.physics.set_well_controls(wctrl=injector.control, is_control=True, control_type=well_control_iface.MOLAR_RATE,
                                            is_inj=True, target=1., phase_name='gas', inj_composition=self.inj_composition)
-            self.physics.set_well_controls(well=producer, is_control=True, control_type=well_control_iface.BHP,
+            self.physics.set_well_controls(wctrl=producer.control, is_control=True, control_type=well_control_iface.BHP,
                                            is_inj=False, target=50.)
         elif self.reservoir_type == '2D':
-            self.physics.set_well_controls(well=injector, is_control=True, control_type=well_control_iface.MOLAR_RATE,
+            self.physics.set_well_controls(wctrl=injector.control, is_control=True, control_type=well_control_iface.MOLAR_RATE,
                                            is_inj=True, target=300., phase_name='gas', inj_composition=self.inj_composition)
-            self.physics.set_well_controls(well=producer, is_control=True, control_type=well_control_iface.BHP,
+            self.physics.set_well_controls(wctrl=producer.control, is_control=True, control_type=well_control_iface.BHP,
                                            is_inj=False, target=50.)
 
     def set_rhs_flux(self, t: float = None):
