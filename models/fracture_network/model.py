@@ -180,26 +180,26 @@ class Model(CICDModel):
         for i, w in enumerate(self.reservoir.wells):
             if self.well_is_inj(w.name):
                 if inj_rate is None:
-                    self.physics.set_well_controls(well=w, is_control=True, control_type=well_control_iface.BHP,
+                    self.physics.set_well_controls(wctrl=w.control, control_type=well_control_iface.BHP,
                                                    is_inj=True, target=inj_bhp, inj_composition=[], inj_temp=inj_temp)
                 else:
                     # Control
-                    self.physics.set_well_controls(well=w, is_control=True, control_type=well_control_iface.VOLUMETRIC_RATE,
+                    self.physics.set_well_controls(wctrl=w.control, control_type=well_control_iface.VOLUMETRIC_RATE,
                                                    is_inj=True, target=inj_rate, phase_name='water', inj_composition=[], inj_temp=inj_temp)
                     # Constraint
-                    self.physics.set_well_controls(well=w, is_control=False, control_type=well_control_iface.BHP,
+                    self.physics.set_well_controls(wctrl=w.control, control_type=well_control_iface.BHP,
                                                    is_inj=True, target=wctrl.inj_bhp_constraint, inj_composition=[],
                                                    inj_temp=inj_temp)
             else:
                 if prod_rate is None:
-                    self.physics.set_well_controls(well=w, is_control=True, control_type=well_control_iface.BHP,
+                    self.physics.set_well_controls(wctrl=w.control, control_type=well_control_iface.BHP,
                                                    is_inj=False, target=prod_bhp)
                 else:
                     # Control
-                    self.physics.set_well_controls(well=w, is_control=True, control_type=well_control_iface.VOLUMETRIC_RATE,
+                    self.physics.set_well_controls(wctrl=w.control, control_type=well_control_iface.VOLUMETRIC_RATE,
                                                    is_inj=False, target=-np.abs(prod_rate), phase_name='water')
                     # Constraint
-                    self.physics.set_well_controls(well=w, is_control=False, control_type=well_control_iface.BHP,
+                    self.physics.set_well_controls(wctrl=w.control, control_type=well_control_iface.BHP,
                                                    is_inj=False, target=wctrl.prod_bhp_constraint)
 
             # print(w.name,

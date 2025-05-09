@@ -114,6 +114,7 @@ class Model_CPG(CICDModel):
         self.physics.engine.report()
         self.print_well_rate()
 
-
+    def set_well_controls(self):  # dummy. just to pass through model.init()
+        self.set_well_controls_idata()
 
 
