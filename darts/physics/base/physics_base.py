@@ -237,9 +237,8 @@ class PhysicsBase:
                                                        precision=itor_precision)
         return
 
-    def set_well_controls(self, well: ms_well, control_type: well_control_iface.WellControlType, is_inj: bool,
-                          target: float, phase_name: str = None, inj_composition: list = None, inj_temp: float = None,
-                          is_control: bool = True):
+    def set_well_controls(self, wctrl: well_control_iface, control_type: well_control_iface.WellControlType, is_inj: bool,
+                          target: float, phase_name: str = None, inj_composition: list = None, inj_temp: float = None):
         """
         Method to set well controls. It will call set_bhp_control() or set_rate_control() on the control or constraint
         well_control_iface object that lives in ms_well. In order to deactivate a control or constraint, pass WellControlType.NONE.
@@ -263,18 +262,11 @@ class PhysicsBase:
 
         # Pass controls specification to ms_well object
         if control_type == well_control_iface.BHP:
-            if is_control:
-                well.set_bhp_control(is_inj, target, inj_composition, inj_temp)
-            else:
-                well.set_bhp_constraint(is_inj, target, inj_composition, inj_temp)
+            wctrl.set_bhp_control(is_inj, target, inj_composition, inj_temp)
         else:
             # Injection/production rate
             target = np.abs(target) if is_inj else -np.abs(target)  # + for inj, - for prod
-
-            if is_control:
-                well.set_rate_control(is_inj, control_type, phase_idx, target, inj_composition, inj_temp)
-            else:
-                well.set_rate_constraint(is_inj, control_type, phase_idx, target, inj_composition, inj_temp)
+            wctrl.set_rate_control(is_inj, control_type, phase_idx, target, inj_composition, inj_temp)
 
         return
 

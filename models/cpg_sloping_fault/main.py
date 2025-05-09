@@ -11,7 +11,7 @@ from model_geothermal import ModelGeothermal
 from model_deadoil import ModelDeadOil
 
 
-def run(physics_type : str, case: str, out_dir: str, export_vtk=True, redirect_log=False, platform='cpu', compare_with_ref=False):
+def run(physics_type : str, case: str, out_dir: str, export_vtk=True, redirect_log=False, platform='cpu', compare_with_ref=True):
     '''
     :param physics_type: "geothermal" or "dead_oil"
     :param case: input grid name
@@ -46,11 +46,7 @@ def run(physics_type : str, case: str, out_dir: str, export_vtk=True, redirect_l
     m.set_physics()
 
     # time stepping and convergence parameters
-    sim = m.idata.sim  # short name
-    m.set_sim_params(first_ts=sim.DataTS.first_ts, mult_ts=sim.DataTS.dt_mult, max_ts=sim.DataTS.dt_max, runtime=None,
-                        tol_newton=sim.DataTS.tol_res, tol_linear=sim.DataTS.tol_linear)
-    if hasattr(sim.DataTS, 'linear_type'):
-        m.params.linear_type = sim.DataTS.linear_type
+    m.set_sim_params_data_ts(data_ts=m.idata.sim.DataTS)
 
     m.timer.node["initialization"].stop()
 
@@ -58,7 +54,7 @@ def run(physics_type : str, case: str, out_dir: str, export_vtk=True, redirect_l
     #m.reservoir.mesh.init_grav_coef(0)
     m.set_output(output_folder=out_dir)
     # m.output.save_data_to_h5(kind='reservoir')
-    m.set_well_controls()
+    m.set_well_controls_idata()
 
     m.reservoir.save_grdecl(m.get_arrays(), os.path.join(out_dir, 'res_init'))
 
@@ -95,9 +91,6 @@ def run(physics_type : str, case: str, out_dir: str, export_vtk=True, redirect_l
             # extra column with temperature in celsius
             if 'BHT' in k:
                 time_data[k.replace('K', 'degrees')] = time_data[k] - 273.15
-                time_data.drop(columns=k, inplace=True)
-            if physics_type == 'dead_oil' and 'm3/day' in k:
-                time_data[k.replace('m3/day', 'kmol/day')] = time_data[k]
                 time_data.drop(columns=k, inplace=True)
 
     # COMPUTE TIME DATA
@@ -272,8 +265,8 @@ if __name__ == '__main__':
     #physics_list += ['deadoil']
 
     cases_list = []
-    #cases_list += ['generate_5x3x4']
-    cases_list += ['generate_51x51x1']
+    cases_list += ['generate_5x3x4']
+    #cases_list += ['generate_51x51x1']
     #cases_list += ['generate_51x51x1_faultmult']
     #cases_list += ['generate_100x100x100']
     #cases_list += ['case_40x40x10']

@@ -31,8 +31,12 @@ class DataTS:
         self.newton_tol_wel_mult = 100.   # used to compute the newton solver residual for wells = tol_res * tol_wel_mult
         self.newton_tol_stationary = 1e-3 # tolerance for stationary point detection in the newton solver (by residual)
         self.newton_max_iter = 20    # maximum newton iterations allowed
+        self.linear_tol = 1e-5
+        self.linear_max_iter = 50  # maximum linear iterations allowed
+        self.linear_type = None  # linear solver and preconditioner type
+        #
         self.line_search = False
-        self.min_line_search_update = 1.e-4
+        self.min_line_search_update = 1e-4
 
     def print(self):
         print('Simulation parameters:')
@@ -132,6 +136,7 @@ class DartsModel:
             self.set_initial_conditions()
             self.set_well_controls()
             self.reset()
+        self.data_ts.print()
 
     def reset(self):
         """
@@ -248,6 +253,15 @@ class DartsModel:
         self.op_num = np.array(self.reservoir.mesh.op_num, copy=False)
         self.op_num[self.reservoir.mesh.n_res_blocks:] = len(self.op_list) - 1
 
+    def set_sim_params_data_ts(self, data_ts):
+        self.data_ts = DataTS(self.physics.n_vars)
+        # copy attributes except eta
+        for k in data_ts.__dict__.keys():
+            if k == 'eta':
+                continue
+            value = data_ts.__getattribute__(k)
+            self.data_ts.__setattr__(k, value)
+        self.copy_data_ts_to_sim_params()
 
     def set_sim_params(self, first_ts: float = None, mult_ts: float = None, min_ts = 1e-15, max_ts: float = None, runtime: float = 1000,
                        tol_newton: float = None, tol_linear: float = None, it_newton: int = None, it_linear: int = None,
@@ -281,29 +295,34 @@ class DartsModel:
         self.data_ts.dt_min = min_ts if min_ts is not None else self.data_ts.dt_min
         self.data_ts.dt_max = max_ts if max_ts is not None else self.data_ts.dt_max
         self.data_ts.dt_mult = mult_ts if mult_ts is not None else self.data_ts.dt_mult
-        self.params.first_ts = self.data_ts.dt_first
-        self.params.max_ts = self.data_ts.dt_max
-        self.params.mult_ts = self.data_ts.dt_mult
 
         # Non linear solver parameters. if None, default value will be used
         self.data_ts.newton_max_iter = it_newton if it_newton is not None else self.data_ts.newton_max_iter
-        self.params.max_i_newton = self.data_ts.newton_max_iter
-
         self.data_ts.newton_tol = tol_newton if tol_newton is not None else self.data_ts.newton_tol
-        self.params.tolerance_newton = self.data_ts.newton_tol
-
+        
         self.params.newton_type = newton_type if newton_type is not None else self.params.newton_type
         self.params.newton_params = newton_params if newton_params is not None else self.params.newton_params
         
         self.data_ts.line_search = line_search
 
         # Linear solver parameters. if None, default value will be used
-        self.params.tolerance_linear = tol_linear if tol_linear is not None else self.params.tolerance_linear
-        self.params.max_i_linear = it_linear if it_linear is not None else self.params.max_i_linear
+        self.data_ts.linear_tol = tol_linear if tol_linear is not None else self.data_ts.linear_tol
+        self.data_ts.linear_max_iter = it_linear if it_linear is not None else self.data_ts.linear_max_iter
 
         self.runtime = runtime
 
-        self.data_ts.print()
+        self.copy_data_ts_to_sim_params()
+
+    def copy_data_ts_to_sim_params(self):
+        self.params.first_ts = self.data_ts.dt_first
+        self.params.max_ts = self.data_ts.dt_max
+        self.params.mult_ts = self.data_ts.dt_mult
+        self.params.tolerance_newton = self.data_ts.newton_tol
+        self.params.max_i_newton = self.data_ts.newton_max_iter
+        self.params.tolerance_linear = self.data_ts.linear_tol
+        self.params.max_i_linear = self.data_ts.linear_max_iter
+        if self.data_ts.linear_type is not None:
+            m.params.linear_type = self.data_ts.linear_type
 
     def run_simple(self, physics, params, days):
         """
@@ -634,7 +653,7 @@ class DartsModel:
     def run_simulation(self):
         time = 0.0
         for ith_step, dt in enumerate(self.idata.sim.time_steps):
-            self.set_well_controls(time=time)
+            self.set_well_controls_idata(time=time)
             ret = self.run(dt)
             if ret != 0:
                 print('run() failed for the step=', ith_step, 'dt=', dt)
@@ -761,3 +780,67 @@ class DartsModel:
     def __del__(self):
         for name in list(vars(self).keys()):
             delattr(self, name)
+
+    def set_well_controls_idata(self, time: float = 0., verbose=True):
+        '''
+        :param time: simulation time, [days]
+        :return:
+        '''
+        from darts.engines import well_control_iface
+        eps_time = 1e-15 # threshold between the current time and the time for the well control
+        for w in self.reservoir.wells:
+            # find next well control in controls list for different timesteps
+            wctrl = None
+            for wctrl_t in self.idata.well_data.wells[w.name].controls:
+                if np.fabs(wctrl_t[0] - time) < eps_time:  # check time
+                    wctrl = wctrl_t[1]
+                    break
+            if wctrl is None: # no control is defined for the current timestep
+                continue
+            if wctrl.type == 'inj':  # INJ well
+                inj_temp = wctrl.inj_bht if self.physics.thermal else None
+                if wctrl.mode == 'rate': # rate control
+                    # Control
+                    self.physics.set_well_controls(wctrl=w.control, control_type=wctrl.rate_type,
+                                                   is_inj=True, target=wctrl.rate, phase_name=wctrl.phase_name,
+                                                   inj_composition=wctrl.inj_composition, inj_temp=inj_temp)
+                    # Constraint
+                    if wctrl.bhp_constraint is not None:
+                        self.physics.set_well_controls(wctrl=w.constraint, control_type=well_control_iface.BHP,
+                                                       is_inj=True, target=wctrl.bhp_constraint,
+                                                       inj_composition=wctrl.inj_composition, inj_temp=inj_temp)
+                elif wctrl.mode == 'bhp': # BHP control
+                    self.physics.set_well_controls(wctrl=w.control, control_type=well_control_iface.BHP,
+                                                   is_inj=True, target=wctrl.bhp, inj_composition=wctrl.inj_composition,
+                                                   inj_temp=inj_temp)
+                else:
+                    print('Unknown well ctrl.mode', wctrl.mode)
+                    exit(1)
+            elif wctrl.type == 'prod':  # PROD well
+                if wctrl.mode == 'rate': # rate control
+                    # Control
+                    self.physics.set_well_controls(wctrl=w.control, control_type=wctrl.rate_type,
+                                                   is_inj=False, target=-np.abs(wctrl.rate), phase_name=wctrl.phase_name)
+                    # Constraint
+                    if wctrl.bhp_constraint is not None:
+                        self.physics.set_well_controls(wctrl=w.constraint, control_type=well_control_iface.BHP,
+                                                       is_inj=False, target=wctrl.bhp_constraint)
+                elif wctrl.mode == 'bhp': # BHP control
+                    self.physics.set_well_controls(wctrl=w.control, control_type=well_control_iface.BHP,
+                                                   is_inj=False, target=wctrl.bhp)
+                else:
+                    print('Unknown well ctrl.mode', wctrl.mode)
+                    exit(1)
+            else:
+                print('Unknown well ctrl.type', wctrl.type)
+                exit(1)
+            if verbose:
+                print('set_well_controls_idata: time=', time, 'well', w.name,
+                      'control=[', w.control.get_well_control_type_str(), '],',
+                      'constraint=[', w.constraint.get_well_control_type_str(), ']')
+
+        # check
+        for w in self.reservoir.wells:
+            assert w.control.get_well_control_type() != well_control_iface.NONE, 'well control is not initialized for the well ' + w.name
+            if verbose and w.constraint.get_well_control_type() == well_control_iface.NONE and 'rate' in w.control.get_well_control_type_str():
+                print('A constraint for the well ' + w.name + ' is not initialized!')
