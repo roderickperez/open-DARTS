@@ -61,15 +61,9 @@ def run_darts(mode):
         if mode == 'wells':
             # compute well time data
             time_data_dict = n.output.store_well_time_data()
-            print('\n'.join(time_data_dict.keys()))
 
             # save well time data
             time_data_df = pd.DataFrame.from_dict(time_data_dict)
-            time_data_df.to_pickle(os.path.join(n.output_folder, "well_time_data.pkl"))  # as a pickle file
-            writer = pd.ExcelWriter(os.path.join(n.output_folder, "well_time_data.xlsx"))  # as an excel file
-            time_data_df.to_excel(writer, sheet_name='Sheet1')
-            writer.close()
-
             time_data_df.plot(x='time', y=['well_P1_BHP'])
             time_data_df.plot(x='time', y=['well_P1_molar_rate_w_by_sum_perfs', 'well_P1_molar_rate_w_at_wh'])
             plt.close()
