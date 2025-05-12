@@ -55,24 +55,20 @@ def set_well_rates(m, Dt, inj_rate, event1, event2):
     if m.physics.engine.t >= 25 * Dt and m.physics.engine.t < 50 * Dt and event1:
         print('At 25 years, start injecting in the second well')
         m.inj_rate = [inj_rate, inj_rate]
-        # m.set_well_controls()
-        pressure = np.copy(m.physics.engine.X)[0::m.physics.n_vars][m.reservoir.well_cells[1]]
-        
         m.physics.set_well_controls(well = m.reservoir.wells[1],
                                     is_control = True,
-                                    # control_type = well_control_iface.BHP,
                                     control_type=well_control_iface.MASS_RATE, 
                                     is_inj = True,
-                                    # target = pressure+100,
                                     target = m.inj_rate[1], 
                                     phase_name = 'V',
                                     inj_composition = m.inj_stream[:-1],
-                                    inj_temp = 273.15 + 10)  # if self.physics.thermal else None)
+                                    inj_temp = m.inj_stream[-1]
+                                    )
         
         event1 = False
 
     elif m.physics.engine.t >= 50 * Dt and event2:
-        print('At 50 years, stop injection for both wells')
+        print('At 50 years, stop injection in both wells')
         m.inj_rate = [m.zero, m.zero]
         for i in range(2):
             m.physics.set_well_controls(well = m.reservoir.wells[i],
@@ -82,20 +78,37 @@ def set_well_rates(m, Dt, inj_rate, event1, event2):
                                         target = m.inj_rate[i],
                                         phase_name = 'V',
                                         inj_composition = m.inj_stream[:-1],
-                                        inj_temp = 273.15 + 10)  # if self.physics.thermal else None)
+                                        inj_temp = m.inj_stream[-1]
+                                        )
         specs['check_rates'] = False  # after injection stop checking rates
         event2 = False
 
     return event1, event2
 
-def run(specs):
-    print(specs)
+def build_output_dir(spec, base_dir="results"):
+    iso_tag = "iso" if spec.get("temperature") is not None else "niso"
+    rhs_tag = "rhs" if spec.get("RHS") else "wells"
+    disp_tag = "disp" if spec.get("dispersion") else "nodisp"
+    components = "-".join(spec.get("components", []))
+    nx = spec.get("nx", "nx?")
+    nz = spec.get("nz", "nz?")
+    device = 'CPU' if spec.get('gpu_device') is False else 'GPU'
+    
+    # Construct folder name
+    dir_name = f"{iso_tag}__{rhs_tag}__{disp_tag}__{components}__nx{nx}_nz{nz}_{device}"
+    return os.path.join(base_dir, dir_name)
 
+def run(specs):
+    """ set up output directory """
+    if specs['output_dir'] is None:
+        specs["output_dir"] = build_output_dir(specs)
+    print(specs)
     # print(os.environ["CONDA_PREFIX"])
+    
     output_dir = specs['output_dir'] if specs['post_process'] is None else os.path.join(specs['output_dir'], specs['post_process'])
     os.makedirs(output_dir, exist_ok=True)
 
-    # save specs to a pkl
+    # save specs to a .pkl file
     with open(os.path.join(output_dir, 'specs.pkl'), 'wb') as f:
         pickle.dump(specs, f)
 
@@ -282,29 +295,47 @@ nx = 840
 nz = 120
 zero = 1e-10
 model_specs = [
-    # # binary isothermal model
-    #     # rhs correction
-    # {'check_rates': True, 'temperature': 273.15+40, '1000years': False, 'RHS': True, 'components': ['CO2', 'H2O'],
-    #     'inj_stream': [1-1e-10, 283.15], 'nx': nx, 'nz': nz, 'output_dir': 'binary_isothermal', 'post_process': None, 'gpu_device': False},
-    #     # mass rate control
-    # {'check_rates': True, 'temperature': 273.15+40, '1000years': False, 'RHS': False, 'components': ['CO2', 'H2O'], 'inj_stream': [1-1e-10, 283.15], 
-    #      'nx': nx, 'nz': nz, 'dispersion': False,'output_dir': 'binary_isothermal_wells', 'post_process': None, 'gpu_device': False},
+    # BINARY ISOTHERMAL MODEL
+        # RHS CORRECTION WITH DISPERSION OFF
+    {'check_rates': True, 'temperature': 273.15+40, '1000years': False, 'RHS': True, 'components': ['CO2', 'H2O'], 'inj_stream': [1-1e-10, 283.15], 
+          'nx': nx, 'nz': nz, 'dispersion': False, 'output_dir': None, 'post_process': None, 'gpu_device': False},
+    
+        # RHS CORRECTION WITH DISPERSION ON 
+    {'check_rates': True, 'temperature': 273.15+40, '1000years': False, 'RHS': True, 'components': ['CO2', 'H2O'], 'inj_stream': [1-1e-10, 283.15], 
+          'nx': nx, 'nz': nz, 'dispersion': True, 'output_dir': None, 'post_process': None, 'gpu_device': False},
+    
+        # WELLS WITH DISPERSION OFF 
+    {'check_rates': True, 'temperature': 273.15+40, '1000years': False, 'RHS': False, 'components': ['CO2', 'H2O'], 'inj_stream': [1-zero, 283.15], 
+        'nx': nx, 'nz': nz, 'dispersion': False, 'output_dir': None, 'post_process': None, 'gpu_device': False}, 
+    
+        # WELLS WITH DISPERSION ON 
+    {'check_rates': True, 'temperature': 273.15+40, '1000years': False, 'RHS': False, 'components': ['CO2', 'H2O'], 'inj_stream': [1-zero, 283.15], 
+        'nx': nx, 'nz': nz, 'dispersion': True, 'output_dir': None, 'post_process': None, 'gpu_device': False}, 
 
     # BINARY NON-ISOTHERMAL MODEL
-        # rhs correction
-    # {'check_rates': True, 'temperature': None, '1000years': False, 'RHS': True, 'components': ['CO2', 'H2O'], 'inj_stream': [1-zero, 283.15], 
-    #      'nx': nx, 'nz': nz, 'dispersion': False, 'output_dir': 'binary_sans_dispersion', 'post_process': None, 'gpu_device': False},
-    # {'check_rates': True, 'temperature': None, '1000years': False, 'RHS': True, 'components': ['CO2', 'H2O'], 'inj_stream': [1-zero, 283.15], 
-    #      'nx': nx, 'nz': nz, 'dispersion': False, 'output_dir': 'binary_mit_dispersion', 'post_process': None, 'gpu_device': False},    
-       # mass rate control
+        # RHS CORRECTION WITH DISPERSION OFF
+    {'check_rates': True, 'temperature': None, '1000years': False, 'RHS': True, 'components': ['CO2', 'H2O'], 'inj_stream': [1-zero, 283.15], 
+        'nx': nx, 'nz': nz, 'dispersion': False, 'output_dir': None, 'post_process': None, 'gpu_device': False},
+         
+        # RHS CORRECTION WITH DISPERSION ON 
+    {'check_rates': True, 'temperature': None, '1000years': False, 'RHS': True, 'components': ['CO2', 'H2O'], 'inj_stream': [1-zero, 283.15], 
+        'nx': nx, 'nz': nz, 'dispersion': True, 'output_dir': None, 'post_process': None, 'gpu_device': False},    
+         
+        # WELLS WITH DISPERSION OFF 
     {'check_rates': True, 'temperature': None, '1000years': False, 'RHS': False, 'components': ['CO2', 'H2O'], 'inj_stream': [1-zero, 283.15], 
-         'nx': nx, 'nz': nz, 'dispersion': False, 'output_dir': 'binary_wells', 'post_process': None, 'gpu_device': False},
+        'nx': nx, 'nz': nz, 'dispersion': False, 'output_dir': None, 'post_process': None, 'gpu_device': False},
+         
+        # WELLS WITH DISPERSION ON 
+    {'check_rates': True, 'temperature': None, '1000years': False, 'RHS': False, 'components': ['CO2', 'H2O'], 'inj_stream': [1-zero, 283.15], 
+        'nx': nx, 'nz': nz, 'dispersion': True, 'output_dir': None, 'post_process': None, 'gpu_device': False},    
     
     #{'check_rates': True, 'temperature': None, 'components': ['H2S', 'CO2', 'H2O'], 'inj_stream': [0.05-1e-10, 0.95-1e-10, 283.15], 'nx': nx, 'nz': nz, 'output_dir': 'ternary_H2S_5', 'gpu_device': None},
     #{'check_rates': True, 'temperature': None, 'components': ['C1', 'CO2', 'H2O'], 'inj_stream': [0.05-1e-10, 0.95-1e-10, 283.15], 'nx': nx, 'nz': nz, 'output_dir': 'ternary_C1_5', 'gpu_device': None},
     #{'check_rates': True, 'temperature': None, 'components': ['C1', 'H2S', 'CO2', 'H2O'], 'inj_stream': [0.04, 0.01, 0.95, 283.15], 'nx': nx, 'nz': nz, 'output_dir': '4components_5', 'gpu_device': None}
     ]
+    
 
+#%%
 
 if __name__ == '__main__':
     for specs in model_specs:
