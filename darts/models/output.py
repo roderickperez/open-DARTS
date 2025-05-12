@@ -228,7 +228,7 @@ class Output:
                                      self.master_timer.node["simulation"])
             self.properties = list(output_dictionary.keys())
 
-        return 0
+        return
 
     def save_property_array(self, time_vector, property_array, filename="property_array.h5"):
         """
@@ -250,7 +250,7 @@ class Output:
             for key, array in property_array.items():
                 h5f.create_dataset(key, data=array, compression="gzip", compression_opts=compression_level)
         
-        return 0 
+        return
 
     def load_property_array(self, file_directory="property_array.h5"):
         """
@@ -785,6 +785,8 @@ class Output:
                                     "components_mass_rates"
                                     "advective_heat_rate" for thermal scenarios
         :type types_of_well_rates: list
+
+        Well data is saved as a *.pkl file and .xlsx file in the dartsmodel.output_folder.
         """
         # Start timer for store_well_time_data
         self.timer.start(); self.timer.node["output_well_time_data"].start()
@@ -1062,7 +1064,13 @@ class Output:
 
             # Looping over perforations
             for j in range(len(conn_ids)):
-                state = h5_well_data['dynamic']['X'][i, id_state_cell[j]]
+                if self.precision == 's':
+                    raw_state = h5_well_data['dynamic']['X'][i, id_state_cell[j]]
+                    state = np.asarray(raw_state, dtype=np.float64)
+                    for k in range(len(state)):
+                        state[k] = min(max(state[k], self.physics.axes_min[k]), self.physics.axes_max[k])
+                else:
+                    state = h5_well_data['dynamic']['X'][i, id_state_cell[j]]
 
                 # Calculate operators for phase molar, mass, volumetric, and advective heat rates from WellControlOperators
                 state = value_vector(state)

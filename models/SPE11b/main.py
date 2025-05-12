@@ -6,7 +6,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 import pickle
-import time
 
 from model_b import Model, PorPerm, Corey, layer_props
 from darts.engines import redirect_darts_output, sim_params
@@ -39,6 +38,56 @@ def plt_plot(dictionary, filename):
 
     return 0
 
+def set_well_rhs(m, Dt, inj_rate, event1, event2):
+    if m.physics.engine.t >= 25 * Dt and m.physics.engine.t < 50 * Dt and event1:
+        print('At 25 years, start injecting in the second well')
+        m.inj_rate = [inj_rate, inj_rate]
+        event1 = False
+    elif m.physics.engine.t >= 50 * Dt and event2:
+        print('At 50 years, stop injection for both wells')
+        m.inj_rate = [m.zero, m.zero]
+        specs['check_rates'] = False  # after injection stop checking rates
+        event2 = False
+
+    return event1, event2
+
+def set_well_rates(m, Dt, inj_rate, event1, event2):
+    if m.physics.engine.t >= 25 * Dt and m.physics.engine.t < 50 * Dt and event1:
+        print('At 25 years, start injecting in the second well')
+        m.inj_rate = [inj_rate, inj_rate]
+        # m.set_well_controls()
+        pressure = np.copy(m.physics.engine.X)[0::m.physics.n_vars][m.reservoir.well_cells[1]]
+        
+        m.physics.set_well_controls(well = m.reservoir.wells[1],
+                                    is_control = True,
+                                    # control_type = well_control_iface.BHP,
+                                    control_type=well_control_iface.MASS_RATE, 
+                                    is_inj = True,
+                                    # target = pressure+100,
+                                    target = m.inj_rate[1], 
+                                    phase_name = 'V',
+                                    inj_composition = m.inj_stream[:-1],
+                                    inj_temp = 273.15 + 10)  # if self.physics.thermal else None)
+        
+        event1 = False
+
+    elif m.physics.engine.t >= 50 * Dt and event2:
+        print('At 50 years, stop injection for both wells')
+        m.inj_rate = [m.zero, m.zero]
+        for i in range(2):
+            m.physics.set_well_controls(well = m.reservoir.wells[i],
+                                        is_control = True,
+                                        control_type = well_control_iface.MASS_RATE,
+                                        is_inj = True,
+                                        target = m.inj_rate[i],
+                                        phase_name = 'V',
+                                        inj_composition = m.inj_stream[:-1],
+                                        inj_temp = 273.15 + 10)  # if self.physics.thermal else None)
+        specs['check_rates'] = False  # after injection stop checking rates
+        event2 = False
+
+    return event1, event2
+
 def run(specs):
     print(specs)
 
@@ -54,13 +103,15 @@ def run(specs):
     m = Model(specs)
 
     """Define physics"""
-    zero = 1e-10
+    # zero = 1e-10
     m.set_physics(zero=zero, temperature=specs['temperature'], n_points=1001)
 
     # solver paramters
-    m.set_sim_params(first_ts=1e-6, mult_ts=2, max_ts=365, tol_linear=1e-3, tol_newton=1e-3,
+    m.set_sim_params(first_ts=1e-6, mult_ts=2, max_ts=365, tol_linear=1e-2, tol_newton=1e-3,
                      it_linear=50, it_newton=12, newton_type=sim_params.newton_global_chop)
-    m.params.newton_params[0] = 0.05
+    m.params.newton_params[0] = 0.05*2
+    m.data_ts.eta=np.ones(m.physics.n_vars)
+    
     m.params.nonlinear_norm_type = m.params.LINF # linf if you use m.set_rhs() for injection
 
     """Define the reservoir and wells """
@@ -78,7 +129,7 @@ def run(specs):
     # define injection stream of the wells
     m.inj_stream = specs['inj_stream']
     inj_rate = 3024 # mass rate per well, kg/day
-    m.inj_rate = [inj_rate, 0]
+    m.inj_rate = [inj_rate, zero]
 
     """ Init model """
     # now that the reservoir and physics is defined, you can init the DartsModel()
@@ -90,14 +141,18 @@ def run(specs):
 
     if specs['post_process'] is None:
         m.init(discr_type='tpfa', platform=m.platform)
-        m.set_output(output_folder=output_dir)
+        m.set_output(output_folder=output_dir, sol_filename='single_reservoir_solution.h5', precision='s', )
     else:
         print(f'Post processing into {output_dir}...')
         m.init(discr_type='tpfa', platform=m.platform)
         m.set_output(output_folder=output_dir, save_initial=False)
-
+        
+    # simulate a thousand years 
     if specs['1000years']:
         m.run(1000)
+    
+    if specs['dispersion']:
+        m.init_dispersion()        
 
     if 1:
         nx = m.reservoir.nx
@@ -142,21 +197,20 @@ def run(specs):
         mass_components_n = {key: np.sum(value) for key, value in mass_per_component.items()} # sum over grid blocks per component
 
     vtk_array = np.array(
-        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40, 45, 50, 75, 100, 200, 300, 400, 500, 600, 700, 800, 900,
-         1000]) # years for which to export a .vtk file
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40, 45, 50, 75, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]) # years for which to export a .vtk file
 
-    # m.inj_rate = [3024, 3024]
     event1 = True
     event2 = True
 
     if specs['post_process'] is None:
-        Nt = 10
+        Nt = 1
     else:
         Nt = 0 # skip simulation
-    Dt = 36.5
+    Dt = 365
 
     for ts in range(Nt):
-        m.run(Dt, save_reservoir_data=False, save_well_data=~specs['RHS'], verbose=True)
+        print(f'----------------------------------- Simulate from year {(ts*Dt)/365} until year {((ts+1)*Dt)/365} -----------------------------------')
+        m.run(Dt, restart_dt=1.0, save_reservoir_data=False, save_well_data=~specs['RHS'], verbose=True)
 
         if specs['check_rates']:
             time_vector, property_array = m.output.output_properties(output_properties=output_props, engine=True)
@@ -168,6 +222,7 @@ def run(specs):
                 avg_rates.append(rate)
                 print(f'Injecting {name} at {avg_rates[i::m.nc][-1]} kg/day.')
             mass_components_n = mass_components
+            
         else:
             pass
 
@@ -179,10 +234,9 @@ def run(specs):
             time_vector, property_array = m.output.output_properties(output_properties=output_props, timestep=-1)
             m.output.save_property_array(time_vector, property_array, f'property_array_ts{ts+1}.h5')
 
-            # plt plot
             for i, name in enumerate(property_array.keys()):
                 plt.figure(figsize=(10, 2))
-                plt.title(f'{name} @ year {time_vector[0]}')
+                plt.title(f'{name} @ year {time_vector[0]/365}')
                 c = plt.pcolor(grid[0], grid[1], property_array[name][0].reshape(nz, nx), cmap='cividis')
                 plt.colorbar(c, aspect=10)
                 plt.xlabel('x [m]'); plt.ylabel('z [m]')
@@ -192,50 +246,60 @@ def run(specs):
             mass_per_component, mass_vapor, mass_aqueous = m.get_mass_components(property_array)
             for i, name in enumerate(mass_per_component.keys()):
                 plt.figure(figsize=(10, 2))
-                plt.title(f'{name} mass @ year {time_vector[0]}')
-                c = plt.pcolor(grid[0], grid[1], mass_per_component[name].reshape(nz, nx)/1e6, cmap='jet')
+                plt.title(f'{name} mass @ year {time_vector[0]/365}')
+                c = plt.pcolor(grid[0], grid[1], mass_per_component[name].reshape(nz, nx)/1e6, cmap='cividis')
                 plt.colorbar(c, label = 'kt', aspect=10)
                 plt.xlabel('x [m]'); plt.ylabel('z [m]')
                 plt.savefig(os.path.join(m.output_folder, 'figures', f'{name}_mass_ts_{ts+1}.png'), bbox_inches='tight')
                 plt.close()
-
-            # # output to .vtk
-            # m.output.output_to_vtk(output_properties=output_props, ith_step=int(m.physics.engine.t/Dt))
+                
+            if specs['dispersion']:
+                darcy_velocities = np.asarray(m.physics.engine.darcy_velocities).reshape(m.reservoir.mesh.n_res_blocks, m.physics.nph, 3)
+                for p, ph in enumerate(m.physics.phases):
+                    for v, orientation in enumerate(['x', 'y', 'z']):
+                        plt.figure(figsize=(10, 2))
+                        plt.title(f'Velocity of {ph} in {orientation} direction @ year {time_vector[0]/365}')
+                        c = plt.pcolor(grid[0], grid[1], darcy_velocities[:, p, v].reshape(nz, nx), cmap='cividis')
+                        plt.colorbar(c, aspect=10)
+                        plt.xlabel('x [m]'); plt.ylabel('z [m]')
+                        plt.savefig(os.path.join(m.output_folder, 'figures', f'vel_{ph}_{orientation}_{ts+1}.png'), bbox_inches='tight')
+                        plt.close()
+                        
         else:
             pass
 
-        if m.physics.engine.t >= 25 * Dt and m.physics.engine.t < 50 * Dt and event1:
-            print('At 25 years, start injecting in the second well')
-            m.inj_rate = [inj_rate, inj_rate]
-            event1 = False
-        elif m.physics.engine.t >= 10 * Dt and event2:
-            print('At 50 years, stop injection for both wells')
-            m.inj_rate = [0, 0]
-            specs['check_rates'] = False # after injection stop checking rates
-            event2 = False
+        if specs['RHS']:
+            event1, event2 = set_well_rhs(m, Dt, inj_rate, event1, event2)
+        else:
+            event1, event2 = set_well_rates(m, Dt, inj_rate, event1, event2)
 
     return m, avg_rates
 
+#%%
+
 """Define realization ID"""
-nx = 840//4
-nz = 120//4
+nx = 840
+nz = 120
+zero = 1e-10
 model_specs = [
-    # binary isothermal model
-        # rhs correction
-    {'check_rates': True, 'temperature': 273.15+40, '1000years': False, 'RHS': True, 'components': ['CO2', 'H2O'],
-        'inj_stream': [1-1e-10, 283.15], 'nx': nx, 'nz': nz, 'output_dir': 'binary_isothermal', 'post_process': None, 'gpu_device': False},
-    #     # mass rate control
-    # {'check_rates': True, 'temperature': 273.15+15+40, '1000years': False, 'RHS': False, 'components': ['CO2', 'H2O'],
-    #     'inj_stream': [1-1e-10, 283.15], 'nx': nx, 'nz': nz, 'output_dir': 'binary', 'post_process': None, 'gpu_device': False},
-
-    # # binary non-isothermal model
+    # # binary isothermal model
     #     # rhs correction
-    {'check_rates': True, 'temperature': None, '1000years': False, 'RHS': True, 'components': ['CO2', 'H2O'],
-        'inj_stream': [1-1e-10, 283.15], 'nx': nx, 'nz': nz, 'output_dir': 'binary_non_isothermal', 'post_process': None, 'gpu_device': False},
-    #    # mass rate control
-    # {'check_rates': True, 'temperature': None, '1000years': False, 'RHS': False, 'components': ['CO2', 'H2O'],
-    #     'inj_stream': [1-1e-10, 283.15], 'nx': nx, 'nz': nz, 'output_dir': 'binary', 'post_process': None, 'gpu_device': False},
+    # {'check_rates': True, 'temperature': 273.15+40, '1000years': False, 'RHS': True, 'components': ['CO2', 'H2O'],
+    #     'inj_stream': [1-1e-10, 283.15], 'nx': nx, 'nz': nz, 'output_dir': 'binary_isothermal', 'post_process': None, 'gpu_device': False},
+    #     # mass rate control
+    # {'check_rates': True, 'temperature': 273.15+40, '1000years': False, 'RHS': False, 'components': ['CO2', 'H2O'], 'inj_stream': [1-1e-10, 283.15], 
+    #      'nx': nx, 'nz': nz, 'dispersion': False,'output_dir': 'binary_isothermal_wells', 'post_process': None, 'gpu_device': False},
 
+    # BINARY NON-ISOTHERMAL MODEL
+        # rhs correction
+    # {'check_rates': True, 'temperature': None, '1000years': False, 'RHS': True, 'components': ['CO2', 'H2O'], 'inj_stream': [1-zero, 283.15], 
+    #      'nx': nx, 'nz': nz, 'dispersion': False, 'output_dir': 'binary_sans_dispersion', 'post_process': None, 'gpu_device': False},
+    # {'check_rates': True, 'temperature': None, '1000years': False, 'RHS': True, 'components': ['CO2', 'H2O'], 'inj_stream': [1-zero, 283.15], 
+    #      'nx': nx, 'nz': nz, 'dispersion': False, 'output_dir': 'binary_mit_dispersion', 'post_process': None, 'gpu_device': False},    
+       # mass rate control
+    {'check_rates': True, 'temperature': None, '1000years': False, 'RHS': False, 'components': ['CO2', 'H2O'], 'inj_stream': [1-zero, 283.15], 
+         'nx': nx, 'nz': nz, 'dispersion': False, 'output_dir': 'binary_wells', 'post_process': None, 'gpu_device': False},
+    
     #{'check_rates': True, 'temperature': None, 'components': ['H2S', 'CO2', 'H2O'], 'inj_stream': [0.05-1e-10, 0.95-1e-10, 283.15], 'nx': nx, 'nz': nz, 'output_dir': 'ternary_H2S_5', 'gpu_device': None},
     #{'check_rates': True, 'temperature': None, 'components': ['C1', 'CO2', 'H2O'], 'inj_stream': [0.05-1e-10, 0.95-1e-10, 283.15], 'nx': nx, 'nz': nz, 'output_dir': 'ternary_C1_5', 'gpu_device': None},
     #{'check_rates': True, 'temperature': None, 'components': ['C1', 'H2S', 'CO2', 'H2O'], 'inj_stream': [0.04, 0.01, 0.95, 283.15], 'nx': nx, 'nz': nz, 'output_dir': '4components_5', 'gpu_device': None}
@@ -245,10 +309,11 @@ model_specs = [
 if __name__ == '__main__':
     for specs in model_specs:
         m, avg_rates = run(specs)
-        # m.print_timers()
-
-        m.output.output_to_vtk()
-
+        m.print_timers()
+        m.output.output_to_vtk(output_properties = m.physics.vars + m.output.properties)
+        
+        
+    
         if specs['RHS'] is False:
             time_data = m.output.store_well_time_data(["components_mass_rates"])
             m.output.plot_well_time_data(["components_mass_rates"])
@@ -260,6 +325,7 @@ if __name__ == '__main__':
                 ax1.grid()
                 ax1.step(avg_rates[i::m.nc], 'b-o', label="Avg Rates")
                 ax1.set_xlabel("Time (years)")
-                ax1.set_ylabel("Injection Rate (m³/day)", color='b')
-                ax1.tick_params(axis='y', labelcolor='b')
-                plt.show()
+                ax1.set_ylabel("Injection Rate (m³/day)", color='k')
+                ax1.tick_params(axis='y', labelcolor='k')
+                plt.savefig(os.path.join(m.output_folder, f'rate_check_{name}.png'))
+                plt.close()

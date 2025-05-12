@@ -79,6 +79,8 @@ class FluidFlowerStruct(StructReservoir):
         pass
 
     def set_wells(self, verbose: bool = False):
+        from darts.engines import value_vector
+        
         if self.specs['RHS']:
             for name, center in self.well_centers.items():
                 cell_index = self.find_cell_index(center)
@@ -92,22 +94,21 @@ class FluidFlowerStruct(StructReservoir):
 
             for well_nr in range(2):
                 k = int(self.well_cells[well_nr] / (self.nx * self.ny) - 1)
-                i = int(np.abs(self.nx - (
-                            self.well_cells[well_nr] - k * (self.nx * self.ny))))
+                i = int(np.abs(self.nx - (self.well_cells[well_nr] - k * (self.nx * self.ny))))
                 j = 1
 
                 try:
-                    assert k * self.nx * self.ny + j * self.nx + i == \
-                           self.well_cells[well_nr]
+                    assert k * self.nx * self.ny + j * self.nx + i == self.well_cells[well_nr]
                 except:
                     print(f"Assertion Failed: (i={i}, j={j}, k={k})")
-                    print(
-                        f"Computed Index: {k * self.nx * self.ny + j * self.nx + i}")
+                    print(f"Computed Index: {k * self.nx * self.ny + j * self.nx + i}")
                     print(f"Expected Index: {self.well_cells[well_nr]}")
                     raise
 
                 self.add_well("I%d" % well_nr)
                 self.add_perforation("I%d" % well_nr, cell_index=(i, j, k), verbose=True)
-
+                
+                # well_idx = self.wells[well_nr].well_body_idx 
+                # self.mesh.op_num[well_idx] = self.mesh.op_num[self.well_cells[well_nr]]
+                
         return
-

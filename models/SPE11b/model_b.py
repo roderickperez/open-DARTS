@@ -11,7 +11,7 @@ except ImportError:
 from darts.engines import well_control_iface
 from darts.physics.super.physics import Compositional
 from darts.physics.super.property_container import PropertyContainer
-from darts.physics.properties.basic import ConstFunc
+from darts.physics.properties.basic import ConstFunc, CapillaryPressure, PhaseRelPerm
 from darts.physics.properties.density import Garcia2001
 from darts.physics.properties.viscosity import Fenghour1998, Islam2012
 from darts.physics.properties.eos_properties import EoSDensity, EoSEnthalpy
@@ -69,34 +69,6 @@ class Model(DartsModel):
         self.components = self.specs['components']
         self.nc = len(self.components)
 
-    # def set_wells(self):
-    #     if self.specs['RHS'] is False:
-    #         self.reservoir.well_cells = []
-    #         for name, center in self.reservoir.well_centers.items():
-    #             cell_index = self.reservoir.find_cell_index(center)
-    #             self.reservoir.well_cells.append(cell_index)
-    #
-    #         for well_nr in range(2):
-    #             k = int(self.reservoir.well_cells[well_nr] / (self.reservoir.nx * self.reservoir.ny) - 1)
-    #             i = int(np.abs(self.reservoir.nx - (self.reservoir.well_cells[well_nr] - k * (self.reservoir.nx * self.reservoir.ny))))
-    #             j = 1
-    #
-    #             try:
-    #                 assert k * self.reservoir.nx * self.reservoir.ny + j * self.reservoir.nx + i == self.reservoir.well_cells[well_nr]
-    #             except:
-    #                 print(f"Assertion Failed: (i={i}, j={j}, k={k})")
-    #                 print(f"Computed Index: {k * self.reservoir.nx * self.reservoir.ny + j * self.reservoir.nx + i}")
-    #                 print(f"Expected Index: {self.reservoir.well_cells[well_nr]}")
-    #                 raise
-    #
-    #             self.reservoir.add_well("I%d"%well_nr)
-    #             self.reservoir.add_perforation("I%d"%well_nr, cell_index=(i, j, k), well_index=1000, well_indexD=1000, verbose=True)
-    #
-    #         return
-    #     else:
-    #         self.reservoir.set_wells(False)
-    #         return
-
     def set_wells(self):
         self.reservoir.set_wells(False)
         return
@@ -105,27 +77,17 @@ class Model(DartsModel):
         if self.specs['RHS'] is False:
             T_inj = 10+273.15 if self.physics.thermal else 40+273.15
             for i, w in enumerate(self.reservoir.wells):
-                if 'I' in w.name:
-                    if self.inj_rate[i] == 0:
-                        self.physics.set_well_controls(well = w,
-                                                       is_control = True,
-                                                       control_type = well_control_iface.MASS_RATE,
-                                                       is_inj = True,
-                                                       target = 1,
-                                                       phase_name = 'V',
-                                                       inj_composition = self.inj_stream[:-1],
-                                                       inj_temp = T_inj)# if self.physics.thermal else None)
-                    else:
-                        self.physics.set_well_controls(well = w,
-                                                       is_control = True,
-                                                       control_type = well_control_iface.MASS_RATE,
-                                                       is_inj = True,
-                                                       target = self.inj_rate[i],
-                                                       phase_name = 'V',
-                                                       inj_composition = self.inj_stream[:-1],
-                                                       inj_temp = T_inj)# if self.physics.thermal else None)
-
-                    print(f'Set well {w.name} to {self.inj_rate[i]} kg/day with {self.inj_stream[:-1]} {self.components[:-1]} at 10°C...')
+                # TO DO well_control_iface.NONE does not work here 
+                self.physics.set_well_controls(well = w,
+                                               control_type = well_control_iface.NONE,# if self.inj_rate[i] != self.zero else well_control_iface.NONE,
+                                               is_control = True,
+                                               is_inj = True,
+                                               target = self.inj_rate[i],
+                                               # phase_name = 'V',
+                                               # inj_composition = self.inj_stream[:-1],
+                                               # inj_temp = T_inj
+                                               )
+                print(f'Set well {w.name} to {self.inj_rate[i]} kg/day with {self.inj_stream[:-1]} {self.components[:-1]} at 10°C...')
             return
         else:
             pass
@@ -234,7 +196,7 @@ class Model(DartsModel):
                                      min_z=zero/10, max_z=1-zero/10, min_t=min_t, max_t=max_t,
                                      state_spec = state_spec, 
                                      cache=False)
-        self.physics.n_axes_points[0] = 101  # sets OBL points for pressure
+        self.physics.n_axes_points[0] = 1001  # sets OBL points for pressure
 
         dispersivity = 10.
         self.physics.dispersivity = {}
@@ -259,8 +221,6 @@ class Model(DartsModel):
                                                        ('Aq', ConstFunc(170.)),])
             property_container.rel_perm_ev = dict([('V', ModBrooksCorey(corey_params, 'V')),
                                                    ('Aq', ModBrooksCorey(corey_params, 'Aq'))])
-            # property_container.rel_perm_ev = dict([('V', CapillaryPressure()),
-            #                                        ('Aq', CapillaryPressure())])
             property_container.capillary_pressure_ev = ModCapillaryPressure(corey_params)
 
             self.physics.add_property_region(property_container, i)
@@ -314,7 +274,7 @@ class Model(DartsModel):
                     self.input_distribution[self.components[i]] = [self.zero, self.zero]
                 
             if self.specs['temperature'] is None:
-                self.input_distribution["temperature"] = [313.45, 342.9]
+                self.input_distribution["temperature"] = [313.4, 342.9]
     
             self.physics.set_initial_conditions_from_depth_table(mesh=self.reservoir.mesh, 
                                                                  input_depth=input_depths,
@@ -494,7 +454,7 @@ class Model(DartsModel):
                         dt_mult_new = mult # the new multiplier = proposed multiplier
 
                 if verbose:
-                    print("# %d \tT = %3g\tDT = %2g\tNI = %d\tLI=%d\tDT_MULT=%3.3g\tmax_dX=%4s"
+                    print("# %d \tT = %.3g\tDT = %.2g\tNI = %d\tLI=%d\tDT_MULT=%3.3g\tmax_dX=%4s"
                           % (ts, t, dt, self.physics.engine.n_newton_last_dt, self.physics.engine.n_linear_last_dt,
                              dt_mult_new, np.round(max_dx, 3)))
 
@@ -542,15 +502,15 @@ class Model(DartsModel):
         max_newt = self.data_ts.newton_max_iter
         max_residual = np.zeros(max_newt + 1)
         self.physics.engine.n_linear_last_dt = 0
-        # self.data_ts.newton_tol_wel_mult = 1e1
+        self.data_ts.newton_tol_wel_mult = 1e2
 
         self.timer.node['simulation'].start()
         for i in range(max_newt + 1):
             if self.platform == 'gpu':
                 copy_data_to_host(self.physics.engine.X, self.physics.engine.get_X_d())
 
-            if self.physics.thermal:
-                self.set_top_bot_temp()
+            # if self.physics.thermal:
+            #     self.set_top_bot_temp()
 
             if self.platform == 'gpu':
                 copy_data_to_device(self.physics.engine.X, self.physics.engine.get_X_d())

@@ -27,6 +27,7 @@ m.set_sim_params(first_ts=1e-3, mult_ts=1.5, max_ts=5, tol_newton=1e-3, tol_line
 
 # init the model
 m.init()
+m.set_output()
 
 x = np.cumsum(m.x_axes)
 y = np.linspace(m.reservoir.nz*2+1, 0, m.reservoir.nz)
@@ -34,7 +35,7 @@ X, Y = np.meshgrid(x, y)
 
 properties = m.physics.vars + m.physics.property_operators[0].props_name
 print_props = m.physics.vars + ['satV', 'xCO2', 'yH2O']
-timesteps, output = m.output_properties(print_props, timestep=0)
+timesteps, output = m.output.output_properties(output_properties=print_props, timestep=0)
 nv = m.physics.n_vars
 
 fig, axs = plt.subplots(len(print_props), 1, figsize=(12, 10), dpi=100, facecolor='w', edgecolor='k')
@@ -55,7 +56,7 @@ for t in range(2):
 
     #m.params.max_ts = 0.5
 
-    timesteps, output = m.output_properties(print_props, timestep=t+1)
+    timesteps, output = m.output.output_properties(output_properties=print_props, timestep=t+1)
 
     fig, axs = plt.subplots(len(print_props), 1, figsize=(12, 10), dpi=100, facecolor='w', edgecolor='k')
     for i, ith_prop in enumerate(print_props):
@@ -68,12 +69,5 @@ for t in range(2):
 
     plt.savefig('step' + str(t+1) + '.png', format='png')
 
-    # compute well time data
+    # compute and save well time data in m.output_folder 
     time_data_dict = m.output.store_well_time_data()
-
-    # save well time data
-    time_data_df = pd.DataFrame.from_dict(time_data_dict)
-    time_data_df.to_pickle(os.path.join(m.output_folder, "well_time_data.pkl"))  # as a pickle file
-    writer = pd.ExcelWriter(os.path.join(m.output_folder, "well_time_data.xlsx"))  # as an excel file
-    time_data_df.to_excel(writer, sheet_name='Sheet1', index=False)
-    writer.close()
