@@ -99,11 +99,12 @@ class WellControl():
         # if Compositional
         self.phase_name = None # phase name for well control, [str]
 
-    def prod_rate_control(self, rate, bhp_constraint, phase_name=None):
+    def prod_rate_control(self, rate, rate_type, bhp_constraint=None, phase_name=None):
         self.reset()
         self.type = 'prod'
         self.mode = 'rate'
         self.rate = rate
+        self.rate_type = rate_type
         self.bhp_constraint = bhp_constraint
         # if Compositional
         self.phase_name = phase_name # produced phase name, [str]
@@ -114,18 +115,20 @@ class WellControl():
         self.mode = 'bhp'
         self.bhp = bhp
 
-    def inj_rate_control(self, rate, bhp_constraint, temperature=None, phase_name=None):
+    def inj_rate_control(self, rate, rate_type, bhp_constraint=None, temperature=None, phase_name=None, inj_composition=None):
         self.reset()
         self.type = 'inj'
         self.mode = 'rate'
         self.rate = rate
+        self.rate_type = rate_type
         self.bhp_constraint = bhp_constraint
         # if thermal
         self.inj_bht = temperature  # K
         # if Compositional
         self.phase_name = phase_name # injected phase name, [str]
+        self.inj_composition = inj_composition  #  0 < injected composition < 1
 
-    def inj_bhp_control(self, bhp, temperature=None, phase_name=None):
+    def inj_bhp_control(self, bhp, temperature=None, phase_name=None, inj_composition=None):
         self.reset()
         self.type = 'inj'
         self.mode = 'bhp'
@@ -134,7 +137,8 @@ class WellControl():
         self.inj_bht = temperature  # K
         # if Compositional
         self.phase_name = phase_name   # injected phase name, [str]
-        
+        self.inj_composition = inj_composition  #  0 < injected composition < 1
+
 class WellLocIJK():
     """
     well location for structured grid, 1-based integer grid cell indices I,J,K
@@ -282,9 +286,9 @@ class WellData():
                                                             bhp_constraint=bhp_constraint, inj_temp=inj_temp,
                                                             phase_name=phase_name)))
 
-    def add_prd_rate_control(self, name, rate, bhp_constraint, phase_name=None, time=0):
+    def add_prd_rate_control(self, name, rate, rate_type, bhp_constraint=None, phase_name=None, time=0):
         wctrl = WellControl()
-        wctrl.prod_rate_control(rate=rate, bhp_constraint=bhp_constraint, phase_name=phase_name)
+        wctrl.prod_rate_control(rate=rate, rate_type=rate_type, bhp_constraint=bhp_constraint, phase_name=phase_name)
         self.wells[name].controls.append((time, wctrl))
 
     def add_prd_bhp_control(self, name, bhp, time=0):
@@ -292,12 +296,12 @@ class WellData():
         wctrl.prod_bhp_control(bhp=bhp)
         self.wells[name].controls.append((time, wctrl))
 
-    def add_inj_rate_control(self, name, rate, bhp_constraint, temperature=None, phase_name=None, time=0):
+    def add_inj_rate_control(self, name, rate, rate_type, bhp_constraint=None, temperature=None, phase_name=None, inj_composition=[], time=0):
         wctrl = WellControl()
-        wctrl.inj_rate_control(rate=rate, bhp_constraint=bhp_constraint, temperature=temperature, phase_name=phase_name)
+        wctrl.inj_rate_control(rate=rate, rate_type=rate_type, bhp_constraint=bhp_constraint, temperature=temperature, phase_name=phase_name)
         self.wells[name].controls.append((time, wctrl))
 
-    def add_inj_bhp_control(self, name, bhp, temperature=None, phase_name=None, time=0):
+    def add_inj_bhp_control(self, name, bhp, temperature=None, phase_name=None, inj_composition=[], time=0):
         wctrl = WellControl()
         wctrl.inj_bhp_control(bhp=bhp, temperature=temperature, phase_name=phase_name)
         self.wells[name].controls.append((time, wctrl))
