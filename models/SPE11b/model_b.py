@@ -75,17 +75,14 @@ class Model(DartsModel):
 
     def set_well_controls(self):
         if self.specs['RHS'] is False:
-            T_inj = 10+273.15 if self.physics.thermal else 40+273.15
             for i, w in enumerate(self.reservoir.wells):
-                # TO DO well_control_iface.NONE does not work here 
                 self.physics.set_well_controls(well = w,
-                                               control_type = well_control_iface.NONE,# if self.inj_rate[i] != self.zero else well_control_iface.NONE,
-                                               is_control = True,
+                                               control_type = well_control_iface.MASS_RATE,
                                                is_inj = True,
                                                target = self.inj_rate[i],
-                                               # phase_name = 'V',
-                                               # inj_composition = self.inj_stream[:-1],
-                                               # inj_temp = T_inj
+                                               phase_name = 'V',
+                                               inj_composition = self.inj_stream[:-1],
+                                               inj_temp = self.inj_stream[-1]
                                                )
                 print(f'Set well {w.name} to {self.inj_rate[i]} kg/day with {self.inj_stream[:-1]} {self.components[:-1]} at 10°C...')
             return
@@ -509,8 +506,8 @@ class Model(DartsModel):
             if self.platform == 'gpu':
                 copy_data_to_host(self.physics.engine.X, self.physics.engine.get_X_d())
 
-            # if self.physics.thermal:
-            #     self.set_top_bot_temp()
+            if self.physics.thermal:
+                self.set_top_bot_temp()
 
             if self.platform == 'gpu':
                 copy_data_to_device(self.physics.engine.X, self.physics.engine.get_X_d())
@@ -568,84 +565,6 @@ class Model(DartsModel):
 
         self.timer.node['simulation'].stop()
         return converged
-
-    def set_wells(self):
-        self.reservoir.well_cells = []
-        for name, center in self.reservoir.well_centers.items():
-            cell_index = self.reservoir.find_cell_index(center)
-            self.reservoir.well_cells.append(cell_index)
-        
-        for well_nr in range(2-1):
-            
-            k = int(self.reservoir.well_cells[well_nr] / (self.reservoir.nx * self.reservoir.ny) - 1)
-            i = int(np.abs(self.reservoir.nx - (self.reservoir.well_cells[well_nr] - k * (self.reservoir.nx * self.reservoir.ny))))
-            j = 1 
-            
-            try:
-                assert k * self.reservoir.nx * self.reservoir.ny + j * self.reservoir.nx + i == self.reservoir.well_cells[well_nr]
-            except:
-                print(f"Assertion Failed: (i={i}, j={j}, k={k})")
-                print(f"Computed Index: {k * self.reservoir.nx * self.reservoir.ny + j * self.reservoir.nx + i}")
-                print(f"Expected Index: {self.reservoir.well_cells[well_nr]}")
-                raise
-                
-            self.reservoir.add_well("I%d"%well_nr)
-            self.reservoir.add_perforation("I%d"%well_nr, cell_index = (i, j, k), well_index=100, well_indexD=100)
-            
-            
-    def set_well_controls(self):
-        from darts.engines import well_control_iface
-        T_inj = 10
-        for i, w in enumerate(self.reservoir.wells):
-            if 'I' in w.name:
-                if self.inj_rate[i] == 0:
-                    self.physics.set_well_controls(wctrl=w.control,
-                                                   control_type = well_control_iface.MASS_RATE,
-                                                   is_inj = True,
-                                                   target = 0.01,
-                                                   phase_name = 'V',
-                                                   inj_composition = self.inj_stream[:-1],
-                                                   inj_temp = 273.15+T_inj)
-                
-                else:
-                    self.physics.set_well_controls(wctrl=w.control,
-                                                   control_type = well_control_iface.MASS_RATE,
-                                                   is_inj = True,
-                                                   target = self.inj_rate[i],
-                                                   phase_name = 'V',
-                                                   inj_composition = self.inj_stream[:-1],
-                                                   inj_temp = 273.15 + T_inj)
-                    
-                    print(f'Set well {w.name} to {self.inj_rate[i]} kg/day at 10°C')
-                    
-            
-            # else:
-            #     self.physics.set_well_controls(well=w, is_control=True, control_type=well_control_iface.BHP,
-            #                                    is_inj=False, target=self.p_prod)
-
-    # def set_rhs_flux(self, t: float = None):
-    #     M_CO2 = 44.01  # kg/kmol
-    #     nv = self.physics.n_vars
-    #     nb = self.reservoir.mesh.n_res_blocks
-    #     rhs_flux = np.zeros(nb * nv)
-    #     # wells
-    #     enth_idx = list(self.physics.property_containers[0].output_props.keys()).index("enthV")
-    #     for i, well_cell in enumerate(self.reservoir.well_cells):
-    #         # Obtain state from engine
-    #         p_wellcell = self.physics.engine.X[well_cell * nv]
-    #         CO2_idx = well_cell * nv + 1  # second equation
-    #         temp_idx = well_cell * nv + nv - 1  # last equation
-    #         state = value_vector([p_wellcell] + self.inj_stream)
-
-    #         # calculate properties
-    #         values = value_vector(np.zeros(self.physics.n_ops))
-    #         self.physics.property_itor[self.op_num[well_cell]].evaluate(state, values)
-
-    #         enthV = values[enth_idx]
-    #         n_CO2 = self.inj_rate[i] / M_CO2
-    #         rhs_flux[CO2_idx] -= n_CO2
-    #         rhs_flux[temp_idx] -= enthV * n_CO2
-    #     return rhs_flux
 
 class ModBrooksCorey:
     def __init__(self, corey, phase):

@@ -106,7 +106,7 @@ class FluidFlowerStruct(StructReservoir):
                     raise
 
                 self.add_well("I%d" % well_nr)
-                self.add_perforation("I%d" % well_nr, cell_index=(i, j, k), verbose=True)
+                self.add_perforation("I%d" % well_nr, cell_index=(i, j, k), well_indexD=0, verbose=True)
                 
                 # well_idx = self.wells[well_nr].well_body_idx 
                 # self.mesh.op_num[well_idx] = self.mesh.op_num[self.well_cells[well_nr]]
