@@ -324,7 +324,7 @@ class DartsModel:
         if self.data_ts.linear_type is not None:
             m.params.linear_type = self.data_ts.linear_type
 
-    def run_simple(self, physics, params, days):
+    def run_simple(self, physics, data_ts, days):
         """
         Method to run simulation for specified time. Optional argument to specify dt to restart simulation with.
 
@@ -337,7 +337,7 @@ class DartsModel:
         """
         days = days if days is not None else self.runtime
         self.physics = physics
-        self.params = params
+        self.data_ts = data_ts
         verbose = False
 
         # get current engine time
@@ -346,11 +346,11 @@ class DartsModel:
 
         # same logic as in engine.run
         if fabs(t) < 1e-15:
-            dt = self.params.dt_first
+            dt = self.data_ts.dt_first
         elif restart_dt > 0.:
             dt = restart_dt
         else:
-            dt = min(self.prev_dt * self.params.mult_ts, self.params.max_ts)
+            dt = min(self.prev_dt * self.data_ts.dt_mult, self.data_ts.dt_max)
         self.prev_dt = dt
 
         ts = 0
@@ -365,11 +365,11 @@ class DartsModel:
                     print("# %d \tT = %3g\tDT = %2g\tNI = %d\tLI=%d"
                           % (ts, t, dt, self.physics.engine.n_newton_last_dt, self.physics.engine.n_linear_last_dt))
 
-                dt = min(dt * self.params.mult_ts, self.params.max_ts)
+                dt = min(dt * self.data_ts.dt_mult, self.data_ts.dt_max)
 
                 # if the current dt almost covers the rest time amount needed to reach the stop_time, add the rest
                 # to not allow the next time step be smaller than min_ts
-                if np.fabs(t + dt - stop_time) < self.params.min_ts:
+                if np.fabs(t + dt - stop_time) < self.data_ts.dt_min:
                     dt = stop_time - t
 
 
@@ -379,10 +379,10 @@ class DartsModel:
                     self.prev_dt = dt
 
             else:
-                dt /= self.params.mult_ts
+                dt /= self.data_ts.dt_mult
                 if verbose:
                     print("Cut timestep to %2.10f" % dt)
-                if dt < self.params.min_ts:
+                if dt < self.data_ts.dt_min:
                     break
                     
         # update current engine time
