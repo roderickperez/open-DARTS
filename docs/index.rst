@@ -19,7 +19,11 @@ Welcome to DARTS documentation!
    getting_started/installation.md
    getting_started/tutorial.md
    getting_started/example_models.md
-
+   getting_started/supported_features.md
+   getting_started/troubleshooting.md
+   getting_started/F.A.Q..md
+   
+   
 .. toctree::
    :maxdepth: 2
    :caption: FOR DEVELOPERS
@@ -33,6 +37,8 @@ Welcome to DARTS documentation!
    
    technical_reference/glossary.md
    technical_reference/reservoir.md
+   technical_reference/on_multi_segment_in_add_perforation.md
+   technical_reference/well_time_data_guide.md
 
 .. toctree::
    :maxdepth: 2

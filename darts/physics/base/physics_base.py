@@ -237,9 +237,8 @@ class PhysicsBase:
                                                        precision=itor_precision)
         return
 
-    def set_well_controls(self, well: ms_well, control_type: well_control_iface.WellControlType, is_inj: bool,
-                          target: float, phase_name: str = None, inj_composition: list = None, inj_temp: float = None,
-                          is_control: bool = True):
+    def set_well_controls(self, wctrl: well_control_iface, control_type: well_control_iface.WellControlType, is_inj: bool,
+                          target: float, phase_name: str = None, inj_composition: list = None, inj_temp: float = None):
         """
         Method to set well controls. It will call set_bhp_control() or set_rate_control() on the control or constraint
         well_control_iface object that lives in ms_well. In order to deactivate a control or constraint, pass WellControlType.NONE.
@@ -263,18 +262,11 @@ class PhysicsBase:
 
         # Pass controls specification to ms_well object
         if control_type == well_control_iface.BHP:
-            if is_control:
-                well.set_bhp_control(is_inj, target, inj_composition, inj_temp)
-            else:
-                well.set_bhp_constraint(is_inj, target, inj_composition, inj_temp)
+            wctrl.set_bhp_control(is_inj, target, inj_composition, inj_temp)
         else:
             # Injection/production rate
             target = np.abs(target) if is_inj else -np.abs(target)  # + for inj, - for prod
-
-            if is_control:
-                well.set_rate_control(is_inj, control_type, phase_idx, target, inj_composition, inj_temp)
-            else:
-                well.set_rate_constraint(is_inj, control_type, phase_idx, target, inj_composition, inj_temp)
+            wctrl.set_rate_control(is_inj, control_type, phase_idx, target, inj_composition, inj_temp)
 
         return
 
@@ -322,7 +314,7 @@ class PhysicsBase:
 
     @abc.abstractmethod
     def set_initial_conditions_from_depth_table(self, mesh: conn_mesh, input_distribution: dict,
-                                                input_depth: Union[list, np.ndarray]):
+                                                input_depth: Union[list, np.ndarray], global_to_local=None):
         """
         Function to set initial conditions from given distribution of properties over depth.
 
@@ -330,6 +322,7 @@ class PhysicsBase:
         :param input_distribution: Initial distributions of unknowns over depth, must have keys equal to self.vars
                                    and each entry is scalar or array of length equal to depths
         :param input_depth: Array of depths over which depth table has been specified
+        :param global_to_local: array of indices mapping to active elements
         """
         pass
 
