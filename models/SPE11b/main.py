@@ -176,17 +176,18 @@ def run(specs):
         grid = np.meshgrid(np.linspace(0, 8400, nx),
                            np.linspace(0, 1200, nz))
         poro = m.reservoir.global_data['poro']
+        op_num = np.array(m.reservoir.mesh.op_num)[:m.reservoir.n] + 1
 
         plt.figure(dpi = 100, figsize = (10, 2))
-        plt.title('Porosity')
-        c = plt.pcolor(grid[0], grid[1], poro.reshape(nz, nx))
-        plt.colorbar(c)
+        plt.title('Facies')
+        c = plt.pcolor(grid[0], grid[1], op_num.reshape(nz, nx), cmap = 'jet', vmin=min(op_num), vmax=max(op_num))
+        plt.colorbar(c, ticks = np.arange(1, 8))
         plt.xlabel('x [m]'); plt.ylabel('z [m]')
         # centroids = m.reservoir.discretizer.centroids_all_cells
         centroids = m.reservoir.centroids
         plt.scatter(centroids[m.reservoir.well_cells[0], 0], centroids[m.reservoir.well_cells[0], 2], marker='x', c='r', s=5)
         plt.scatter(centroids[m.reservoir.well_cells[1], 0], centroids[m.reservoir.well_cells[1], 2], marker='x', c='r', s=5)
-        plt.savefig(os.path.join(m.output_folder, f'porosity.png'), bbox_inches='tight')
+        plt.savefig(os.path.join(m.output_folder, f'op_num.png'), bbox_inches='tight')
         plt.close()
 
         solution_vector = np.array(m.physics.engine.X)
