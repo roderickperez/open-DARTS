@@ -6,7 +6,7 @@ import numpy as np
 from visualization import plot_profiles, plot_new_profiles, animate_1d
 
 def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str = None, poro_filename: str = None, output: bool = False,
-                   minerals: list = ['calcite']):
+                   minerals: list = ['calcite'], kinetic_mechanisms: list = ['acidic', 'neutral']):
     # Make a folder
     output_folder = 'output_' + domain + '_' + str(nx) + '_' + '_'.join(minerals)
     if not os.path.exists(output_folder): os.makedirs(output_folder)
@@ -15,7 +15,8 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str
     redirect_darts_output(os.path.join(output_folder, 'log.txt'))
 
     # Create model
-    m = Model(domain=domain, nx=nx, mesh_filename=mesh_filename, poro_filename=poro_filename, minerals=minerals)
+    m = Model(domain=domain, nx=nx, mesh_filename=mesh_filename, poro_filename=poro_filename,
+              minerals=minerals, kinetic_mechanisms=kinetic_mechanisms)
     m.sol_filename = 'nx' + str(nx) + '.h5'
 
     # Initialize model

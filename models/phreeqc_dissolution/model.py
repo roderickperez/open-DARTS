@@ -49,13 +49,14 @@ class MyOwnDataStruct:
 # Actual Model class creation here!
 class Model(CICDModel):
     def __init__(self, domain: str = '1D', nx: int = 200, mesh_filename: str = None, poro_filename: str = None,
-                 minerals: list = ['calcite']):
+                 minerals: list = ['calcite'], kinetic_mechanisms=['acidic', 'neutral']):
         # Call base class constructor
         super().__init__()
 
         # Measure time spend on reading/initialization
         self.timer.node["initialization"].start()
         self.minerals = minerals
+        self.kinetic_mechanisms = kinetic_mechanisms
         self.n_solid = len(minerals)
 
         self.set_reservoir(domain=domain, nx=nx, mesh_filename=mesh_filename, poro_filename=poro_filename)
@@ -236,7 +237,8 @@ class Model(CICDModel):
 
         # Create property containers:
         property_container = ModelProperties(phases_name=self.phases, components_name=self.elements, Mw=Mw,
-                                             min_z=self.obl_min, temperature=self.temperature, fc_mask=self.fc_mask)
+                                             kinetic_mechanisms=self.kinetic_mechanisms, min_z=self.obl_min,
+                                             temperature=self.temperature, fc_mask=self.fc_mask)
 
         property_container.diffusion_ev = {ph: ConstFunc(np.concatenate([np.zeros(self.n_solid), \
                                          np.ones(self.nc - self.n_solid)]) * 5.2e-10 * 86400) for ph in self.phases}
@@ -533,8 +535,8 @@ class Model(CICDModel):
         return timesteps, property_array
 
 class ModelProperties(PropertyContainer):
-    def __init__(self, phases_name, components_name, Mw, nc_sol=0, np_sol=0, min_z=1e-11, rate_ann_mat=None,
-                 temperature=None, fc_mask=None, kinetic_mechanisms=['acidic', 'neutral']):
+    def __init__(self, phases_name, components_name, Mw, kinetic_mechanisms, nc_sol=0, np_sol=0, min_z=1e-11, rate_ann_mat=None,
+                 temperature=None, fc_mask=None):
         super().__init__(phases_name=phases_name, components_name=components_name, Mw=Mw, nc_sol=nc_sol, np_sol=np_sol,
                          min_z=min_z, rate_ann_mat=rate_ann_mat, temperature=temperature)
         self.components_name = np.array(self.components_name)
@@ -945,7 +947,6 @@ class ModelProperties(PropertyContainer):
                                            k=10 ** (-3.48),
                                            Ea=35400,
                                            n=1)
-                self.mechanisms = [acidic, neutral, carbonate]
             elif mineral == 'CaMg(CO3)2':            # dolomite
                 acidic = self.ReactionMechanism(name='acidic',
                                            temperature_ref=t_ref,
@@ -962,7 +963,6 @@ class ModelProperties(PropertyContainer):
                                            k=10 ** (-5.11),
                                            Ea=34800,
                                            n=0.5)
-                self.mechanisms = [acidic, neutral, carbonate]
             elif mineral == 'MgCO3':                 # magnesite
                 acidic = self.ReactionMechanism(name='acidic',
                                            temperature_ref=t_ref,
