@@ -1,14 +1,19 @@
 import os
-# os.environ["OMP_NUM_THREADS"] = "1"
+# os.environ["OMP_NUM_THREADS"] = "4"
+import shutil
 from model import Model
 from darts.engines import redirect_darts_output
 import numpy as np
 from visualization import plot_profiles, plot_new_profiles, animate_1d
 
-def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str = None, poro_filename: str = None, output: bool = False,
-                   minerals: list = ['calcite'], kinetic_mechanisms: list = ['acidic', 'neutral']):
+def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str = None, poro_filename: str = None, 
+                   output: bool = False, interpolator: str = 'multilinear', minerals: list = ['calcite'], 
+                   kinetic_mechanisms: list = ['acidic', 'neutral'], output_folder: str = None,
+                   n_obl_mult: int = 1):
     # Make a folder
-    output_folder = 'output_' + domain + '_' + str(nx) + '_' + '_'.join(minerals)
+    if output_folder is None:
+        output_folder = 'output_' + domain + '_' + str(nx) + '_' + '_'.join(minerals) + \
+            '_' + '_'.join(kinetic_mechanisms) + '_' + interpolator
     if not os.path.exists(output_folder): os.makedirs(output_folder)
 
     # Redirect output to log file
@@ -16,11 +21,11 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str
 
     # Create model
     m = Model(domain=domain, nx=nx, mesh_filename=mesh_filename, poro_filename=poro_filename,
-              minerals=minerals, kinetic_mechanisms=kinetic_mechanisms)
+              minerals=minerals, kinetic_mechanisms=kinetic_mechanisms, n_obl_mult=n_obl_mult)
     m.sol_filename = 'nx' + str(nx) + '.h5'
 
     # Initialize model
-    m.init(output_folder=output_folder)
+    m.init(output_folder=output_folder, itor_type=interpolator)
     m.physics.engine.n_solid = len(minerals)
 
     # Timestepping agent
@@ -126,6 +131,10 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str
 
     m.print_timers()
     m.print_stat()
+
+    # copy files to save configuration
+    shutil.copy('main.py', os.path.join(output_folder, 'main.py'))
+    shutil.copy('model.py', os.path.join(output_folder, 'model.py'))
 
 if __name__ == '__main__':
     # 1D

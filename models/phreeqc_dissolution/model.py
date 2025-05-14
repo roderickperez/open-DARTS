@@ -49,7 +49,7 @@ class MyOwnDataStruct:
 # Actual Model class creation here!
 class Model(CICDModel):
     def __init__(self, domain: str = '1D', nx: int = 200, mesh_filename: str = None, poro_filename: str = None,
-                 minerals: list = ['calcite'], kinetic_mechanisms=['acidic', 'neutral']):
+                 minerals: list = ['calcite'], kinetic_mechanisms=['acidic', 'neutral'], n_obl_mult: int = 1):
         # Call base class constructor
         super().__init__()
 
@@ -57,6 +57,7 @@ class Model(CICDModel):
         self.timer.node["initialization"].start()
         self.minerals = minerals
         self.kinetic_mechanisms = kinetic_mechanisms
+        self.n_obl_mult = n_obl_mult
         self.n_solid = len(minerals)
 
         self.set_reservoir(domain=domain, nx=nx, mesh_filename=mesh_filename, poro_filename=poro_filename)
@@ -155,7 +156,7 @@ class Model(CICDModel):
             self.elements = ['Solid_CaCO3', 'Ca', 'C', 'O', 'H']
             self.fc_mask = np.array([False, True, True, True, True], dtype=bool)
             Mw = {'Solid_CaCO3': 100.0869, 'Ca': 40.078, 'C': 12.0096, 'O': 15.999, 'H': 1.007} # molar weights in kg/kmol
-            self.n_points = list(np.array([101, 201, 101, 101, 101], dtype=np.intp))
+            self.n_points = list(self.n_obl_mult * np.array([101, 201, 101, 101, 101], dtype=np.intp))
             self.axes_min = [self.pressure_init - 1] + [self.obl_min, self.obl_min, self.obl_min, 0.3]
             self.axes_max = [self.pressure_init + 2] + [1 - self.obl_min, 0.01, 0.02, 0.37]
             # Rate annihilation matrix
@@ -180,7 +181,7 @@ class Model(CICDModel):
             self.fc_mask = np.array([False, False, True, True, True, True, True], dtype=bool)
             Mw = {'Solid_CaCO3': 100.0869, 'Solid_CaMg(CO3)2': 184.401,
                     'Ca': 40.078, 'Mg': 24.305, 'C': 12.0096, 'O': 15.999, 'H': 1.007} # molar weights in kg/kmol
-            self.n_points = list(2 * np.array([101, 201, 201, 101, 101, 101, 101], dtype=np.intp))
+            self.n_points = list(self.n_obl_mult * np.array([101, 201, 201, 101, 101, 101, 101], dtype=np.intp))
             self.axes_min = [self.pressure_init - 1] + [self.obl_min, self.obl_min, self.obl_min, self.obl_min, self.obl_min, 0.3]
             self.axes_max = [self.pressure_init + 2] + [1 - self.obl_min, 0.2, 0.01, 0.001, 0.02, 0.37]
             # Rate annihilation matrix
@@ -209,7 +210,7 @@ class Model(CICDModel):
             self.fc_mask = np.array([False, False, False, True, True, True, True, True], dtype=bool)
             Mw = {'Solid_CaCO3': 100.0869, 'Solid_CaMg(CO3)2': 184.401, 'Solid_MgCO3': 84.31,
                     'Ca': 40.078, 'Mg': 24.305, 'C': 12.0096, 'O': 15.999, 'H': 1.007} # molar weights in kg/kmol
-            self.n_points = list(np.array([101, 201, 201, 201, 101, 101, 101, 101], dtype=np.intp))
+            self.n_points = list(self.n_obl_mult * np.array([101, 201, 201, 201, 101, 101, 101, 101], dtype=np.intp))
             self.axes_min = [self.pressure_init - 1] + [self.obl_min, self.obl_min, self.obl_min, self.obl_min, self.obl_min, self.obl_min, 0.3]
             self.axes_max = [self.pressure_init + 2] + [1 - self.obl_min, 0.2, 0.01, 0.01, 0.001, 0.02, 0.37]
             # Rate annihilation matrix
