@@ -126,15 +126,15 @@ The initial conditions are visualized by either calling,
 ```
 , and exporting the initial conditions to as *.vtk files or by accessing the solution vector in `m.physics.engine.X` directly in python. 
 ```python
-    solution_vector = np.array(m.physics.engine.X)
-    for i, name in enumerate(vars):
-        plt.figure(figsize = (10, 2))
-        plt.title(name)
-        c = plt.pcolor(grid[0], grid[1], solution_vector[i::n_vars][:nb].reshape(nz, nx), cmap = 'jet')
-        plt.colorbar(c, aspect = 10)
-        plt.xlabel('x [m]'); plt.ylabel('z [m]')
-        plt.savefig(os.path.join(m.output_folder, f'initial_conditions_{name}.png'), bbox_inches='tight')
-        plt.close()
+solution_vector = np.array(m.physics.engine.X)
+for i, name in enumerate(vars):
+    plt.figure(figsize = (10, 2))
+    plt.title(name)
+    c = plt.pcolor(grid[0], grid[1], solution_vector[i::n_vars][:nb].reshape(nz, nx), cmap = 'jet')
+    plt.colorbar(c, aspect = 10)
+    plt.xlabel('x [m]'); plt.ylabel('z [m]')
+    plt.savefig(os.path.join(m.output_folder, f'initial_conditions_{name}.png'), bbox_inches='tight')
+    plt.close()
 ```
 
 ## Model physics
