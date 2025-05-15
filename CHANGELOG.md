@@ -25,8 +25,10 @@
   - The output folder is defined in DartsModel.set_output(output_folder=output) instead of in DartsModel.init()
   - The default name for save file 'solution.h5' is changed to 'reservoir_solution.h5' and now only contains reservoir blocks instead of the entire solution vector. 
   - DartsModel.output.output_properties()'s new default behavior is to return primary variables if the properties list is not defined. If defined, only the listed primary (states) and/or secondary (properties) variables are returned as a dictionary.
+  - DartsModel.output.store_well_time_data() is added to store well time data. The reported well time data include BHP, BHT, phases molar rates, phases mass rates, phases volumetric rates, components molar rates, components mass rates, and phases heat 
+  rates over time. The rates are reported for each perforation as well. Total rates for each well are reported in two different ways: summation of perforations rates and rates calculated at wellhead. New naming scheme of the new well time data is explained in [documentation](https://gitlab.com/open-darts/open-darts/-/blob/development/docs/technical_reference/well_time_data_guide.md?ref_type=heads).
+  - DartsModel.output.plot_well_time_data() is added for saving the figures of well time data.
   - C++ rate calculations will be replaced in the near future with python based rate calculations in the DartsModel.output(). Currently, both are available. However, it is recomended that you start transitioning to the new python rates. 
-  - New naming scheme for columns in 'time_data' when using python rates. For more information, please consult the [wiki](https://gitlab.com/open-darts/open-darts/-/wikis/Well-Time-Data) 
 - Save data to *.hdf5 with compression and/or single precision in order to manage file size. 
 - Evaluate properties from engine or saved data.
 - New option: DartsModel.set_output(all_phase_props=True), creates an extensive list of phase properties in the DartsModel.physics. 
