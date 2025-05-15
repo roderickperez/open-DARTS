@@ -69,6 +69,61 @@ void pybind_globals(py::module &m)
 {
   using namespace pybind11::literals;
 
+  // ---- begin uint128 binding ----
+  py::class_<__uint128_t>(m, "uint128", "128-bit unsigned integer")
+    .def(py::init<>())
+    .def(py::init([](py::int_ i){
+      const py::int_ two64 = py::int_(1) << 64;
+      const py::int_ hi_py = i / two64;
+      const py::int_ lo_py = i % two64;
+      // now cast each half to uint64_t
+      const uint64_t hi = hi_py.cast<uint64_t>();
+      const uint64_t lo = lo_py.cast<uint64_t>();
+      // rebuild the 128-bit value: (hi<<64) | lo
+      __uint128_t result = static_cast<__uint128_t>(hi);
+      result <<= 64;
+      result |= static_cast<__uint128_t>(lo);
+      return result;
+    }), "value"_a)
+
+  // conversion to Python int & use in slicing/indexing
+  .def("__int__", [](const __uint128_t &v){
+    py::int_ hi = py::int_(static_cast<uint64_t>(v >> 64));
+    py::int_ lo = py::int_(static_cast<uint64_t>(v));
+    return (hi << 64) | lo;
+  })
+  .def("__index__", [](const __uint128_t &v){
+    py::int_ hi = py::int_(static_cast<uint64_t>(v >> 64));
+    py::int_ lo = py::int_(static_cast<uint64_t>(v));
+    return (hi << 64) | lo;
+  })
+  .def("__repr__", [](const __uint128_t &v){
+    std::ostringstream oss;
+    oss << "uint128(" << std::to_string(v) << ")";
+    return oss.str();
+  })
+
+  // make it picklable: store as two 64-bit words
+  .def(py::pickle(
+    /*__getstate__*/ [](const __uint128_t &v){
+      uint64_t lo = static_cast<uint64_t>(v);
+      uint64_t hi = static_cast<uint64_t>(v >> 64);
+      return py::make_tuple(lo, hi);
+    },
+    /*__setstate__*/ [](py::tuple t){
+      if (t.size() != 2)
+        throw std::runtime_error("Invalid state for uint128");
+      uint64_t lo = t[0].cast<uint64_t>();
+      uint64_t hi = t[1].cast<uint64_t>();
+      // rebuild the 128-bit value
+      __uint128_t result = static_cast<__uint128_t>(hi);
+      result <<= 64;
+      result |= static_cast<__uint128_t>(lo);
+      return result;
+    }
+  ));
+  // ---- end uint128 binding ----
+
   py::class_<sim_params> sim_params(m, "sim_params", "Class simulation parameters");
 
   sim_params.def(py::init<>())
