@@ -692,7 +692,8 @@ class ModelProperties(PropertyContainer):
                     GAS_PHASE 1
                     pressure  {{pressure:.4f}}       
                     temp      {{temperature:.2f}}  
-                    CO2(g)     0
+                    CO2(g)    {{co2_pressure:.4f}}
+                    H2O(g)    {{h2o_pressure:.4f}}
         
                     END
                     """
@@ -889,6 +890,8 @@ class ModelProperties(PropertyContainer):
                 input_string = self.phreeqc_template.format(
                     temperature=self.temperature,
                     pressure=pressure_atm,
+                    co2_pressure=0.99 * pressure_atm,
+                    h2o_pressure=0.01 * pressure_atm,
                     water_mass=water_mass,
                     hydrogen=fluid_moles[self.fc_idx['H']],
                     oxygen=fluid_moles[self.fc_idx['O']],

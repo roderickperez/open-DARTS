@@ -138,7 +138,19 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str
 
 if __name__ == '__main__':
     # 1D
-    run_simulation(domain='1D', nx=200, max_ts=1.e-3)  # 4.e-5)
+    # run_simulation(domain='1D', nx=200, output=True, max_ts=1.e-3,
+    #                 #output_folder='data_for_seminar/obl_conv_calcite_carbonate/200_1',
+    #                 minerals=['calcite', 'dolomite'],#, 'magnesite'])  # 4.e-5)
+    #                 kinetic_mechanisms=['acidic', 'neutral'])#, 'carbonate'])
+
+    n_obl_mult = 1
+    run_simulation(domain='1D', nx=200, output=False, max_ts=1.e-3,
+                    #output_folder=f'convergence_study/calcite_dolomite/200_{n_obl_mult}_linear',
+                    n_obl_mult=n_obl_mult,
+                    interpolator='multilinear',
+                    minerals=['calcite'],# 'dolomite'],#, 'magnesite'])  # 4.e-5)
+                    kinetic_mechanisms=['acidic', 'neutral'])#, 'carbonate'])
+
     # run_simulation(domain='1D', nx=500, max_ts=5.e-4)
 
     # 2D
