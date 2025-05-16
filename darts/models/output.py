@@ -230,6 +230,37 @@ class Output:
 
         return
 
+    def save_array(self, array, filename, compression_level=1):
+        """
+        This function saved any dictionary as an h5 file with compression
+
+        : param array: data
+        : type array: dict
+        : param filename: filename in the format filename.h5
+        : type filename: str
+        : param compression_level : int value between 0 and 9
+        : type : int
+        """
+        output_directory = os.path.join(m.output_folder, filename)
+        with h5py.File(output_directory, "w") as h5f:
+            for key, array in array.items():
+                h5f.create_dataset(key, data=array, compression='gzip', compression_opts=compression_level)
+        return 0
+
+    def load_array(self, file_directory):
+        """
+        This function loads any saved data in h5 file format
+
+        : param file_directory: filename in the format filename.h5
+        : type file_directory: str
+        """
+
+        array = {}
+        with h5py.File(file_directory, "r") as h5f:
+            for key in h5f.keys():
+                array[key] = np.array(h5f[key])
+        return array
+
     def save_property_array(self, time_vector, property_array, filename="property_array.h5"):
         """
         Saves property_array to an HDF5 file.

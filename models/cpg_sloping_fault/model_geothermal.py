@@ -62,7 +62,8 @@ class ModelGeothermal(Model_CPG):
         a = self.reservoir.input_arrays  # include initial arrays and the grid
 
         nv = self.physics.n_vars
-        n_ops = self.physics.n_ops
+        # n_ops = self.physics.n_ops
+        n_ops = self.output.n_ops
         nb = self.reservoir.mesh.n_res_blocks
         Xn = np.array(self.physics.engine.X, copy=False)
         state = value_vector(Xn.T.flatten())
