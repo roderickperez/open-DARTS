@@ -769,7 +769,7 @@ class Output:
                 plt.savefig(output_directory + '/%s ts%d.png' % (var, timestep))
         plt.close('all')
 
-    def store_well_time_data(self, types_of_well_rates: list = None, save_as_pkl: bool = False):
+    def store_well_time_data(self, types_of_well_rates: list = None, save_output_files: bool = False):
         """
         Compute and store well time data including rates and bottom-hole conditions (BHT and BHP).
         Rates are calculated for each perforation and also total rate of each well. Total rates are calculated using
@@ -785,8 +785,8 @@ class Output:
                                     "components_mass_rates"
                                     "advective_heat_rate" for thermal scenarios
         :type types_of_well_rates: list
-        :param save_as_pkl: flag to save time_data as a .pkl and .xlsx file in the output folder, default false
-        :type save_as_pkl: bool
+        :param save_output_files: Flag to save time_data as a .pkl and .xlsx file in the output folder, default false
+        :type save_output_files: bool
 
         Well data is saved as a *.pkl file and .xlsx file in the dartsmodel.output_folder.
         """
@@ -828,7 +828,7 @@ class Output:
             self.store_wellhead_rates(time_data_dict, rates_wellhead, rate_type)
 
         # Export time_data_dict
-        if save_as_pkl:
+        if save_output_files:
             df = pd.DataFrame(time_data_dict)
             df.to_pickle(os.path.join(self.output_folder, 'well_time_data.pkl'))
             with pd.ExcelWriter(os.path.join(self.output_folder, 'well_time_data.xlsx')) as w:

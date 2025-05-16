@@ -119,7 +119,7 @@ def run(physics_type : str, case: str, out_dir: str, export_vtk=True, redirect_l
     time_data_report.to_excel(writer, sheet_name='time_data_report')
     writer.close()
 
-    m.output.store_well_time_data(save_as_pkl=True)
+    m.output.store_well_time_data(save_output_files=True)
     m.output.plot_well_time_data()
 
     if compare_with_ref:
