@@ -71,7 +71,7 @@ class Model(CICDModel):
         self.timer.node["initialization"].stop()
 
     def init(self, discr_type: str = 'tpfa', platform: str = 'cpu', restart: bool = False,
-             verbose: bool = False, output_folder: str = None, itor_mode: str = 'adaptive',
+             verbose: bool = False, itor_mode: str = 'adaptive',
              itor_type: str = 'multilinear', is_barycentric: bool = False):
         """
         Function to initialize the model, which includes:
@@ -90,8 +90,6 @@ class Model(CICDModel):
         :type restart: bool
         :param verbose: Switch for verbose
         :type verbose: bool
-        :param output_folder: folder for h5 output files
-        :type output_folder: str
         :param itor_mode: specifies either 'static' or 'adaptive' interpolator
         :type itor_mode: str
         :param itor_type: specifies either 'linear' or 'multilinear' interpolator
@@ -117,20 +115,16 @@ class Model(CICDModel):
         self.physics.init_wells(self.reservoir.wells)
         self.init_well_rates()
 
-        if output_folder is not None:
-            self.output_folder = output_folder
-
         self.set_op_list()
         self.set_boundary_conditions()
-        self.set_initial_conditions()
         self.set_well_controls()
-        self.reset()
 
-        # self.restart = restart
-
-        # save solution vector
+        # when restarting the initial conditions are set in self.load_restart_data() and the engine is reset.
+        self.restart = restart
         if restart is False:
-            self.save_data_to_h5(kind = 'solution')
+            self.set_initial_conditions()
+            self.reset()
+        self.data_ts.print()
 
     def set_physics(self):
         # some properties
@@ -472,8 +466,8 @@ class Model(CICDModel):
     def set_boundary_conditions(self):
         # New boundary condition by adding wells:
         w = self.reservoir.wells[0]
-        self.physics.set_well_controls(well=w, is_control=True, control_type=well_control_iface.BHP,
-                                               is_inj=False, target=self.pressure_init)
+        self.physics.set_well_controls(wctrl=w.control, control_type=well_control_iface.BHP, is_inj=False,
+                                       target=self.pressure_init)
 
     def output_properties(self, output_properties: list = None, timestep: int = None) -> tuple:
         timesteps = [timestep] if timestep is not None else [0]
@@ -692,8 +686,8 @@ class ModelProperties(PropertyContainer):
                     GAS_PHASE 1
                     pressure  {{pressure:.4f}}       
                     temp      {{temperature:.2f}}  
-                    CO2(g)    {{co2_pressure:.4f}}
-                    H2O(g)    {{h2o_pressure:.4f}}
+                    CO2(g)    0 #{{co2_pressure:.4f}}
+                    # H2O(g)    {{h2o_pressure:.4f}}
         
                     END
                     """

@@ -22,18 +22,11 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str
     # Create model
     m = Model(domain=domain, nx=nx, mesh_filename=mesh_filename, poro_filename=poro_filename,
               minerals=minerals, kinetic_mechanisms=kinetic_mechanisms, n_obl_mult=n_obl_mult)
-    m.sol_filename = 'nx' + str(nx) + '.h5'
 
     # Initialize model
-    m.init(output_folder=output_folder, itor_type=interpolator)
+    m.init(itor_type=interpolator)
+    m.set_output(output_folder=output_folder, sol_filename=f'nx{nx}.h5')
     m.physics.engine.n_solid = len(minerals)
-
-    # Timestepping agent
-    # state_size = 6  # e.g., 6 features
-    # action_size = 3  # decrease, maintain, increase
-    # m.agent = DQNAgent(state_size=state_size, action_size=action_size, model_type='linear')
-    # m.agent_batch_size = 32
-    # m.agent_actions_map = {0: 0.5, 1: 1.0, 2: 2.0}
 
     # Initialization check
     op_vals = np.asarray(m.physics.engine.op_vals_arr).reshape(m.reservoir.mesh.n_blocks, m.physics.n_ops)
