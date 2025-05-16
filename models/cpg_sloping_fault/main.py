@@ -38,12 +38,13 @@ def run(physics_type : str, case: str, out_dir: str, export_vtk=True, redirect_l
 
     m.set_input_data(case=case)
 
+    m.set_physics()
+
     arrays = m.init_input_arrays()
     # custom arrays can be read here
     # arrays['new_array_name'] = read_float_array(filename, 'new_array_name')
     # arrays['new_array_name'] = read_int_array(filename, 'new_array_name')
     m.init_reservoir(arrays=arrays)
-    m.set_physics()
 
     # time stepping and convergence parameters
     m.set_sim_params_data_ts(data_ts=m.idata.sim.DataTS)
@@ -250,7 +251,7 @@ if __name__ == '__main__':
 
     physics_list = []
     physics_list += ['geothermal']
-    #physics_list += ['deadoil']
+    physics_list += ['deadoil']
 
     cases_list = []
     cases_list += ['generate_5x3x4']
@@ -261,8 +262,8 @@ if __name__ == '__main__':
 
     well_controls = []
     well_controls += ['wrate']
-    #well_controls += ['wbhp']
-    #well_controls += ['wperiodic']
+    well_controls += ['wbhp']
+    well_controls += ['wperiodic']
 
     for physics_type in physics_list:
         for case_geom in cases_list:
