@@ -132,9 +132,8 @@ class DartsModel:
         self.set_boundary_conditions()
         self.set_well_controls()
 
-        self.restart = restart
-
         # when restarting the initial conditions are set in self.load_restart_data() and the engine is reset.
+        self.restart = restart
         if restart is False:
             self.set_initial_conditions()
             self.reset()
@@ -412,6 +411,7 @@ class DartsModel:
         :param save_solution_data: if True save states of all reservoir blocks at the end of run to 'solution.h5', default is True
         :type save_solution_data: bool
         """
+        assert hasattr(self, 'output'), "self.output does not exist, please call m.set_output() after m.init()"
         days = days if days is not None else self.runtime
         data_ts = self.data_ts
 
