@@ -38,6 +38,8 @@ class DataTS:
         self.line_search = False
         self.min_line_search_update = 1e-4
 
+        self.force_errors = False  # ignore errors and proceed
+
     def print(self):
         print('Simulation parameters:')
         for k in self.__dict__.keys():
@@ -138,6 +140,11 @@ class DartsModel:
             self.set_initial_conditions()
             self.reset()
         self.data_ts.print()
+        if self.params.linear_type == sim_params.linear_solver_t.cpu_superlu and \
+            self.reservoir.mesh.n_res_blocks > 5000:
+            print('The number of cells looks too big to use a direct linear solver:', self.reservoir.mesh.n_res_blocks, '> 5000')
+            if self.data_ts.force_errors == False:
+                exit()
 
     def reset(self):
         """
@@ -323,7 +330,7 @@ class DartsModel:
         self.params.tolerance_linear = self.data_ts.linear_tol
         self.params.max_i_linear = self.data_ts.linear_max_iter
         if self.data_ts.linear_type is not None:
-            m.params.linear_type = self.data_ts.linear_type
+            self.params.linear_type = self.data_ts.linear_type
 
     def run_simple(self, physics, data_ts, days):
         """
