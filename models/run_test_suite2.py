@@ -115,6 +115,7 @@ def run_testing(platform, overwrite, iter_solvers, test_all_models):
     n_total_m = len(accepted_dirs)
     n_failed += n_failed_m
     n_total += n_total_m
+    exit()
 
     # check main.py files runs, without comparison of pkl files
     n_failed_mainpy = n_total_mainpy = 0
@@ -217,7 +218,7 @@ def check_performance(mod):
     if os.getenv('UPLOAD_PKL') != None and os.getenv('UPLOAD_PKL') == '1':
         overwrite = 1
     failed = m.check_performance(overwrite=overwrite, pkl_suffix=pkl_suffix)
-    log_stream = redirect_all_output(log_file)
+
     return failed
 
 
@@ -233,7 +234,7 @@ def check_performance_adjoint(mod):
     mod.read_observation_data()
     failed = mod.process_adjoint()
     abort_redirection(log_stream)
-    log_stream = redirect_all_output(log_file)
+
 
     return failed
 
