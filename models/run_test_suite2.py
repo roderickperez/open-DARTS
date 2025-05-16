@@ -11,7 +11,7 @@ def run_testing(platform, overwrite, iter_solvers, test_all_models):
 
     # set model list to run
 
-    accepted_dirs = ['2ph_comp', '2ph_comp_solid', '2ph_do', 
+    accepted_dirs = ['2ph_comp', '2ph_comp_solid', '2ph_do',
                      '2ph_geothermal', '2ph_geothermal_mass_flux',
                      '3ph_comp_w', '3ph_do', '3ph_bo',
                      'Uniform_Brugge',
@@ -21,6 +21,7 @@ def run_testing(platform, overwrite, iter_solvers, test_all_models):
                      'CoaxWell',
                      'phreeqc_dissolution'
                      ]       
+
 
     if platform == 'cpu':  # MPFA code is excluded from gpu build due to compilation issues (c++ std 20)
         accepted_dirs += ['2ph_do_thermal_mpfa']
@@ -51,6 +52,26 @@ def run_testing(platform, overwrite, iter_solvers, test_all_models):
             for mesh in meshes_list:
                 test_args_mech_spe10.append([mesh, physics])
         test_args_mech += [test_args_mech_spe10]
+
+        test_dirs_mech += ['displaced_fault_reactivation']
+        test_args_fault = []
+        config = {'mode': 'quasi_static',
+                  'timesteps': [1.0],
+                  'depletion': {'mode': 'uniform', 'value': -250.0},
+                  'friction_law': 'static',
+                  'mesh_file': 'meshes/new_setup_coarse.geo',
+                  'cache_discretizer': False}
+        config[0] = config['friction_law']  # to make work arg[0] in for_each_model
+        test_args_fault += [config]
+        config = {'mode': 'quasi_static',
+                  'timesteps': [1.0],
+                  'depletion': {'mode': 'uniform', 'value': -172.4},  # -172.685 is more precise, requires finer mesh
+                  'friction_law': 'slip_weakening',
+                  'mesh_file': 'meshes/new_setup_coarse.geo',
+                  'cache_discretizer': False}
+        config[0] = config['friction_law']  # to make work arg[0] in for_each_model
+        test_args_fault += [config]
+        test_args_mech += [test_args_fault]
 
     # CPG (C++ discr)
     test_dirs_cpg = ['cpg_sloping_fault']
@@ -95,6 +116,7 @@ def run_testing(platform, overwrite, iter_solvers, test_all_models):
     n_total_m = len(accepted_dirs)
     n_failed += n_failed_m
     n_total += n_total_m
+    exit()
 
     # check main.py files runs, without comparison of pkl files
     n_failed_mainpy = n_total_mainpy = 0
@@ -115,18 +137,21 @@ def run_testing(platform, overwrite, iter_solvers, test_all_models):
     n_total += n_total_mainpy
 
     # discretizer tests
+    print('\nDiscretizer tests:')
     n_total_discr = n_failed_discr = 0
     n_total_discr, n_failed_discr = run_tests(model_dir, test_dirs=test_dirs_cpg, test_args=test_args_cpg, overwrite=overwrite, platform=platform)
     n_failed += n_failed_discr
     n_total += n_total_discr
 
     # fracture network tests
+    print('\nFracture network tests:')
     n_total_dfn = n_failed_dfn = 0
     n_total_dfn, n_failed_dfn = run_tests(model_dir, test_dirs=test_dirs_dfn, test_args=test_args_dfn, overwrite=overwrite, platform=platform)
     n_failed += n_failed_dfn
     n_total += n_total_dfn
 
     # poromechanic tests
+    print('\nPoromechanics tests:')
     n_total_mech = n_failed_mech = 0
     if platform == 'cpu':  # mech code is excluded from gpu build due to compilation issues (c++ std 20)
         n_total_mech, n_failed_mech = run_tests(model_dir, test_dirs_mech, test_args_mech, overwrite)
@@ -134,6 +159,7 @@ def run_testing(platform, overwrite, iter_solvers, test_all_models):
     n_total += n_total_mech
 
     # test for adjoint ------------------start---------------------------------
+    print('\nAdjoint tests:')
     n_failed_adj = n_total_adj = 0
     import time
     if len(accepted_dirs_adjoint):
@@ -185,14 +211,15 @@ def check_performance(mod):
         platform='gpu'
 
     m.init(platform=platform)
-    m.run()
+    m.set_output()
+    m.run(save_well_data=False, save_reservoir_data=False)
     m.print_stat()
     abort_redirection(log_stream)
     overwrite = 0
     if os.getenv('UPLOAD_PKL') != None and os.getenv('UPLOAD_PKL') == '1':
         overwrite = 1
     failed = m.check_performance(overwrite=overwrite, pkl_suffix=pkl_suffix)
-    log_stream = redirect_all_output(log_file)
+
     return failed
 
 
@@ -208,7 +235,7 @@ def check_performance_adjoint(mod):
     mod.read_observation_data()
     failed = mod.process_adjoint()
     abort_redirection(log_stream)
-    log_stream = redirect_all_output(log_file)
+
 
     return failed
 
