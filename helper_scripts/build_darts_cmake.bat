@@ -120,18 +120,14 @@ if %skip_req%==false (
     echo -- Install IPhreeqc: START
     cd thirdparty\build
     if not exist iphreeqc mkdir iphreeqc
-    cd iphreeqc
-
-    cmake ^
-      -D CMAKE_INSTALL_PREFIX="..\..\install\iphreeqc" ^
+    cd iphreeqc	  
+	  cmake ^
+      -D CMAKE_INSTALL_PREFIX=..\..\install\iphreeqc ^
       -D BUILD_TESTING=OFF ^
       -D BUILD_SHARED_LIBS=ON ^
-      .. ^
-      > ..\..\..\make_iphreeqc.log 2>&1
-    cmake --build . --config %config% --target install ^
-      >> ..\..\..\make_iphreeqc.log 2>&1
+      ..\..\iphreeqc > ..\..\..\make_iphreeqc.log 2>&1
+    msbuild INSTALL.vcxproj /p:Configuration=Release /p:Platform=x64 -maxCpuCount:8 >> ..\..\..\make_iphreeqc.log || goto :error
     cd ..\..\..
-    echo --- Building IPhreeqc: DONE!
   )
 
   echo - Install requirements: DONE!
@@ -222,5 +218,6 @@ echo    -a : Update private artifacts bos_solvers (instead of openDARTS solvers)
 echo    -b SPATH  : Path to bos_solvers (instead of openDARTS solvers), example: -b ./darts-linear-solvers containing lib/libdarts_linear_solvers.a (already compiled).
 echo    -d MODE   : Configuration for C++ code [Release, Debug]. Example: -d Debug
 echo    -j N      : Set number of threads (N) for compilation. Default: 8. Example: -j 4
+echo    -p : Enable Phreeqc. Default: false
 goto :eof
 REM ----------------------------------------------------------------
