@@ -14,6 +14,7 @@ set skip_req=false
 set config=Release
 set NT=8
 set skip_req=false
+set phreeqc=false
 
 :parse_args
 if "%~1"=="" goto :process_input
@@ -30,6 +31,7 @@ if "%option%"=="-d" set config=%1 & shift & goto parse_args
 if "%option%"=="-j" set NT=%1 & shift & goto parse_args
 if "%option%"=="-a" set bos_solvers_artifact=true & set iter_solvers=true & goto parse_args
 if "%option%"=="-b" set bos_solvers_dir=%1 & set iter_solvers=true & shift & goto parse_args
+if "%option%"=="-p" set phreeqc=true & goto parse_args
 goto parse_args
 
 :process_input
@@ -62,6 +64,7 @@ echo    gpu = %GPU%
 echo    testing = %testing%
 echo    generate python wheel = %wheel%
 echo    Multi thread = %MT%
+echo    Phreeqc support = %phreeqc%
 echo - Report configuration of this script: DONE!
 REM ----------------------------------------------------------------
 
@@ -77,7 +80,15 @@ if %clean_mode%==true (
 if %skip_req%==false (
   echo - Update submodules: START
   rmdir /s /q thirdparty\eigen thirdparty\pybind11 thirdparty\MshIO thirdparty\hypre
-  git submodule update --recursive --init || goto :error
+  git submodule sync --recursive
+  git submodule update --init --recursive -- ^
+             thirdparty\eigen ^
+             thirdparty\pybind11 ^
+             thirdparty\MshIO ^
+             thirdparty\hypre || goto :error
+  if %phreeqc%==true (
+    git submodule update --init --recursive thirdparty/iphreeqc || goto :error
+  )
   echo - Update submodules: DONE!
 
   cd thirdparty
@@ -104,6 +115,25 @@ if %skip_req%==false (
   cd SuperLU_5.2.1
   msbuild superlu.sln /p:Configuration=%config% /p:Platform=x64 -maxCpuCount:%NT% > ../../make_superlu.log || goto :error
   cd ..\..
+
+  if %phreeqc%==true (
+    echo -- Install IPhreeqc: START
+    cd thirdparty\build
+    if not exist iphreeqc mkdir iphreeqc
+    cd iphreeqc
+
+    cmake ^
+      -D CMAKE_INSTALL_PREFIX="..\..\install\iphreeqc" ^
+      -D BUILD_TESTING=OFF ^
+      -D BUILD_SHARED_LIBS=ON ^
+      .. ^
+      > ..\..\..\make_iphreeqc.log 2>&1
+    cmake --build . --config %config% --target install ^
+      >> ..\..\..\make_iphreeqc.log 2>&1
+    cd ..\..\..
+    echo --- Building IPhreeqc: DONE!
+  )
+
   echo - Install requirements: DONE!
 )
 
@@ -125,6 +155,12 @@ if %MT%==true (
 )
 if %GPU%==true (
   set cmake_options=%cmake_options% -D OPENDARTS_CONFIG=GPU
+)
+if %phreeqc%==true (
+  set cmake_options=%cmake_options% -D WITH_PHREEQC=ON
+  echo Phreeqc support: ENABLED
+) else (
+  echo Phreeqc support: DISABLED
 )
 if not %bos_solvers_dir%=="" (
   set cmake_options=%cmake_options% -D BOS_SOLVERS_DIR=%bos_solvers_dir%

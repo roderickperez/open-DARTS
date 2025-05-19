@@ -3,6 +3,7 @@ from phreeqc_dissolution.conversions import convert_composition, correct_composi
     get_mole_fractions, convert_rate, bar2atm
 from phreeqc_dissolution.physics import PhreeqcDissolution
 
+import darts
 from darts.models.cicd_model import CICDModel
 from darts.reservoirs.struct_reservoir import StructReservoir
 from darts.reservoirs.unstruct_reservoir import UnstructReservoir
@@ -16,7 +17,7 @@ from phreeqc_dissolution.conversions import bar2pa
 
 import numpy as np
 import pickle, h5py
-import os
+import os, sys
 from math import fabs
 import warnings
 
@@ -642,9 +643,16 @@ class ModelProperties(PropertyContainer):
             self.min_z = min_z
             self.total_moles = 1000
             self.molar_weight_h2o = 0.018016
-            self.phreeqc = IPhreeqc()
+
+            # phreeqc
+            root = os.path.dirname(darts.__file__)
+            if sys.platform.startswith("win"):
+                libname = "IPhreeqc.dll"
+            else:
+                libname = "libIPhreeqc.so"
+            self.phreeqc = IPhreeqc(os.path.join(root, libname))
             self.load_database(self.phreeqc, "phreeqc.dat")
-            self.pitzer = IPhreeqc()
+            self.pitzer = IPhreeqc(os.path.join(root, libname))
             self.load_database(self.pitzer, "pitzer.dat")
             # self.phreeqc.phreeqc.OutputFileOn = True
             # self.phreeqc.phreeqc.SelectedOutputFileOn = True
