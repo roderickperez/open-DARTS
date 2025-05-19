@@ -87,7 +87,7 @@ if %skip_req%==false (
              thirdparty\MshIO ^
              thirdparty\hypre || goto :error
   if %phreeqc%==true (
-    git submodule update --init --recursive thirdparty/iphreeqc || goto :error
+    git submodule update --init --recursive thirdparty\iphreeqc || goto :error
   )
   echo - Update submodules: DONE!
 
@@ -100,20 +100,20 @@ if %skip_req%==false (
   cd build
   mkdir eigen
   cd eigen
-  cmake -D CMAKE_INSTALL_PREFIX=../../install ../../eigen/ > ../../../make_eigen.log || goto :error
-  msbuild INSTALL.vcxproj /p:Configuration=Release /p:Platform=x64 -maxCpuCount:%NT% >> ../../../make_eigen.log || goto :error
+  cmake -D CMAKE_INSTALL_PREFIX=..\..\install ..\..\eigen\ > ..\..\..\make_eigen.log || goto :error
+  msbuild INSTALL.vcxproj /p:Configuration=Release /p:Platform=x64 -maxCpuCount:%NT% >> ..\..\..\make_eigen.log || goto :error
   cd ..\..
 
   rem -- Install Hypre
   cd hypre\src\cmbuild
   rem For debugging: -DHYPRE_ENABLE_PRINT
-  cmake -D HYPRE_BUILD_TESTS=ON -D HYPRE_BUILD_EXAMPLES=ON -D HYPRE_WITH_MPI=OFF -D CMAKE_INSTALL_PREFIX=../../../install .. > ../../../../make_hypre.log || goto :error
-  msbuild INSTALL.vcxproj /p:Configuration=Release /p:Platform=x64 -maxCpuCount:8 >> ../../../../make_hypre.log || goto :error
+  cmake -D HYPRE_BUILD_TESTS=ON -D HYPRE_BUILD_EXAMPLES=ON -D HYPRE_WITH_MPI=OFF -D CMAKE_INSTALL_PREFIX=..\..\..\install .. > ..\..\..\..\make_hypre.log || goto :error
+  msbuild INSTALL.vcxproj /p:Configuration=Release /p:Platform=x64 -maxCpuCount:8 >> ..\..\..\..\make_hypre.log || goto :error
   cd ..\..\..\
 
   echo -- Install SuperLU
   cd SuperLU_5.2.1
-  msbuild superlu.sln /p:Configuration=%config% /p:Platform=x64 -maxCpuCount:%NT% > ../../make_superlu.log || goto :error
+  msbuild superlu.sln /p:Configuration=%config% /p:Platform=x64 -maxCpuCount:%NT% > ..\..\make_superlu.log || goto :error
   cd ..\..
 
   if %phreeqc%==true (
@@ -166,8 +166,8 @@ echo CMake options: %cmake_options%
 cmake %cmake_options% ..
 
 REM build and install
-msbuild openDARTS.sln /p:Configuration=%config% /p:Platform=x64 -maxCpuCount:%NT% > ../make_darts.log || goto :error
-msbuild INSTALL.vcxproj /p:Configuration=%config% /p:Platform=x64 -maxCpuCount:%NT% || goto :error
+msbuild openDARTS.sln /p:Configuration=%config% /p:Platform=x64 -maxCpuCount:%NT% > ..\make_darts.log || goto :error
+msbuild INSTALL.vcxproj /p:Configuration=%config% /p:Platform=x64 -maxCpuCount:%NT% > ..\make_darts.log || goto :error
 
 if %testing%==true ctest -C %config%  || goto :error
 
@@ -180,7 +180,7 @@ echo ************************************************************************
 echo   Building python package open-darts: START 
 echo ************************************************************************
 
-python darts/print_build_info.py
+python darts\print_build_info.py
 if %wheel%==true (
   echo -- build darts.whl for windows started
   rem copy VS redist libraries 
