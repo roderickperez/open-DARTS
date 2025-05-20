@@ -8,12 +8,14 @@ fi
 
 CLEAN_FLAG=""
 PHREEQC_FLAG=""
+DEBUG_FLAG=""
 
 # Scan all args for -c and -p
 for arg in "$@"; do
   case "$arg" in
     -c) CLEAN_FLAG="-c"         ;;  # trigger clean
     -p) PHREEQC_FLAG="-p"       ;;  # enable IPhreeqc support
+    -d) DEBUG_FLAG="-d Debug"   ;;  # enable Debug configuration
   esac
 done
 
@@ -23,5 +25,6 @@ done
   -b $GSELINSOLVERSPATH \
   -w \
   $CLEAN_FLAG \
-  $PHREEQC_FLAG
+  $PHREEQC_FLAG \
+  $DEBUG_FLAG
 
