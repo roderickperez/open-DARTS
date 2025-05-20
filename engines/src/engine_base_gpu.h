@@ -46,7 +46,6 @@ public:
   virtual int assemble_jacobian_array(value_t dt, std::vector<value_t> &X, csr_matrix_base *jacobian, std::vector<value_t> &RHS) override = 0;
   virtual int adjoint_gradient_assembly(value_t dt, std::vector<value_t>& X, csr_matrix_base* jacobian, std::vector<value_t>& RHS) override = 0;
 
-  void apply_composition_correction(std::vector<value_t> &X, std::vector<value_t> &dX) override;
   void apply_global_chop_correction(std::vector<value_t> &X, std::vector<value_t> &dX) override;
   void apply_local_chop_correction(std::vector<value_t> &X, std::vector<value_t> &dX) override;
 
@@ -419,6 +418,8 @@ int engine_base_gpu::init_base(conn_mesh *mesh_, std::vector<ms_well *> &well_li
   old_z.resize(nc);
   new_z.resize(nc);
   FIPS.resize(nc);
+  old_z_fl.resize(nc - n_solid);
+	new_z_fl.resize(nc - n_solid);
 
   op_vals_arr.resize(n_ops * mesh->n_blocks);
   //op_ders_arr.resize(n_ops * n_vars * mesh->n_blocks);

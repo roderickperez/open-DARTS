@@ -108,6 +108,7 @@ class Model(CICDModel):
         assert self.physics is not None, "Physics object has not been defined"
         self.physics.init_physics(discr_type=discr_type, platform=platform, verbose=verbose,
                                   itor_mode=itor_mode, itor_type=itor_type, is_barycentric=is_barycentric)
+        self.physics.engine.n_solid = len(self.minerals)
         if platform == 'gpu':
             self.params.linear_type = sim_params.gpu_gmres_cpr_amgx_ilu
 

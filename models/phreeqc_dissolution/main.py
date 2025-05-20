@@ -9,7 +9,7 @@ from visualization import plot_profiles, plot_new_profiles, animate_1d
 def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str = None, poro_filename: str = None, 
                    output: bool = False, interpolator: str = 'multilinear', minerals: list = ['calcite'], 
                    kinetic_mechanisms: list = ['acidic', 'neutral'], output_folder: str = None,
-                   n_obl_mult: int = 1):
+                   n_obl_mult: int = 1, platform: str = 'cpu'):
     # Make a folder
     if output_folder is None:
         output_folder = 'output_' + domain + '_' + str(nx) + '_' + '_'.join(minerals) + \
@@ -24,7 +24,7 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str
               minerals=minerals, kinetic_mechanisms=kinetic_mechanisms, n_obl_mult=n_obl_mult)
 
     # Initialize model
-    m.init(itor_type=interpolator)
+    m.init(itor_type=interpolator, platform=platform)
     m.set_output(output_folder=output_folder, sol_filename=f'nx{nx}.h5')
     m.physics.engine.n_solid = len(minerals)
 
