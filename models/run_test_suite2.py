@@ -116,7 +116,6 @@ def run_testing(platform, overwrite, iter_solvers, test_all_models):
     n_total_m = len(accepted_dirs)
     n_failed += n_failed_m
     n_total += n_total_m
-    exit()
 
     # check main.py files runs, without comparison of pkl files
     n_failed_mainpy = n_total_mainpy = 0
@@ -183,7 +182,7 @@ def run_testing(platform, overwrite, iter_solvers, test_all_models):
     else:
         print('exit:', n_failed)
         # exit with code equal to number of failed models
-        exit(n_failed)
+    exit(n_failed)
 
 
 def check_performance(mod):
@@ -269,4 +268,5 @@ if __name__ == '__main__':
     if os.getenv('ODLS') != None and os.getenv('ODLS') == '-a':  # run this case only for the build with iterative solvers
         iter_solvers = True
         
-    run_testing(platform, overwrite, iter_solvers, test_all_models)
+    rcode = run_testing(platform, overwrite, iter_solvers, test_all_models)
+    exit(rcode)
