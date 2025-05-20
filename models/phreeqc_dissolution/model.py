@@ -106,6 +106,7 @@ class Model(CICDModel):
 
         # Initialize physics and Engine object
         assert self.physics is not None, "Physics object has not been defined"
+        self.platform = platform
         self.physics.init_physics(discr_type=discr_type, platform=platform, verbose=verbose,
                                   itor_mode=itor_mode, itor_type=itor_type, is_barycentric=is_barycentric)
         self.physics.engine.n_solid = len(self.minerals)
