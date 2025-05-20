@@ -26,7 +26,6 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str
     # Initialize model
     m.init(itor_type=interpolator, platform=platform)
     m.set_output(output_folder=output_folder, sol_filename=f'nx{nx}.h5')
-    m.physics.engine.n_solid = len(minerals)
 
     # Initialization check
     op_vals = np.asarray(m.physics.engine.op_vals_arr).reshape(m.reservoir.mesh.n_blocks, m.physics.n_ops)
