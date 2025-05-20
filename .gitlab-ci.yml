@@ -264,7 +264,7 @@ docker-image-builder:
         - conda activate darts_gitlab_gpu_build
     script:
         - echo "build *.so on linux GPU started with ODLS=$ODLS"
-        - ./helper_scripts/build_install_darts_gpu.sh -c
+        - ./helper_scripts/build_install_darts_gpu.sh -c -p
     artifacts:
       paths:
         - './dist/*.whl'
