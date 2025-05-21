@@ -53,9 +53,9 @@ sands, while Facies 6 corresponds to fault infill. Finally, Facies 7 forms an im
 geometry of the FluidFlower model is converted to the reservoir scale following the SPE11’s description. For all
 simulations, a structured mesh is constructed and populated according to the facies descriptions.
 
-![op_num](op_num.png "op_num")
+![op_num](Images/op_num.png "op_num")
 
-![porosity](porosity.png "porosity")
+![porosity](Images/porosity.png "porosity")
 
 In model 11b, z=0 is defined at the bottom of the reservoir and x=0 at the left edge. There are two wells. Well 1 is located at (x=2700, z=300), and well 2 at (x=5100,z=1100). 
 Injection starts in well 1 at t = 0yr and continues until t = 50yr. Well 2 starts injection at t = 25yr, lasting until t = 50yr. In the post-injection period, 
@@ -126,15 +126,15 @@ The initial conditions are visualized by either calling,
 ```
 , and exporting the initial conditions to as *.vtk files or by accessing the solution vector in `m.physics.engine.X` directly in python. 
 ```python
-    solution_vector = np.array(m.physics.engine.X)
-    for i, name in enumerate(vars):
-        plt.figure(figsize = (10, 2))
-        plt.title(name)
-        c = plt.pcolor(grid[0], grid[1], solution_vector[i::n_vars][:nb].reshape(nz, nx), cmap = 'jet')
-        plt.colorbar(c, aspect = 10)
-        plt.xlabel('x [m]'); plt.ylabel('z [m]')
-        plt.savefig(os.path.join(m.output_folder, f'initial_conditions_{name}.png'), bbox_inches='tight')
-        plt.close()
+solution_vector = np.array(m.physics.engine.X)
+for i, name in enumerate(vars):
+    plt.figure(figsize = (10, 2))
+    plt.title(name)
+    c = plt.pcolor(grid[0], grid[1], solution_vector[i::n_vars][:nb].reshape(nz, nx), cmap = 'jet')
+    plt.colorbar(c, aspect = 10)
+    plt.xlabel('x [m]'); plt.ylabel('z [m]')
+    plt.savefig(os.path.join(m.output_folder, f'initial_conditions_{name}.png'), bbox_inches='tight')
+    plt.close()
 ```
 
 ## Model physics
@@ -146,7 +146,7 @@ using a cubic equation of state (Peng and Robinson, 1976) and the fugacities of 
 using an activity model based on Henry’s constants (Ziabakhsh-Ganji and Kooi, 2012). The property correlations for SPE11
 and open-DARTS are presented in the following table. 
 
-![properties](properties.PNG "properties")
+![properties](Images/properties.PNG "properties")
 
 In the model, these property correlations are specified in the `property_containers` that are defined per region in the `compositional` physics class of the `DarstsModel`. In `DartsModel.set_physics()`:
 ```python

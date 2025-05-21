@@ -38,6 +38,8 @@ class DataTS:
         self.line_search = False
         self.min_line_search_update = 1e-4
 
+        self.force_errors = False  # ignore errors and proceed
+
     def print(self):
         print('Simulation parameters:')
         for k in self.__dict__.keys():
@@ -130,13 +132,19 @@ class DartsModel:
 
         self.set_op_list()
         self.set_boundary_conditions()
-        self.restart = restart
+        self.set_well_controls()
+
         # when restarting the initial conditions are set in self.load_restart_data() and the engine is reset.
+        self.restart = restart
         if restart is False:
             self.set_initial_conditions()
-            self.set_well_controls()
             self.reset()
         self.data_ts.print()
+        if self.params.linear_type == sim_params.linear_solver_t.cpu_superlu and \
+            self.reservoir.mesh.n_res_blocks > 5000:
+            print('The number of cells looks too big to use a direct linear solver:', self.reservoir.mesh.n_res_blocks, '> 5000')
+            if self.data_ts.force_errors == False:
+                exit()
 
     def reset(self):
         """
@@ -322,7 +330,7 @@ class DartsModel:
         self.params.tolerance_linear = self.data_ts.linear_tol
         self.params.max_i_linear = self.data_ts.linear_max_iter
         if self.data_ts.linear_type is not None:
-            m.params.linear_type = self.data_ts.linear_type
+            self.params.linear_type = self.data_ts.linear_type
 
     def run_simple(self, physics, data_ts, days):
         """
@@ -410,6 +418,7 @@ class DartsModel:
         :param save_solution_data: if True save states of all reservoir blocks at the end of run to 'solution.h5', default is True
         :type save_solution_data: bool
         """
+        assert hasattr(self, 'output'), "self.output does not exist, please call m.set_output() after m.init()"
         days = days if days is not None else self.runtime
         data_ts = self.data_ts
 
