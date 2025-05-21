@@ -1,8 +1,7 @@
 from math import fabs
 import pickle
-import xarray as xr
-import h5py
 import os
+import warnings
 import numpy as np
 from scipy.interpolate import interp1d
 
@@ -41,8 +40,6 @@ class DataTS:
         #
         self.line_search = False
         self.min_line_search_update = 1e-4
-
-        self.force_errors = False  # ignore errors and proceed
 
     def print(self):
         print('Simulation parameters:')
@@ -146,10 +143,8 @@ class DartsModel:
             self.reset()
         self.data_ts.print()
         if self.params.linear_type == sim_params.linear_solver_t.cpu_superlu and \
-            self.reservoir.mesh.n_res_blocks > 5000:
-            print('The number of cells looks too big to use a direct linear solver:', self.reservoir.mesh.n_res_blocks, '> 5000')
-            if self.data_ts.force_errors == False:
-                exit()
+            self.reservoir.mesh.n_res_blocks > 30000:
+            warnings.warn('The number of cells looks too big to use a direct linear solver: ' + str(self.reservoir.mesh.n_res_blocks) + ' > 30000')
 
     def reset(self):
         """
