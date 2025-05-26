@@ -1,5 +1,5 @@
 import os
-# os.environ["OMP_NUM_THREADS"] = "4"
+os.environ["OMP_NUM_THREADS"] = "4"
 import shutil
 from model import Model
 from darts.engines import redirect_darts_output
@@ -9,11 +9,11 @@ from visualization import plot_profiles, plot_new_profiles, animate_1d
 def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str = None, poro_filename: str = None, 
                    output: bool = False, interpolator: str = 'multilinear', minerals: list = ['calcite'], 
                    kinetic_mechanisms: list = ['acidic', 'neutral'], output_folder: str = None,
-                   n_obl_mult: int = 1, platform: str = 'cpu'):
+                   n_obl_mult: int = 1, co2_injection: float = 0.1, platform: str = 'cpu'):
     # Make a folder
     if output_folder is None:
-        output_folder = 'output_' + domain + '_' + str(nx) + '_' + '_'.join(minerals) + \
-            '_' + '_'.join(kinetic_mechanisms) + '_' + interpolator
+        output_folder = f'output_{domain}_{nx}_' + '_'.join(minerals) + \
+            '_' + '_'.join(kinetic_mechanisms) + f'_{interpolator}_{n_obl_mult}'
     if not os.path.exists(output_folder): os.makedirs(output_folder)
 
     # Redirect output to log file
@@ -21,19 +21,21 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str
 
     # Create model
     m = Model(domain=domain, nx=nx, mesh_filename=mesh_filename, poro_filename=poro_filename,
-              minerals=minerals, kinetic_mechanisms=kinetic_mechanisms, n_obl_mult=n_obl_mult)
+              minerals=minerals, kinetic_mechanisms=kinetic_mechanisms, n_obl_mult=n_obl_mult,
+              co2_injection=co2_injection)
 
     # Initialize model
     m.init(itor_type=interpolator, platform=platform)
     m.set_output(output_folder=output_folder, sol_filename=f'nx{nx}.h5')
 
     # Initialization check
-    op_vals = np.asarray(m.physics.engine.op_vals_arr).reshape(m.reservoir.mesh.n_blocks, m.physics.n_ops)
-    poro = op_vals[:m.reservoir.mesh.n_res_blocks, m.physics.reservoir_operators[0].PORO_OP]
-    volume = np.array(m.reservoir.mesh.volume, copy=False)
-    total_pv = np.sum(volume[:m.n_res_blocks] * poro) * 1e6
-    print(f'Total pore volume: {total_pv} cm3')
-    print(f'Injection rate: {m.inj_cells.size} cells * {m.inj_rate / total_pv * 1e+6} PV/day')
+    if platform == 'cpu':
+        op_vals = np.asarray(m.physics.engine.op_vals_arr).reshape(m.reservoir.mesh.n_blocks, m.physics.n_ops)
+        poro = op_vals[:m.reservoir.mesh.n_res_blocks, m.physics.reservoir_operators[0].PORO_OP]
+        volume = np.array(m.reservoir.mesh.volume, copy=False)
+        total_pv = np.sum(volume[:m.n_res_blocks] * poro) * 1e6
+        print(f'Total pore volume: {total_pv} cm3')
+        print(f'Injection rate: {m.inj_cells.size} cells * {m.inj_rate / total_pv * 1e+6} PV/day')
 
     # visualization
     def plot(m, ith_step=None):
@@ -69,8 +71,8 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str
                 m.data_ts.first_ts = m.data_ts.dt_max
             fig_paths.append(plot(m))
 
-        if output:
-            animate_1d(output_folder=output_folder, fig_paths=fig_paths)
+        # if output:
+        #     animate_1d(output_folder=output_folder, fig_paths=fig_paths)
     elif domain == '2D':
         plot(m=m, ith_step=ith_step)
         ith_step += 1
@@ -125,8 +127,8 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str
     m.print_stat()
 
     # copy files to save configuration
-    shutil.copy('main.py', os.path.join(output_folder, 'main.py'))
-    shutil.copy('model.py', os.path.join(output_folder, 'model.py'))
+    # shutil.copy('main.py', os.path.join(output_folder, 'main.py'))
+    # shutil.copy('model.py', os.path.join(output_folder, 'model.py'))
 
 if __name__ == '__main__':
     # 1D
@@ -137,12 +139,12 @@ if __name__ == '__main__':
 
     n_obl_mult = 1
     run_simulation(domain='1D', nx=200, output=False, max_ts=1.e-3,
-                    #output_folder=f'convergence_study/calcite_dolomite/200_{n_obl_mult}_linear',
                     n_obl_mult=n_obl_mult,
                     interpolator='multilinear',
                     minerals=['calcite'],# 'dolomite'],#, 'magnesite'])  # 4.e-5)
-                    kinetic_mechanisms=['acidic', 'neutral'])#, 'carbonate'])
-
+                    kinetic_mechanisms=['acidic', 'neutral', 'carbonate'],
+                    co2_injection=0.1,
+                    platform='cpu')
     # run_simulation(domain='1D', nx=500, max_ts=5.e-4)
 
     # 2D
