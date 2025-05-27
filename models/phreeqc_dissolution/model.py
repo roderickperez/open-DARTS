@@ -50,7 +50,8 @@ class MyOwnDataStruct:
 # Actual Model class creation here!
 class Model(CICDModel):
     def __init__(self, domain: str = '1D', nx: int = 200, mesh_filename: str = None, 
-                 poro_filename: str = None, minerals: list = ['calcite'], kinetic_mechanisms=['acidic', 'neutral'], 
+                 poro_filename: str = None, minerals: list = ['calcite'], 
+                 kinetic_mechanisms=['acidic', 'neutral', 'carbonate'], 
                  n_obl_mult: int = 1, co2_injection: float = 0.1):
         # Call base class constructor
         super().__init__()
@@ -73,64 +74,6 @@ class Model(CICDModel):
         self.runtime = 1
 
         self.timer.node["initialization"].stop()
-
-    def init(self, discr_type: str = 'tpfa', platform: str = 'cpu', restart: bool = False,
-             verbose: bool = False, itor_mode: str = 'adaptive',
-             itor_type: str = 'multilinear', is_barycentric: bool = False):
-        """
-        Function to initialize the model, which includes:
-        - initialize well (perforation) position
-        - initialize well rate parameters
-        - initialize reservoir initial conditions
-        - initialize well control settings
-        - define list of operator interpolators for accumulation-flux regions and wells
-        - initialize engine
-
-        :param discr_type: 'tpfa' for using Python implementation of TPFA, 'mpfa' activates C++ implementation of MPFA
-        :type discr_type: str
-        :param platform: 'cpu' for CPU, 'gpu' for using GPU for matrix assembly/solvers/interpolators
-        :type platform: str
-        :param restart: Boolean to check if existing file should be overwritten or appended
-        :type restart: bool
-        :param verbose: Switch for verbose
-        :type verbose: bool
-        :param itor_mode: specifies either 'static' or 'adaptive' interpolator
-        :type itor_mode: str
-        :param itor_type: specifies either 'linear' or 'multilinear' interpolator
-        :type itor_type: str
-        :param is_barycentric: Flag which turn on barycentric interpolation on Delaunay simplices
-        :type is_barycentric: bool
-        """
-        # Initialize reservoir and Mesh object
-        assert self.reservoir is not None, "Reservoir object has not been defined"
-        if self.domain != '3D':
-            self.reservoir.init_reservoir(verbose)
-        self.set_wells()
-
-        # Initialize physics and Engine object
-        assert self.physics is not None, "Physics object has not been defined"
-        self.platform = platform
-        self.physics.init_physics(discr_type=discr_type, platform=platform, verbose=verbose,
-                                  itor_mode=itor_mode, itor_type=itor_type, is_barycentric=is_barycentric)
-        self.physics.engine.n_solid = len(self.minerals)
-        if platform == 'gpu':
-            self.params.linear_type = sim_params.gpu_gmres_cpr_amgx_ilu
-
-        # Initialize well objects
-        self.reservoir.init_wells()
-        self.physics.init_wells(self.reservoir.wells)
-        self.init_well_rates()
-
-        self.set_op_list()
-        self.set_boundary_conditions()
-        self.set_well_controls()
-
-        # when restarting the initial conditions are set in self.load_restart_data() and the engine is reset.
-        self.restart = restart
-        if restart is False:
-            self.set_initial_conditions()
-            self.reset()
-        self.data_ts.print()
 
     def set_physics(self):
         # some properties

@@ -8,7 +8,7 @@ from visualization import plot_profiles, plot_new_profiles, animate_1d
 
 def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str = None, poro_filename: str = None, 
                    output: bool = False, interpolator: str = 'multilinear', minerals: list = ['calcite'], 
-                   kinetic_mechanisms: list = ['acidic', 'neutral'], output_folder: str = None,
+                   kinetic_mechanisms: list = ['acidic', 'neutral', 'carbonate'], output_folder: str = None,
                    n_obl_mult: int = 1, co2_injection: float = 0.1, platform: str = 'cpu'):
     # Make a folder
     if output_folder is None:
@@ -26,6 +26,7 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str
 
     # Initialize model
     m.init(itor_type=interpolator, platform=platform)
+    m.physics.engine.n_solid = len(minerals)
     m.set_output(output_folder=output_folder, sol_filename=f'nx{nx}.h5')
 
     # Initialization check
@@ -41,7 +42,7 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str
     def plot(m, ith_step=None):
         if output:
             if domain == '1D': return plot_profiles(m, output_folder=output_folder)
-            else: m.output_to_vtk(ith_step=ith_step)
+            else: m.output.output_to_vtk(ith_step=ith_step)
 
     m.data_ts.dt_max = max_ts
     ith_step = 0
@@ -132,20 +133,15 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str
 
 if __name__ == '__main__':
     # 1D
-    # run_simulation(domain='1D', nx=200, output=True, max_ts=1.e-3,
-    #                 #output_folder='data_for_seminar/obl_conv_calcite_carbonate/200_1',
-    #                 minerals=['calcite', 'dolomite'],#, 'magnesite'])  # 4.e-5)
-    #                 kinetic_mechanisms=['acidic', 'neutral'])#, 'carbonate'])
-
-    n_obl_mult = 1
-    run_simulation(domain='1D', nx=200, output=False, max_ts=1.e-3,
-                    n_obl_mult=n_obl_mult,
-                    interpolator='multilinear',
-                    minerals=['calcite'],# 'dolomite'],#, 'magnesite'])  # 4.e-5)
-                    kinetic_mechanisms=['acidic', 'neutral', 'carbonate'],
-                    co2_injection=0.1,
-                    platform='cpu')
-    # run_simulation(domain='1D', nx=500, max_ts=5.e-4)
+    run_simulation(domain='1D', nx=200, max_ts=1.e-3)
+    # n_obl_mult = 1
+    # run_simulation(domain='2D', nx=200, output=True, max_ts=1.e-3,
+    #                 n_obl_mult=n_obl_mult,
+    #                 interpolator='multilinear',
+    #                 minerals=['calcite'],# 'dolomite'],#, 'magnesite'])  # 4.e-5)
+    #                 kinetic_mechanisms=['acidic', 'neutral', 'carbonate'],
+    #                 co2_injection=0.1,
+    #                 platform='cpu')
 
     # 2D
     # run_simulation(domain='2D', nx=10, max_ts=2.e-3)
