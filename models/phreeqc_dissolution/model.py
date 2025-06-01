@@ -1,4 +1,3 @@
-import CoolProp.CoolProp as CP
 from phreeqc_dissolution.conversions import convert_composition, correct_composition, calculate_injection_stream, \
     get_mole_fractions, convert_rate, bar2atm
 from phreeqc_dissolution.physics import PhreeqcDissolution
@@ -14,6 +13,7 @@ from darts.physics.properties.basic import ConstFunc
 
 from darts.engines import sim_params, well_control_iface, value_vector
 from phreeqc_dissolution.conversions import bar2pa
+from iapws._iapws import _Viscosity
 
 import numpy as np
 import pickle, h5py
@@ -564,8 +564,12 @@ class ModelProperties(PropertyContainer):
             self.dens[j] = self.dens_m[j] * M
             self.sat[j] = self.sat_overall[j] / np.sum(self.sat_overall[:self.nph])
             self.kr[j] = self.rel_perm_ev[self.phases_name[j]].evaluate(self.sat[j])
-            self.mu[j] = self.viscosity_ev[self.phases_name[j]].evaluate(pressure=pressure, temperature=self.temperature)
             self.diffusivity[j] = self.diffusion_ev[self.phases_name[j]].evaluate()
+
+        # gas
+        self.mu[0] = self.viscosity_ev[self.phases_name[0]].evaluate(pressure=pressure, temperature=self.temperature)
+        # liquid
+        self.mu[1] = self.viscosity_ev[self.phases_name[1]].evaluate(density=self.dens[1], temperature=self.temperature)
 
         for i, k in enumerate(self.rock_compr_ev.keys()):
             self.rock_compr[i] = self.rock_compr_ev[k].evaluate(pressure)
@@ -1071,15 +1075,13 @@ class ModelProperties(PropertyContainer):
         def __init__(self):
             pass
         def evaluate(self, pressure, temperature):
-            try:
-                return CP.PropsSI('V', 'T', temperature, 'P|gas', bar2pa(pressure), 'CarbonDioxide') * 1000
-            except ValueError:
-                return 0.05
+            return 0.0278
 
     class LiquidViscosity:
         def __init__(self):
             pass
-        def evaluate(self, pressure, temperature):
-            return CP.PropsSI('V', 'T', temperature, 'P|liquid', bar2pa(pressure), 'Water') * 1000
+        def evaluate(self, density, temperature):
+            visc = _Viscosity(rho=density, T=temperature)
+            return visc * 1000
 
 
