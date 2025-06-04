@@ -11,7 +11,7 @@ set -o pipefail
 ################################################################################
 Help_Info()
 {
-  echo "$(basename "$0") [-h] [-c] [-t] [-w] [-m] [-r] [-a] [-b BOS_SOLVER_DIRECTORY] [-d INSTALL CONFIGURATION] [-j NUM THREADS] [-g g++-13]"
+  echo "$(basename "$0") [-h] [-c] [-t] [-w] [-m] [-r] [-a] [-b BOS_SOLVER_DIRECTORY] [-d INSTALL CONFIGURATION] [-j NUM THREADS] [-g g++-13] [-p]"
   echo "   Script to install opendarts on unix (linux and macOS)."
   echo "USAGE: "
   echo "   -h : displays this help menu."
@@ -26,6 +26,7 @@ Help_Info()
   echo "   -d MODE   : Configuration for C++ code [Release, Debug]. Example: -d Debug"
   echo "   -j N      : Set number of threads (N) for compilation. Default: 8. Example: -j 4"
   echo "   -g g++VER : Specify a compiler (g++) version. Example: -g g++-13"
+  echo "   -p        : Enable building & installing IPhreeqc (third-party)  (OFF by default)"
 }
 ################################################################################
 # Main program                                                                 #
@@ -46,7 +47,7 @@ gpp_version=g++   # Version of g++
 special_gpp=false # Whether a special compiler version (g++) is specified.
 valgrind=false    # Whether support valgrind profiling or not
 
-while getopts ":chtwmrab:d:j:g:Gv" option; do
+while getopts ":chtwmrab:d:j:g:Gpv" option; do
     case "$option" in
         h) # Display help
            Help_Info
@@ -76,6 +77,8 @@ while getopts ":chtwmrab:d:j:g:Gv" option; do
            gpp_version=${OPTARG};;
         G) # GPU build
            GPU=true;;
+        p) # Enable IPhreeqc support
+           phreeqc=true;;
         v) # Valgrind build => Debug + symbols
            valgrind=true;;
     esac
@@ -121,9 +124,22 @@ if [[ "$skip_req" == false ]]; then
     # update submodules
     echo -e "\n- Update submodules: START \n"
     # clean-up previous versions.
-    rm -rf thirdparty/eigen thirdparty/pybind11 thirdparty/mshIO thirdparty/hypre
+    rm -rf thirdparty/eigen \
+            thirdparty/pybind11 \
+            thirdparty/MshIO \
+            thirdparty/hypre \
+            thirdparty/iphreeqc
+    # synchronize & update submodules
     git submodule sync --recursive
-    git submodule update --recursive --init
+    git submodule update --init --recursive -- \
+            thirdparty/eigen \
+            thirdparty/pybind11 \
+            thirdparty/MshIO \
+            thirdparty/hypre
+    if [[ $phreeqc == "true" ]]; then
+        git submodule update --init --recursive thirdparty/iphreeqc
+    fi
+    # update submodules finished
     echo -e "\n- Update submodules: DONE! \n"
 
     # Install requirements
@@ -150,7 +166,7 @@ if [[ "$skip_req" == false ]]; then
     echo -e "\n-- Install SuperLU \n"
     cd SuperLU_5.2.1
 
-  if [[ "$OSTYPE" == "darwin"* ]]; then
+    if [[ "$OSTYPE" == "darwin"* ]]; then
         cp conf_gcc-11_macOS_m1.mk conf.mk
         cp make_gcc-11_macOS_m1.inc make.inc
     else
@@ -164,9 +180,27 @@ if [[ "$skip_req" == false ]]; then
 
     if [[ "$bos_solvers_artifact" == true ]]; then
         cd engines
-      ./update_private_artifacts.sh $SMBNAME $SMBLOGIN $SMBPASS
-      cd ..
+        ./update_private_artifacts.sh $SMBNAME $SMBLOGIN $SMBPASS
+        cd ..
     fi
+
+    #----------------------------------------------------------------------#
+    # Build & install IPhreeqc if requested                                 #
+    #----------------------------------------------------------------------#
+    if [[ "$phreeqc" == true ]]; then
+        echo -e "\n-- Install IPhreeqc: START\n"
+        cd thirdparty
+        mkdir -p build/iphreeqc && cd build/iphreeqc
+        cmake \
+            -D CMAKE_INSTALL_PREFIX=../../install/iphreeqc \
+            -D BUILD_TESTING=OFF \
+            -D BUILD_SHARED_LIBS=ON \
+            ../../iphreeqc            &> ../../../make_iphreeqc.log
+        make install -j $NT           &>> ../../../make_iphreeqc.log
+        cd ../../..
+        echo -e "\n--- Building IPhreeqc: DONE!\n"
+    fi
+
     echo -e "\n- Install requirements: DONE! \n"
 else
     echo -e "\n- Requirements already installed \n"
@@ -213,6 +247,14 @@ cmake_options+=" -D OPENDARTS_CONFIG=$build"
 
 if [[ ! -z "$bos_solvers_dir" ]]; then
     cmake_options+=" -D BOS_SOLVERS_DIR=${bos_solvers_dir}"
+fi
+
+# Pass WITH_PHREEQC to CMake to copy shared library
+if [[ "$phreeqc" == true ]]; then
+    cmake_options+=" -DWITH_PHREEQC=ON"
+    echo "Phreeqc support: ENABLED"
+else
+    echo "Phreeqc support: DISABLED"
 fi
 
 echo -e "CMake options: $cmake_options\n" # Report to user the CMake options
