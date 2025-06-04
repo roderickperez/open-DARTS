@@ -144,7 +144,7 @@ build-linux-3.10-valgrind:
         ODLS: '-a'
     script:
         - echo ">>> Starting debug build (valgrind instrumentation) <<<"
-        - bash ./helper_scripts/build_darts_cmake.sh -c -w -m -j 8 -v $ODLS
+        - bash ./helper_scripts/build_darts_cmake.sh -c -w -m -j 8 -v $ODLS -p
     artifacts:
       paths:
         - './dist/*.whl'
