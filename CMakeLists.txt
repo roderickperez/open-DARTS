@@ -31,9 +31,9 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 if(ENABLE_VALGRIND)
-    message(STATUS ">>> Valgrind build: adding -g -O0")
-    set(CMAKE_CXX_FLAGS_DEBUG     "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")
-    set(CMAKE_C_FLAGS_DEBUG       "${CMAKE_C_FLAGS_DEBUG}   -g -O0")
+    message(STATUS ">>> Valgrind build: adding -g -O2")
+    set(CMAKE_CXX_FLAGS_DEBUG     "${CMAKE_CXX_FLAGS_DEBUG} -g -O2")
+    set(CMAKE_C_FLAGS_DEBUG       "${CMAKE_C_FLAGS_DEBUG}   -g -O2")
 endif()
 
 # Load cmake modules -----------------------------------------------------------
