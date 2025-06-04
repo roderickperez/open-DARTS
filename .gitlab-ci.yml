@@ -144,7 +144,7 @@ build-linux-3.10-valgrind:
         ODLS: '-a'
     script:
         - echo ">>> Starting debug build (valgrind instrumentation) <<<"
-        - bash ./helper_scripts/build_darts_cmake.sh -c -w -m -j 8 -v $ODLS -p
+        - ./helper_scripts/build_darts_cmake.sh -c -w -m -j 8 -v $ODLS -p
     artifacts:
       paths:
         - './dist/*.whl'
@@ -285,7 +285,7 @@ build-windows-3.9-ODLS:
         - pip install wheel
     script:
         - echo "build *.so on linux started with ODLS=$ODLS"
-        - bash ./helper_scripts/build_darts_cmake.sh -c -w -t -m -j 8 $ODLS -p
+        - ./helper_scripts/build_darts_cmake.sh -c -w -t -m -j 8 $ODLS -p
     artifacts:
       paths:
         - './dist/*.whl'
@@ -325,7 +325,7 @@ docker-image-builder:
         - conda activate darts_gitlab_gpu_build
     script:
         - echo "build *.so on linux GPU started with ODLS=$ODLS"
-        - bash ./helper_scripts/build_install_darts_gpu.sh -c -p
+        - ./helper_scripts/build_install_darts_gpu.sh -c -p
     artifacts:
       paths:
         - './dist/*.whl'
@@ -665,7 +665,7 @@ test-windows-3.9-ODLS:
         - echo "test finished"
     after_script:
         - cd models
-        - bash ./archive_pkl.sh $ODLS $TEST_GPU
+        - ./archive_pkl.sh $ODLS $TEST_GPU
         - cd ..
     artifacts:
       paths:
@@ -707,7 +707,7 @@ test-windows-3.9-ODLS:
         - echo "test finished"
     after_script:
         - cd models
-        - bash ./archive_pkl.sh $ODLS $TEST_GPU
+        - ./archive_pkl.sh $ODLS $TEST_GPU
         - cd ..
     artifacts:
       paths:
@@ -822,7 +822,7 @@ upload_wheels:
     before_script:
         - apt-get update -qq && apt-get install -y -qq smbclient
     script:
-        - bash ./helper_scripts/rename_whls.sh # rename linux whls to make uploadable to test-pypi
+        - ./helper_scripts/rename_whls.sh # rename linux whls to make uploadable to test-pypi
         - export wheel=`ls ./dist/*linux*`
         - smbclient -U $SMBLOGIN%$SMBPASS //$SMBNAME/darts-private-artifacts -c "put $wheel" -D=wheels_iter
         - export wheel=`ls ./dist/*win*`
@@ -842,7 +842,7 @@ upload_wheels_gse:
     tags:
         - linux_gpu
     script:
-        - bash ./helper_scripts/rename_whls.sh # rename linux whls to make uploadable to test-pypi
+        - ./helper_scripts/rename_whls.sh # rename linux whls to make uploadable to test-pypi
         - export wheel=`ls ./dist/*linux*`
         - cp $wheel $GSEWHEELSPATH
     dependencies:
@@ -861,7 +861,7 @@ upload_wheels_odls:
     before_script:
         - apt-get update -qq && apt-get install -y -qq smbclient
     script:
-        - bash ./helper_scripts/rename_whls.sh # rename linux whls to make uploadable to test-pypi
+        - ./helper_scripts/rename_whls.sh # rename linux whls to make uploadable to test-pypi
         - export wheel=`ls ./dist/*linux*`
         - smbclient -U $SMBLOGIN%$SMBPASS //$SMBNAME/darts-private-artifacts -c "put $wheel" -D=wheels_odls
         - export wheel=`ls ./dist/*win*`
@@ -913,7 +913,7 @@ deploy-testpypi:
         - pip install twine
     script:
         # upload to test-pypi or pypi depending on $PYPI var
-        - bash ./helper_scripts/rename_whls.sh # rename linux whls to make uploadable to test-pypi
+        - ./helper_scripts/rename_whls.sh # rename linux whls to make uploadable to test-pypi
         - ls ./dist/*
         - twine upload -u $REPOUSER -p $REPOPWD --repository $REPO --verbose dist/*
     dependencies:

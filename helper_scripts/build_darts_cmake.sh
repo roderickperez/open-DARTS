@@ -181,7 +181,7 @@ if [[ "$skip_req" == false ]]; then
 
     if [[ "$bos_solvers_artifact" == true ]]; then
         cd engines
-        bash ./update_private_artifacts.sh $SMBNAME $SMBLOGIN $SMBPASS
+        ./update_private_artifacts.sh $SMBNAME $SMBLOGIN $SMBPASS
         cd ..
     fi
 
