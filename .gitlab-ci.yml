@@ -224,7 +224,7 @@ build-windows-3.9-ODLS:
         - pip install wheel
     script:
         - echo "build *.so on linux started with ODLS=$ODLS"
-        - ./helper_scripts/build_darts_cmake.sh -c -w -t -m -j 8 $ODLS
+        - ./helper_scripts/build_darts_cmake.sh -c -w -t -m -j 8 $ODLS -p
     artifacts:
       paths:
         - './dist/*.whl'
@@ -264,7 +264,7 @@ docker-image-builder:
         - conda activate darts_gitlab_gpu_build
     script:
         - echo "build *.so on linux GPU started with ODLS=$ODLS"
-        - ./helper_scripts/build_install_darts_gpu.sh -c
+        - ./helper_scripts/build_install_darts_gpu.sh -c -p
     artifacts:
       paths:
         - './dist/*.whl'
@@ -293,7 +293,7 @@ docker-image-builder:
         - copy $env:VCToolsRedistDir\x64\Microsoft.VC143.OpenMP\vcomp140.dll .\darts
         - echo "ODLS:" $env:ODLS
         # compile and make the wheel
-        - .\helper_scripts\build_darts_cmake.bat $env:ODLS -c -w -t -j 8
+        - .\helper_scripts\build_darts_cmake.bat $env:ODLS -c -w -t -j 8 -p
     artifacts:
       paths:
         - '*.log'
