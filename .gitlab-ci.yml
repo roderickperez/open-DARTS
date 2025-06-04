@@ -790,8 +790,6 @@ valgrind-profiling:
         - sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
         - yum install samba-client -y -q
         - export PATH="/opt/python/$PY_SUF/bin:$PATH"
-        # for malloc profiling
-        - export PYTHONMALLOC=malloc
         # install valgrind
         - yum install -y -q valgrind
         - export PYTHONUNBUFFERED=1

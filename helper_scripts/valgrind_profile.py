@@ -6,9 +6,9 @@ import shutil
 import importlib
 
 valgrind_models = [
-                    '2ph_comp'#,
-                    #'Chem_benchmark_new',
-                    #'GeoRising'
+                    '2ph_comp',
+                    'Chem_benchmark_new',
+                    'GeoRising'
                    ]
 
 # if the user passed extra models, append them (comma-separated):
@@ -36,8 +36,9 @@ def run_model(model, days):
         # assume model.py defines a class Model
         mod = importlib.import_module('model')
         m = mod.Model()
-        m.init()
-        m.run(days)
+        m.init(platform='cpu')
+        m.set_output()
+        m.run(days=days, save_well_data=False, save_reservoir_data=False)
         print(f"[OK] {model}")
         success = True
     except Exception as e:
