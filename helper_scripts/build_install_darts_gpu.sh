@@ -19,7 +19,7 @@ for arg in "$@"; do
   esac
 done
 
-./helper_scripts/build_darts_cmake.sh \
+bash ./helper_scripts/build_darts_cmake.sh \
   -G \
   -j20 \
   -b $GSELINSOLVERSPATH \
