@@ -2,7 +2,6 @@ cmake_minimum_required (VERSION 3.26)
 project (openDARTS LANGUAGES CXX VERSION 0.2)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -19,9 +18,22 @@ set(SET_CXX11_ABI_0 TRUE)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)  # useful for code tools like clangd or IDEs
 
-# Set default build type
+# Turn off valgrind support by default
+option(ENABLE_VALGRIND "Enable Valgrind instrumentation (Debug build with symbols)" OFF)
+
+# Set build type
 if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release CACHE STRING "Default build type" FORCE)
+    if(ENABLE_VALGRIND)
+        set(CMAKE_BUILD_TYPE Debug CACHE STRING "Default build type" FORCE)
+    else()
+        set(CMAKE_BUILD_TYPE Release CACHE STRING "Default build type" FORCE)
+    endif()
+endif()
+
+if(ENABLE_VALGRIND)
+    message(STATUS ">>> Valgrind build: adding -g -O2")
+    set(CMAKE_CXX_FLAGS_DEBUG     "${CMAKE_CXX_FLAGS_DEBUG} -g -O2")
+    set(CMAKE_C_FLAGS_DEBUG       "${CMAKE_C_FLAGS_DEBUG}   -g -O2")
 endif()
 
 # Load cmake modules -----------------------------------------------------------

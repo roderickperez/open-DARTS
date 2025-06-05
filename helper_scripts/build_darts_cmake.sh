@@ -11,7 +11,7 @@ set -o pipefail
 ################################################################################
 Help_Info()
 {
-  echo "$(basename "$0") [-h] [-c] [-t] [-w] [-m] [-r] [-a] [-b BOS_SOLVER_DIRECTORY] [-d INSTALL CONFIGURATION] [-j NUM THREADS] [-g g++-13] [-p]"
+  echo "$(basename "$0") [-h] [-c] [-t] [-w] [-m] [-r] [-a] [-b BOS_SOLVER_DIRECTORY] [-d INSTALL CONFIGURATION] [-j NUM THREADS] [-g g++-13] [-p] [-v]"
   echo "   Script to install opendarts on unix (linux and macOS)."
   echo "USAGE: "
   echo "   -h : displays this help menu."
@@ -27,6 +27,7 @@ Help_Info()
   echo "   -j N      : Set number of threads (N) for compilation. Default: 8. Example: -j 4"
   echo "   -g g++VER : Specify a compiler (g++) version. Example: -g g++-13"
   echo "   -p        : Enable building & installing IPhreeqc (third-party)  (OFF by default)"
+  echo "   -v        : Enable build with valgrind support (OFF by default)"
 }
 ################################################################################
 # Main program                                                                 #
@@ -45,8 +46,9 @@ config="Release"  # Default configuration (install).
 NT=8              # Number of threads by default 8
 gpp_version=g++   # Version of g++
 special_gpp=false # Whether a special compiler version (g++) is specified.
+valgrind=false    # Whether support valgrind profiling or not
 
-while getopts ":chtwmrab:d:j:g:Gp" option; do
+while getopts ":chtwmrab:d:j:g:Gpv" option; do
     case "$option" in
         h) # Display help
            Help_Info
@@ -78,6 +80,8 @@ while getopts ":chtwmrab:d:j:g:Gp" option; do
            GPU=true;;
         p) # Enable IPhreeqc support
            phreeqc=true;;
+        v) # Valgrind build => Debug + symbols
+           valgrind=true;;
     esac
 done
 
@@ -216,9 +220,17 @@ mkdir -p build
 cd build
 rm -f CMakeCache.txt  # ensures Cmake doesn't work on outdated configuration
 
+# If valgrind requested, force Debug
+if [[ "$valgrind" = true ]]; then
+    config="Debug"
+fi
+
 # Setup build with cmake
 cmake_options="-D CMAKE_BUILD_TYPE=${config}"
 
+if [[ "$valgrind" = true ]]; then
+    cmake_options+=" -D ENABLE_VALGRIND=ON"
+fi
 if [[ "$testing" == true ]]; then
     cmake_options+=" -D ENABLE_TESTING=ON"
 fi
