@@ -146,10 +146,10 @@ def run_valgrind_for_model(model):
     
     if proc.returncode != 0:
         print(f'[FAIL] {model} returned exit code {proc.returncode}.')
-        return True # failed
+        return True  # failed
     else:
         print(f'[OK] profiling is finished for {model}.')
-        return True # success
+        return False # success
 
 def main():
     # check for valgrind availability
