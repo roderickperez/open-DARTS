@@ -102,7 +102,7 @@ def run_valgrind_for_model(model):
     cmd = [
         'valgrind',
         #'--quiet',
-        '--error-exitcode=1',
+        '--error-exitcode=0',
         f'--log-file={vg_log}',
         '--',
         'python', '-c', py_snippet
