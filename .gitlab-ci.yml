@@ -7,8 +7,6 @@ stages:
 ###################################################################################
 build-linux-3.12:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
         - if: $TEST_ALL_PYTHONS == "1" 
     extends: .build-linux-dockcross
@@ -19,8 +17,6 @@ build-linux-3.12:
 
 build-linux-3.11:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
         - if: $TEST_ALL_PYTHONS == "1" 
     extends: .build-linux-dockcross
@@ -31,8 +27,6 @@ build-linux-3.11:
 
 build-linux-3.10:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_REF_PROTECTED == "true"
         - if: $CI_PIPELINE_SOURCE == "merge_request_event"
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
@@ -46,8 +40,6 @@ build-linux-3.10:
         
 build-linux-3.9: 
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
         - if: $TEST_ALL_PYTHONS == "1" 
     extends: .build-linux-dockcross
@@ -58,8 +50,6 @@ build-linux-3.9:
 
 build-linux-3.10-gpu:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_REF_PROTECTED == "true"
         - if: $CI_PIPELINE_SOURCE == "merge_request_event"
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
@@ -75,8 +65,6 @@ build-linux-3.10-gpu:
 ###################################################################################
 build-linux-3.12-ODLS:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .build-linux-dockcross
@@ -87,8 +75,6 @@ build-linux-3.12-ODLS:
         
 build-linux-3.11-ODLS:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .build-linux-dockcross
@@ -99,8 +85,6 @@ build-linux-3.11-ODLS:
         
 build-linux-3.10-ODLS:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_REF_PROTECTED == "true"
         - if: $CI_PIPELINE_SOURCE == "merge_request_event"
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
@@ -114,8 +98,6 @@ build-linux-3.10-ODLS:
         
 build-linux-3.9-ODLS:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .build-linux-dockcross
@@ -131,7 +113,6 @@ build-linux-3.10-valgrind:
     tags:
         - linux
     rules:
-        - if: $APPEND_VALGRIND_MODEL
         - if: $CI_COMMIT_REF_PROTECTED == "true"
         - if: $CI_PIPELINE_SOURCE == "merge_request_event"
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
@@ -155,8 +136,6 @@ build-linux-3.10-valgrind:
 ###################################################################################
 build-windows-3.12:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .build-windows
@@ -167,8 +146,6 @@ build-windows-3.12:
         
 build-windows-3.11:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .build-windows
@@ -179,8 +156,6 @@ build-windows-3.11:
 
 build-windows-3.10:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_REF_PROTECTED == "true"
         - if: $CI_PIPELINE_SOURCE == "merge_request_event"
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
@@ -194,8 +169,6 @@ build-windows-3.10:
  
 build-windows-3.9:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .build-windows
@@ -207,8 +180,6 @@ build-windows-3.9:
 ###################################################################################
 build-windows-3.12-ODLS:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .build-windows
@@ -219,8 +190,6 @@ build-windows-3.12-ODLS:
          
 build-windows-3.11-ODLS:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .build-windows
@@ -231,8 +200,6 @@ build-windows-3.11-ODLS:
                 
 build-windows-3.10-ODLS:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_REF_PROTECTED == "true"
         - if: $CI_PIPELINE_SOURCE == "merge_request_event"
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
@@ -247,8 +214,6 @@ build-windows-3.10-ODLS:
  
 build-windows-3.9-ODLS:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .build-windows
@@ -365,8 +330,6 @@ docker-image-builder:
 ###################################################################################
 test-linux-3.12-ODLS:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .test-linux
@@ -379,8 +342,6 @@ test-linux-3.12-ODLS:
         
 test-linux-3.11-ODLS:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .test-linux
@@ -393,8 +354,6 @@ test-linux-3.11-ODLS:
 
 test-linux-3.10-ODLS:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_REF_PROTECTED == "true"
         - if: $CI_PIPELINE_SOURCE == "merge_request_event"
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
@@ -410,8 +369,6 @@ test-linux-3.10-ODLS:
 
 test-linux-3.9-ODLS:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .test-linux
@@ -425,8 +382,6 @@ test-linux-3.9-ODLS:
 ###################################################################################
 test-linux-3.12:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .test-linux
@@ -439,8 +394,6 @@ test-linux-3.12:
         
 test-linux-3.11:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .test-linux
@@ -453,8 +406,6 @@ test-linux-3.11:
 
 test-linux-3.10:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_REF_PROTECTED == "true"
         - if: $CI_PIPELINE_SOURCE == "merge_request_event"
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
@@ -470,8 +421,6 @@ test-linux-3.10:
 
 test-linux-3.9:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .test-linux
@@ -486,8 +435,6 @@ test-linux-3.9:
 
 test-linux-3.10-gpu:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_REF_PROTECTED == "true"
         - if: $CI_PIPELINE_SOURCE == "merge_request_event"
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
@@ -504,8 +451,6 @@ test-linux-3.10-gpu:
 ###################################################################################
 test-windows-3.12:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .test-windows
@@ -518,8 +463,6 @@ test-windows-3.12:
         
 test-windows-3.11:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .test-windows
@@ -532,8 +475,6 @@ test-windows-3.11:
      
 test-windows-3.10:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_REF_PROTECTED == "true"
         - if: $CI_PIPELINE_SOURCE == "merge_request_event"
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
@@ -549,8 +490,6 @@ test-windows-3.10:
 
 test-windows-3.9:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .test-windows
@@ -564,8 +503,6 @@ test-windows-3.9:
 ###################################################################################
 test-windows-3.12-ODLS:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .test-windows
@@ -578,8 +515,6 @@ test-windows-3.12-ODLS:
         
 test-windows-3.11-ODLS:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .test-windows
@@ -592,8 +527,6 @@ test-windows-3.11-ODLS:
      
 test-windows-3.10-ODLS:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_REF_PROTECTED == "true"
         - if: $CI_PIPELINE_SOURCE == "merge_request_event"
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
@@ -609,8 +542,6 @@ test-windows-3.10-ODLS:
 
 test-windows-3.9-ODLS:
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
         - if: $TEST_ALL_PYTHONS == "1"
     extends: .test-windows
@@ -777,7 +708,6 @@ valgrind-profiling:
         PY_VER: '3.10'
         PY_SUF: 'cp310-cp310'
     rules:
-        - if: $APPEND_VALGRIND_MODEL
         - if: $CI_COMMIT_REF_PROTECTED == "true"
         - if: $CI_PIPELINE_SOURCE == "merge_request_event"
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
@@ -812,8 +742,6 @@ upload_wheels:
     stage: deploy
     image: python:3.10
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $UPLOAD_WHEELS == "1"
     tags:
         - linux
@@ -834,8 +762,6 @@ upload_wheels_gse:
     stage: deploy
     image: python:3.10
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $UPLOAD_WHEELS == "1"
     tags:
         - linux_gpu
@@ -851,8 +777,6 @@ upload_wheels_odls:
     stage: deploy
     image: python:3.10
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $UPLOAD_WHEELS == "1"
     tags:
         - linux
@@ -875,8 +799,6 @@ deploy-pypi:
     # Publish the release
     # Runs only for the main branch and if tag has a pattern: v#.#.#, for example "v1.2.3"
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     extends: .deploy-pypi
     variables:
@@ -928,8 +850,6 @@ deploy-testpypi:
 deploy-zenodo:
     stage: deploy
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
     tags:
         - linux
@@ -951,8 +871,6 @@ deploy-zenodo:
 pages:
     stage: deploy
     rules:
-        - if: $APPEND_VALGRIND_MODEL
-          when: never
         - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
         - if: $DOCS_PAGES == "1"
     tags:
