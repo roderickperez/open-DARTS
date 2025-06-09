@@ -569,7 +569,7 @@ test-windows-3.9-ODLS:
         # upgrade pip package first
         - python -m pip install --upgrade pip
         # remove flash installed by its pipelines, and get one from pip (not needed actually since Linux pipeline runs in a docker, but let's keep consistency with windows pipelines)
-        - pip uninstall open-darts-flash
+        - pip uninstall open-darts-flash  --yes
         # force reinstall of darts wheel only (need to force because darts wheel version is not incremented)
         # note: need to force here only for Windows actually, but lets be consistent and force for Linux too in case its behaviour will change
         - pip install --force-reinstall --no-deps ./dist/*.whl
@@ -619,7 +619,7 @@ test-windows-3.9-ODLS:
         - conda activate darts_gitlab_gpu_test
         # upgrade pip package first
         - python -m pip install --upgrade pip
-        - pip uninstall open-darts-flash
+        - pip uninstall open-darts-flash  --yes
         - pip install ./dist/*.whl
     script:
         # run simulation fot test models set
@@ -663,7 +663,7 @@ test-windows-3.9-ODLS:
         # upgrade pip package first
         - python -m pip install --upgrade pip
         # remove flash installed by its pipelines, and get one from pip
-        - pip uninstall open-darts-flash
+        - pip uninstall open-darts-flash  --yes
         # force reinstall of darts wheel only (need to force because darts wheel version is not incremented)
         - pip install --force-reinstall --no-deps .\dist\$WHEEL_NAME
         # force-reinstall of dependencies takes too much time, lets only upgrade (eagerly!) them
