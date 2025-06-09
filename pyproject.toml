@@ -8,8 +8,7 @@ name = "open-darts"
 # This version has to be incremented manually for every new release.
 version = "1.3.1"
 authors = [
-    {name = "Denis Voskov", email = "D.V.Voskov@tudelft.nl"},
-    {email = "darts@tudelft.nl"}
+    {name = "Denis Voskov", email = "D.V.Voskov@tudelft.nl"}
 ]
 maintainers = [
     {name = "Ilshat Saifullin", email = "i.s.saifullin@tudelft.nl"}
