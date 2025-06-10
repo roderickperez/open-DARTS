@@ -722,7 +722,7 @@ valgrind-profiling:
         - export PYTHONUNBUFFERED=1
         - python -m pip install --upgrade pip
         # remove flash installed by its pipelines, and get one from pip
-        - pip unistall open-darts-flash
+        - pip uninstall open-darts-flash
         - pip install --upgrade --upgrade-strategy eager ./dist/*.whl
     script:
         - echo ">>> Running Valgrind profiling script <<<"
