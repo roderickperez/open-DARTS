@@ -284,8 +284,18 @@ class Model(CICDModel):
                 assert np.prod(self.domain_cells) == poro.size
             poro[poro < 1.e-4] = 1.e-4
             poro[poro > 1 - 1.e-4] = 1 - 1.e-4
+
             self.solid_sat = np.zeros((self.n_res_blocks, self.n_solid))
-            self.solid_sat[:, 0] = 1 - poro
+            if set(self.minerals) == {'calcite'}:
+                self.solid_sat[:, 0] = 1 - poro
+            elif set(self.minerals) == {'calcite', 'dolomite'}:
+                self.solid_sat[:, 0] = 0.8 * (1 - poro)
+                self.solid_sat[:, 1] = 0.2 * poro
+            elif set(self.minerals) == {'calcite', 'dolomite', 'magnesite'}:
+                self.solid_sat[:, 0] = 0.7 * (1 - poro)
+                self.solid_sat[:, 1] = 0.2 * (1 - poro)
+                self.solid_sat[:, 2] = 0.1 * poro
+
             self.inj_cells = self.domain_cells[0] * np.arange(self.domain_cells[1])
 
             self.volume = np.prod(self.domain_sizes)
