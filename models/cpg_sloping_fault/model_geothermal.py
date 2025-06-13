@@ -24,17 +24,6 @@ class ModelGeothermal(Model_CPG):
             self.physics.determine_obl_bounds(state_min=[self.idata.obl.min_p, 250.],
                                               state_max=[self.idata.obl.max_p, 575.])
 
-        if False:
-            prop_cont = self.physics.property_containers[0]
-            for i in range(prop_cont.nph):
-                ph_str = '_water' if i == 0 else '_steam'
-                prop_cont.output_props.update({'saturation' + ph_str: lambda i=i: prop_cont.saturation[i]})
-                prop_cont.output_props.update({'density' + ph_str: lambda i=i: prop_cont.density[i]})
-                prop_cont.output_props.update({'viscosity' + ph_str: lambda i=i: prop_cont.viscosity[i]})
-                prop_cont.output_props.update({'enthalpy' + ph_str: lambda i=i: prop_cont.enthalpy[i]})
-                if ph_str == '_water':
-                    prop_cont.output_props.update({'conduction' + ph_str: lambda i=i: prop_cont.conduction[i]})
-
     def set_initial_conditions(self):
         if self.idata.initial.type == 'gradient':
             # Specify reference depth, values and gradients to construct depth table in super().set_initial_conditions()
@@ -42,7 +31,9 @@ class ModelGeothermal(Model_CPG):
             input_distribution = {'pressure': [1., 1. + input_depth[1] * self.idata.initial.pressure_gradient/1000],
                                   'temperature': [293.15, 293.15 + input_depth[1] * self.idata.initial.temperature_gradient/1000]
                                   }
-            return self.physics.set_initial_conditions_from_depth_table(self.reservoir.mesh,
+            g2l = np.asarray(self.reservoir.discr_mesh.global_to_local)[:self.reservoir.mesh.n_res_blocks]
+            return self.physics.set_initial_conditions_from_depth_table(mesh=self.reservoir.mesh,
+                                                                        global_to_local=g2l,
                                                                         input_distribution=input_distribution,
                                                                         input_depth=input_depth)
         elif self.idata.initial.type == 'uniform':
@@ -60,7 +51,7 @@ class ModelGeothermal(Model_CPG):
         a = self.reservoir.input_arrays  # include initial arrays and the grid
 
         nv = self.physics.n_vars
-        n_ops = self.physics.n_ops
+        n_ops = self.output.n_ops
         nb = self.reservoir.mesh.n_res_blocks
         Xn = np.array(self.physics.engine.X, copy=False)
         state = value_vector(Xn.T.flatten())

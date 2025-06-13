@@ -1,14 +1,17 @@
 from math import fabs
 import pickle
-import xarray as xr
-import h5py
 import os
+import warnings
 import numpy as np
 from scipy.interpolate import interp1d
 
 from darts.reservoirs.reservoir_base import ReservoirBase
 from darts.physics.base.physics_base import PhysicsBase
 from darts.models.output import Output
+try:
+    from darts.engines import copy_data_to_device
+except ImportError:
+    pass
 
 from darts.engines import timer_node, sim_params, value_vector, index_vector, op_vector, ms_well_vector
 from darts.engines import print_build_info as engines_pbi
@@ -118,6 +121,7 @@ class DartsModel:
 
         # Initialize physics and Engine object
         assert self.physics is not None, "Physics object has not been defined"
+        self.platform = platform
         self.physics.init_physics(discr_type=discr_type, platform=platform, verbose=verbose,
                                   itor_mode=itor_mode, itor_type=itor_type, is_barycentric=is_barycentric)
         if platform == 'gpu':
@@ -130,13 +134,17 @@ class DartsModel:
 
         self.set_op_list()
         self.set_boundary_conditions()
-        self.restart = restart
+        self.set_well_controls()
+
         # when restarting the initial conditions are set in self.load_restart_data() and the engine is reset.
+        self.restart = restart
         if restart is False:
             self.set_initial_conditions()
-            self.set_well_controls()
             self.reset()
         self.data_ts.print()
+        if self.params.linear_type == sim_params.linear_solver_t.cpu_superlu and \
+            self.reservoir.mesh.n_res_blocks > 30000:
+            warnings.warn('The number of cells looks too big to use a direct linear solver: ' + str(self.reservoir.mesh.n_res_blocks) + ' > 30000')
 
     def reset(self):
         """
@@ -322,7 +330,7 @@ class DartsModel:
         self.params.tolerance_linear = self.data_ts.linear_tol
         self.params.max_i_linear = self.data_ts.linear_max_iter
         if self.data_ts.linear_type is not None:
-            m.params.linear_type = self.data_ts.linear_type
+            self.params.linear_type = self.data_ts.linear_type
 
     def run_simple(self, physics, data_ts, days):
         """
@@ -410,6 +418,7 @@ class DartsModel:
         :param save_solution_data: if True save states of all reservoir blocks at the end of run to 'solution.h5', default is True
         :type save_solution_data: bool
         """
+        assert hasattr(self, 'output'), "self.output does not exist, please call m.set_output() after m.init()"
         days = days if days is not None else self.runtime
         data_ts = self.data_ts
 
@@ -516,9 +525,12 @@ class DartsModel:
         max_residual = np.zeros(max_newt + 1)
         self.physics.engine.n_linear_last_dt = 0
         self.timer.node['simulation'].start()
+        residual_history = []
         for i in range(max_newt+1):
             self.physics.engine.assemble_linear_system(dt)  # assemble Jacobian and residual of reservoir and well blocks
             self.apply_rhs_flux(dt, t)  # apply RHS flux
+            if self.platform == 'gpu':
+                copy_data_to_device(self.physics.engine.RHS, self.physics.engine.get_RHS_d())
 
             self.physics.engine.newton_residual_last_dt = self.physics.engine.calc_newton_residual()  # calc norm of residual
 
@@ -533,6 +545,10 @@ class DartsModel:
                 break
 
             self.physics.engine.well_residual_last_dt = self.physics.engine.calc_well_residual()
+            residual_history.append((self.physics.engine.newton_residual_last_dt, # matrix residual
+                                     self.physics.engine.well_residual_last_dt,   # well residual
+                                     1.0))                                        # Newton update coefficient
+
             self.physics.engine.n_newton_last_dt = i
             #  check tolerance if it converges
             if ((self.physics.engine.newton_residual_last_dt < self.data_ts.newton_tol and
@@ -631,6 +647,8 @@ class DartsModel:
             self.timer.node["newton update"].stop()
             self.physics.engine.assemble_linear_system(dt)
             self.apply_rhs_flux(dt, t)
+            if self.platform == 'gpu':
+                copy_data_to_device(self.physics.engine.RHS, self.physics.engine.get_RHS_d())
             res = (self.physics.engine.calc_newton_residual(), self.physics.engine.calc_well_residual())
             res_history = np.append(res_history, res[0])
             if verbose:

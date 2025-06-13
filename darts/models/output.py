@@ -138,12 +138,12 @@ class Output:
                 # Loop through each property label and phase name
                 for i, name in enumerate(phase_props_labels):
                     for j in range(len(pc.phase_props[i])):
-                        temp_dict[f"{name}_{self.physics.phases[j]}"] = lambda i=i, j=j: pc.phase_props[i][j]
+                        temp_dict[f"{name}_{self.physics.phases[j]}"] = lambda ii=i, jj=j, rr=region: self.physics.property_containers[rr].phase_props[ii][jj]
 
                 # Add molar phase fractions
                 for i in range(pc.x.shape[1]):
                     for j in range(pc.x.shape[0]):
-                        temp_dict[f"x_{self.physics.phases[j]}_{pc.components_name[i]}"] = lambda i=i, j=j: pc.x[j, i]
+                        temp_dict[f"x_{self.physics.phases[j]}_{pc.components_name[i]}"] = lambda ii=i, jj=j, rr=region: self.physics.property_containers[rr].x[jj, ii]
 
                 self.physics.property_operators[region] = PropertyOperators(pc, self.physics.thermal, temp_dict)
                 self.physics.property_itor[region] = self.physics.create_interpolator(self.physics.property_operators[region],
@@ -172,7 +172,7 @@ class Output:
                 # Loop through each property label and phase name
                 for i, name in enumerate(phase_props_labels):
                     for j in range(self.physics.property_containers[region].nph):
-                        temp_dict[f"{name}_{self.physics.phases[j]}"] = lambda i=i, j=j: pc.phase_props[i][j]
+                        temp_dict[f"{name}_{self.physics.phases[j]}"] = lambda ii=i, jj=j, rr=region: self.physics.property_containers[rr].phase_props[ii][jj]
 
                 self.physics.property_operators[region] = PropertyOperators(pc, thermal = False, props = temp_dict)
                 self.physics.property_itor[region] = self.physics.create_interpolator(self.physics.property_operators[region],
@@ -219,16 +219,51 @@ class Output:
 
             self.physics.property_containers[region].output_props = output_dictionary
 
-            # Initialize physics and engine settings
-            self.physics.init_physics()
-            self.physics.engine.init(self.reservoir.mesh,
-                                     ms_well_vector(self.reservoir.wells),
-                                     op_vector(self.op_list),
-                                     self.params,
-                                     self.master_timer.node["simulation"])
+            self.physics.property_operators[region] = PropertyOperators(self.physics.property_containers[region],
+                                                                        self.physics.thermal,
+                                                                        output_dictionary)
+            self.physics.property_itor[region] = self.physics.create_interpolator(
+                self.physics.property_operators[region],
+                n_ops=self.physics.n_ops,
+                axes_min=self.physics.axes_min, axes_max=self.physics.axes_max,
+                platform='cpu', algorithm='multilinear',
+                mode='adaptive', precision='d',
+                timer_name='property %d interpolation' % region,
+                region=str(region))
             self.properties = list(output_dictionary.keys())
 
         return
+
+    def save_array(self, array, filename, compression_level=1):
+        """
+        This function saved any dictionary as an h5 file with compression
+
+        : param array: data
+        : type array: dict
+        : param filename: filename in the format filename.h5
+        : type filename: str
+        : param compression_level : int value between 0 and 9
+        : type : int
+        """
+        output_directory = os.path.join(m.output_folder, filename)
+        with h5py.File(output_directory, "w") as h5f:
+            for key, array in array.items():
+                h5f.create_dataset(key, data=array, compression='gzip', compression_opts=compression_level)
+        return 0
+
+    def load_array(self, file_directory):
+        """
+        This function loads any saved data in h5 file format
+
+        : param file_directory: filename in the format filename.h5
+        : type file_directory: str
+        """
+
+        array = {}
+        with h5py.File(file_directory, "r") as h5f:
+            for key in h5f.keys():
+                array[key] = np.array(h5f[key])
+        return array
 
     def save_property_array(self, time_vector, property_array, filename="property_array.h5"):
         """
@@ -769,7 +804,7 @@ class Output:
                 plt.savefig(output_directory + '/%s ts%d.png' % (var, timestep))
         plt.close('all')
 
-    def store_well_time_data(self, types_of_well_rates: list = None):
+    def store_well_time_data(self, types_of_well_rates: list = None, save_output_files: bool = False):
         """
         Compute and store well time data including rates and bottom-hole conditions (BHT and BHP).
         Rates are calculated for each perforation and also total rate of each well. Total rates are calculated using
@@ -785,6 +820,8 @@ class Output:
                                     "components_mass_rates"
                                     "advective_heat_rate" for thermal scenarios
         :type types_of_well_rates: list
+        :param save_output_files: Flag to save time_data as a .pkl and .xlsx file in the output folder, default false
+        :type save_output_files: bool
 
         Well data is saved as a *.pkl file and .xlsx file in the dartsmodel.output_folder.
         """
@@ -826,10 +863,11 @@ class Output:
             self.store_wellhead_rates(time_data_dict, rates_wellhead, rate_type)
 
         # Export time_data_dict
-        df = pd.DataFrame(time_data_dict)
-        df.to_pickle(os.path.join(self.output_folder, 'well_time_data.pkl'))
-        with pd.ExcelWriter(os.path.join(self.output_folder, 'well_time_data.xlsx')) as w:
-            df.to_excel(w, sheet_name='Sheet1')
+        if save_output_files:
+            df = pd.DataFrame(time_data_dict)
+            df.to_pickle(os.path.join(self.output_folder, 'well_time_data.pkl'))
+            with pd.ExcelWriter(os.path.join(self.output_folder, 'well_time_data.xlsx')) as w:
+                df.to_excel(w, sheet_name='Sheet1')
 
         # End timer for store_well_time_data
         self.timer.node["output_well_time_data"].stop(); self.timer.stop()

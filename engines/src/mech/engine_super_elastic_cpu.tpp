@@ -55,6 +55,7 @@ int engine_super_elastic_cpu<NC, NP, THERMAL>::init(conn_mesh *mesh_, std::vecto
   discr = nullptr;
 
   init_base(mesh_, well_list_, acc_flux_op_set_list_, params_, timer_);
+  this->expose_jacobian();
 
   return 0;
 }
@@ -284,7 +285,6 @@ int engine_super_elastic_cpu<NC, NP, THERMAL>::init_base(conn_mesh *mesh_, std::
 	nc = get_n_comps();
 	const uint8_t n_state = get_n_state();
 	z_var = get_z_var();
-	nc_fl = get_n_comps();
 
 	X_init.resize(n_vars * mesh->n_blocks);
 	PV.resize(mesh->n_blocks);
@@ -292,8 +292,8 @@ int engine_super_elastic_cpu<NC, NP, THERMAL>::init_base(conn_mesh *mesh_, std::
 	old_z.resize(nc);
 	new_z.resize(nc);
 	FIPS.resize(nc);
-	old_z_fl.resize(nc_fl);
-	new_z_fl.resize(nc_fl);
+	old_z_fl.resize(nc - n_solid);
+	new_z_fl.resize(nc - n_solid);
 
 	darcy_fluxes.resize(mesh->n_conns);
 	structural_movement_fluxes.resize(mesh->n_conns);

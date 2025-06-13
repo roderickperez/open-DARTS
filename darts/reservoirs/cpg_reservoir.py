@@ -409,7 +409,7 @@ class CPG_Reservoir(ReservoirBase):
         return bc
 
     def add_perforation(self, well_name: str, cell_index: Union[int, tuple], well_radius: float = 0.1524,
-                        well_index: float = None, well_indexD: float = None, segment_direction: str = 'z_axis',
+                        well_index: float = None, well_indexD: float = 0., segment_direction: str = 'z_axis',
                         skin: float = 0., multi_segment: bool = False, verbose: bool = False):
         """
         Function to add perforations to wells.
@@ -752,9 +752,9 @@ class CPG_Reservoir(ReservoirBase):
 
     def get_ijk_from_xyz(self, x, y, z):
         '''
-        :return: tuple of I,J,K indices (1-based) of the closest cell to the point with coordinates x,y,z
+        :return: tuple of I,J,K indices (1-based) of a cell with the closest center to the point with coordinates x,y,z
         '''
-        def find_cell_index(centers_flattened, coord) -> int:
+        def find_cell_index(centers_flattened, coord) -> int: # returns the local index (only active cells) of the closest cell center
             min_dis = None
             idx = None
             for j, centroid in enumerate(centers_flattened):
@@ -771,7 +771,7 @@ class CPG_Reservoir(ReservoirBase):
 
         centers = self.centroids_all_cells[:self.discr_mesh.n_cells]
         idx = find_cell_index(centers, np.array([x, y, z]))
-        ijk = get_ijk(idx, self.nx, self.ny, self.nz)
+        ijk = get_ijk(self.discr_mesh.local_to_global[idx], self.nx, self.ny, self.nz)
         return ijk
 
     def centers_to_vtk(self, out_dir):
@@ -915,13 +915,16 @@ def read_arrays(gridfile: str, propfile: str):
 
     arrays['PERMX'] = read_float_array(propfile, 'PERMX')
     arrays['PERMY'] = read_float_array(propfile, 'PERMY')
-    for perm_str in ['PERMEABILITYXY', 'PERMEABILITY']:
-        if arrays['PERMX'].size == 0 or arrays['PERMY'].size == 0:
-            arrays['PERMX'] = read_float_array(propfile, perm_str)
-            arrays['PERMY'] = arrays['PERMX']
     if arrays['PERMY'].size == 0:
         arrays['PERMY'] = arrays['PERMX']
         print('No PERMY found in input files. PERMY=PERMX will be used')
+    for perm_str in ['PERMEABILITYXY', 'PERMEABILITY']:
+        if arrays['PERMX'].size == 0 and arrays['PERMY'].size == 0:
+            a = read_float_array(propfile, perm_str)
+            if a.size > 0:
+                arrays['PERMX'] = a
+                arrays['PERMY'] = a
+                print('No PERMX and PERMY found in input files. PERMY=PERMX=', perm_str, 'will be used')
     arrays['PERMZ'] = read_float_array(propfile, 'PERMZ')
     if arrays['PERMZ'].size == 0:
         arrays['PERMZ'] = arrays['PERMX'] * 0.1

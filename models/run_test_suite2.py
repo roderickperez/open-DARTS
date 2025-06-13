@@ -18,7 +18,8 @@ def run_testing(platform, overwrite, iter_solvers, test_all_models):
                      'Chem_benchmark_new',
                      #'CO2_foam_CCS',
                      'GeoRising',
-                     'CoaxWell'
+                     'CoaxWell',
+                     'phreeqc_dissolution'
                      ]       
 
 
@@ -51,6 +52,26 @@ def run_testing(platform, overwrite, iter_solvers, test_all_models):
             for mesh in meshes_list:
                 test_args_mech_spe10.append([mesh, physics])
         test_args_mech += [test_args_mech_spe10]
+
+        test_dirs_mech += ['displaced_fault_reactivation']
+        test_args_fault = []
+        config = {'mode': 'quasi_static',
+                  'timesteps': [1.0],
+                  'depletion': {'mode': 'uniform', 'value': -250.0},
+                  'friction_law': 'static',
+                  'mesh_file': 'meshes/new_setup_coarse.geo',
+                  'cache_discretizer': False}
+        config[0] = config['friction_law']  # to make work arg[0] in for_each_model
+        test_args_fault += [config]
+        config = {'mode': 'quasi_static',
+                  'timesteps': [1.0],
+                  'depletion': {'mode': 'uniform', 'value': -172.4},  # -172.685 is more precise, requires finer mesh
+                  'friction_law': 'slip_weakening',
+                  'mesh_file': 'meshes/new_setup_coarse.geo',
+                  'cache_discretizer': False}
+        config[0] = config['friction_law']  # to make work arg[0] in for_each_model
+        test_args_fault += [config]
+        test_args_mech += [test_args_fault]
 
     # CPG (C++ discr)
     test_dirs_cpg = ['cpg_sloping_fault']
@@ -161,7 +182,7 @@ def run_testing(platform, overwrite, iter_solvers, test_all_models):
     else:
         print('exit:', n_failed)
         # exit with code equal to number of failed models
-        exit(n_failed)
+    exit(n_failed)
 
 
 def check_performance(mod):
@@ -197,7 +218,7 @@ def check_performance(mod):
     if os.getenv('UPLOAD_PKL') != None and os.getenv('UPLOAD_PKL') == '1':
         overwrite = 1
     failed = m.check_performance(overwrite=overwrite, pkl_suffix=pkl_suffix)
-    log_stream = redirect_all_output(log_file)
+
     return failed
 
 
@@ -213,7 +234,7 @@ def check_performance_adjoint(mod):
     mod.read_observation_data()
     failed = mod.process_adjoint()
     abort_redirection(log_stream)
-    log_stream = redirect_all_output(log_file)
+
 
     return failed
 
@@ -247,4 +268,5 @@ if __name__ == '__main__':
     if os.getenv('ODLS') != None and os.getenv('ODLS') == '-a':  # run this case only for the build with iterative solvers
         iter_solvers = True
         
-    run_testing(platform, overwrite, iter_solvers, test_all_models)
+    rcode = run_testing(platform, overwrite, iter_solvers, test_all_models)
+    exit(rcode)
