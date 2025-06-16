@@ -3,13 +3,10 @@ from darts.models.cicd_model import DartsModel
 from darts.physics.properties.iapws.iapws_property_vec import _Backward1_T_Ph_vec
 from darts.tools.keyword_file_tools import load_single_keyword
 import numpy as np
-from darts.engines import value_vector, sim_params
 
 from darts.physics.properties.basic import ConstFunc, PhaseRelPerm
-from darts.physics.properties.density import DensityBasic
-
+from darts.physics.properties.density import DensityBasic, DensityBrineCO2
 from darts.physics.properties.black_oil import *
-from darts.physics.blackoil import BlackOil, BlackOilFluidProps
 
 class Model(DartsModel):
     def __init__(self, n_points=256, physics: str = 'geo'):
@@ -21,23 +18,29 @@ class Model(DartsModel):
 
         self.set_reservoir()
         self.inj_temp = -1  # for isothermal cases
+        dt_max = 31
 
         if physics == 'geo':
-            self.set_geo_physics(n_points)
+            self.set_geo_physics(n_points, zero)
             self.init_state = [200, 350]
             self.inj_temp = 300
             self.inj_comp = []
         elif physics == 'do':
-            self.set_do_physics(n_points)
+            self.set_do_physics(n_points, zero)
             self.init_state = [200, 0.05]
             self.inj_comp = [1 - zero]
-        else:
-            self.set_bo_physics(n_points)
+        elif physics == 'bo':
+            self.set_bo_physics(n_points, zero)
             self.init_state = [200, 0.001225901537, 0.7711341309]
             self.inj_comp = [1 - 2 * zero, zero]
+        elif physics == 'comp':
+            self.set_comp_physics(n_points, zero)
+            self.init_state = [200, 1.0 - 3 * zero, zero, zero]
+            self.inj_comp = [0.1, 0.2, 0.5 - zero]
+            dt_max = 3
 
 
-        self.set_sim_params(first_ts=1e-4, mult_ts=4, max_ts=31, tol_newton=1e-2)
+        self.set_sim_params(first_ts=1e-3, mult_ts=4, max_ts=dt_max, tol_newton=1e-2)
 
         self.timer.node["initialization"].stop()
 
@@ -82,7 +85,7 @@ class Model(DartsModel):
             self.reservoir.add_perforation("PRD", cell_index=(iw[1], jw[1], k + 1),
                                            well_radius=0.16, multi_segment=True)
 
-    def set_geo_physics(self, n_points):
+    def set_geo_physics(self, n_points, zero):
         from darts.physics.geothermal.physics import Geothermal
         from darts.physics.geothermal.property_container import PropertyContainer
         # create pre-defined physics for geothermal
@@ -93,56 +96,55 @@ class Model(DartsModel):
         self.physics.add_property_region(property_container)
         self.physics.init_physics()
 
-    def set_do_physics(self, n_points):
+    def set_do_physics(self, n_points, zero):
         from darts.physics.super.physics import Compositional
         # create pre-defined physics for geothermal
-        zero = 1e-13
         components = ["w", "o"]
-        phases = ["water", "oil"]
+        phases = ["wat", "oil"]
 
-        property_container = DOProperties(phases_name=phases, components_name=components, min_z=zero/10)
+        property_container = DOProperties(phases_name=phases, components_name=components, min_z=zero)
 
-        property_container.density_ev = dict([('water', DensityBasic(compr=1e-5, dens0=1014)),
+        property_container.density_ev = dict([('wat', DensityBasic(compr=1e-5, dens0=1014)),
                                               ('oil', DensityBasic(compr=5e-3, dens0=500))])
-        property_container.viscosity_ev = dict([('water', ConstFunc(0.3)),
+        property_container.viscosity_ev = dict([('wat', ConstFunc(0.3)),
                                                 ('oil', ConstFunc(0.03))])
-        property_container.rel_perm_ev = dict([('water', PhaseRelPerm("water", 0.1, 0.1)),
+        property_container.rel_perm_ev = dict([('wat', PhaseRelPerm("water", 0.1, 0.1)),
                                                ('oil', PhaseRelPerm("oil", 0.1, 0.1))])
 
         # create physics
         thermal = False
         state_spec = Compositional.StateSpecification.PT if thermal else Compositional.StateSpecification.P
         self.physics = Compositional(components, phases, self.timer, state_spec=state_spec,
-                                     n_points=400, min_p=0, max_p=1000, min_z=zero, max_z=1 - zero)
+                                     n_points=n_points, min_p=0, max_p=1000, min_z=zero/10, max_z=1 - zero/10)
         self.physics.add_property_region(property_container)
 
         return
 
-    def set_bo_physics(self, n_points=128):
+    def set_bo_physics(self, n_points, zero):
         from darts.physics.super.physics import Compositional
+
         """Physical properties"""
         # Create property containers:
-        zero = 1e-12
         components = ['g', 'o', 'w']
-        phases = ['gas', 'oil', 'water']
+        phases = ['gas', 'oil', 'wat']
 
         pvt = 'physics.in'
 
         """ properties correlations """
         pvt = 'physics.in'
         Mw = np.ones(len(components))
-        property_container = BOProperties(phases_name=phases, components_name=components, Mw=Mw, min_z=zero/10)
+        property_container = BOProperties(phases_name=phases, components_name=components, Mw=Mw, min_z=zero)
 
         property_container.flash_ev = flash_black_oil(pvt)
         property_container.density_ev = dict([('gas', DensityGas(pvt)),
                                               ('oil', DensityOil(pvt)),
-                                              ('water', DensityWat(pvt))])
+                                              ('wat', DensityWat(pvt))])
         property_container.viscosity_ev = dict([('gas', ViscGas(pvt)),
                                                 ('oil', ViscOil(pvt)),
-                                                ('water', ViscWat(pvt))])
+                                                ('wat', ViscWat(pvt))])
         property_container.rel_perm_ev = dict([('gas', GasRelPerm(pvt)),
                                                ('oil', OilRelPerm(pvt)),
-                                               ('water', WatRelPerm(pvt))])
+                                               ('wat', WatRelPerm(pvt))])
         property_container.capillary_pressure_ev = dict([('pcow', CapillaryPressurePcow(pvt)),
                                                          ('pcgo', CapillaryPressurePcgo(pvt))])
 
@@ -155,6 +157,38 @@ class Model(DartsModel):
 
         return
 
+    def set_comp_physics(self, n_points, zero):
+        from darts.physics.super.physics import Compositional
+        from darts.physics.properties.flash import ConstantK
+        """Physical properties"""
+        # Create property containers:
+        components = ['CO2', 'C1', 'H2S', 'H2O']
+        phases = ['gas', 'oil', 'wat']
+        nc = len(components)
+        Mw = [44.01, 16.04, 34.081, 18.015]
+
+        property_container = CompProperties(phases_name=phases, components_name=components, Mw=Mw, min_z=zero)
+
+        """ properties correlations """
+        property_container.flash_ev = ConstantK(nc - 1, [4, 2, 1e-2], zero)
+        property_container.density_ev = dict([('gas', DensityBasic(compr=1e-3, dens0=200)),
+                                              ('oil', DensityBasic(compr=1e-5, dens0=600)),
+                                              ('wat', DensityBrineCO2(components, compr=1e-5, dens0=1000, co2_mult=0))])
+        property_container.viscosity_ev = dict([('gas', ConstFunc(0.05)),
+                                                ('oil', ConstFunc(0.5)),
+                                                ('wat', ConstFunc(0.5))])
+        property_container.rel_perm_ev = dict([('gas', PhaseRelPerm("gas", swc=0.2)),
+                                               ('oil', PhaseRelPerm("oil", swc=0.2)),
+                                               ('wat', PhaseRelPerm("wat", swc=0.2))])
+
+        """ Activate physics """
+        thermal = False
+        state_spec = Compositional.StateSpecification.PT if thermal else Compositional.StateSpecification.P
+        self.physics = Compositional(components, phases, self.timer, state_spec=state_spec,
+                                     n_points=n_points, min_p=1, max_p=500, min_z=zero/10, max_z=1-zero/10)
+        self.physics.add_property_region(property_container)
+
+        return
 
     def set_initial_conditions(self):
         if self.physics_name == 'geo':
@@ -187,6 +221,44 @@ class Model(DartsModel):
         return temp
 
 from darts.physics.super.property_container import PropertyContainer
+
+class CompProperties(PropertyContainer):
+    def __init__(self, phases_name, components_name, Mw, min_z=1e-11):
+        # Call base class constructor
+        super().__init__(phases_name, components_name, Mw, min_z=min_z, temperature=1.)
+
+    def run_flash(self, pressure, temperature, zc, evaluate_PT: bool = None):
+        # evaluate_PT argument is required in PropertyContainer but is not needed in this model
+
+        zc_r = zc[:-1] / (1 - zc[-1])
+        self.flash_ev.evaluate(pressure, temperature, zc_r)
+        flash_results = self.flash_ev.get_flash_results()
+        nu = np.array(flash_results.nu)
+        xr = np.array(flash_results.X).reshape(self.nph-1, self.nc-1)
+        V = nu[0]
+
+        if V <= 0:
+            V = 0
+            xr[1] = zc_r
+            ph = [1, 2]
+        elif V >= 1:
+            V = 1
+            xr[0] = zc_r
+            ph = [0, 2]
+        else:
+            ph = [0, 1, 2]
+
+        for i in range(self.nc - 1):
+            for j in range(2):
+                self.x[j][i] = xr[j][i]
+
+        self.x[-1][-1] = 1
+
+        self.nu[0] = V * (1 - zc[-1])
+        self.nu[1] = (1 - V) * (1 - zc[-1])
+        self.nu[2] = zc[-1]
+
+        return np.array(ph, dtype=np.intp)
 
 class DOProperties(PropertyContainer):
     def __init__(self, phases_name, components_name, min_z=1e-11):
