@@ -43,7 +43,7 @@ def plot_sol(n):
     plt.subplot(330 + (i + 1))
     plt.plot(P)
     plt.title('Pressure', y=1)
-
+olo
     plt.show()
 
 if __name__ == '__main__':
