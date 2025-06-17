@@ -562,7 +562,7 @@ class Output:
 
         return time, cell_id, X, var_names
 
-    def output_properties(self, filepath: str = None, output_properties: list = None, timestep: int = None, engine = False) -> tuple[np.ndarray, dict]:
+    def output_properties(self, filepath: str = None, output_properties: list = None, timestep: int = None, engine = False) -> tuple[np.ndarray, dict, dict]:
         """
         Evaluates and returns properties from saved data (HDF5 file) or a simulation engine.
 
@@ -652,9 +652,14 @@ class Output:
                         temp = values_numpy[prop_idx::self.n_ops]
                         property_array[prop_name][k][block_idx] = temp[block_idx]
 
-        return timesteps, property_array
+        # units to prop names
+        prop_names = {}
+        for i, name in enumerate(property_array.keys()):
+            prop_names[name] = name + self.variable_units[name]
 
-    def output_to_vtk(self, sol_filepath : str = None, ith_step: int = None, output_directory: str = None, output_properties: list = None, engine : bool = False):
+        return timesteps, property_array, prop_names
+
+    def output_to_vtk(self, timesteps, property_array, prop_names = {}, ith_step: int = None, output_directory: str = None):
         """
         Function to export results at timestamp t into `.vtk` format for viewing in Paraview.
 
@@ -674,20 +679,15 @@ class Output:
             output_directory = os.path.join(self.output_folder, 'vtk_files')
         os.makedirs(output_directory, exist_ok=True)
 
-        timesteps, property_array = self.output_properties(self.sol_filepath if sol_filepath is None else sol_filepath,
-                                                           output_properties,
-                                                           ith_step,
-                                                           engine)
-
-        # units to prop names
-        prop_names = {}
-        for i, name in enumerate(property_array.keys()):
-            prop_names[name] = name + self.variable_units[name]
-
         for t, time in enumerate(timesteps):
             data = np.zeros((len(property_array), self.reservoir.mesh.n_res_blocks))
             for i, name in enumerate(property_array.keys()):
-                data[i, :] = property_array[name][t]
+                if ith_step is None:
+                    data[i, :] = property_array[name][t]
+                else:
+                    data[i, :] = property_array[name]
+                if name not in prop_names: # if no units are specified, use the name as is
+                    prop_names[name] = name
 
             if ith_step is None:
                 self.reservoir.output_to_vtk(t, time, output_directory, prop_names, data)
