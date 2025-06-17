@@ -71,7 +71,7 @@ reconstruct_velocities(const unsigned int n_res_blocks, const bool enable_permpo
   index_t conn_idx = csr_idx_start - i;
 
   index_t j, cell_conn_idx, vel_idx;
-  value_t p_diff, phi_avg, trans_mult, avg_density, phase_p_diff;
+  value_t p_diff, trans_mult, avg_density, phase_p_diff;
   value_t phase_flux;
   index_t cell_conn_num = velocity_offset[i + 1] - velocity_offset[i];
 
@@ -492,8 +492,6 @@ assemble_jacobian_array_kernel(const unsigned int n_blocks, const unsigned int n
     } // end of loop over number of phases for convective operator with gravity and capillarity
 
     // [3] Additional diffusion code here:   (phi_p * S_p) * (rho_p * D_cp * Delta_x_cp)  or (phi_p * S_p) * (kappa_p * Delta_T)
-    phi_avg = (poro[i] + poro[j]) * 0.5; // diffusion term depends on total porosity!
-
     // Only if block connection is between reservoir and reservoir cells!
     if (i < n_res_blocks && j < n_res_blocks)
     {
@@ -615,7 +613,7 @@ int engine_super_gpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, std::
 
   assemble_jacobian_array_kernel<NC, NP, NE, N_VARS, P_VAR, T_VAR, N_OPS, ACC_OP, FLUX_OP, UPSAT_OP, GRAD_OP, KIN_OP,
                                  GRAV_OP, PC_OP, MULT_OP, ENTH_OP, TEMP_OP, PRES_OP, THERMAL>
-      KERNEL_1D(mesh->n_blocks, N_VARS * N_VARS, 64)(mesh->n_blocks, mesh->n_res_blocks, params->enable_permpo,
+      KERNEL_1D(mesh->n_blocks, N_VARS * N_VARS, 64)(mesh->n_blocks, mesh->n_res_blocks, params->enable_permporo,
                                                      params->phase_existence_tolerance,
                                                      dt, X_d, RHS_d,
                                                      jacobian->rows_ptr_d, jacobian->cols_ind_d, jacobian->values_d, jacobian->diag_ind_d,
