@@ -663,11 +663,11 @@ int engine_super_elastic_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t d
 			mult_j = op_vals_arr[j * N_OPS + MULT_OP];
 
 			// Take average interface porosity:
-			trans_mult = (mult_i + mult_j) / 2;
+			trans_mult = 2 * mult_i * mult_j / (mult_i + mult_j);
 			for (uint8_t v = 0; v < N_VARS; v++)
 			{
-				trans_mult_der_i[v] = op_ders_arr[(i * N_OPS + MULT_OP) * N_VARS + v] / 2;
-				trans_mult_der_j[v] = op_ders_arr[(j * N_OPS + MULT_OP) * N_VARS + v] / 2;
+			  trans_mult_der_i[v] = mult_j * trans_mult / (mult_i + mult_j) * op_ders_arr[(i * N_OPS + MULT_OP) * N_VARS + v];
+			  trans_mult_der_j[v] = mult_i * trans_mult / (mult_i + mult_j) * op_ders_arr[(j * N_OPS + MULT_OP) * N_VARS + v];
 			}
 		  }
 		  else

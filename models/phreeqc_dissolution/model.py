@@ -319,9 +319,9 @@ class Model(CICDModel):
         self.domain = domain
         # permporo relationship
         self.params.enable_permporo = True
-        self.permporo = lambda poro: 1.25e4 * poro ** 4
+        self.permporo = lambda poro: poro ** 4
         self.poro = 1  # self.poro=1 is for reservoir, poro is for initial state
-        perm = self.permporo(self.poro)
+        perm = 1.25e4 * self.permporo(self.poro)
 
         if self.domain == '1D':
             # grid

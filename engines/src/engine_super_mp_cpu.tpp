@@ -784,25 +784,25 @@ int engine_super_mp_cpu<NC, NP, THERMAL>::assemble_jacobian_array(value_t dt, st
 			value_t trans_mult_der_j[N_STATE];
 			if (params->enable_permporo && i < mesh->n_res_blocks && j < mesh->n_res_blocks)
 			{
-				// Calculate transmissibility multiplier:
-				mult_i = op_vals_arr[i * N_OPS + MULT_OP];
-				mult_j = op_vals_arr[j * N_OPS + MULT_OP];
+			  // Calculate transmissibility multiplier:
+			  mult_i = op_vals_arr[i * N_OPS + MULT_OP];
+			  mult_j = op_vals_arr[j * N_OPS + MULT_OP];
 
-				// Take average interface porosity:
-				trans_mult = (mult_i + mult_j) / 2;
-				for (uint8_t v = 0; v < N_VARS; v++)
-				{
-					trans_mult_der_i[v] = op_ders_arr[(i * N_OPS + MULT_OP) * N_VARS + v] / 2;
-					trans_mult_der_j[v] = op_ders_arr[(j * N_OPS + MULT_OP) * N_VARS + v] / 2;
-				}
+			  // Take average interface porosity:
+			  trans_mult = 2 * mult_i * mult_j / (mult_i + mult_j);
+			  for (uint8_t v = 0; v < N_VARS; v++)
+			  {
+				trans_mult_der_i[v] = mult_j * trans_mult / (mult_i + mult_j) * op_ders_arr[(i * N_OPS + MULT_OP) * N_VARS + v];
+				trans_mult_der_j[v] = mult_i * trans_mult / (mult_i + mult_j) * op_ders_arr[(j * N_OPS + MULT_OP) * N_VARS + v];
+			  }
 			}
 			else
 			{
-				for (v = 0; v < N_STATE; v++)
-				{
-					trans_mult_der_i[v] = 0;
-					trans_mult_der_j[v] = 0;
-				}
+			  for (v = 0; v < N_STATE; v++)
+			  {
+				  trans_mult_der_i[v] = 0;
+				  trans_mult_der_j[v] = 0;
+			  }
 			}*/
 	  
 			nebr_jac_idx = csr_idx_end;

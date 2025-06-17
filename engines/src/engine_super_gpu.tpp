@@ -96,8 +96,8 @@ reconstruct_velocities(const unsigned int n_res_blocks, const bool enable_permpo
     trans_mult = 1.;
     if (enable_permporo)
     {
-      // Take arithmetic mean of multipliers:
-      trans_mult = (op_vals_arr[i * N_OPS + MULT_OP] + op_vals_arr[j * N_OPS + MULT_OP]) * 0.5;
+      // Take average interface porosity:
+      trans_mult = 2 * op_vals_arr[i * N_OPS + MULT_OP] * op_vals_arr[j * N_OPS + MULT_OP] / (op_vals_arr[i * N_OPS + MULT_OP] + op_vals_arr[j * N_OPS + MULT_OP]);
     }
 
     p_diff = X[j * N_VARS + P_VAR] - X[i * N_VARS + P_VAR];
@@ -431,9 +431,9 @@ assemble_jacobian_array_kernel(const unsigned int n_blocks, const unsigned int n
       mult_j = op_vals_arr[j * N_OPS + MULT_OP];
 
       // Take average interface porosity:
-      trans_mult = (mult_i + mult_j) / 2;
-      trans_mult_der_i = op_ders_arr[(i * N_OPS + MULT_OP) * N_VARS + v] / 2;
-      trans_mult_der_j = op_ders_arr[(j * N_OPS + MULT_OP) * N_VARS + v] / 2;
+      trans_mult = 2 * mult_i * mult_j / (mult_i + mult_j);
+      trans_mult_der_i = mult_j * trans_mult / (mult_i + mult_j) * op_ders_arr[(i * N_OPS + MULT_OP) * N_VARS + v];
+      trans_mult_der_j = mult_i * trans_mult / (mult_i + mult_j) * op_ders_arr[(j * N_OPS + MULT_OP) * N_VARS + v];
     }
 
     p_diff = X[j * N_VARS + P_VAR] - X[i * N_VARS + P_VAR];
