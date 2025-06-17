@@ -83,7 +83,8 @@ from fluidflower_str_b import FluidFlowerStruct
 try:
     from darts.engines import set_gpu_device
 except:
-    from darts.engines import set_num_threads
+    pass
+from darts.engines import set_num_threads
 
 # For each of the facies within the SPE11b model we define a set of operators in the physics.
 property_regions  = [0, 1, 2, 3, 4, 5, 6]
