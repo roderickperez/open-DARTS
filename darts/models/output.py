@@ -562,7 +562,7 @@ class Output:
 
         return time, cell_id, X, var_names
 
-    def output_properties(self, filepath: str = None, output_properties: list = None, timestep: int = None, engine = False) -> tuple[np.ndarray, dict, dict]:
+    def output_properties(self, filepath: str = None, output_properties: list = None, timestep: int = None, engine = False) -> tuple[np.ndarray, dict]:
         """
         Evaluates and returns properties from saved data (HDF5 file) or a simulation engine.
 
@@ -652,14 +652,10 @@ class Output:
                         temp = values_numpy[prop_idx::self.n_ops]
                         property_array[prop_name][k][block_idx] = temp[block_idx]
 
-        # units to prop names
-        prop_names = {}
-        for i, name in enumerate(property_array.keys()):
-            prop_names[name] = name + self.variable_units[name]
+        return timesteps, property_array
 
-        return timesteps, property_array, prop_names
-
-    def output_to_vtk(self, timesteps, property_array, prop_names = {}, ith_step: int = None, output_directory: str = None):
+    def output_to_vtk(self, sol_filepath : str = None, ith_step: int = None, output_directory: str = None,
+                      output_properties: list = None, engine : bool = False, output_data : list = None):
         """
         Function to export results at timestamp t into `.vtk` format for viewing in Paraview.
 
@@ -671,6 +667,8 @@ class Output:
         :type output_directory: str
         :param output_properties: List of properties to include in .vtk file. Defaults to None in which case only primary (state) variables are evaluated.
         :type output_properties: list
+        :param output_data: List [array of timesteps, dictionary of propertiy arrays]. Defaults to None, in which case properties are evaluated from the HDF5 file or engine
+        :type output_data: list, optional
         """
         self.timer.start(); self.timer.node["vtk_output"].start()
 
@@ -678,16 +676,28 @@ class Output:
         if output_directory is None:
             output_directory = os.path.join(self.output_folder, 'vtk_files')
         os.makedirs(output_directory, exist_ok=True)
+        
+        if output_data is None:
+            timesteps, property_array = self.output_properties(self.sol_filepath if sol_filepath is None else sol_filepath,
+                                                           output_properties,
+                                                           ith_step,
+                                                           engine)
+        else: 
+            timesteps, property_array = output_data[0], output_data[1]
+
+        # units to prop names
+        self.set_units()
+        prop_names = {}
+        for i, name in enumerate(property_array.keys()):
+            if name in self.properties + self.physics.vars:
+                prop_names[name] = name + self.variable_units[name]
+            else:
+                prop_names[name] = name
 
         for t, time in enumerate(timesteps):
             data = np.zeros((len(property_array), self.reservoir.mesh.n_res_blocks))
             for i, name in enumerate(property_array.keys()):
-                if ith_step is None:
-                    data[i, :] = property_array[name][t]
-                else:
-                    data[i, :] = property_array[name]
-                if name not in prop_names: # if no units are specified, use the name as is
-                    prop_names[name] = name
+                data[i, :] = property_array[name][t]
 
             if ith_step is None:
                 self.reservoir.output_to_vtk(t, time, output_directory, prop_names, data)

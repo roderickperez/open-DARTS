@@ -77,12 +77,14 @@ def run(physics_type : str, case: str, out_dir: str, export_vtk=True, redirect_l
             # compute additional properties only for the first and for the last timestep:
             output_properties = output_properties_full if ith_step in [0, n_timesteps] else output_properties_main
             #print('timestep', ith_step, 'output_properties:', output_properties)
-            timesteps, property_array, prop_names = m.output.output_properties(output_properties=output_properties, timestep=ith_step, engine=False)
+            timesteps, property_array = m.output.output_properties(output_properties=output_properties, timestep=ith_step, engine=False)
             if ith_step == 0:
                 centers_x, centers_y, centers_z = m.reservoir.get_centers()
-                property_array.update({'centers_x' : centers_x, 'centers_y': centers_y, 'centers_z': centers_z})
-                prop_names.update({'centers_x': 'centers_x[m]', 'centers_y': 'centers_y[m]', 'centers_z': 'centers_z[m]'})
-            m.output.output_to_vtk(timesteps=timesteps, property_array=property_array, ith_step=ith_step, prop_names=prop_names)
+                property_array.update({'centers_x' : centers_x.reshape(1,-1), 'centers_y': centers_y.reshape(1,-1), 'centers_z': centers_z.reshape(1,-1)})
+
+            m.output.save_property_array(timesteps, property_array, f'property_array_ts.h5')
+
+            m.output.output_to_vtk(output_data=[timesteps, property_array], ith_step=ith_step)
 
         m.reservoir.centers_to_vtk(os.path.join(out_dir, 'vtk_files'))
 
