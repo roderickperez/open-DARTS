@@ -96,12 +96,6 @@ class MyOutput(Output):
         for i, prop in enumerate(prop_names):
             property_array[prop] = np.array([self.prop_values_np[i::n_interp_size]])
 
-        # porosity
-        n_vars = self.physics.nc
-        op_vals = np.asarray(self.physics.engine.op_vals_arr).reshape(self.reservoir.mesh.n_blocks, self.physics.n_ops)
-        poro = op_vals[:self.reservoir.mesh.n_res_blocks, self.physics.reservoir_operators[0].PORO_OP]
-        property_array['porosity'] = poro[np.newaxis]
-
         # hydrogen
         property = self.physics.property_operators[next(iter(self.physics.property_operators))].property
         fc = property.components_name[property.fc_mask]
@@ -287,6 +281,7 @@ class Model(CICDModel):
                                              kinetic_mechanisms=self.kinetic_mechanisms, min_z=self.obl_min,
                                              temperature=self.temperature, fc_mask=self.fc_mask, is_gas_spec=is_gas_spec)
 
+        property_container.permporo_mult_ev = self.permporo
         property_container.diffusion_ev = {ph: ConstFunc(np.concatenate([np.zeros(self.n_solid), \
                                          np.ones(self.nc - self.n_solid)]) * 5.2e-10 * 86400) for ph in self.phases}
 
@@ -322,6 +317,11 @@ class Model(CICDModel):
 
     def set_reservoir(self, domain, nx, mesh_filename, poro_filename):
         self.domain = domain
+        # permporo relationship
+        self.params.enable_permporo = True
+        self.permporo = lambda poro: 1.25e4 * poro ** 4
+        self.poro = 1  # self.poro=1 is for reservoir, poro is for initial state
+        perm = self.permporo(self.poro)
 
         if self.domain == '1D':
             # grid
@@ -332,9 +332,6 @@ class Model(CICDModel):
 
             # properties
             depth = 1                      # m
-            self.poro = 1                            # [-]
-            self.params.trans_mult_exp = 4
-            perm = 1.25e4 * self.poro ** self.params.trans_mult_exp
             self.solid_sat = np.zeros((self.n_res_blocks, self.n_solid))
             if set(self.minerals) == {'calcite'}:
                 self.solid_sat[:, 0] = 0.7
@@ -361,10 +358,6 @@ class Model(CICDModel):
 
             # properties
             depth = 1                      # m
-            self.poro = 1                       # [-]
-            self.params.trans_mult_exp = 4
-            perm = 1.25e4 * self.poro ** self.params.trans_mult_exp
-
             # porosity
             if poro_filename == None:
                 poro = 0.3 + np.random.uniform(-0.1, 0.1, self.n_res_blocks)
@@ -394,9 +387,6 @@ class Model(CICDModel):
                                              permx=perm, permy=perm, permz=perm, poro=self.poro, depth=depth)
         elif self.domain == '3D':
             depth = 1
-            poro = 1
-            self.params.trans_mult_exp = 4
-            perm = 1.25e4 * poro ** self.params.trans_mult_exp
             mesh_file = mesh_filename
             self.reservoir = UnstructReservoir(timer=self.timer, permx=perm, permy=perm, permz=perm, frac_aper=0,
                                                mesh_file=mesh_file, poro=poro)
