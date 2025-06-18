@@ -9,7 +9,8 @@ from visualization import plot_profiles, plot_new_profiles, animate_1d
 def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str = None, poro_filename: str = None, 
                    output: bool = False, interpolator: str = 'multilinear', minerals: list = ['calcite'], 
                    kinetic_mechanisms: list = ['acidic', 'neutral', 'carbonate'], output_folder: str = None,
-                   n_obl_mult: int = 1, co2_injection: float = 0.1, platform: str = 'cpu'):
+                   n_obl_mult: int = 1, co2_injection: float = 0.1, h2o_injection: float = 1.1, 
+                   perm_poro: str = 'power_4', platform: str = 'cpu'):
     # Make a folder
     if output_folder is None:
         output_folder = f'output_{domain}_{nx}_' + '_'.join(minerals) + \
@@ -22,7 +23,7 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str
     # Create model
     m = Model(domain=domain, nx=nx, mesh_filename=mesh_filename, poro_filename=poro_filename,
               minerals=minerals, kinetic_mechanisms=kinetic_mechanisms, n_obl_mult=n_obl_mult,
-              co2_injection=co2_injection)
+              co2_injection=co2_injection, h2o_injection=h2o_injection, perm_poro=perm_poro)
 
     # Initialize model
     m.init(itor_type=interpolator, platform=platform)
@@ -79,20 +80,25 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str
         # if output:
         #     animate_1d(output_folder=output_folder, fig_paths=fig_paths)
     elif domain == '2D':
+        m.data_ts.dt_first = 1.e-6
+        m.data_ts.dt_mult = 1.5
         plot(m=m, ith_step=ith_step)
         ith_step += 1
-        m.run(days=0.001, restart_dt=max_ts)
+        m.run(days=0.001)
         plot(m=m, ith_step=ith_step)
         ith_step += 1
-        m.data_ts.dt_max *= 40
+        if perm_poro == 'power_4':
+            m.data_ts.dt_max *= 40
         m.data_ts.first_ts = m.data_ts.dt_max
-        m.run(days=0.001)
+        m.run(days=0.001, restart_dt=m.prev_dt)
         plot(m=m, ith_step=ith_step)
         ith_step += 1
-        m.run(days=0.001)
+        m.run(days=0.001, restart_dt=m.prev_dt)
         plot(m=m, ith_step=ith_step)
         ith_step += 1
-
+        if perm_poro == 'power_8':
+            m.data_ts.dt_max *= 40
+    
         for i in range(15):
             dt = 0.4
             m.run(days=dt)
@@ -102,6 +108,7 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str
             plot(m=m, ith_step=ith_step)
             ith_step += 1
     elif domain == '3D':
+        m.data_ts.dt_mult = 1.5
         plot(m=m, ith_step=ith_step)
         ith_step += 1
         m.run(days=0.001, restart_dt=max_ts)
@@ -137,19 +144,20 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str
 
 if __name__ == '__main__':
     # 1D
-    run_simulation(domain='1D', nx=200, max_ts=1.e-3)
-    # n_obl_mult = 1
-    # run_simulation(domain='2D', nx=200, output=True, max_ts=1.e-3,
-    #                 n_obl_mult=n_obl_mult,
-    #                 interpolator='multilinear',
-    #                 minerals=['calcite'],# 'dolomite'],#, 'magnesite'])  # 4.e-5)
-    #                 kinetic_mechanisms=['acidic', 'neutral', 'carbonate'],
-    #                 co2_injection=0.1,
-    #                 platform='cpu')
-
+    run_simulation(domain='1D', nx=200, perm_poro='power_4', max_ts=1.e-3)
     # 2D
     # run_simulation(domain='2D', nx=10, max_ts=2.e-3)
-    # run_simulation(domain='2D', nx=100, max_ts=8.e-4, output=True, poro_filename='input/spherical_100_8.txt')
+    # n_obl_mult = 3
+    # run_simulation(domain='2D', nx=50, output=True, max_ts=6.e-5,
+    #                 n_obl_mult=n_obl_mult,
+    #                 interpolator='multilinear',
+    #                 poro_filename='calcite_2D_50_100/spherical_50_5_1/porosity_8.txt',
+    #                 minerals=['calcite'],#, 'dolomite'],#, 'magnesite'],  
+    #                 kinetic_mechanisms=['acidic', 'neutral', 'carbonate'],
+    #                 h2o_injection=1.1,
+    #                 co2_injection=0.1,
+    #                 perm_poro='power_8',
+    #                 platform='cpu')
 
     # 3D
     # run_simulation(domain='3D', max_ts=2.e-3, output=False,
