@@ -80,10 +80,6 @@ def build_output_dir(spec, base_dir="results"):
 import pickle
 from darts.engines import redirect_darts_output, sim_params
 from fluidflower_str_b import FluidFlowerStruct
-try:
-    from darts.engines import set_gpu_device
-except:
-    from darts.engines import set_num_threads
 
 # For each of the facies within the SPE11b model we define a set of operators in the physics.
 property_regions  = [0, 1, 2, 3, 4, 5, 6]
@@ -145,12 +141,14 @@ class Model(DartsModel):
         else:
             self.inj_rate = [0, 0]
 
-        if specs['gpu_device'] is False:
+        if specs['platform'] == 'cpu':
             self.platform = 'cpu'
-            set_num_threads(12)
-        else:
+            # from darts.engines import set_num_threads
+            # set_num_threads(12)
+        elif specs['platform'] == 'gpu':
             self.platform = 'gpu'
-            set_gpu_device(0)
+            # from darts.engines import set_gpu_device
+            # set_gpu_device(0)
 
     def set_wells(self):
         self.reservoir.set_wells(False)
