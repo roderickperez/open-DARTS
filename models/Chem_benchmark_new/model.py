@@ -61,12 +61,12 @@ class Model(CICDModel):
 
     def set_reservoir(self, grid_1D: bool, res: int, solid_init):
         """Reservoir"""
-        self.permporo = lambda poro: poro ** 3
+        self.permporo = PermPoroRelationship()
         self.params.enable_permporo = True
         if self.grid_1D:
             self.dx = 1
             self.dy = 1
-            perm = 100 / self.permporo(1 - solid_init)
+            perm = 100 / self.permporo.evaluate(1 - solid_init)
             (self.nx, self.ny) = (1000, 1)
             self.reservoir = StructReservoir(self.timer, nx=self.nx, ny=1, nz=1, dx=self.dx, dy=self.dy, dz=1,
                                              permx=perm, permy=perm, permz=perm / 10, poro=1, depth=1000)
@@ -81,7 +81,7 @@ class Model(CICDModel):
 
             self.map = create_map(Lx, Ly, self.nx, self.ny)
 
-            perm = np.ones(self.nx * self.ny) * 100 / self.permporo(1 - solid_init)
+            perm = np.ones(self.nx * self.ny) * 100 / self.permporo.evaluate(1 - solid_init)
 
             # Add inclination in y-direction:
             self.depth = np.ones((self.nx * self.ny,)) * 1000
@@ -528,3 +528,7 @@ class ReservoirWithSourceOperators(ReservoirOperators):
                                        * self.property.density_ev['wat'].evaluate(pressure, 0) / 18.015
 
         return 0
+
+class PermPoroRelationship:
+    def evaluate(self, poro):
+        return poro ** 3

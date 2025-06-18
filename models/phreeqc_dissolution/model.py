@@ -319,9 +319,9 @@ class Model(CICDModel):
         self.domain = domain
         # permporo relationship
         self.params.enable_permporo = True
-        self.permporo = lambda poro: poro ** 4
+        self.permporo = PermPoroRelationship()
         self.poro = 1  # self.poro=1 is for reservoir, poro is for initial state
-        perm = 1.25e4 * self.permporo(self.poro)
+        perm = 1.25e4 * self.permporo.evaluate(self.poro)
 
         if self.domain == '1D':
             # grid
@@ -1113,4 +1113,6 @@ class ModelProperties(PropertyContainer):
             visc = _Viscosity(rho=density, T=temperature)
             return visc * 1000
 
-
+class PermPoroRelationship:
+    def evaluate(self, poro):
+        return poro ** 4

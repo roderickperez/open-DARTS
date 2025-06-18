@@ -132,7 +132,7 @@ class my_own_acc_flux_etor(OperatorsBase):
             values_np[self.PC_OP + i] = 0
 
         # E5_> porosity
-        values_np[self.MULT_OP] = self.property.permporo_mult_ev(1 - self.property.sat_overall[self.property.nph])
+        values_np[self.MULT_OP] = self.property.permporo_mult_ev.evaluate(1 - self.property.sat_overall[self.property.nph])
 
         return 0
 
