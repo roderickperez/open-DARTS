@@ -144,7 +144,7 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str
 
 if __name__ == '__main__':
     # 1D
-    # run_simulation(domain='1D', nx=200, perm_poro='power_8', max_ts=1.e-3)
+    run_simulation(domain='1D', nx=200, perm_poro='power_8', max_ts=1.e-3)
     # 2D
     # run_simulation(domain='2D', nx=10, perm_poro='power_8', max_ts=1.5e-3)
     # n_obl_mult = 3
