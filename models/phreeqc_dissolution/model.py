@@ -133,7 +133,7 @@ class Model(CICDModel):
                  poro_filename: str = None, minerals: list = ['calcite'], 
                  kinetic_mechanisms=['acidic', 'neutral', 'carbonate'], 
                  n_obl_mult: int = 1, co2_injection: float = 0.1, h2o_injection: float = 1.1,
-                 perm_poro: str = 'power_4'):
+                 perm_poro: str = 'power_8'):
         # Call base class constructor
         super().__init__()
 

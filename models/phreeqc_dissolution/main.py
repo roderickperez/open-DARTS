@@ -10,7 +10,7 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str
                    output: bool = False, interpolator: str = 'multilinear', minerals: list = ['calcite'], 
                    kinetic_mechanisms: list = ['acidic', 'neutral', 'carbonate'], output_folder: str = None,
                    n_obl_mult: int = 1, co2_injection: float = 0.1, h2o_injection: float = 1.1, 
-                   perm_poro: str = 'power_4', platform: str = 'cpu'):
+                   perm_poro: str = 'power_8', platform: str = 'cpu'):
     # Make a folder
     if output_folder is None:
         output_folder = f'output_{domain}_{nx}_' + '_'.join(minerals) + \
@@ -144,9 +144,9 @@ def run_simulation(domain: str, max_ts: float, nx: int = 100, mesh_filename: str
 
 if __name__ == '__main__':
     # 1D
-    run_simulation(domain='1D', nx=200, perm_poro='power_4', max_ts=1.e-3)
+    # run_simulation(domain='1D', nx=200, perm_poro='power_8', max_ts=1.e-3)
     # 2D
-    # run_simulation(domain='2D', nx=10, max_ts=2.e-3)
+    # run_simulation(domain='2D', nx=10, perm_poro='power_8', max_ts=1.5e-3)
     # n_obl_mult = 3
     # run_simulation(domain='2D', nx=50, output=True, max_ts=6.e-5,
     #                 n_obl_mult=n_obl_mult,
