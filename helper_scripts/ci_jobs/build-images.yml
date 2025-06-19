@@ -1,5 +1,5 @@
 docker-image-builder:
-  stage: build images
+  stage: build_images
   tags:
     - linux
   image: 
