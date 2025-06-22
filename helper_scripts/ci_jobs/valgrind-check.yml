@@ -1,4 +1,4 @@
-valgrind-profiling:
+valgrind-check:
     stage: test
     tags:
     - linux
@@ -29,8 +29,8 @@ valgrind-profiling:
         - pip uninstall open-darts-flash
         - pip install --upgrade --upgrade-strategy eager ./dist/*.whl
     script:
-        - echo ">>> Running Valgrind profiling script <<<"
-        - python helper_scripts/valgrind_profile.py
+        - echo ">>> Running Valgrind check script <<<"
+        - python helper_scripts/valgrind_check.py
     artifacts:
       paths:
         - models/_valgrind_logs/*.log
