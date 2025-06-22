@@ -16,5 +16,6 @@ include:
   - local: 'helper_scripts/ci_jobs/test-windows.yml'
   - local: 'helper_scripts/ci_jobs/test-linux-gpu.yml'
   - local: 'helper_scripts/ci_jobs/valgrind-check.yml'
+  - local: 'helper_scripts/ci_jobs/vtune-profiling.yml'
   - local: 'helper_scripts/ci_jobs/upload-wheels.yml'
   - local: 'helper_scripts/ci_jobs/deploy.yml'
