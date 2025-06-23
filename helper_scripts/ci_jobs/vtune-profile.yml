@@ -1,4 +1,4 @@
-vtune-profiling:
+vtune-profile:
     stage: test
     tags:
     - linux
