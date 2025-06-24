@@ -62,6 +62,7 @@ class Output:
         self.timer.node["saving_well_data"] = timer_node()
         self.timer.node["vtk_output"] = timer_node()
         self.timer.node["output_well_time_data"] = timer_node()
+        self.timer.node["exporting_property_array"] = timer_node()
 
         self.output_folder = output_folder
         self.sol_filename = sol_filename
@@ -245,7 +246,7 @@ class Output:
         : param compression_level : int value between 0 and 9
         : type : int
         """
-        output_directory = os.path.join(m.output_folder, filename)
+        output_directory = os.path.join(self.output_folder, filename)
         with h5py.File(output_directory, "w") as h5f:
             for key, array in array.items():
                 h5f.create_dataset(key, data=array, compression='gzip', compression_opts=compression_level)
@@ -265,7 +266,55 @@ class Output:
                 array[key] = np.array(h5f[key])
         return array
 
-    def save_property_array(self, time_vector, property_array, filename="property_array.h5"):
+    def append_properties_to_reservoir(self, time: float, property_array: dict):
+        """
+        Appends secondary properties to the existing 'reservoir.h5' file under the group 'properties'.
+
+        :param timestep: Timestep index to write properties for.
+        :param property_array: Dictionary with property names as keys and arrays (1D over cells) as values.
+        """
+
+        with h5py.File(self.sol_filepath, 'a') as f:
+            time_vector = f['dynamic/time'][:]
+            if time in time_vector:
+                timestep = int(np.where(time_vector == time)[0][0])
+
+                if 'properties' not in f:
+                    f.create_group('properties')
+                else:
+                    pass
+
+                prop_group = f['properties']
+                max_ts = f['dynamic/time'].shape[0]
+
+                for key, data in property_array.items():
+                    data = np.asarray(data).reshape(-1)  # Ensure 1D array
+
+                    if key not in prop_group:
+                        shape = (max_ts, len(data))
+                        dset = prop_group.create_dataset(
+                            key,
+                            shape=shape,
+                            maxshape=(None, len(data)), # max shape none ensures that we can append as much data as possible
+                            dtype=data.dtype,
+                            compression='gzip',
+                            compression_opts=2
+                        )
+
+                    else:
+                        dset = prop_group[key]
+                        if len(data) != dset.shape[1]:
+                            raise ValueError(f"Shape mismatch for property '{key}': expected {dset.shape[1]}, got {len(data)}")
+                        if timestep >= dset.shape[0]:
+                            dset.resize((timestep + 1, dset.shape[1]))
+
+                    dset[timestep, :] = data
+
+            else:
+                raise ValueError(f"Timestamp {time} does not exist in the solution.h5 file.")
+
+
+    def save_property_array(self, time_vector, property_array, filename=None):
         """
         Saves property_array to an HDF5 file.
 
@@ -273,17 +322,26 @@ class Output:
         :param property_array : Dictionary where keys are property names and values are NumPy arrays.
         :param filename : Name of the HDF5 file to save to.
         """
-        
-        compression_level = 2
-        output_directory = os.path.join(self.output_folder, filename)
-        
-        with h5py.File(output_directory, "w") as h5f:
-            # Save the time vector with compression
-            h5f.create_dataset("time_vector", data=time_vector, compression="gzip", compression_opts=compression_level)
 
-            # Save each property array with compression
-            for key, array in property_array.items():
-                h5f.create_dataset(key, data=array, compression="gzip", compression_opts=compression_level)
+        self.timer.start()
+        self.timer.node['saving_well_data'].start()
+
+        if filename is None:
+            self.append_properties_to_reservoir(time_vector, property_array)
+        else:
+            compression_level = 2
+            output_directory = os.path.join(self.output_folder, filename)
+
+            with h5py.File(output_directory, "w") as h5f:
+                # Save the time vector with compression
+                h5f.create_dataset("time_vector", data=time_vector, compression="gzip", compression_opts=compression_level)
+
+                # Save each property array with compression
+                for key, array in property_array.items():
+                    h5f.create_dataset(key, data=array, compression="gzip", compression_opts=compression_level)
+
+        self.timer.node['saving_well_data'].stop()
+        self.timer.stop()
         
         return
 
@@ -295,16 +353,25 @@ class Output:
         :return time_vector:  available timesteps
         :return property_array: dictionary of properties
         """
-        property_array = {}
+        try:
+            property_array = {}
+            with h5py.File(file_directory, "r") as h5f:
+                # Load time vector
+                time_vector = np.array(h5f["time_vector"])
 
-        with h5py.File(file_directory, "r") as h5f:
-            # Load time vector
-            time_vector = np.array(h5f["time_vector"])
+               # Load each property array
+                for key in h5f.keys():
+                    if key != "time_vector":  # Skip time vector in property dictionary
+                        property_array[key] = np.array(h5f[key])
+        except:
+            with h5py.File(self.sol_filepath, 'r') as f:
+                if 'properties' not in f:
+                    raise KeyError("No 'properties' group found in the reservoir.h5 file.")
 
-           # Load each property array
-            for key in h5f.keys():
-                if key != "time_vector":  # Skip time vector in property dictionary
-                    property_array[key] = np.array(h5f[key])
+                time_vector = np.array(f['dynamic/time'][:])
+                prop_group = f['properties']
+
+                property_array = {key: np.array(dset) for key, dset in prop_group.items()}
 
         return time_vector, property_array
         
@@ -684,6 +751,12 @@ class Output:
                                                            engine)
         else: 
             timesteps, property_array = output_data[0], output_data[1]
+
+            expected_shape = (len(timesteps), self.reservoir.mesh.n_res_blocks)
+            for key, array in property_array.items():
+                if array.shape[1] != self.reservoir.mesh.n_res_blocks:
+                    raise ValueError(f"Property '{key}' has shape {array.shape}, expected {expected_shape}.")
+
 
         # units to prop names
         self.set_units()
