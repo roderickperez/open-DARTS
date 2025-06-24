@@ -270,7 +270,7 @@ class Output:
         """
         Appends secondary properties to the existing 'reservoir.h5' file under the group 'properties'.
 
-        :param timestep: Timestep index to write properties for.
+        :param time: timestep index to write properties for.
         :param property_array: Dictionary with property names as keys and arrays (1D over cells) as values.
         """
 
@@ -324,7 +324,7 @@ class Output:
         """
 
         self.timer.start()
-        self.timer.node['saving_well_data'].start()
+        self.timer.node['exporting_property_array'].start()
 
         if filename is None:
             self.append_properties_to_reservoir(time_vector, property_array)
@@ -340,7 +340,7 @@ class Output:
                 for key, array in property_array.items():
                     h5f.create_dataset(key, data=array, compression="gzip", compression_opts=compression_level)
 
-        self.timer.node['saving_well_data'].stop()
+        self.timer.node['exporting_property_array'].stop()
         self.timer.stop()
         
         return
