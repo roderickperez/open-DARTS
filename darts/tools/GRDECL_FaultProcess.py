@@ -34,10 +34,6 @@ from shapely.ops import nearest_points, polygonize, split
 # from poly_point_isect import *
 
 
-
-
-
-
 # except ImportError:
 #   warnings.warn("No shapely module loaded.")
 

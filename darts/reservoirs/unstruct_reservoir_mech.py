@@ -3,6 +3,7 @@ import xml.dom.minidom
 
 import meshio
 import numpy as np
+from scipy.linalg import null_space
 
 from darts.discretizer import (
     BoundaryCondition,

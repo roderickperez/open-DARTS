@@ -3850,11 +3850,11 @@ class UnstructDiscretizer:
         else:
             mu = np.zeros(slip.size)
             mu_dslip = np.zeros(slip.size)
-            id1 = slip < d
+            id1 = slip < self.d
             mu[id1] = self.mu - (self.mu - self.mu) / self.d * slip[id1]
             mu_dslip[id1] = -(self.mu - self.mu) / self.d
 
-            id2 = slip >= d
+            id2 = slip >= self.d
             mu[id2] = self.mu_min
             mu_dslip[id2] = 0.0
             return mu, mu_dslip

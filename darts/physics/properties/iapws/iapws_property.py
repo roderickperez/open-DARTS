@@ -629,10 +629,10 @@ class Enthalpy_iapws_water:
             print(region)
             raise NotImplementedError(
                 "Variables out of bound: p="
-                + str(state[0])
-                + " bars, h="
-                + str(state[1])
-                + " kJ/kmol, region="
+                + str(pressure)
+                + " bars, T="
+                + str(temperature)
+                + " K, region="
                 + str(region)
             )
         return water_enth * 18.015
@@ -668,10 +668,10 @@ class Enthalpy_iapws_steam:
             else:
                 raise NotImplementedError(
                     "Variables out of bound: p="
-                    + str(state[0])
-                    + " bars, h="
-                    + str(state[1])
-                    + " kJ/kmol, region="
+                    + str(pressure)
+                    + " bars, T="
+                    + str(temperature)
+                    + " K, region="
                     + str(region)
                 )
         elif region == 2:
@@ -681,10 +681,10 @@ class Enthalpy_iapws_steam:
         else:
             raise NotImplementedError(
                 "Variables out of bound: p="
-                + str(state[0])
-                + " bars, h="
-                + str(state[1])
-                + " kJ/kmol, region="
+                + str(pressure)
+                + " bars, T="
+                + str(temperature)
+                + " K, region="
                 + str(region)
             )
         return steam_enth * 18.015

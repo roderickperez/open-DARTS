@@ -329,7 +329,7 @@ class Output:
         : param compression_level : int value between 0 and 9
         : type : int
         """
-        output_directory = os.path.join(m.output_folder, filename)
+        output_directory = os.path.join(self.output_folder, filename)
         with h5py.File(output_directory, "w") as h5f:
             for key, array in array.items():
                 h5f.create_dataset(
