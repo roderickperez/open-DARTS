@@ -118,7 +118,7 @@ def run_valgrind_for_model(model):
     # Build the inline Python snippet to invoke run_model_direct
     py_snippet = (
         'import sys, os; '
-        'from helper_scripts.valgrind_profile import run_model; '
+        'from helper_scripts.valgrind_check import run_model; '
         f'model_path = os.path.join("models", "{model}"); '
         'os.chdir(model_path); '
         f'sys.exit(0 if run_model(model="{model}") else 1)'
