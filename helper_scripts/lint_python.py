@@ -112,10 +112,10 @@ def run_flake8_checks(darts_dir: str, verbose: bool) -> int:
 def run_black_checks(darts_dir: str, fix: bool, verbose: bool) -> int:
     """Run black checks/fixes and return number of errors"""
     if fix:
-        cmd = ["black", darts_dir]
+        cmd = ["black", "--skip-string-normalization", darts_dir]
         return 0 if run_command(cmd, "Running black to fix code formatting", verbose) else 1
     else:
-        cmd = ["black", "--check", "--diff", darts_dir]
+        cmd = ["black", "--check", "--diff", "--skip-string-normalization", darts_dir]
         if run_command(cmd, "black formatting check", verbose):
             print_success("black formatting check passed")
             return 0
