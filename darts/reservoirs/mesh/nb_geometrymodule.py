@@ -1,10 +1,9 @@
 # For the class defintions here, only numpy is used:
-import numba as nb
 import numpy as np
+import numba as nb
 from numba import float64, int32, types
-from numba.experimental import jitclass
 from numba.typed import Dict
-
+from numba.experimental import jitclass
 # ------------------------------------------------------------
 # Start matrix geometrical elements here: 3D objects
 # Currently supported matrix
@@ -21,30 +20,22 @@ from numba.typed import Dict
 
 kv_ty = (int32, int32[:])
 spec = [
-    ("volume", float64),
-    ("depth", float64),
-    ("centroid", float64[:]),
-    ("nodes_to_cell", int32[:]),
-    ("coord_nodes_to_cell", float64[:, :]),
-    ("geometry_type", types.unicode_type),
-    ("nodes_to_faces", types.DictType(*kv_ty)),
-    ("permeability", float64[:]),
-    ("prop_id", int32),
+    ('volume', float64),
+    ('depth', float64),
+    ('centroid', float64[:]),
+    ('nodes_to_cell', int32[:]),
+    ('coord_nodes_to_cell', float64[:,:]),
+    ('geometry_type', types.unicode_type),
+    ('nodes_to_faces', types.DictType(*kv_ty)),
+    ('permeability', float64[:]),
+    ('prop_id', int32),
 ]
-
 
 # The following parent class contains all the definitions for the (currently) supported geometric objects for
 # unstructured reservoir (typically when imported from GMSH, but should be generalizable to any type of mesh):
 @jitclass(spec)
 class nbHexahedron:
-    def __init__(
-        self,
-        nodes_to_cell,
-        coord_nodes_to_cell,
-        geometry_type,
-        permeability,
-        prop_id=-1,
-    ):
+    def __init__(self, nodes_to_cell, coord_nodes_to_cell, geometry_type, permeability, prop_id = -1):
         """
         Class constructor for the parents class ControlVolume
         :param nodes_to_cell: array with all the nodes belonging the the control volume (CV)
@@ -75,9 +66,7 @@ class nbHexahedron:
         Class method that calculates the centroid of the control volume (just the arithmic mean of the nodes coordinates
         :return:
         """
-        self.centroid = (
-            np.sum(self.coord_nodes_to_cell, axis=0) / self.coord_nodes_to_cell.shape[0]
-        )
+        self.centroid = np.sum(self.coord_nodes_to_cell, axis=0) / self.coord_nodes_to_cell.shape[0]
         return 0
 
     def calculate_depth(self):
@@ -85,9 +74,7 @@ class nbHexahedron:
         Class method which calculates the depth of the particular control volume (at the  center of the volume)
         :return:
         """
-        self.depth = np.abs(
-            self.centroid[2]
-        )  # The class method assumes here that the third coordinate is the depth!
+        self.depth = np.abs(self.centroid[2])  # The class method assumes here that the third coordinate is the depth!
         return 0
 
     def calculate_nodes_to_face(self):
@@ -97,62 +84,20 @@ class nbHexahedron:
         """
         # Store nodes belonging to each face of object:
         # Top and bottom faces (rectangles)
-        self.nodes_to_faces[0] = np.array(
-            [
-                self.nodes_to_cell[0],
-                self.nodes_to_cell[1],
-                self.nodes_to_cell[4],
-                self.nodes_to_cell[5],
-            ],
-            dtype=np.int32,
-        )  # Bottom hexahedron
-        self.nodes_to_faces[1] = np.array(
-            [
-                self.nodes_to_cell[2],
-                self.nodes_to_cell[3],
-                self.nodes_to_cell[6],
-                self.nodes_to_cell[7],
-            ],
-            dtype=np.int32,
-        )  # Top hexahedron
+        self.nodes_to_faces[0] = np.array([self.nodes_to_cell[0], self.nodes_to_cell[1],
+                                  self.nodes_to_cell[4], self.nodes_to_cell[5]], dtype=np.int32)  # Bottom hexahedron
+        self.nodes_to_faces[1] = np.array([self.nodes_to_cell[2], self.nodes_to_cell[3],
+                                  self.nodes_to_cell[6], self.nodes_to_cell[7]], dtype=np.int32)  # Top hexahedron
 
         # Side faces (rectangles)
-        self.nodes_to_faces[2] = np.array(
-            [
-                self.nodes_to_cell[4],
-                self.nodes_to_cell[5],
-                self.nodes_to_cell[6],
-                self.nodes_to_cell[7],
-            ],
-            dtype=np.int32,
-        )  # Front hexahedron
-        self.nodes_to_faces[3] = np.array(
-            [
-                self.nodes_to_cell[0],
-                self.nodes_to_cell[1],
-                self.nodes_to_cell[2],
-                self.nodes_to_cell[3],
-            ],
-            dtype=np.int32,
-        )  # Back hexahedron
-        self.nodes_to_faces[4] = np.array(
-            [
-                self.nodes_to_cell[0],
-                self.nodes_to_cell[3],
-                self.nodes_to_cell[4],
-                self.nodes_to_cell[7],
-            ],
-            dtype=np.int32,
-        )  # Side hexahedron
-        self.nodes_to_faces[5] = np.array(
-            [
-                self.nodes_to_cell[1],
-                self.nodes_to_cell[2],
-                self.nodes_to_cell[5],
-                self.nodes_to_cell[6],
-            ],
-            dtype=np.int32,
-        )  # Side hexahedron
+        self.nodes_to_faces[2] = np.array([self.nodes_to_cell[4], self.nodes_to_cell[5],
+                                  self.nodes_to_cell[6], self.nodes_to_cell[7]], dtype=np.int32)  # Front hexahedron
+        self.nodes_to_faces[3] = np.array([self.nodes_to_cell[0], self.nodes_to_cell[1],
+                                  self.nodes_to_cell[2], self.nodes_to_cell[3]], dtype=np.int32)  # Back hexahedron
+        self.nodes_to_faces[4] = np.array([self.nodes_to_cell[0], self.nodes_to_cell[3],
+                                  self.nodes_to_cell[4], self.nodes_to_cell[7]], dtype=np.int32)  # Side hexahedron
+        self.nodes_to_faces[5] = np.array([self.nodes_to_cell[1], self.nodes_to_cell[2],
+                                  self.nodes_to_cell[5], self.nodes_to_cell[6]], dtype=np.int32)  # Side hexahedron
         return 0
 
     def calculate_volume(self):
@@ -162,9 +107,11 @@ class nbHexahedron:
         """
         # Split the hexahedron into five-tetrahedrons (see paper mentioned above for definitions and method):
         # Determine array with five-possible tetrahedrons (entries of array are nodes that belong to the CV):
-        nodes_array_tetras = np.array(
-            [[4, 5, 1, 6], [4, 1, 0, 3], [4, 6, 3, 7], [1, 6, 3, 2], [4, 1, 6, 3]]
-        )
+        nodes_array_tetras = np.array([[4, 5, 1, 6],
+                                       [4, 1, 0, 3],
+                                       [4, 6, 3, 7],
+                                       [1, 6, 3, 2],
+                                       [4, 1, 6, 3]])
 
         # Loop over all tetrahedrons:
         for jj, ith_tetra in enumerate(nodes_array_tetras):
@@ -181,22 +128,12 @@ class nbHexahedron:
             vec_edge_1 = local_coord[0] - local_coord[3]
             vec_edge_2 = local_coord[1] - local_coord[3]
             vec_edge_3 = local_coord[2] - local_coord[3]
-            volume_tetra = (
-                np.abs(np.dot(vec_edge_1, np.cross(vec_edge_2, vec_edge_3))) / 6
-            )
+            volume_tetra = np.abs(np.dot(vec_edge_1, np.cross(vec_edge_2, vec_edge_3))) / 6
             self.volume = self.volume + volume_tetra
-
 
 @jitclass(spec)
 class nbWedge:
-    def __init__(
-        self,
-        nodes_to_cell,
-        coord_nodes_to_cell,
-        geometry_type,
-        permeability,
-        prop_id=-1,
-    ):
+    def __init__(self, nodes_to_cell, coord_nodes_to_cell, geometry_type, permeability, prop_id = -1):
         """
         Class constructor for the parents class ControlVolume
         :param nodes_to_cell: array with all the nodes belonging the the control volume (CV)
@@ -227,9 +164,7 @@ class nbWedge:
         Class method that calculates the centroid of the control volume (just the arithmic mean of the nodes coordinates
         :return:
         """
-        self.centroid = (
-            np.sum(self.coord_nodes_to_cell, axis=0) / self.coord_nodes_to_cell.shape[0]
-        )
+        self.centroid = np.sum(self.coord_nodes_to_cell, axis=0) / self.coord_nodes_to_cell.shape[0]
         return 0
 
     def calculate_depth(self):
@@ -237,9 +172,7 @@ class nbWedge:
         Class method which calculates the depth of the particular control volume (at the  center of the volume)
         :return:
         """
-        self.depth = np.abs(
-            self.centroid[2]
-        )  # The class method assumes here that the third coordinate is the depth!
+        self.depth = np.abs(self.centroid[2])  # The class method assumes here that the third coordinate is the depth!
         return 0
 
     def calculate_nodes_to_face(self):
@@ -249,43 +182,18 @@ class nbWedge:
         """
         # Store nodes belonging to each face of object:
         # Top and bottom faces (triangles)
-        self.nodes_to_faces[0] = np.array(
-            [self.nodes_to_cell[0], self.nodes_to_cell[1], self.nodes_to_cell[2]],
-            dtype=np.int32,
-        )  # Bottom wedge
-        self.nodes_to_faces[1] = np.array(
-            [self.nodes_to_cell[3], self.nodes_to_cell[4], self.nodes_to_cell[5]],
-            dtype=np.int32,
-        )  # Top wedge
+        self.nodes_to_faces[0] = np.array([self.nodes_to_cell[0], self.nodes_to_cell[1],
+                                  self.nodes_to_cell[2]], dtype=np.int32)  # Bottom wedge
+        self.nodes_to_faces[1] = np.array([self.nodes_to_cell[3], self.nodes_to_cell[4],
+                                  self.nodes_to_cell[5]], dtype=np.int32)  # Top wedge
 
         # Side faces (rectangles)
-        self.nodes_to_faces[2] = np.array(
-            [
-                self.nodes_to_cell[1],
-                self.nodes_to_cell[2],
-                self.nodes_to_cell[4],
-                self.nodes_to_cell[5],
-            ],
-            dtype=np.int32,
-        )  # Front wedge
-        self.nodes_to_faces[3] = np.array(
-            [
-                self.nodes_to_cell[0],
-                self.nodes_to_cell[1],
-                self.nodes_to_cell[3],
-                self.nodes_to_cell[4],
-            ],
-            dtype=np.int32,
-        )  # Side wedge
-        self.nodes_to_faces[4] = np.array(
-            [
-                self.nodes_to_cell[0],
-                self.nodes_to_cell[2],
-                self.nodes_to_cell[3],
-                self.nodes_to_cell[5],
-            ],
-            dtype=np.int32,
-        )  # Side wedge
+        self.nodes_to_faces[2] = np.array([self.nodes_to_cell[1], self.nodes_to_cell[2],
+                                  self.nodes_to_cell[4], self.nodes_to_cell[5]], dtype=np.int32)  # Front wedge
+        self.nodes_to_faces[3] = np.array([self.nodes_to_cell[0], self.nodes_to_cell[1],
+                                  self.nodes_to_cell[3], self.nodes_to_cell[4]], dtype=np.int32)  # Side wedge
+        self.nodes_to_faces[4] = np.array([self.nodes_to_cell[0], self.nodes_to_cell[2],
+                                  self.nodes_to_cell[3], self.nodes_to_cell[5]], dtype=np.int32)  # Side wedge
         return 0
 
     def calculate_volume(self):
@@ -295,7 +203,9 @@ class nbWedge:
         """
         # Split into three-tetrahedrons  (see paper mentioned above for definitions and method):
         # Determine array with five-possible tetrahedrons:
-        nodes_array_tetras = np.array([[0, 1, 2, 4], [0, 3, 4, 5], [0, 2, 4, 5]])
+        nodes_array_tetras = np.array([[0, 1, 2, 4],
+                                       [0, 3, 4, 5],
+                                       [0, 2, 4, 5]])
         self.volume = 0
 
         # Loop over all tetrahedrons:
@@ -311,23 +221,13 @@ class nbWedge:
             vec_edge_1 = local_coord[0] - local_coord[3]
             vec_edge_2 = local_coord[1] - local_coord[3]
             vec_edge_3 = local_coord[2] - local_coord[3]
-            volume_tetra = (
-                np.abs(np.dot(vec_edge_1, np.cross(vec_edge_2, vec_edge_3))) / 6
-            )
+            volume_tetra = np.abs(np.dot(vec_edge_1, np.cross(vec_edge_2, vec_edge_3))) / 6
             self.volume = self.volume + volume_tetra
         return 0
 
-
 @jitclass(spec)
 class nbPyramid:
-    def __init__(
-        self,
-        nodes_to_cell,
-        coord_nodes_to_cell,
-        geometry_type,
-        permeability,
-        prop_id=-1,
-    ):
+    def __init__(self, nodes_to_cell, coord_nodes_to_cell, geometry_type, permeability, prop_id=-1):
         """
         Class constructor for the parents class ControlVolume
         :param nodes_to_cell: array with all the nodes belonging the the control volume (CV)
@@ -358,9 +258,7 @@ class nbPyramid:
         Class method that calculates the centroid of the control volume (just the arithmic mean of the nodes coordinates
         :return:
         """
-        self.centroid = (
-            np.sum(self.coord_nodes_to_cell, axis=0) / self.coord_nodes_to_cell.shape[0]
-        )
+        self.centroid = np.sum(self.coord_nodes_to_cell, axis=0) / self.coord_nodes_to_cell.shape[0]
         return 0
 
     def calculate_depth(self):
@@ -368,9 +266,7 @@ class nbPyramid:
         Class method which calculates the depth of the particular control volume (at the  center of the volume)
         :return:
         """
-        self.depth = np.abs(
-            self.centroid[2]
-        )  # The class method assumes here that the third coordinate is the depth!
+        self.depth = np.abs(self.centroid[2])  # The class method assumes here that the third coordinate is the depth!
         return 0
 
     def calculate_nodes_to_face(self):
@@ -380,33 +276,18 @@ class nbPyramid:
         """
         # Store nodes belonging to each face of object:
         # Bottom faces (Quadrangle)
-        self.nodes_to_faces[0] = np.array(
-            [
-                self.nodes_to_cell[0],
-                self.nodes_to_cell[1],
-                self.nodes_to_cell[2],
-                self.nodes_to_cell[3],
-            ],
-            dtype=np.int32,
-        )  # Bottom Quadrangle
+        self.nodes_to_faces[0] = np.array([self.nodes_to_cell[0], self.nodes_to_cell[1],
+                                  self.nodes_to_cell[2], self.nodes_to_cell[3]], dtype=np.int32)  # Bottom Quadrangle
 
         # Side faces (Triangle)
-        self.nodes_to_faces[1] = np.array(
-            [self.nodes_to_cell[0], self.nodes_to_cell[1], self.nodes_to_cell[4]],
-            dtype=np.int32,
-        )  # Top wedge
-        self.nodes_to_faces[2] = np.array(
-            [self.nodes_to_cell[1], self.nodes_to_cell[2], self.nodes_to_cell[4]],
-            dtype=np.int32,
-        )  # Top wedge
-        self.nodes_to_faces[3] = np.array(
-            [self.nodes_to_cell[2], self.nodes_to_cell[3], self.nodes_to_cell[4]],
-            dtype=np.int32,
-        )  # Top wedge
-        self.nodes_to_faces[4] = np.array(
-            [self.nodes_to_cell[3], self.nodes_to_cell[0], self.nodes_to_cell[4]],
-            dtype=np.int32,
-        )  # Top wedge
+        self.nodes_to_faces[1] = np.array([self.nodes_to_cell[0], self.nodes_to_cell[1],
+                                  self.nodes_to_cell[4]], dtype=np.int32)  # Top wedge
+        self.nodes_to_faces[2] = np.array([self.nodes_to_cell[1], self.nodes_to_cell[2],
+                                  self.nodes_to_cell[4]], dtype=np.int32)  # Top wedge
+        self.nodes_to_faces[3] = np.array([self.nodes_to_cell[2], self.nodes_to_cell[3],
+                                  self.nodes_to_cell[4]], dtype=np.int32)  # Top wedge
+        self.nodes_to_faces[4] = np.array([self.nodes_to_cell[3], self.nodes_to_cell[0],
+                                  self.nodes_to_cell[4]], dtype=np.int32)  # Top wedge
         return 0
 
     def calculate_volume(self):
@@ -419,7 +300,8 @@ class nbPyramid:
         # I think he determines the length of the edges in order to find the best shaped tetrahedrons (he uses the
         # resulting meshing in simulations, where orthogonality is important). For volume calculations the ordering
         # should not matter if I recall correct. (can always revert back changes to previous version!)
-        nodes_array_tetras = np.array([[1, 2, 3, 4], [1, 3, 0, 4]])
+        nodes_array_tetras = np.array([[1, 2, 3, 4],
+                                       [1, 3, 0, 4]])
 
         # Loop over all tetrahedrons:
         for jj, ith_tetra in enumerate(nodes_array_tetras):
@@ -436,24 +318,14 @@ class nbPyramid:
             vec_edge_1 = local_coord[0] - local_coord[3]
             vec_edge_2 = local_coord[1] - local_coord[3]
             vec_edge_3 = local_coord[2] - local_coord[3]
-            volume_tetra = (
-                np.abs(np.dot(vec_edge_1, np.cross(vec_edge_2, vec_edge_3))) / 6
-            )
+            volume_tetra = np.abs(np.dot(vec_edge_1, np.cross(vec_edge_2, vec_edge_3))) / 6
             self.volume = self.volume + volume_tetra
 
         return 0
 
-
 @jitclass(spec)
 class nbTetrahedron:
-    def __init__(
-        self,
-        nodes_to_cell,
-        coord_nodes_to_cell,
-        geometry_type,
-        permeability,
-        prop_id=-1,
-    ):
+    def __init__(self, nodes_to_cell, coord_nodes_to_cell, geometry_type, permeability, prop_id=-1):
         """
         Class constructor for the parents class ControlVolume
         :param nodes_to_cell: array with all the nodes belonging the the control volume (CV)
@@ -484,9 +356,7 @@ class nbTetrahedron:
         Class method that calculates the centroid of the control volume (just the arithmic mean of the nodes coordinates
         :return:
         """
-        self.centroid = (
-            np.sum(self.coord_nodes_to_cell, axis=0) / self.coord_nodes_to_cell.shape[0]
-        )
+        self.centroid = np.sum(self.coord_nodes_to_cell, axis=0) / self.coord_nodes_to_cell.shape[0]
         return 0
 
     def calculate_depth(self):
@@ -494,9 +364,7 @@ class nbTetrahedron:
         Class method which calculates the depth of the particular control volume (at the  center of the volume)
         :return:
         """
-        self.depth = np.abs(
-            self.centroid[2]
-        )  # The class method assumes here that the third coordinate is the depth!
+        self.depth = np.abs(self.centroid[2])  # The class method assumes here that the third coordinate is the depth!
         return 0
 
     def calculate_nodes_to_face(self):
@@ -505,22 +373,14 @@ class nbTetrahedron:
         :return:
         """
         # Store nodes belonging to each face of object:
-        self.nodes_to_faces[0] = np.array(
-            [self.nodes_to_cell[0], self.nodes_to_cell[1], self.nodes_to_cell[2]],
-            dtype=np.int32,
-        )  # Top triangle
-        self.nodes_to_faces[1] = np.array(
-            [self.nodes_to_cell[0], self.nodes_to_cell[1], self.nodes_to_cell[3]],
-            dtype=np.int32,
-        )  # Side triangle
-        self.nodes_to_faces[2] = np.array(
-            [self.nodes_to_cell[0], self.nodes_to_cell[2], self.nodes_to_cell[3]],
-            dtype=np.int32,
-        )  # Side triangle
-        self.nodes_to_faces[3] = np.array(
-            [self.nodes_to_cell[1], self.nodes_to_cell[2], self.nodes_to_cell[3]],
-            dtype=np.int32,
-        )  # Side triangle
+        self.nodes_to_faces[0] = np.array([self.nodes_to_cell[0], self.nodes_to_cell[1],
+                                  self.nodes_to_cell[2]], dtype=np.int32)  # Top triangle
+        self.nodes_to_faces[1] = np.array([self.nodes_to_cell[0], self.nodes_to_cell[1],
+                                  self.nodes_to_cell[3]], dtype=np.int32)  # Side triangle
+        self.nodes_to_faces[2] = np.array([self.nodes_to_cell[0], self.nodes_to_cell[2],
+                                  self.nodes_to_cell[3]], dtype=np.int32)  # Side triangle
+        self.nodes_to_faces[3] = np.array([self.nodes_to_cell[1], self.nodes_to_cell[2],
+                                  self.nodes_to_cell[3]], dtype=np.int32)  # Side triangle
         return 0
 
     def calculate_volume(self):

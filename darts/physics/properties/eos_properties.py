@@ -1,6 +1,7 @@
 import numpy as np
 from dartsflash.libflash import EoS, VdWP
 
+
 NA = 6.02214076e23  # Avogadro's number [mol-1]
 kB = 1.380649e-23  # Boltzmann constant [J/K]
 R = NA * kB  # Gas constant [J/mol.K]
@@ -10,7 +11,6 @@ class EoSDensity:
     """
     This class can evaluate density (molar volume) from an EoS object.
     """
-
     def __init__(self, eos: EoS, Mw: list):
         """
         :param eos: Derived object from :class:`dartsflash.libflash.EoS`
@@ -44,7 +44,6 @@ class EoSEnthalpy:
     """
     This class can evaluate phase enthalpy. It evaluates ideal gas enthalpy and EoS-derived residual enthalpy.
     """
-
     def __init__(self, eos: EoS):
         """
         :param eos: Derived object from :class:`dartsflash.libflash.EoS`
@@ -75,7 +74,6 @@ class VdWPDensity:
     """
     This class can evaluate hydrate density (molar volume) from a Van der Waals-Platteeuw EoS (VdWP) object.
     """
-
     def __init__(self, eos: VdWP, Mw: list, xH: list = None):
         """
         :param eos: Derived object from :class:`dartsflash.libflash.VdWP`
@@ -115,7 +113,6 @@ class VdWPEnthalpy:
     """
     This class can evaluate hydrate phase enthalpy. It evaluates ideal gas enthalpy and VdWP-derived residual enthalpy.
     """
-
     def __init__(self, eos: VdWP, xH: list = None):
         """
         :param eos: Derived object from :class:`dartsflash.libflash.VdWP`
@@ -149,6 +146,6 @@ class VdWPEnthalpy:
 
         if self.xH is not None:
             nH = self.xH[0] / self.xH[1]
-            return H * (nH + 1.0) * R
+            return H * (nH + 1.) * R
         else:
             return H * R

@@ -1,8 +1,8 @@
-from math import asin, pi
-
 import numpy as np
-from numba import jit
+from math import pi, asin
 from scipy.spatial import KDTree
+
+from numba import jit
 
 
 @jit(nopython=True)
@@ -13,11 +13,7 @@ def _find_cells_index(xyz, centroids):
     dist0 = None
     cell_index = None
     for l, centroid in enumerate(centroids):
-        dist1 = np.sqrt(
-            (xyz[0] - centroid[0]) ** 2
-            + (xyz[1] - centroid[1]) ** 2
-            + (xyz[2] - centroid[2]) ** 2
-        )
+        dist1 = np.sqrt((xyz[0] - centroid[0]) ** 2 + (xyz[1] - centroid[1]) ** 2 + (xyz[2] - centroid[2]) ** 2)
         if dist0 is None or dist1 < dist0:
             cell_index = l
             dist0 = dist1
@@ -51,7 +47,7 @@ def _translate_curvature(centroids):
         theta = pi / 8 + asin(centroid[0] / r)  # angle from left end of domain
 
         X = r * theta  # arc length L == x
-        Y = 0.0
+        Y = 0.
         Z = centroid[2]
         xyz[l, :] = np.array([X, Y, Z])
     return xyz
@@ -151,7 +147,7 @@ class MapMesh:
         """
         Function to translate mesh to structured mesh of certain x-y-z
         """
-        X, Y, Z = np.meshgrid(x, y, z, indexing="ij")
+        X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
         points = np.stack((X, Y, Z), axis=-1).reshape(len(x) * len(y) * len(z), 3)
         tree = KDTree(self.centroids)
         _, closest_indices = tree.query(points)
