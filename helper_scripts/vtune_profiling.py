@@ -22,7 +22,7 @@ if extra:
 # folder with logs to be reported
 log_folder = os.path.join('models', '_vtune_logs')
 
-def run_vtune_for_model(model):
+def run_vtune_for_model(model, timeout=3600):
     """Run VTune profiling for a specific model."""
     # model path
     model_path = os.path.join('models', model)
@@ -65,7 +65,7 @@ def run_vtune_for_model(model):
     # Run VTune collection
     with open(prog_out, 'w') as out_f, open(prog_err, 'w') as err_f:
         try:
-            proc = subprocess.run(vtune_collect_cmd, stdout=out_f, stderr=err_f, env=env, timeout=3600)
+            proc = subprocess.run(vtune_collect_cmd, stdout=out_f, stderr=err_f, env=env, timeout=timeout)
         except subprocess.TimeoutExpired:
             print(f'ERROR: timeout profiling model {model}')
             return True  # failed
