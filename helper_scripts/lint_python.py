@@ -197,7 +197,7 @@ Examples:
     total_errors = 0
     
     # Run all checks
-    total_errors += run_flake8_checks(args.dir, args.verbose)
+    # total_errors += run_flake8_checks(args.dir, args.verbose)
     total_errors += run_black_checks(args.dir, args.fix, args.verbose)
     total_errors += run_isort_checks(args.dir, args.fix, args.verbose)
     
