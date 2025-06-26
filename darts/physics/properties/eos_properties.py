@@ -11,7 +11,7 @@ class EoSDensity:
     """
     This class can evaluate density (molar volume) from an EoS object.
     """
-    def __init__(self, eos: EoS, Mw: list):
+    def __init__(self, eos: EoS, Mw: list, root_flag: EoS.RootFlag = EoS.RootFlag.STABLE):
         """
         :param eos: Derived object from :class:`dartsflash.libflash.EoS`
         :type eos: EoS
@@ -19,6 +19,7 @@ class EoSDensity:
         :type Mw: list
         """
         self.eos = eos
+        self.root_flag = root_flag
         self.Mw = Mw
 
     def evaluate(self, pressure, temperature, x):
@@ -36,6 +37,7 @@ class EoSDensity:
         :returns: Phase density in kg/m3
         :rtype: float
         """
+        self.eos.set_root_flag(self.root_flag)
         MW = np.sum(x * np.array(self.Mw)) * 1e-3  # kg/mol
         return MW / self.eos.V(pressure, temperature, x)  # kg/mol / m3/mol -> kg/m3
 
@@ -44,12 +46,14 @@ class EoSEnthalpy:
     """
     This class can evaluate phase enthalpy. It evaluates ideal gas enthalpy and EoS-derived residual enthalpy.
     """
-    def __init__(self, eos: EoS):
+    def __init__(self, eos: EoS, root_flag: EoS.RootFlag = EoS.RootFlag.STABLE):
         """
         :param eos: Derived object from :class:`dartsflash.libflash.EoS`
         :type eos: EoS
+        :param root_flag: EoS root flag, 0) STABLE, 1) MIN (Liquid), 2) MAX (Vapour); default is STABLE
         """
         self.eos = eos
+        self.root_flag = root_flag
 
     def evaluate(self, pressure, temperature, x):
         """
@@ -66,6 +70,7 @@ class EoSEnthalpy:
         :returns: Phase enthalpy in J/mol
         :rtype: float
         """
+        self.eos.set_root_flag(self.root_flag)
         H = self.eos.H(pressure, temperature, x)  # H/R
         return H * R  # J/mol == kJ/kmol
 
