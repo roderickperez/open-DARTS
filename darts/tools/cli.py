@@ -1,5 +1,5 @@
 """
-A CLI for DARTS, which ensures that the runtime environment is properly set up for
+A CLI for DARTS, which ensures that the runtime environment is properly set up for 
 running DARTS scripts and models.
 
 You can either manually specify the path to python scripts:
@@ -12,17 +12,15 @@ Or directly run a model.py model script:
     `darts --model models/2ph_comp`
 """
 
-import argparse
-import ctypes
-import os
-import subprocess
-import sys
 from pathlib import Path
-
-import darts
+import argparse, os, subprocess, sys
 
 # Make sure all modules are imported successfully
-from .. import discretizer, engines
+from .. import engines, discretizer
+import darts
+
+
+import ctypes
 
 
 def valid_path(string):
@@ -30,7 +28,6 @@ def valid_path(string):
         return string
     else:
         raise argparse.ArgumentTypeError(f"invalid path: '{string}'")
-
 
 def get_lib_var():
     if sys.platform == 'linux':
@@ -55,17 +52,13 @@ def main():
         lib_var = get_lib_var()
         if lib_var:
             # Prepend our DARTS library path to existing
-            os.environ[lib_var] = (
-                str(get_darts_path()) + os.pathsep + os.environ.get(lib_var, "")
-            )
+            os.environ[lib_var] = str(get_darts_path()) + os.pathsep + os.environ.get(lib_var, "")
         # Forward directly to the real Python executable
         python_args = [sys.executable] + sys.argv[1:]
         res = subprocess.run(python_args)
         sys.exit(res.returncode)
 
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 
     parser.add_argument(
         "path",
@@ -101,6 +94,7 @@ def main():
 
         version = pkg_resources.get_distribution("open-darts").version
         print(f"open-darts: v{version}")
+
 
     if args.version:
         print_version()
