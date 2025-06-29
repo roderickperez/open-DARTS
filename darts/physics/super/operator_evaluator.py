@@ -130,9 +130,7 @@ class ReservoirOperators(OperatorsSuper):
         vec_values_as_np[self.PC_OP + self.property.ph] = self.property.pc[self.property.ph]
 
         # E5_> permeability multiplier due to permporo relationship
-        vec_values_as_np[self.MULT_OP] = self.property.permporo_mult_ev.evaluate(
-            self.phi_f
-        )
+        vec_values_as_np[self.MULT_OP] = self.property.permporo_mult_ev.evaluate(self.phi_f)
 
         # Pressure operator (for generic state specification where no pressure in the state, for instance V,T)
         vec_values_as_np[self.PRES_OP] = vec_state_as_np[0]

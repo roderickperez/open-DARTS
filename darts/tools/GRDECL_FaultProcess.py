@@ -11,32 +11,27 @@
 # Email: binwang.0213@gmail.com                                         # 
 #########################################################################
 
-import collections
 import operator
-
-# Polygon
-import matplotlib
-import matplotlib.patches as Patches
-import matplotlib.pyplot as plt
+import collections
 import numpy as np
+
+#Find intersection of lines
+#https://github.com/ideasman42/isect_segments-bentley_ottmann
+#from poly_point_isect import *
+
+
+import matplotlib.pyplot as plt
+#Line plot
+from matplotlib.path import Path
+import matplotlib.patches as Patches
+#Polygon
+import matplotlib
 from matplotlib.collections import PatchCollection
 
-# Line plot
-from matplotlib.path import Path
-
-# Shapely Geometry Computation Engine
-# try:
-from shapely.geometry import LineString, MultiLineString, MultiPoint, Point, Polygon
-from shapely.ops import nearest_points, polygonize, split
-
-# Find intersection of lines
-# https://github.com/ideasman42/isect_segments-bentley_ottmann
-# from poly_point_isect import *
-
-
-
-
-
+#Shapely Geometry Computation Engine
+#try:
+from shapely.geometry import LineString,Point,MultiLineString,MultiPoint,Polygon
+from shapely.ops import split,polygonize,nearest_points
 
 #except ImportError:
  #   warnings.warn("No shapely module loaded.")
