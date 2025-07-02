@@ -27,5 +27,5 @@
     before_script:
         - sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
         - sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
-        - yum install -y -q samba-client libjpeg-turbo-devel zlib-devel
+        - yum install -y -q samba-client libjpeg-turbo-devel
         - export PATH="/opt/python/$PY_SUF/bin:$PATH"
