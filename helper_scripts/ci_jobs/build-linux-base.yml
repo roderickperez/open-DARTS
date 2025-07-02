@@ -6,7 +6,7 @@
         - linux
     before_script:
         - echo 'before build-linux'
-        - apt-get update -qq && apt-get install -y -qq smbclient
+        - apt-get update -qq && apt-get install -y -qq smbclient libjpeg-dev
         - export PY_SUFFIX=`python -c "import importlib.machinery; print(importlib.machinery.EXTENSION_SUFFIXES[0])"`
         - pip install wheel
     script:
