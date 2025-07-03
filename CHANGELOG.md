@@ -1,6 +1,6 @@
 # 1.3.2 [03-07-2025]
 - Porosity-permeability relationship: permporo_mult_ev
-  - Introduce permporo_mult_ev, turn PORO_OP into MULT_OP, use airthmetic mean for facial averaging of multiplier
+  - Introduce permporo_mult_ev, turn PORO_OP into MULT_OP, use harmonic mean for facial averaging of multiplier
 - EoSDensity and EoSEnthalpy API changes:
   - Update darts-flash enthalpy call in EoSEnthalpy class: eos.H_PT() to eos.H() 
   - Add optional arguments to pass ions and lumped ions to EoSDensity and EoSEnthalpy constructors
