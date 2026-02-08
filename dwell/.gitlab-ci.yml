@@ -1,0 +1,41 @@
+image: python:3.10
+
+stages:
+  - run
+  - test
+
+before_script:
+  - pip install open-darts-flash==0.10.2 numpy pandas scipy numba pytest   # Install dependencies
+  - pip install .   # This installs the dwell package of the repo
+
+run_single_phase_non_isothermal_scenario:
+  stage: run
+  script:
+    - python examples/single_phase_non_isothermal/main_validation_single_phase_of_CO2.py   # Run the script
+    - mv stored_primary_variables.pkl examples/single_phase_non_isothermal/ || echo "No stored_primary_variables.pkl found"
+    - ls -R examples/single_phase_non_isothermal/ || echo "No files found in examples/single_phase_non_isothermal/"   # Debug: Check if .pkl file exists
+  artifacts:
+    paths:
+      - examples/single_phase_non_isothermal/stored_primary_variables.pkl  # Store output for testing
+    expire_in: 1 hour  # Ensures availability for testing
+
+run_two_phase_isothermal_scenario:
+  stage: run
+  script:
+    - python examples/two_phase/main_full_column_of_water_variable_K_2-comp_validation_scenario2.py   # Run the script
+    - mv stored_primary_variables.pkl examples/two_phase/ || echo "No stored_primary_variables.pkl found"
+    - ls -R examples/two_phase/ || echo "No files found in examples/two_phase/"   # Debug: Check if .pkl file exists
+  artifacts:
+    paths:
+      - examples/two_phase/stored_primary_variables.pkl  # Store outputs for testing
+    expire_in: 1 hour
+
+test_results:
+  stage: test
+  script:
+    - ls -R examples/single_phase_non_isothermal/ || echo "No files found in examples/single_phase_non_isothermal/"  # Debug: Check if .pkl file is available before testing
+    - ls -R examples/two_phase/ || echo "No files found in examples/two_phase/"  # Debug: Check if .pkl file is available before testing
+    - pytest tests/  # Run the test file
+  needs:
+    - run_single_phase_non_isothermal_scenario
+    - run_two_phase_isothermal_scenario

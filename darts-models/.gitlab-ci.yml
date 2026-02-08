@@ -1,0 +1,89 @@
+stages:
+    - test
+    
+
+.test-linux:
+    tags:
+        - linux_gpu
+    
+    before_script:
+        # init conda env
+        - source /oahu/data/open-darts-gitlab-runner-data/anaconda3/bin/activate
+        - conda create -n darts_gitlab_gpu_test_models python=${PY_VER} --yes
+        - conda activate darts_gitlab_gpu_test_models
+        # clean from the previous run
+        - rm -rf *.whl 
+        # download the DARTS wheel (the latest version from the folder)
+        - export WHEEL_NAME=`python get_latest_wheel.py linux $GSEWHEELSPATH`
+        - cp $GSEWHEELSPATH/$WHEEL_NAME .
+        # upgrade pip package first
+        - python -m pip install --upgrade pip
+        # force reinstall of darts wheel only (need to force because darts wheel version is not incremented)
+        - pip install --force-reinstall --no-deps $WHEEL_NAME
+        # force-reinstall of dependencies takes too much time, lets only upgrade (eagerly!) them
+        - pip install --upgrade --upgrade-strategy eager $WHEEL_NAME
+        - pip install --force-reinstall open-darts-flash 
+        - pip install nbformat nbconvert ipykernel pyvista
+    script:
+        - python run_all.py
+    after_script:
+        - tar -czf model_logs.tar.gz out _logs
+
+    artifacts:
+      paths:
+        - 'model_logs.tar.gz'
+      when: always
+      expire_in: 1 week
+
+test-linux-3.10:
+    rules: 
+        - if: $TEST_ALL == "1"
+    extends: .test-linux
+    variables:
+        PY_VER: '3.10'        
+
+.test-windows:
+    tags:
+        - windows_gpu
+
+    before_script:
+        - $env:PATH = $env:PYTHONPATH + ";" + $env:PYTHONPATH + "\Scripts" + ";" + $env:PATH
+         # enable unbuffered output so that everything goes to log file in a correct order
+        - $env:PYTHONUNBUFFERED = 1
+        - $env:PYTHONLEGACYWINDOWSSTDIO = 1
+        # clean from the previous run
+        - del *.whl 
+        # download the DARTS wheel (the latest version from the folder)
+        - net use "Y:" \\$env:SMBNAME\darts-private-artifacts $env:SMBPASS /user:$env:SMBLOGIN
+        - $WHEEL_NAME=python get_latest_wheel.py win Y:\wheels_iter\dist\
+        - copy Y:\wheels_iter\dist\$WHEEL_NAME .\
+        # upgrade pip package first
+        - python -m pip install --upgrade pip
+        # force reinstall of darts wheel only (need to force because darts wheel version is not incremented)
+        - pip install --force-reinstall --no-deps $WHEEL_NAME
+        # force-reinstall of dependencies takes too much time, lets only upgrade (eagerly!) them
+        - pip install --upgrade --upgrade-strategy eager $WHEEL_NAME
+        - pip install --force-reinstall open-darts-flash 
+        - pip install nbformat nbconvert ipykernel pyvista
+    script:
+        - python run_all.py
+    after_script:
+        - net use "Y:" /delete
+        - D:\gitlab-runner\7-Zip\7z.exe a model_logs.7z out _logs
+
+    artifacts:
+      paths:
+        - 'model_logs.7z'
+      when: always
+      expire_in: 1 week
+
+
+test-windows-3.10:
+    rules: 
+        - if: $TEST_ALL == "1"
+    extends: .test-windows
+    variables:
+       PY_VER: '3.10'
+       PYTHONPATH: 'D:\Python310'
+
+

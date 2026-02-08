@@ -1,0 +1,121 @@
+.test-linux:
+    stage: test
+    image: ubuntu:18.04
+    # Will be executed on runner with linux tag - that assumed to run on linux host
+    tags:
+        - linux
+    variables:
+        CONDA_ENV: "flash"
+    before_script:
+        - export PYTHONUNBUFFERED=1
+        - apt-get update && apt-get install -y --no-install-recommends wget ca-certificates
+        # install conda-forge
+        - wget -q "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
+        - bash Miniforge3-$(uname)-$(uname -m).sh -b -p /opt/conda
+        # activate conda vars and path
+        - source /opt/conda/bin/activate
+        # create and activate a conda environment
+        - conda create -n ${CONDA_ENV} python=${PY_VER} --yes
+        - conda activate ${CONDA_ENV}
+        # upgrade pip package first
+        - python3 -m pip install --upgrade pip setuptools
+        # complex command to create fake wheel and figure out the proper name for current python and platform
+        - export WHEEL_NAME=`python3 -c "from setuptools.dist import Distribution;from distutils.core import  Extension;dist = Distribution({'name':'open_darts_flash', 'version':'0.11.1', 'ext_modules':[Extension('mylib', ['mysrc.pyx', 'native.c'])]});bdist_wheel_cmd = dist.get_command_obj('bdist_wheel');print(bdist_wheel_cmd.wheel_dist_name + '-' + '-'.join(bdist_wheel_cmd.get_tag())+ '.whl');"`
+        # force reinstall of wheel only (need to force because wheel version is not incremented)
+        # note: need to force here only for Windows actually, but lets be consistent and force for Linux too in case its behaviour will change
+        - echo ${WHEEL_NAME} && python --version && echo ${PY_VER}
+        - pip install --force-reinstall --no-deps ./dist/$WHEEL_NAME[test]
+        # force-reinstall of dependencies takes too much time, lets only upgrade (eagerly!) them
+        - pip install --upgrade --upgrade-strategy eager ./dist/$WHEEL_NAME[test]
+        # run pytest
+        - pytest tests/python
+    script:
+        - echo "test finished"
+    #artifacts:
+    #  paths:
+    #    - '*.log'
+    #  when: always
+    #  expire_in: 1 year
+
+###################################################################################
+
+test-linux-3.14:
+    rules:
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1"
+    extends: .test-linux
+    variables:
+        PY_VER: '3.14'       # for python image selection in .test-linux
+        PY_SUF: 'cp314-cp314' # for python path selection in .test-linux
+    needs:
+        - build-linux-3.14
+
+test-linux-3.13:
+    rules:
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1"
+    extends: .test-linux
+    variables:
+        PY_VER: '3.13'       # for python image selection in .test-linux
+        PY_SUF: 'cp313-cp313' # for python path selection in .test-linux
+    needs:
+        - build-linux-3.13
+
+test-linux-3.12:
+    rules:
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1"
+    extends: .test-linux
+    variables:
+        PY_VER: '3.12'       # for python image selection in .test-linux
+        PY_SUF: 'cp312-cp312' # for python path selection in .test-linux
+    needs:
+        - build-linux-3.12
+
+
+test-linux-3.11:
+    rules:
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1"
+    extends: .test-linux
+    variables:
+        PY_VER: '3.11'       # for python image selection in .test-linux
+        PY_SUF: 'cp311-cp311' # for python path selection in .test-linux
+    needs:
+        - build-linux-3.11
+
+
+test-linux-3.10:
+    rules:
+        - if: $CI_COMMIT_REF_PROTECTED == "true"
+        - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1"
+    extends: .test-linux
+    variables:
+        PY_VER: '3.10'       # for python image selection in .test-linux
+        PY_SUF: 'cp310-cp310' # for python path selection in .test-linux
+    needs:
+        - build-linux-3.10
+
+test-linux-3.9: # for protected branches or merge requests
+    rules:
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1"
+    extends: .test-linux
+    variables:
+        PY_VER: '3.9'       # for python image selection in .test-linux
+        PY_SUF: 'cp39-cp39' # for python path selection in .test-linux
+    needs:
+        - build-linux-3.9
+        
+test-linux-3.8:
+    rules:
+        - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+        - if: $TEST_ALL == "1"
+    extends: .test-linux
+    variables:
+        PY_VER: '3.8'       # for python image selection in .test-linux
+        PY_SUF: 'cp38-cp38' # for python path selection in .test-linux
+    needs:
+        - build-linux-3.8

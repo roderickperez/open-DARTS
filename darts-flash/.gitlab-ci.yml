@@ -1,0 +1,12 @@
+stages:
+    - build
+    - test
+    - deploy
+
+include:
+  - local: '.cicd/jobs/build-linux.yml'
+  - local: '.cicd/jobs/build-windows.yml'
+  - local: '.cicd/jobs/test-linux.yml'
+  - local: '.cicd/jobs/test-windows.yml'
+  - local: '.cicd/jobs/deploy.yml'
+  - local: '.cicd/jobs/valgrind-check.yml'

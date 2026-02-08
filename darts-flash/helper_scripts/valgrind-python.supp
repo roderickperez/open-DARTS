@@ -1,0 +1,54 @@
+# Valgrind suppressions for external libraries used by darts-flash tests.
+
+{
+   4h5py_leak
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   fun:UnknownInlinedFun
+   fun:_PyLong_New
+   fun:PyLong_FromSsize_t
+   fun:__Pyx_DelItemInt_Fast
+   fun:__pyx_pf_4h5py_8_objects_8ObjectID_4_dealloc
+   fun:__pyx_pw_4h5py_8_objects_8ObjectID_5_dealloc
+   fun:__Pyx_CyFunction_Vectorcall_FASTCALL_KEYWORDS
+   fun:UnknownInlinedFun
+   fun:PyObject_VectorcallMethod
+   fun:__pyx_pf_4h5py_8_objects_8ObjectID_2__dealloc__
+   fun:__pyx_pw_4h5py_8_objects_8ObjectID_3__dealloc__
+   fun:__pyx_tp_dealloc_4h5py_8_objects_ObjectID
+   ...
+}
+{
+   python-Init-wcscat-Cond
+   Memcheck:Cond
+   fun:__wcscat_avx2
+   ...
+   fun:config_init_pathconfig
+   fun:_PyConfig_InitPathConfig
+   fun:init_interp_main
+   fun:pyinit_main
+   fun:Py_InitializeFromConfig
+   fun:pymain_init
+   fun:pymain_main
+   fun:Py_BytesMain
+   fun:(below main)
+}
+{
+   python_getpath_wcscat_1
+   Memcheck:Addr32
+   fun:__wcscat_avx2
+   ...
+   fun:_PyConfig_InitPathConfig
+   ...
+   fun:Py_BytesMain
+}
+{
+   python_getpath_wcscat_2
+   Memcheck:Addr32
+   fun:__wcscat_avx2
+   ...
+   fun:config_init_pathconfig
+   ...
+   fun:Py_BytesMain
+}

@@ -1,0 +1,79 @@
+# pick all whl artifacts (windows/linux, different python versions) and upload to test pipy
+# TODO auto-increment package version (in setup.py and .gitlab-ci.yml) and add git tag; now it is done manually
+.deploy-pypi:
+    stage: deploy
+    # just for twine
+    image: python:3.10
+    # Will be executed on runner with windows tag - that assumed to run on windows host
+    tags:
+        - linux
+    before_script:
+        # upgrade pip package first
+        - python -m pip install --upgrade pip
+        - pip install twine
+    script:
+        # upload to test-pypi or pypi depending on $PYPI var
+        - ./rename_whls.sh # rename linux whls to make uploadable to test-pypi 
+        - ls ./dist/*
+        - twine upload -u $REPOUSER -p $REPOPWD -r $REPO --verbose dist/*
+    dependencies:
+        - build-linux-3.8
+        - build-linux-3.9
+        - build-linux-3.10
+        - build-linux-3.11
+        - build-linux-3.12
+        - build-linux-3.13
+        - build-linux-3.14
+        - build-windows-3.8
+        - build-windows-3.9
+        - build-windows-3.10
+        - build-windows-3.11
+        - build-windows-3.12
+        - build-windows-3.13
+        - build-windows-3.14
+
+###################################################################################
+
+deploy-pypi:
+    # Publish the release
+    # Runs only for the main branch and if tag has a pattern: v#.#.#, for example "v1.2.3"
+    rules: 
+        - if: $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+    extends: .deploy-pypi
+    variables:
+        REPO: 'pypi'
+        REPOUSER: $PYPIUSER
+        REPOPWD: $PYPIPWD
+
+deploy-testpypi:
+    # Test publishing the release
+    # Runs only manually, if variable UPLOAD_TEST_PYPI set to 1
+    only:
+        variables:
+            - $UPLOAD_TEST_PYPI == "1"
+    extends: .deploy-pypi
+    variables:
+        REPO: 'testpypi'
+        REPOUSER: $TESTPYPIUSER
+        REPOPWD: $TESTPYPIPWD
+
+deploy-zenodo:
+    stage: deploy
+    rules:
+        - if: $CI_COMMIT_TAG =~ /^v?[0-9]+\.[0-9]+\.[0-9]+/
+    tags:
+        - linux
+    image: python:3.10
+    script:
+        # cloning gitlab2zenodo in a temporary folder
+        - mkdir tmp_gitlab2zenodo
+        - cd tmp_gitlab2zenodo
+        - git clone https://gitlab.com/sbeniamine/gitlab2zenodo.git
+        - cd gitlab2zenodo
+        # and installing gitlab2zenodo
+        - pip install .
+        - cd ../..
+        # making a .zip containing the source files
+        - git archive --format zip --output ${CI_COMMIT_TAG#v}.zip ${CI_COMMIT_TAG}
+        # command that publishes to zenodo
+        - g2z-send -p -m .zenodo.json ${CI_COMMIT_TAG#v}.zip
