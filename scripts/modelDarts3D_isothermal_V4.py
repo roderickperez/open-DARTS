@@ -40,6 +40,7 @@ NX, NY, NZ = 100, 100, 5
 DX, DY, DZ = 10.0, 10.0, 10.0       
 TOTAL_DAYS = 100                    
 ENSEMBLE_SIZE = 10
+REPORT_FREQ = 10
 
 # Base Operation Parameters
 INJ_BHP  = 300.0   
@@ -302,16 +303,25 @@ def export_wells_to_vtk(reservoir, output_directory):
     wells_data = []
     for well in reservoir.wells:
         points = []
-        for perf in well.perforations:
-            res_idx = perf[1]
-            if res_idx >= 0:
-                coords = reservoir.discretizer.centroids_all_cells[res_idx]
-                coords[2] -= 2000.0 
-                points.append(coords)
-        if points:
-            line = pv.MultipleLines(points=np.array(points))
-            line["name"] = well.name
-            wells_data.append(line)
+        perfs = [p for p in well.perforations if p[1] >= 0]
+        if not perfs: continue
+        
+        # 1. Add surface point (Z=0)
+        first_perf_idx = perfs[0][1]
+        surf_coords = reservoir.discretizer.centroids_all_cells[first_perf_idx].copy()
+        surf_coords[2] = 0.0 # Surface
+        points.append(surf_coords)
+        
+        # 2. Add perforation points (offset by -2000m)
+        for perf in perfs:
+            coords = reservoir.discretizer.centroids_all_cells[perf[1]].copy()
+            coords[2] -= 2000.0 
+            points.append(coords)
+            
+        line = pv.MultipleLines(points=np.array(points))
+        line["name"] = well.name
+        wells_data.append(line)
+        
     if wells_data:
         combined = wells_data[0]
         if len(wells_data) > 1: combined = wells_data[0].merge(wells_data[1:])
@@ -422,8 +432,9 @@ def main():
         print_progress(0, TOTAL_DAYS, i)
         for d in range(1, TOTAL_DAYS + 1):
             m.run(1.0)
-            if d % 20 == 0 or d == TOTAL_DAYS:
+            if d % REPORT_FREQ == 0 or d == TOTAL_DAYS:
                 timesteps, property_array = m.output.output_properties(output_properties=vars_to_eval, timestep=d, engine=True)
+                # Re-inject geological properties for ParaView (they are not tracked by the engine)
                 for name, arr in [('poro', poro), ('permx', permx), ('permy', permy), ('permz', permz)]:
                     property_array[name] = np.array([arr])
                 m.output.output_to_vtk(output_data=[timesteps, property_array], ith_step=d)
