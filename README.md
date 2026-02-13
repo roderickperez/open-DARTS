@@ -31,7 +31,11 @@ Once activated, you can run the following geothermal demonstration cases:
 *   **Isothermal**: `python scripts/modelDarts3D_isothermal_V2.py`
 *   **Thermal**: `python scripts/modelDarts3D_thermal_V2.py`
 
-*Note: Results are saved to `output/runs/` with timestamped folders. Version 2 models export geological properties (poro, perm) for viewing in ParaView.*
+#### Version 3: Spatially Correlated Heterogeneity (SGS Style)
+*   **Isothermal**: `python scripts/modelDarts3D_isothermal_V3.py`
+*   **Thermal**: `python scripts/modelDarts3D_thermal_V3.py`
+
+*Note: Results are saved to `output/runs/` with timestamped folders. Version 2 and 3 models export geological properties (poro, perm) for viewing in ParaView.*
 
 ## Installation
 

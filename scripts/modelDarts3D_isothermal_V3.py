@@ -1,0 +1,308 @@
+# modelDarts3D_isothermal_V3.py - Version 3 (Spatial Correlation)
+import os
+import warnings
+import numpy as np
+import pandas as pd
+from scipy.ndimage import gaussian_filter
+try:
+    import pyvista as pv
+except ImportError:
+    pv = None
+    print("Warning: PyVista not found. 3D visualization will be disabled.")
+import matplotlib.pyplot as plt
+
+# Force software rendering for headless environments
+os.environ['MESA_LOADER_DRIVER_OVERRIDE'] = 'swrast'
+os.environ['GALLIUM_DRIVER'] = 'llvmpipe'
+os.environ['DISPLAY'] = ':99.0'
+
+# Suppress PyVista deprecation warnings
+if pv:
+    from pyvista.plotting.utilities.xvfb import PyVistaDeprecationWarning
+    warnings.filterwarnings("ignore", category=PyVistaDeprecationWarning)
+    try:
+        pv.start_xvfb()
+    except (OSError, RuntimeError, ImportError):
+        pv.OFF_SCREEN = True
+        print("Xvfb not found or failed to start. Using off-screen rendering fallback.")
+
+from darts.models.darts_model import DartsModel
+from darts.reservoirs.struct_reservoir import StructReservoir
+from darts.physics.super.physics import Compositional, PhysicsBase
+from darts.physics.super.property_container import PropertyContainer
+from darts.physics.properties.basic import ConstFunc
+from darts.physics.properties.density import DensityBasic
+from darts.engines import value_vector, redirect_darts_output, well_control_iface, sim_params
+
+# --- SIMULATION CONFIGURATION ---
+NX, NY, NZ = 100, 100, 5           
+DX, DY, DZ = 10.0, 10.0, 10.0       
+TOTAL_DAYS = 100                    
+USE_GPU = False                     
+
+# Well Locations (0-based grid indices)
+INJ_COORD  = [4, 4]    
+PROD_COORD = [94, 94]  
+
+# Operation Parameters
+INJ_BHP  = 300.0   
+PROD_BHP = 150.0   
+
+# Fluid Properties
+WATER_DENS_0 = 1000.0   
+WATER_COMPR  = 1e-5     
+WATER_VISC   = 0.5      
+
+# ANSI Colors
+C_RED = '\033[1;91m'
+C_CYAN = '\033[1;96m'
+C_WHITE = '\033[1;97m'
+C_END = '\033[0m'
+
+DARTS_BANNER = f"""
+{C_RED} ██████╗   █████╗  ██████╗  ████████╗ ███████╗
+ ██╔══██╗ ██╔══██╗ ██╔══██╗ ╚══██╔══╝ ██╔════╝
+ ██║  ██║ ███████║ ██████╔╝    ██║    ███████╗
+ ██║  ██║ ██╔══██║ ██╔══██╗    ██║    ╚════██║
+ ██████╔╝ ██║  ██║ ██║  ██║    ██║    ███████║
+ ╚═════╝  ╚═╝  ╚═╝ ╚═╝  ╚═╝    ╚═╝    ╚══════╝{C_END}
+
+{C_CYAN} >>>>>>>>> {C_WHITE}[ GEOTHERMAL: ISOTHERMAL - V3 (SPATIAL TRENDS) ]{C_CYAN} <<<<<<<<<<<< {C_END}
+"""
+
+# --- HETEROGENEITY SETUP (V3: Spatial Correlation) ---
+def generate_property_arrays(nx, ny, nz):
+    """
+    Generates Spatially Correlated properties using Gaussian smoothing.
+    DARTS orders cells: Loop X, then Y, then Z.
+    """
+    np.random.seed(42)  # For reproducibility
+    
+    # Target properties per layer (Mean values)
+    layer_data = [
+        {'m_poro': 0.10, 'm_perm': 200.0,  'm_hcap': 2300.0, 'm_rcond': 160.0, 'sigma': 2.0},
+        {'m_poro': 0.25, 'm_perm': 1500.0, 'm_hcap': 2500.0, 'm_rcond': 190.0, 'sigma': 8.0}, # Long trends
+        {'m_poro': 0.15, 'm_perm': 500.0,  'm_hcap': 2400.0, 'm_rcond': 175.0, 'sigma': 4.0},
+        {'m_poro': 0.05, 'm_perm': 5.0,    'm_hcap': 2100.0, 'm_rcond': 140.0, 'sigma': 1.0},
+        {'m_poro': 0.10, 'm_perm': 80.0,   'm_hcap': 2250.0, 'm_rcond': 160.0, 'sigma': 3.0}
+    ]
+    
+    poro_3d  = np.zeros((nz, ny, nx))
+    permx_3d = np.zeros((nz, ny, nx))
+    hcap_3d  = np.zeros((nz, ny, nx))
+    rcond_3d = np.zeros((nz, ny, nx))
+
+    for k in range(nz):
+        data = layer_data[k]
+        noise = np.random.normal(0, 1, (ny, nx))
+        smoothed = gaussian_filter(noise, sigma=data['sigma'])
+        
+        poro_layer = data['m_poro'] + (smoothed * (data['m_poro'] * 0.2))
+        poro_layer = np.clip(poro_layer, 0.01, 0.40)
+        
+        log_perm = np.log10(data['m_perm']) + smoothed * 0.5 
+        perm_layer = 10**log_perm
+        
+        poro_3d[k,:,:]  = poro_layer
+        permx_3d[k,:,:] = perm_layer
+        hcap_3d[k,:,:]  = data['m_hcap']
+        rcond_3d[k,:,:] = data['m_rcond']
+
+    return (poro_3d.flatten(), permx_3d.flatten(), permx_3d.flatten(), 
+            permx_3d.flatten() * 0.1, hcap_3d.flatten(), rcond_3d.flatten())
+
+class ModelProperties(PropertyContainer):
+    def __init__(self, phases_name, components_name, min_z=1e-11):
+        self.nph = len(phases_name)
+        self.nc  = len(components_name)
+        Mw = np.array([18.015] * self.nc) 
+        super().__init__(phases_name=phases_name, components_name=components_name, Mw=Mw, min_z=min_z, temperature=350.0)
+
+    def get_state(self, state):
+        vec_state_as_np = np.asarray(state)
+        pressure = vec_state_as_np[0]
+        zc = np.append(vec_state_as_np[1:], 1 - np.sum(vec_state_as_np[1:]))
+        temperature = self.temperature 
+        return pressure, temperature, zc
+
+    def evaluate(self, state):
+        pressure, temperature, zc = self.get_state(state)
+        self.clean_arrays()
+        self.ph = np.array([0], dtype=np.intp)
+        for i in range(self.nc):
+            self.x[0, i] = zc[i]
+        for j in self.ph:
+            M = np.sum(self.x[j, :] * self.Mw) + 1e-20
+            self.dens[j] = self.density_ev[self.phases_name[j]].evaluate(pressure, temperature)
+            self.dens_m[j] = self.dens[j] / M
+            self.mu[j] = self.viscosity_ev[self.phases_name[j]].evaluate(pressure, temperature)
+            self.enthalpy[j] = self.enthalpy_ev[self.phases_name[j]].evaluate(pressure, temperature)
+            self.cond[j] = self.conductivity_ev[self.phases_name[j]].evaluate(pressure, temperature)
+        self.sat[0] = 1.0
+        for j in self.ph:
+            self.kr[j] = 1.0 
+            self.pc[j] = 0
+
+class SimulationModel(DartsModel):
+    def __init__(self):
+        super().__init__()
+        self.timer.node["initialization"].start()
+        self.nx, self.ny, self.nz = NX, NY, NZ
+        
+        # 1. GENERATE THE LAYERED PROPERTIES
+        poro, permx, permy, permz, hcap, rcond = generate_property_arrays(NX, NY, NZ)
+
+        # 2. INITIALIZE RESERVOIR WITH ARRAYS
+        self.reservoir = StructReservoir(self.timer, nx=NX, ny=NY, nz=NZ, dx=DX, dy=DY, dz=DZ,
+                                         permx=permx, permy=permy, permz=permz,
+                                         poro=poro, hcap=hcap, rcond=rcond, 
+                                         depth=2000)
+        
+        self.set_physics()
+        if USE_GPU:
+            self.params.linear_type = sim_params.linear_solver_t.gpu_gmres_cpr_amgx_ilu
+        else:
+            self.params.linear_type = sim_params.linear_solver_t.cpu_superlu
+        self.set_sim_params(first_ts=0.005, mult_ts=1.5, max_ts=5.0, runtime=TOTAL_DAYS, tol_newton=1e-3, tol_linear=1e-5)
+        self.timer.node["initialization"].stop()
+        
+    def set_physics(self):
+        zero = 1e-13
+        components = ["H2O_Cold", "H2O_Hot"] 
+        phases = ["wat"]
+        self.inj_comp = value_vector([1.0 - zero]) 
+        self.ini_comp = value_vector([0.5])         
+        property_container = ModelProperties(phases_name=phases, components_name=components)
+        property_container.density_ev = dict([('wat', DensityBasic(compr=WATER_COMPR, dens0=WATER_DENS_0))])
+        property_container.viscosity_ev = dict([('wat', ConstFunc(WATER_VISC))])
+        property_container.enthalpy_ev = dict([('wat', ConstFunc(100.0))])
+        property_container.rock_hcap_ev = ConstFunc(1000.0)
+        property_container.conductivity_ev = dict([('wat', ConstFunc(10.0))])
+        self.physics = Compositional(components, phases, self.timer, n_points=50, 
+                                     min_p=100, max_p=500, min_z=zero, max_z=1 - zero,
+                                     state_spec=PhysicsBase.StateSpecification.P)
+        self.physics.add_property_region(property_container)
+        
+    def set_wells(self):
+        self.reservoir.add_well("INJ")
+        for k in range(1, NZ+1):
+            self.reservoir.add_perforation("INJ", cell_index=(INJ_COORD[0]+1, INJ_COORD[1]+1, k))
+        self.reservoir.add_well("PROD")
+        for k in range(1, NZ+1):
+            self.reservoir.add_perforation("PROD", cell_index=(PROD_COORD[0]+1, PROD_COORD[1]+1, k))
+            
+    def set_initial_conditions(self):
+        input_distribution = {self.physics.vars[0]: 200.0,
+                              self.physics.vars[1]: self.ini_comp[0]}
+        self.physics.set_initial_conditions_from_array(mesh=self.reservoir.mesh, input_distribution=input_distribution)
+
+    def set_well_controls(self):
+        for w in self.reservoir.wells:
+            if "INJ" in w.name:
+                self.physics.set_well_controls(wctrl=w.control, control_type=well_control_iface.BHP, 
+                                               is_inj=True, target=INJ_BHP, inj_composition=self.inj_comp)
+            else:
+                self.physics.set_well_controls(wctrl=w.control, control_type=well_control_iface.BHP, 
+                                               is_inj=False, target=PROD_BHP)
+
+def export_wells_to_vtk(reservoir, output_directory):
+    if not pv: return
+    wells_data = []
+    for well in reservoir.wells:
+        points = []
+        for perf in well.perforations:
+            res_idx = perf[1]
+            if res_idx >= 0:
+                coords = reservoir.discretizer.centroids_all_cells[res_idx]
+                coords[2] -= 2000.0 
+                points.append(coords)
+        if points:
+            line = pv.MultipleLines(points=np.array(points))
+            line["name"] = well.name
+            wells_data.append(line)
+    if wells_data:
+        combined = wells_data[0]
+        if len(wells_data) > 1:
+            combined = wells_data[0].merge(wells_data[1:])
+        os.makedirs(output_directory, exist_ok=True)
+        combined.save(os.path.join(output_directory, "wells.vtp"))
+
+def plot_reservoir_maps(nx, ny, nz, run_dir):
+    poro, permx, permy, permz, hcap, rcond = generate_property_arrays(nx, ny, nz)
+    poro_3d = poro.reshape(nz, ny, nx)
+    perm_3d = permx.reshape(nz, ny, nx)
+    layer_idx = 1
+    poro_map, perm_map = poro_3d[layer_idx, :, :], perm_3d[layer_idx, :, :]
+    mid_y = ny // 2
+    poro_xs, perm_xs = poro_3d[:, mid_y, :], perm_3d[:, mid_y, :]
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+    im1 = axes[0,0].imshow(poro_map, origin='lower', cmap='Blues', extent=[0, nx*DX, 0, ny*DY])
+    axes[0,0].scatter(INJ_COORD[0]*DX, INJ_COORD[1]*DY, c='c', s=100, edgecolors='k', label='Inj')
+    axes[0,0].scatter(PROD_COORD[0]*DX, PROD_COORD[1]*DY, c='g', s=100, marker='^', edgecolors='k', label='Prod')
+    axes[0,0].set_title(f'Map View: Porosity (Layer {layer_idx+1})'); fig.colorbar(im1, ax=axes[0,0]); axes[0,0].legend()
+    im2 = axes[0,1].imshow(perm_map, origin='lower', cmap='viridis', extent=[0, nx*DX, 0, ny*DY])
+    axes[0,1].set_title(f'Map View: Permeability (Layer {layer_idx+1})'); fig.colorbar(im2, ax=axes[0,1])
+    im3 = axes[1,0].imshow(poro_xs, origin='upper', cmap='Blues', extent=[0, nx*DX, nz*DZ, 0])
+    axes[1,0].set_title(f'Cross Section: Porosity'); axes[1,0].set_aspect('auto'); fig.colorbar(im3, ax=axes[1,0])
+    im4 = axes[1,1].imshow(perm_xs, origin='upper', cmap='plasma', extent=[0, nx*DX, nz*DZ, 0])
+    axes[1,1].set_title(f'Cross Section: Permeability'); axes[1,1].set_aspect('auto'); fig.colorbar(im4, ax=axes[1,1])
+    plt.suptitle('Geological Model: Correlated Heterogeneity (Isothermal V3)', fontsize=16)
+    os.makedirs(os.path.join(run_dir, 'figures'), exist_ok=True)
+    plt.savefig(os.path.join(run_dir, 'figures/geothermal_map_isothermal_V3.png'), bbox_inches='tight')
+    plt.close()
+
+def main():
+    print(DARTS_BANNER)
+    from datetime import datetime
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_dir = os.path.join('output/runs', f'isothermal_V3_{ts}')
+    vtk_path = os.path.join(run_dir, 'vtk_files')
+    os.makedirs(vtk_path, exist_ok=True)
+    plot_reservoir_maps(NX, NY, NZ, run_dir)
+    
+    class DartsSilence:
+        def __enter__(self):
+            self.stdout_fd, self.stderr_fd = os.dup(1), os.dup(2)
+            self.devnull = os.open(os.devnull, os.O_WRONLY)
+            os.dup2(self.devnull, 1); os.dup2(self.devnull, 2)
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            os.dup2(self.stdout_fd, 1); os.dup2(self.stderr_fd, 2)
+            os.close(self.stdout_fd); os.close(self.stderr_fd); os.close(self.devnull)
+
+    log_file = os.path.join(run_dir, 'simulation.log')
+    redirect_darts_output(log_file)
+    m = SimulationModel()
+    with DartsSilence(): m.init()
+    m.set_output(output_folder=vtk_path)
+    export_wells_to_vtk(m.reservoir, vtk_path)
+    
+    print(f"Starting {TOTAL_DAYS}-day Heterogeneous Simulation...")
+    # Add geological properties manually to the output
+    poro, permx, permy, permz, hcap, rcond = generate_property_arrays(NX, NY, NZ)
+    vars_to_eval = m.physics.vars
+    
+    # OUTPUT STEP 0
+    with DartsSilence():
+        timesteps, property_array = m.output.output_properties(output_properties=vars_to_eval, timestep=0, engine=True)
+        # Inject static properties
+        for name, arr in [('poro', poro), ('permx', permx), ('permy', permy), ('permz', permz)]:
+            property_array[name] = np.array([arr])
+        m.output.output_to_vtk(output_data=[timesteps, property_array], ith_step=0)
+    
+    for i in range(1, TOTAL_DAYS + 1):
+        with DartsSilence():
+            m.run(1.0)
+            timesteps, property_array = m.output.output_properties(output_properties=vars_to_eval, timestep=i, engine=True)
+            # Inject static properties again for each step
+            for name, arr in [('poro', poro), ('permx', permx), ('permy', permy), ('permz', permz)]:
+                property_array[name] = np.array([arr])
+            m.output.output_to_vtk(output_data=[timesteps, property_array], ith_step=i)
+        if i % 10 == 0: print(f"Progress: {i}/{TOTAL_DAYS} days")
+        
+    print(f"\nSimulation [ISOTHERMAL V2] complete.")
+    df_history = pd.DataFrame.from_dict(m.physics.engine.time_data)
+    df_history.to_csv(os.path.join(run_dir, 'history_isothermal.csv'))
+    print(f"Results: {run_dir}")
+
+if __name__ == "__main__":
+    main()
