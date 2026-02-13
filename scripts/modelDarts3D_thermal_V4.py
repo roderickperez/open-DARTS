@@ -7,6 +7,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter
 
+# Silence DARTS specific solver warning
+warnings.filterwarnings("ignore", message=".*number of cells looks too big to use a direct linear solver.*")
+
 # --- VISUALIZATION SETUP ---
 try:
     import pyvista as pv
@@ -50,8 +53,8 @@ from darts.physics.properties.basic import ConstFunc
 # --- CONFIGURATION ---
 NX, NY, NZ = 100, 100, 5    
 DX, DY, DZ = 10.0, 10.0, 10.0 
-TOTAL_DAYS = 2
-ENSEMBLE_SIZE = 1
+TOTAL_DAYS = 100
+ENSEMBLE_SIZE = 10
 
 # Base Operation Params
 INJ_RATE = 500.0        

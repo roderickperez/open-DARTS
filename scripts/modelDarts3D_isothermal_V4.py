@@ -4,6 +4,9 @@ import warnings
 import numpy as np
 import pandas as pd
 from scipy.ndimage import gaussian_filter
+
+# Silence DARTS specific solver warning
+warnings.filterwarnings("ignore", message=".*number of cells looks too big to use a direct linear solver.*")
 try:
     import pyvista as pv
 except ImportError:
@@ -35,8 +38,8 @@ from darts.engines import value_vector, redirect_darts_output, well_control_ifac
 # --- SIMULATION CONFIGURATION ---
 NX, NY, NZ = 100, 100, 5           
 DX, DY, DZ = 10.0, 10.0, 10.0       
-TOTAL_DAYS = 2                    
-ENSEMBLE_SIZE = 1
+TOTAL_DAYS = 100                    
+ENSEMBLE_SIZE = 10
 
 # Base Operation Parameters
 INJ_BHP  = 300.0   
