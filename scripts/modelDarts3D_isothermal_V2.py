@@ -286,14 +286,26 @@ def main():
     export_wells_to_vtk(m.reservoir, vtk_path)
     
     print(f"Starting {TOTAL_DAYS}-day Heterogeneous Simulation...")
-    # Add geological properties to output list
-    prop_list = m.physics.vars + ['poro', 'permx', 'permy', 'permz']
-    with DartsSilence(): m.output.output_to_vtk(output_properties=prop_list, ith_step=0)
+    # Add geological properties manually to the output
+    poro, permx, permy, permz, hcap, rcond = generate_property_arrays(NX, NY, NZ)
+    vars_to_eval = m.physics.vars
+    
+    # OUTPUT STEP 0
+    with DartsSilence():
+        timesteps, property_array = m.output.output_properties(output_properties=vars_to_eval, ith_step=0)
+        # Inject static properties
+        for name, arr in [('poro', poro), ('permx', permx), ('permy', permy), ('permz', permz)]:
+            property_array[name] = np.array([arr])
+        m.output.output_to_vtk(output_data=[timesteps, property_array], ith_step=0)
     
     for i in range(1, TOTAL_DAYS + 1):
         with DartsSilence():
             m.run(1.0)
-            m.output.output_to_vtk(output_properties=prop_list, ith_step=i)
+            timesteps, property_array = m.output.output_properties(output_properties=vars_to_eval, ith_step=i)
+            # Inject static properties again for each step
+            for name, arr in [('poro', poro), ('permx', permx), ('permy', permy), ('permz', permz)]:
+                property_array[name] = np.array([arr])
+            m.output.output_to_vtk(output_data=[timesteps, property_array], ith_step=i)
         if i % 10 == 0: print(f"Progress: {i}/{TOTAL_DAYS} days")
         
     print(f"\nSimulation [ISOTHERMAL V2] complete.")

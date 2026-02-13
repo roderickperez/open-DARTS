@@ -368,15 +368,28 @@ def main():
     export_wells(m.reservoir, run_dir)
     
     print(f"Starting {TOTAL_DAYS}-day Heterogeneous Geothermal Run...")
-    # Add geological properties to output list
-    prop_list = m.physics.vars + ['temperature', 'poro', 'permx', 'permy', 'permz']
-    with DartsSilence(): m.output.output_to_vtk(ith_step=0, output_properties=prop_list)
+    # Add geological properties manually to the output
+    poro, permx, permy, permz, hcap, rcond = generate_property_arrays(NX, NY, NZ)
+    vars_to_eval = m.physics.vars + ['temperature']
+    
+    # OUTPUT STEP 0
+    with DartsSilence():
+        timesteps, property_array = m.output.output_properties(output_properties=vars_to_eval, ith_step=0)
+        # Inject static properties
+        for name, arr in [('poro', poro), ('permx', permx), ('permy', permy), ('permz', permz)]:
+            property_array[name] = np.array([arr])
+        m.output.output_to_vtk(output_data=[timesteps, property_array], ith_step=0)
+    
     print_progress(0, TOTAL_DAYS)
     
     for i in range(1, TOTAL_DAYS + 1):
         with DartsSilence():
             m.run(1.0)
-            m.output.output_to_vtk(ith_step=i, output_properties=prop_list)
+            timesteps, property_array = m.output.output_properties(output_properties=vars_to_eval, ith_step=i)
+            # Inject static properties again for each step
+            for name, arr in [('poro', poro), ('permx', permx), ('permy', permy), ('permz', permz)]:
+                property_array[name] = np.array([arr])
+            m.output.output_to_vtk(output_data=[timesteps, property_array], ith_step=i)
         print_progress(i, TOTAL_DAYS)
         
     print(f"\n\n\033[92mSimulation [THERMAL] success!\033[0m")
