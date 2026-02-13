@@ -292,7 +292,7 @@ def main():
     
     # OUTPUT STEP 0
     with DartsSilence():
-        timesteps, property_array = m.output.output_properties(output_properties=vars_to_eval, ith_step=0)
+        timesteps, property_array = m.output.output_properties(output_properties=vars_to_eval, timestep=0, engine=True)
         # Inject static properties
         for name, arr in [('poro', poro), ('permx', permx), ('permy', permy), ('permz', permz)]:
             property_array[name] = np.array([arr])
@@ -301,7 +301,7 @@ def main():
     for i in range(1, TOTAL_DAYS + 1):
         with DartsSilence():
             m.run(1.0)
-            timesteps, property_array = m.output.output_properties(output_properties=vars_to_eval, ith_step=i)
+            timesteps, property_array = m.output.output_properties(output_properties=vars_to_eval, timestep=i, engine=True)
             # Inject static properties again for each step
             for name, arr in [('poro', poro), ('permx', permx), ('permy', permy), ('permz', permz)]:
                 property_array[name] = np.array([arr])
