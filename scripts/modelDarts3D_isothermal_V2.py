@@ -69,51 +69,56 @@ DARTS_BANNER = f"""
 {C_CYAN} >>>>>>>>> {C_WHITE}[ GEOTHERMAL: ISOTHERMAL - VERSION 2 (HETEROGENEOUS) ]{C_CYAN} <<<<<<<<<<<< {C_END}
 """
 
-# --- GEOLOGICAL GENERATOR ---
-def generate_layered_properties(nx, ny, nz):
-    poro  = np.zeros((nz, ny, nx))
-    permx = np.zeros((nz, ny, nx))
-    hcap  = np.zeros((nz, ny, nx))
-    rcond = np.zeros((nz, ny, nx))
+# --- HETEROGENEITY SETUP ---
+def generate_property_arrays(nx, ny, nz):
+    """
+    Generates 1D arrays (flattened 3D) for DARTS StructReservoir.
+    DARTS orders cells: Loop X, then Y, then Z.
+    """
+    # Define properties per layer (Top -> Bottom)
+    layer_data = [
+        # Layer 1: Moderate Rock (User example: 10% poro, 200 perm)
+        {'poro': 0.10, 'perm': 200.0,  'hcap': 2300.0, 'rcond': 160.0},
+        
+        # Layer 2: High Quality Reservoir (25% poro -> Very high perm)
+        {'poro': 0.25, 'perm': 1500.0, 'hcap': 2500.0, 'rcond': 190.0}, 
+        
+        # Layer 3: Transition Zone (15% poro -> Moderate perm)
+        {'poro': 0.15, 'perm': 500.0,  'hcap': 2400.0, 'rcond': 175.0},
+        
+        # Layer 4: Tight Seal/Barrier (5% poro -> Almost no flow)
+        {'poro': 0.05, 'perm': 5.0,    'hcap': 2100.0, 'rcond': 140.0},
+        
+        # Layer 5: Deep Tight Sand (10% poro -> Low perm)
+        {'poro': 0.10, 'perm': 80.0,   'hcap': 2250.0, 'rcond': 160.0}
+    ]
+    
+    total_cells = nx * ny * nz
+    
+    # Initialize empty arrays
+    poro_arr = np.zeros(total_cells)
+    permx_arr = np.zeros(total_cells)
+    permy_arr = np.zeros(total_cells)
+    permz_arr = np.zeros(total_cells)
+    hcap_arr = np.zeros(total_cells)
+    rcond_arr = np.zeros(total_cells)
 
-    # Layer 0 (Top): Overburden/Tight Cap
-    poro[0,:,:]  = 0.10
-    permx[0,:,:] = 50.0
-    hcap[0,:,:]  = 2200.0
-    rcond[0,:,:] = 180.0
+    cells_per_layer = nx * ny
+    
+    for k in range(nz):
+        props = layer_data[k] if k < len(layer_data) else layer_data[-1]
+        
+        start_idx = k * cells_per_layer
+        end_idx = (k + 1) * cells_per_layer
+        
+        poro_arr[start_idx:end_idx]  = props['poro']
+        permx_arr[start_idx:end_idx] = props['perm']
+        permy_arr[start_idx:end_idx] = props['perm']
+        permz_arr[start_idx:end_idx] = props['perm'] * 0.1 
+        hcap_arr[start_idx:end_idx]  = props['hcap']
+        rcond_arr[start_idx:end_idx] = props['rcond']
 
-    # Layer 1: MAIN RESERVOIR (High Quality Sandstone)
-    poro[1,:,:]  = 0.25
-    permx[1,:,:] = 500.0
-    hcap[1,:,:]  = 2470.0  
-    rcond[1,:,:] = 170.0
-
-    # Layer 2: Transition Zone
-    poro[2,:,:]  = 0.15
-    permx[2,:,:] = 150.0
-    hcap[2,:,:]  = 2300.0
-    rcond[2,:,:] = 175.0
-
-    # Layer 3: FLOW BARRIER / SEAL
-    poro[3,:,:]  = 0.05
-    permx[3,:,:] = 1.0     
-    hcap[3,:,:]  = 2100.0
-    rcond[3,:,:] = 200.0   
-
-    # Layer 4 (Bottom): Deep Unit
-    poro[4,:,:]  = 0.10
-    permx[4,:,:] = 80.0
-    hcap[4,:,:]  = 2200.0
-    rcond[4,:,:] = 180.0
-
-    return {
-        'poro': poro.flatten(),
-        'permx': permx.flatten(),
-        'permy': permx.flatten(),
-        'permz': permx.flatten() * 0.1,
-        'hcap': hcap.flatten(),
-        'rcond': rcond.flatten()
-    }
+    return poro_arr, permx_arr, permy_arr, permz_arr, hcap_arr, rcond_arr
 
 class ModelProperties(PropertyContainer):
     def __init__(self, phases_name, components_name, min_z=1e-11):
@@ -153,10 +158,14 @@ class SimulationModel(DartsModel):
         self.timer.node["initialization"].start()
         self.nx, self.ny, self.nz = NX, NY, NZ
         
-        geo_props = generate_layered_properties(NX, NY, NZ)
+        # 1. GENERATE THE LAYERED PROPERTIES
+        poro, permx, permy, permz, hcap, rcond = generate_property_arrays(NX, NY, NZ)
+
+        # 2. INITIALIZE RESERVOIR WITH ARRAYS
         self.reservoir = StructReservoir(self.timer, nx=NX, ny=NY, nz=NZ, dx=DX, dy=DY, dz=DZ,
-                                         permx=geo_props['permx'], permy=geo_props['permy'], permz=geo_props['permz'],
-                                         poro=geo_props['poro'], hcap=geo_props['hcap'], rcond=geo_props['rcond'], depth=2000)
+                                         permx=permx, permy=permy, permz=permz,
+                                         poro=poro, hcap=hcap, rcond=rcond, 
+                                         depth=2000)
         
         self.set_physics()
         if USE_GPU:
@@ -228,9 +237,9 @@ def export_wells_to_vtk(reservoir, output_directory):
         combined.save(os.path.join(output_directory, "wells.vtp"))
 
 def plot_reservoir_maps(nx, ny, nz, run_dir):
-    props = generate_layered_properties(nx, ny, nz)
-    poro_3d = props['poro'].reshape(nz, ny, nx)
-    perm_3d = props['permx'].reshape(nz, ny, nx)
+    poro, permx, permy, permz, hcap, rcond = generate_property_arrays(nx, ny, nz)
+    poro_3d = poro.reshape(nz, ny, nx)
+    perm_3d = permx.reshape(nz, ny, nx)
     layer_idx = 1
     poro_map, perm_map = poro_3d[layer_idx, :, :], perm_3d[layer_idx, :, :]
     mid_y = ny // 2

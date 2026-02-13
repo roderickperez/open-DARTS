@@ -92,76 +92,56 @@ class FixedEnthalpyRegion1(property_evaluator_iface):
     def evaluate(self, state):
         return _Region1(self.temperature, float(state[0]) * 0.1)['h'] * 18.015
 
-# --- GEOLOGICAL GENERATOR ---
-def generate_layered_properties(nx, ny, nz):
+# --- HETEROGENEITY SETUP ---
+def generate_property_arrays(nx, ny, nz):
     """
-    Generates 3D arrays for rock properties based on a 5-layer geological model.
+    Generates 1D arrays (flattened 3D) for DARTS StructReservoir.
+    DARTS orders cells: Loop X, then Y, then Z.
     """
-    # Initialize 3D arrays (flattened order for DARTS: x varies fastest, then y, then z)
-    # However, it is easier to build as (NZ, NY, NX) and then flatten.
+    # Define properties per layer (Top -> Bottom)
+    layer_data = [
+        # Layer 1: Moderate Rock (User example: 10% poro, 200 perm)
+        {'poro': 0.10, 'perm': 200.0,  'hcap': 2300.0, 'rcond': 160.0},
+        
+        # Layer 2: High Quality Reservoir (25% poro -> Very high perm)
+        {'poro': 0.25, 'perm': 1500.0, 'hcap': 2500.0, 'rcond': 190.0}, 
+        
+        # Layer 3: Transition Zone (15% poro -> Moderate perm)
+        {'poro': 0.15, 'perm': 500.0,  'hcap': 2400.0, 'rcond': 175.0},
+        
+        # Layer 4: Tight Seal/Barrier (5% poro -> Almost no flow)
+        {'poro': 0.05, 'perm': 5.0,    'hcap': 2100.0, 'rcond': 140.0},
+        
+        # Layer 5: Deep Tight Sand (10% poro -> Low perm)
+        {'poro': 0.10, 'perm': 80.0,   'hcap': 2250.0, 'rcond': 160.0}
+    ]
     
-    poro  = np.zeros((nz, ny, nx))
-    permx = np.zeros((nz, ny, nx))
-    permy = np.zeros((nz, ny, nx))
-    permz = np.zeros((nz, ny, nx))
-    hcap  = np.zeros((nz, ny, nx))
-    rcond = np.zeros((nz, ny, nx))
-
-    # --- DEFINE LAYERS (Top to Bottom) ---
-    # Layer 0 (Top): Overburden/Tight Cap
-    # Low Poro/Perm. High Thermal Cond (dense rock).
-    poro[0,:,:]  = 0.10
-    permx[0,:,:] = 50.0
-    hcap[0,:,:]  = 2200.0
-    rcond[0,:,:] = 180.0
-
-    # Layer 1: MAIN RESERVOIR (High Quality Sandstone)
-    # High Poro (25%), High Perm (500 mD).
-    poro[1,:,:]  = 0.25
-    permx[1,:,:] = 500.0
-    hcap[1,:,:]  = 2470.0  # Higher water content usually implies higher effective heat cap
-    rcond[1,:,:] = 170.0
-
-    # Layer 2: Transition Zone
-    # Medium qualities.
-    poro[2,:,:]  = 0.15
-    permx[2,:,:] = 150.0
-    hcap[2,:,:]  = 2300.0
-    rcond[2,:,:] = 175.0
-
-    # Layer 3: FLOW BARRIER / SEAL
-    # Very low Perm (1 mD) to baffle flow.
-    poro[3,:,:]  = 0.05
-    permx[3,:,:] = 1.0     # Effectively a seal
-    hcap[3,:,:]  = 2100.0
-    rcond[3,:,:] = 200.0   # Dense rock conducts heat well
-
-    # Layer 4 (Bottom): Deep Unit
-    # Tight/Deep rock.
-    poro[4,:,:]  = 0.10
-    permx[4,:,:] = 80.0
-    hcap[4,:,:]  = 2200.0
-    rcond[4,:,:] = 180.0
-
-    # Isotropy/Anisotropy
-    permy = permx.copy()           # X = Y permeability
-    permz = permx.copy() * 0.1     # Z is 10% of X (Vertical Anisotropy)
-
-    # Flatten arrays for DARTS (C-order: last index changes fastest is standard for numpy flatten)
-    # DARTS StructReservoir usually expects a list/array of size NX*NY*NZ corresponding to blocks.
-    # We must ensure the order matches the grid generation. 
-    # StructReservoir iterates k, then j, then i usually? 
-    # Actually, let's keep it simple: DARTS typically takes a 1D array of length Nx*Ny*Nz.
-    # We will pass the flattened arrays.
+    total_cells = nx * ny * nz
     
-    return {
-        'poro': poro.flatten(),
-        'permx': permx.flatten(),
-        'permy': permy.flatten(),
-        'permz': permz.flatten(),
-        'hcap': hcap.flatten(),
-        'rcond': rcond.flatten()
-    }
+    # Initialize empty arrays
+    poro_arr = np.zeros(total_cells)
+    permx_arr = np.zeros(total_cells)
+    permy_arr = np.zeros(total_cells)
+    permz_arr = np.zeros(total_cells)
+    hcap_arr = np.zeros(total_cells)
+    rcond_arr = np.zeros(total_cells)
+
+    cells_per_layer = nx * ny
+    
+    for k in range(nz):
+        props = layer_data[k] if k < len(layer_data) else layer_data[-1]
+        
+        start_idx = k * cells_per_layer
+        end_idx = (k + 1) * cells_per_layer
+        
+        poro_arr[start_idx:end_idx]  = props['poro']
+        permx_arr[start_idx:end_idx] = props['perm']
+        permy_arr[start_idx:end_idx] = props['perm']
+        permz_arr[start_idx:end_idx] = props['perm'] * 0.1 
+        hcap_arr[start_idx:end_idx]  = props['hcap']
+        rcond_arr[start_idx:end_idx] = props['rcond']
+
+    return poro_arr, permx_arr, permy_arr, permz_arr, hcap_arr, rcond_arr
 
 # --- CUSTOM PHYSICS CLASS ---
 class CustomGeothermalPhysics(GeothermalPhysicsBase):
@@ -212,17 +192,13 @@ class SimulationModel(DartsModel):
         self.timer.node["initialization"].start()
         self.nx, self.ny, self.nz = NX, NY, NZ
         
-        # 1. GENERATE HETEROGENEOUS PROPERTIES
-        geo_props = generate_layered_properties(NX, NY, NZ)
-        
-        # 2. INITIALIZE RESERVOIR WITH ARRAYS
+        # 1. GENERATE THE LAYERED PROPERTIES
+        poro, permx, permy, permz, hcap, rcond = generate_property_arrays(NX, NY, NZ)
+
+        # 2. PASS ARRAYS INSTEAD OF SCALARS
         self.reservoir = StructReservoir(self.timer, nx=NX, ny=NY, nz=NZ, dx=DX, dy=DY, dz=DZ,
-                                         permx=geo_props['permx'], 
-                                         permy=geo_props['permy'], 
-                                         permz=geo_props['permz'],
-                                         poro=geo_props['poro'], 
-                                         hcap=geo_props['hcap'], 
-                                         rcond=geo_props['rcond'], 
+                                         permx=permx, permy=permy, permz=permz,
+                                         poro=poro, hcap=hcap, rcond=rcond, 
                                          depth=2000)
         
         self.physics = CustomGeothermalPhysics(self.timer, n_points=100, 
@@ -264,13 +240,12 @@ class SimulationModel(DartsModel):
 
 # --- VISUALIZATION HELPERS ---
 def plot_reservoir_maps(nx, ny, nz, run_dir):
-    # Regenerate properties just for plotting (to avoid passing the object around)
-    props = generate_layered_properties(nx, ny, nz)
+    # Regenerate properties just for plotting
+    poro, permx, permy, permz, hcap, rcond = generate_property_arrays(nx, ny, nz)
     
     # Reshape back to 3D for slicing: (NZ, NY, NX)
-    # Note: The flatten() was C-order (row-major), so we reshape (NZ, NY, NX)
-    poro_3d = props['poro'].reshape(nz, ny, nx)
-    perm_3d = props['permx'].reshape(nz, ny, nx)
+    poro_3d = poro.reshape(nz, ny, nx)
+    perm_3d = permx.reshape(nz, ny, nx)
     
     # SLICE 1: Map View of Layer 2 (The High Permeability Aquifer)
     # Index 1 corresponds to Layer 2 (0-based index)
