@@ -50,8 +50,8 @@ from darts.physics.properties.basic import ConstFunc
 # --- CONFIGURATION ---
 NX, NY, NZ = 100, 100, 5    
 DX, DY, DZ = 10.0, 10.0, 10.0 
-TOTAL_DAYS = 100
-ENSEMBLE_SIZE = 10
+TOTAL_DAYS = 2
+ENSEMBLE_SIZE = 1
 
 # Base Operation Params
 INJ_RATE = 500.0        
@@ -90,55 +90,93 @@ class FixedEnthalpyRegion1(property_evaluator_iface):
         return _Region1(self.temperature, float(state[0]) * 0.1)['h'] * 18.015
 
 # --- STOCHASTIC GENERATORS (V4) ---
+# --- STOCHASTIC GENERATORS (V4) ---
 def generate_property_arrays(nx, ny, nz, realization_seed=42):
     """
     Generates Spatially Correlated properties with stochastic parameters.
+    Returns: poro, permx, permy, permz, hcap, rcond, layer_stats
     """
     np.random.seed(realization_seed)
     
     # Randomly jitter the target means and sigmas for this realization (+/- 10%)
-    def jitter(val): return val * np.random.uniform(0.9, 1.1)
+    def jitter(val): return float(val * np.random.uniform(0.9, 1.1))
 
-    layer_data = [
-        {'m_poro': jitter(0.10), 'm_perm': jitter(200.0),  'sigma': jitter(2.0)},
-        {'m_poro': jitter(0.25), 'm_perm': jitter(1500.0), 'sigma': jitter(8.0)},
-        {'m_poro': jitter(0.15), 'm_perm': jitter(500.0),  'sigma': jitter(4.0)},
-        {'m_poro': jitter(0.05), 'm_perm': jitter(5.0),    'sigma': jitter(1.0)},
-        {'m_poro': jitter(0.10), 'm_perm': jitter(80.0),   'sigma': jitter(3.0)}
+    layer_configs = [
+        {'m_poro': 0.10, 'm_permx': 200.0,  'sigma': 2.0},
+        {'m_poro': 0.25, 'm_permx': 1500.0, 'sigma': 8.0},
+        {'m_poro': 0.15, 'm_permx': 500.0,  'sigma': 4.0},
+        {'m_poro': 0.05, 'm_permx': 5.0,    'sigma': 1.0},
+        {'m_poro': 0.10, 'm_permx': 80.0,   'sigma': 3.0}
     ]
     
     poro_3d  = np.zeros((nz, ny, nx))
     permx_3d = np.zeros((nz, ny, nx))
+    permy_3d = np.zeros((nz, ny, nx))
+    permz_3d = np.zeros((nz, ny, nx))
+    
+    layer_stats = []
+
+    for k in range(nz):
+        cfg = layer_configs[k]
+        noise = np.random.normal(0, 1, (ny, nx))
+        
+        # Jitter parameters for THIS specific realization and layer
+        m_poro = jitter(cfg['m_poro'])
+        m_permx = jitter(cfg['m_permx'])
+        sigma = jitter(cfg['sigma'])
+        
+        # Anisotropy: PermY = PermX * jittered_factor, PermZ = PermX * 0.1 * jittered_factor
+        m_permy = m_permx * np.random.uniform(0.8, 1.2)
+        m_permz = m_permx * 0.1 * np.random.uniform(0.5, 1.5)
+        
+        smoothed = gaussian_filter(noise, sigma=sigma)
+        
+        poro_layer = m_poro + (smoothed * (m_poro * 0.2))
+        poro_layer = np.clip(poro_layer, 0.01, 0.45)
+        
+        # Log-linear perm from smoothed field
+        log_perm = np.log10(m_permx) + smoothed * 0.5 
+        px = 10**log_perm
+        py = px * (m_permy / m_permx)
+        pz = px * (m_permz / m_permx)
+        
+        poro_3d[k,:,:]  = poro_layer
+        permx_3d[k,:,:] = px
+        permy_3d[k,:,:] = py
+        permz_3d[k,:,:] = pz
+        
+        layer_stats.append({
+            'layer': k + 1,
+            'm_poro': m_poro,
+            'm_permx': m_permx,
+            'm_permy': m_permy,
+            'm_permz': m_permz,
+            'sigma': sigma
+        })
+
     hcap_val = 2400.0 
     rcond_val = 170.0
 
-    for k in range(nz):
-        data = layer_data[k]
-        noise = np.random.normal(0, 1, (ny, nx))
-        smoothed = gaussian_filter(noise, sigma=data['sigma'])
-        
-        poro_layer = data['m_poro'] + (smoothed * (data['m_poro'] * 0.2))
-        poro_layer = np.clip(poro_layer, 0.01, 0.45)
-        
-        log_perm = np.log10(data['m_perm']) + smoothed * 0.5 
-        perm_layer = 10**log_perm
-        
-        poro_3d[k,:,:]  = poro_layer
-        permx_3d[k,:,:] = perm_layer
-
-    return (poro_3d.flatten(), permx_3d.flatten(), permx_3d.flatten(), 
-            permx_3d.flatten() * 0.1, np.full(nx*ny*nz, hcap_val), np.full(nx*ny*nz, rcond_val), layer_data)
+    return (poro_3d.flatten().astype(np.float64), 
+            permx_3d.flatten().astype(np.float64), 
+            permy_3d.flatten().astype(np.float64), 
+            permz_3d.flatten().astype(np.float64), 
+            np.full(nx*ny*nz, hcap_val, dtype=np.float64), 
+            np.full(nx*ny*nz, rcond_val, dtype=np.float64), 
+            layer_stats)
 
 # --- CUSTOM PHYSICS CLASS ---
+# --- CUSTOM PHYSICS CLASS ---
 class CustomGeothermalPhysics(GeothermalPhysicsBase):
-    def __init__(self, timer, n_points=64, min_p=1.0, max_p=1000.0, min_e=1000, max_e=100000):
+    def __init__(self, timer, n_points, min_p, max_p, min_e, max_e, 
+                 rock_compr, rock_ref_p, rock_ref_t, avg_rcond):
         super().__init__(timer, n_points, min_p, max_p, min_e, max_e, cache=False)
         
         property_container = GeothermalIAPWSProperties()
         property_container.Mw = [18.015]
         
-        # Rock Properties
-        property_container.rock = [value_vector([ROCK_COMPR_REF_P, ROCK_COMPR, ROCK_COMPR_REF_T])]
+        # Rock Properties (Randomized per realization)
+        property_container.rock = [value_vector([rock_ref_p, rock_compr, rock_ref_t])]
         property_container.rock_compaction_ev = custom_rock_compaction_evaluator(property_container.rock)
         property_container.rock_energy_ev = custom_rock_energy_evaluator(property_container.rock)
         
@@ -166,7 +204,7 @@ class CustomGeothermalPhysics(GeothermalPhysicsBase):
             'steam': iapws_steam_relperm_evaluator()
         }
         property_container.conduction_ev = {
-            'water': ConstFunc(AVG_RCOND), 
+            'water': ConstFunc(avg_rcond), 
             'steam': ConstFunc(0.0)
         }
         self.add_property_region(property_container)
@@ -174,7 +212,8 @@ class CustomGeothermalPhysics(GeothermalPhysicsBase):
 # --- SIMULATION MODEL ---
 class SimulationModel(DartsModel):
     def __init__(self, nx, ny, nz, poro, permx, permy, permz, hcap, rcond, 
-                 inj_coord, prod_coord, perf_layers_inj, perf_layers_prod):
+                 inj_coord, prod_coord, perf_layers_inj, perf_layers_prod,
+                 op_params, rock_params):
         super().__init__()
         self.timer.node["initialization"].start()
         self.nx, self.ny, self.nz = nx, ny, nz
@@ -182,6 +221,7 @@ class SimulationModel(DartsModel):
         self.prod_coord = prod_coord
         self.perf_layers_inj = perf_layers_inj
         self.perf_layers_prod = perf_layers_prod
+        self.op_params = op_params
         
         # Initialize reservoir with passed arrays
         self.reservoir = StructReservoir(self.timer, nx=nx, ny=ny, nz=nz, dx=DX, dy=DY, dz=DZ,
@@ -191,7 +231,11 @@ class SimulationModel(DartsModel):
         
         self.physics = CustomGeothermalPhysics(self.timer, n_points=100, 
                                                min_p=1.0, max_p=500.0, 
-                                               min_e=1000.0, max_e=100000.0) 
+                                               min_e=1000.0, max_e=100000.0,
+                                               rock_compr=rock_params['rock_compr'],
+                                               rock_ref_p=rock_params['rock_ref_p'],
+                                               rock_ref_t=rock_params['rock_ref_t'],
+                                               avg_rcond=rock_params['avg_rcond']) 
         
         self.params.linear_type = sim_params.linear_solver_t.cpu_superlu
         self.set_sim_params(first_ts=1e-3, mult_ts=1.2, max_ts=1.0, runtime=TOTAL_DAYS,
@@ -213,12 +257,13 @@ class SimulationModel(DartsModel):
             if "INJ" in w.name:
                 self.physics.set_well_controls(wctrl=w.control, 
                                                control_type=well_control_iface.VOLUMETRIC_RATE,
-                                               is_inj=True, target=INJ_RATE, 
-                                               phase_name='water', inj_composition=[], inj_temp=INJ_TEMP) 
+                                               is_inj=True, target=self.op_params['inj_rate'], 
+                                               phase_name='water', inj_composition=[], 
+                                               inj_temp=self.op_params['inj_temp']) 
             else:
                 self.physics.set_well_controls(wctrl=w.control, 
                                                control_type=well_control_iface.BHP,
-                                               is_inj=False, target=PROD_BHP)
+                                               is_inj=False, target=self.op_params['prod_bhp'])
 
     def set_initial_conditions(self):
         input_dist = {'pressure': 200.0, 'temperature': 350.0}
@@ -311,74 +356,91 @@ def main():
         seed = 42 + i
         np.random.seed(seed)
         
+        # 1. Randomize Operational & Rock Parameters
+        def jitter(val): return float(val * np.random.uniform(0.9, 1.1))
+        
+        op_params = {
+            'inj_rate': jitter(INJ_RATE),
+            'inj_temp': float(np.random.uniform(300.0, 340.0)),
+            'prod_bhp': float(np.random.uniform(50.0, 200.0))
+        }
+        rock_params = {
+            'rock_compr': float(ROCK_COMPR * np.random.uniform(0.5, 2.0)),
+            'rock_ref_p': float(ROCK_COMPR_REF_P * np.random.uniform(0.8, 1.2)),
+            'rock_ref_t': float(ROCK_COMPR_REF_T * np.random.uniform(0.9, 1.1)),
+            'avg_rcond': float(AVG_RCOND * np.random.uniform(0.8, 1.2))
+        }
+
+        # 2. Randomize Well Locations (dist >= 20)
+        max_attempts = 100
+        for _ in range(max_attempts):
+            inj_coord = [int(np.random.randint(5, 95)), int(np.random.randint(5, 95))]
+            prod_coord = [int(np.random.randint(5, 95)), int(np.random.randint(5, 95))]
+            dist = np.sqrt((inj_coord[0]-prod_coord[0])**2 + (inj_coord[1]-prod_coord[1])**2)
+            if dist >= 20.0: break
+        
+        # 3. Randomize Perforations
+        possible_layers = list(range(1, NZ + 1))
+        perf_inj = [int(k) for k in sorted(np.random.choice(possible_layers, size=np.random.randint(2, 6), replace=False))]
+        perf_prod = [int(k) for k in sorted(np.random.choice(possible_layers, size=np.random.randint(2, 6), replace=False))]
+        
+        # 4. Randomize Geological Properties
+        poro, permx, permy, permz, hcap, rcond, layer_stats = generate_property_arrays(NX, NY, NZ, realization_seed=seed)
+        
+        # Expanded Metadata Logging
+        for entry in layer_stats:
+            entry.update({
+                'inj_x': inj_coord[0], 'inj_y': inj_coord[1],
+                'prod_x': prod_coord[0], 'prod_y': prod_coord[1],
+                'inj_rate': op_params['inj_rate'], 'inj_temp': op_params['inj_temp'],
+                'prod_bhp': op_params['prod_bhp'], 'rock_compr': rock_params['rock_compr'],
+                'avg_rcond': rock_params['avg_rcond']
+            })
+        
         real_dir = os.path.join(ensemble_root, f"realization_{i}")
         os.makedirs(os.path.join(real_dir, 'figures'), exist_ok=True)
         os.makedirs(os.path.join(real_dir, 'vtk_files'), exist_ok=True)
         
-        # 1. Randomize Geological Properties
-        poro, permx, permy, permz, hcap, rcond, layer_metadata = generate_property_arrays(NX, NY, NZ, realization_seed=seed)
+        pd.DataFrame(layer_stats).to_csv(os.path.join(real_dir, 'geological_params.csv'), index=False)
         
-        # Log geological metadata to CSV
-        meta_df = pd.DataFrame(layer_metadata)
-        meta_df.to_csv(os.path.join(real_dir, 'geological_params.csv'), index=False)
-        
-        # 2. Randomize Well Locations (within +/- 10 cells)
-        inj_coord = [4 + np.random.randint(-2, 10), 4 + np.random.randint(-2, 10)]
-        prod_coord = [94 - np.random.randint(0, 10), 94 - np.random.randint(0, 10)]
-        
-        # 3. Randomize Perforations (Select 2-5 layers randomly)
-        possible_layers = list(range(1, NZ + 1))
-        perf_inj = sorted(np.random.choice(possible_layers, size=np.random.randint(2, 6), replace=False))
-        perf_prod = sorted(np.random.choice(possible_layers, size=np.random.randint(2, 6), replace=False))
-        
-        print(f"Realization {i}: Wells at {inj_coord} (perfs {perf_inj}) and {prod_coord} (perfs {perf_prod})")
+        print(f"Realization {i}: Wells at {inj_coord} & {prod_coord} (Dist: {dist:.1f})")
         
         plot_reservoir_maps(NX, NY, NZ, real_dir, poro, permx, inj_coord, prod_coord)
 
-        class DartsSilence:
-            def __enter__(self):
-                self.stdout_fd, self.stderr_fd = os.dup(1), os.dup(2)
-                self.devnull = os.open(os.devnull, os.O_WRONLY)
-                os.dup2(self.devnull, 1); os.dup2(self.devnull, 2)
-            def __exit__(self, *args):
-                os.dup2(self.stdout_fd, 1); os.dup2(self.stderr_fd, 2)
-                os.close(self.stdout_fd); os.close(self.stderr_fd); os.close(self.devnull)
-
         def print_progress(curr, total, real_idx):
             pct = (curr / total) * 100
-            bar = '=' * int(20 * curr // total) + '-' * (20 - int(20 * curr // total))
-            print(f"\r\033[K\033[96mRealization {real_idx}: [{bar}] {pct:4.1f}% ({curr}/{total} days)\033[0m", end='', flush=True)
+            bar = '█' * int(20 * curr // total) + '░' * (20 - int(20 * curr // total))
+            print(f"\r\033[K\033[96mRealization {real_idx}: {bar} {pct:4.1f}% ({curr}/{total} days)\033[0m", end='', flush=True)
 
         redirect_darts_output(os.path.join(real_dir, 'simulation.log'))
         
         m = SimulationModel(NX, NY, NZ, poro, permx, permy, permz, hcap, rcond, 
-                            inj_coord, prod_coord, perf_inj, perf_prod)
-        with DartsSilence(): m.init()
+                            inj_coord, prod_coord, perf_inj, perf_prod, op_params, rock_params)
+        m.init()
         m.set_output(os.path.join(real_dir, 'vtk_files'))
         export_wells(m.reservoir, real_dir)
         
         vars_to_eval = m.physics.vars + ['temperature']
-        
         timesteps, property_array = m.output.output_properties(output_properties=vars_to_eval, timestep=0, engine=True)
         for name, arr in [('poro', poro), ('permx', permx), ('permy', permy), ('permz', permz)]:
             property_array[name] = np.array([arr])
         m.output.output_to_vtk(output_data=[timesteps, property_array], ith_step=0)
         
+        print_progress(0, TOTAL_DAYS, i)
         for d in range(1, TOTAL_DAYS + 1):
-            with DartsSilence():
-                m.run(1.0)
-                # Output only every 10 days to save space in ensemble
-                if d % 10 == 0 or d == TOTAL_DAYS:
-                    timesteps, property_array = m.output.output_properties(output_properties=vars_to_eval, timestep=d, engine=True)
-                    for name, arr in [('poro', poro), ('permx', permx), ('permy', permy), ('permz', permz)]:
-                        property_array[name] = np.array([arr])
-                    m.output.output_to_vtk(output_data=[timesteps, property_array], ith_step=d)
+            m.run(1.0)
+            if d % 10 == 0 or d == TOTAL_DAYS:
+                timesteps, property_array = m.output.output_properties(output_properties=vars_to_eval, timestep=d, engine=True)
+                for name, arr in [('poro', poro), ('permx', permx), ('permy', permy), ('permz', permz)]:
+                    property_array[name] = np.array([arr])
+                m.output.output_to_vtk(output_data=[timesteps, property_array], ith_step=d)
             print_progress(d, TOTAL_DAYS, i)
         
         print(f"\nRealization {i} complete.")
         df = pd.DataFrame(m.physics.engine.time_data)
         df.to_csv(os.path.join(real_dir, 'history_thermal.csv'))
         plot_history(df, real_dir)
+        del m
         
     print(f"\n\033[92mEnsemble simulation success!\033[0m")
     print(f"All results saved in: {ensemble_root}")
