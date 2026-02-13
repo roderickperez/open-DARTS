@@ -7,6 +7,32 @@
 
 [openDARTS](https://darts.citg.tudelft.nl/) is a scalable parallel modeling framework and aims to accelerate the simulation performance while capturing multi-physics processes in geo-engineering fields such as hydrocarbon, geothermal, CO2 sequestration and hydrogen storage.
 
+## 🚀 Quick Start: Running Simulations
+
+To run the provided 3D geothermal simulations, you must first activate the pre-configured `uv` environment.
+
+### 1. Activate Environment
+Use the following command to activate the virtual environment:
+
+```bash
+source /home/roderickperez/DataScienceProjects/openDARTS/.venv/bin/activate
+```
+
+*(Or via relative path: `source .venv/bin/activate`)*
+
+### 2. Run Simulations
+Once activated, you can run the following geothermal demonstration cases:
+
+#### Version 1: Uniform Properties
+*   **Isothermal**: `python scripts/modelDarts3D_isothermal_V1.py`
+*   **Thermal**: `python scripts/modelDarts3D_thermal_V1.py`
+
+#### Version 2: Vertical Heterogeneity (5-Layer Model)
+*   **Isothermal**: `python scripts/modelDarts3D_isothermal_V2.py`
+*   **Thermal**: `python scripts/modelDarts3D_thermal_V2.py`
+
+*Note: Results are saved to `output/runs/` with timestamped folders. Version 2 models export geological properties (poro, perm) for viewing in ParaView.*
+
 ## Installation
 
 openDARTS with direct linear solvers can be installed from PyPI:
